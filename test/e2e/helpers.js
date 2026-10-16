@@ -61,6 +61,8 @@ export async function botInPage({ seconds, god = false, until = null }) {
           .filter((l) => Math.abs(l - p.lane) === 1 || !blocksLane((l + p.lane) / 2, -0.05, 0.25))
           .sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0];
         if (target !== undefined) key((target < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');
+        // sin carril libre: lo bajo (minas, disparos bajos) se salta; si no, DASH
+        else if (near.y1 <= 0.55 && !p.air && tt < 0.2) key(inv ? 'ArrowDown' : 'ArrowUp');
         else if (r.dashCharges >= 1 && tt < 0.15) key(' ');
       } else if (need === 'jump' && !p.air && tt < 0.2) key(inv ? 'ArrowDown' : 'ArrowUp');
       else if (need === 'slide' && p.slide <= 0.05 && tt < 0.25) key(inv ? 'ArrowUp' : 'ArrowDown');

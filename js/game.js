@@ -1,10 +1,10 @@
 // Reglas de la partida: velocidad, puntuación, combo, overdrive, tramos, eventos, recompensas y muerte.
-import { G, LANE_W } from './state.js';
+import { G, LANE_W, MAX_SHIELDS, addShields } from './state.js';
 import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID } from './upgrades.js';
+import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR } from './upgrades.js';
 import { newPlayer, updatePlayer } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz } from './world.js';
 import { project } from './render.js';
@@ -38,7 +38,7 @@ export function newRun(daily = false) {
     section: -1, biome: BIOMES[0], sectionEnd: 0, genZ: 40, genHold: false, forkPlaced: false, forkDone: false, forkRewards: {},
     risk: false, riskNext: false, luck: 1, luckNext: 1, minRarityNext: null,
     objects: [], event: null, eventT: 0, nextEventAt: Infinity, rainAcc: 0,
-    boss: null, cards: {}, synergies: new Set(),
+    boss: null, hunter: null, hunters: 0, cards: {}, synergies: new Set(),
     shields: 0, dashCharges: 1, blockedLane: null,
     nearMisses: 0, breaks: 0, bosses: 0, speedMark: 0, vampN: 0,
     player: null, result: null,
@@ -47,7 +47,7 @@ export function newRun(daily = false) {
   G.player = newPlayer();
   r.player = G.player;
   (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).apply(r);
-  if (save.meta.shield) r.shields += 1;
+  if (save.meta.shield) addShields(r, 1);
   r.dashCharges = r.stats.dashMax;
 
   fx.clear();
@@ -100,14 +100,6 @@ export function addChain(n) {
       fx.flash('#fff', 0.25);
       sfx.milestone();
       fx.vibe([20, 30, 20]);
-    }
-  }
-  if (r.stats.vampire) {
-    r.vampN += n;
-    while (r.vampN >= 25) {
-      r.vampN -= 25;
-      r.shields++;
-      fx.notice('+1 🛡️ VAMPIRO', '#30d158');
     }
   }
   if (r.mult !== before) ui.pulseMult();
@@ -163,6 +155,11 @@ export function onNearMiss(o, perfect) {
   addOD(perfect ? 0.12 : 0.07);
   if (perfect && r.synergies.has('zen')) addOD(0.15);
   if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.5);
+  // Vampiro solo premia jugar bien: near-miss, nunca golpes ni roturas
+  if (r.stats.vampire && ++r.vampN >= VAMPIRE_NEAR) {
+    r.vampN = 0;
+    gainShield(1, '+1 🛡️ VAMPIRO');
+  }
   fx.slowmo((perfect ? 0.22 : 0.12) * r.stats.nearWin, 0.3);
   fx.burst(ps.x, ps.y, perfect ? 22 : 10, perfect ? '#ffe600' : '#5ac8fa', 380, 4, 0.5, 0);
   if (perfect) fx.ring(ps.x, ps.y, '#ffe600', 120, 0.3, 6);
@@ -184,12 +181,18 @@ export function onHit(o) {
   const r = run(), p = G.player;
   const ps = playerScreen();
   if (G.god) return breakObj(o, 'dash');
-  if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id });
+  if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id, hunter: !!o.hunter, boss: !!r.boss });
   if (r.shields > 0) {
+    // un golpe siempre CUESTA: escudo, medio overdrive y el combo. Nunca da premios.
     r.shields--;
-    p.invuln = 1.2;
+    // ventana corta para no perder dos escudos con la misma fila; ninguna contra el Cazador
+    p.invuln = o.hunter ? 0.05 : 0.45;
     breakObj(o, 'shield');
-    if (!r.stats.insurance) resetChain();
+    r.od *= 0.5;
+    if (r.stats.insurance) {
+      r.chain /= 2;
+      r.mult = Math.min(99, 1 + Math.floor(r.chain));
+    } else resetChain();
     fx.notice(`🛡️ ESCUDO ROTO · ${r.shields ? `quedan ${r.shields}` : 'último aviso'}`, '#ff6b6b');
     fx.flash('#f33', 0.45);
     fx.shake(16);
@@ -199,6 +202,28 @@ export function onHit(o) {
     return;
   }
   die();
+}
+
+// Suma escudos respetando el tope; lo que sobra se paga en monedas.
+function gainShield(n, label) {
+  const r = run();
+  const before = r.shields;
+  addShields(r, n);
+  const extra = n - (r.shields - before);
+  if (extra > 0) {
+    r.coins += 20 * extra;
+    fx.notice(`🛡️ Escudos al máximo (${MAX_SHIELDS}) · +${20 * extra} 🪙`, '#30d158');
+  } else fx.notice(label, '#30d158');
+}
+
+export function hunterEscaped() {
+  const ps = playerScreen();
+  addChain(3);
+  addScore(2000, '¡ESCAPASTE!', ps.x, ps.y - 60, '#ff3b6b');
+  fx.banner('¡ESCAPASTE!', 'el Cazador se retira', '#ff3b6b');
+  fx.flash('#fff', 0.35);
+  sfx.milestone();
+  fx.vibe([20, 30, 40]);
 }
 
 export function onCoin(o) {
@@ -272,8 +297,7 @@ export function onFork(reward) {
       fx.notice('☠ RIESGO: x2 puntos en el próximo tramo', info.color);
       return openCards();
     case 'escudo':
-      r.shields++;
-      fx.notice('+1 🛡️ ESCUDO', info.color);
+      gainShield(1, '+1 🛡️ ESCUDO');
       return openCards();
     case 'monedas': {
       const c = 30 + r.section * 12;
@@ -294,7 +318,7 @@ export function onFork(reward) {
       const res = rollChest(r);
       return ui.showChest(res, () => {
         if (res.kind === 'coins') r.coins += res.amount;
-        if (res.kind === 'shield') r.shields += res.amount;
+        if (res.kind === 'shield') gainShield(res.amount, '+1 🛡️ ESCUDO');
         if (res.kind === 'od') r.od = 0.999;
         openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : {});
       });
@@ -305,7 +329,7 @@ export function onFork(reward) {
 function rollChest(r) {
   const k = r.rng.weighted([{ w: 40, k: 'coins' }, { w: 20, k: 'shield' }, { w: 20, k: 'od' }, { w: 20, k: 'epic' }]).k;
   if (k === 'coins') { const a = r.rng.int(40, 100) + r.section * 15; return { kind: k, amount: a, icon: '🪙', label: `+${a} MONEDAS` }; }
-  if (k === 'shield') return { kind: k, amount: 2, icon: '🛡️', label: '+2 ESCUDOS' };
+  if (k === 'shield') return { kind: k, amount: 1, icon: '🛡️', label: '+1 ESCUDO' };
   if (k === 'od') return { kind: k, icon: '🔥', label: 'OVERDRIVE INSTANTÁNEO' };
   return { kind: k, icon: '🃏', label: 'CARTA ÉPICA' };
 }
@@ -344,6 +368,8 @@ export function pickCard(id) {
 
 export function resume() {
   G.mode = 'play';
+  // tras un menú el contador de inactividad empieza de cero: no es culpa del jugador
+  if (G.player && G.run) G.player.lastAction = G.run.time;
   musicDuck(false);
   ui.hideAll();
   ui.showHUD(true);

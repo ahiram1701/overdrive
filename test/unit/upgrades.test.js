@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng } from '../../js/rng.js';
+import { MAX_SHIELDS } from '../../js/state.js';
 import { baseStats, CARDS, CARD_BY_ID, SYNERGIES, SHIPS, applyCard, offerCards, synergyHint } from '../../js/upgrades.js';
 
 function fakeRun(seed = 1) {
@@ -49,6 +50,15 @@ test('el Pacto de cristal bloquea un carril que no es el actual', () => {
     assert.equal(r.stats.scoreMult, 3);
     assert.ok(!offerCards(r, 20).some((c) => c.id === 'cristal'));
   }
+});
+
+test('nunca se superan los escudos máximos (carta, nave Brick)', () => {
+  const r = fakeRun();
+  SHIPS.find((s) => s.id === 'brick').apply(r);
+  applyCard(r, 'escudo');
+  applyCard(r, 'escudo');
+  assert.equal(r.shields, MAX_SHIELDS);
+  assert.ok(!offerCards(r, 30).some((c) => c.id === 'escudo'), 'la carta Escudo tiene máximo 2');
 });
 
 test('todas las naves se aplican sin errores y los ids de cartas son únicos', () => {

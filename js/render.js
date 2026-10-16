@@ -1,7 +1,7 @@
 // Render pseudo-3D en Canvas 2D: escala = focal / profundidad (como los arcades clásicos).
 import { G, LANE_W, VIEW, clamp } from './state.js';
 import { fx } from './fx.js';
-import { BIOMES, FORK_REWARDS, bossRz } from './world.js';
+import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ } from './world.js';
 import { SHIPS } from './upgrades.js';
 import { save } from './save.js';
 
@@ -443,12 +443,12 @@ function drawObj(o, rz, b, t) {
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
       const R = 0.3 * p.s;
-      ctx.fillStyle = 'rgba(255,120,0,.35)';
+      ctx.fillStyle = o.hunter ? hexA(ACT.dodge, 0.4) : 'rgba(255,120,0,.35)';
       ctx.beginPath();
       if (o.tall) ctx.ellipse(p.x, p.y, R * 1.3, R * 2.6, 0, 0, Math.PI * 2);
       else ctx.arc(p.x, p.y, R * 1.6, 0, Math.PI * 2);
       ctx.fill();
-      ctx.fillStyle = '#ffd60a';
+      ctx.fillStyle = o.hunter ? '#fff' : '#ffd60a';
       ctx.beginPath();
       if (o.tall) ctx.ellipse(p.x, p.y, R * 0.7, R * 1.9, 0, 0, Math.PI * 2);
       else ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
@@ -519,6 +519,70 @@ function drawObj(o, rz, b, t) {
     }
   }
   ctx.globalAlpha = 1;
+}
+
+// Cazador: dron con ojo rojo que flota delante. Antes de cada disparo marca tu carril en el suelo.
+function drawHunter(t) {
+  const r = G.run, h = r.hunter;
+  const out = h.leaving ? h.leaveT : 0;
+  const rz = HUNTER_RZ + out * 40;
+  const blink = Math.floor(t * 14) % 2 === 0;
+
+  if (h.aimT > 0 && !h.leaving) {
+    const lx = h.aimLane * LANE_W;
+    if (quad(lx - 0.48, lx + 0.48, -1, rz, 0.02)) {
+      ctx.fillStyle = hexA(ACT.dodge, blink ? 0.45 : 0.2);
+      ctx.fill();
+    }
+    const a = project(h.x * LANE_W, 2.3, rz), c = project(lx, 0.3, 0);
+    if (a && c) {
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = hexA(ACT.dodge, 0.8);
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y);
+      ctx.lineTo(c.x, c.y);
+      ctx.stroke();
+      ctx.restore();
+    }
+  }
+
+  const p = project(h.x * LANE_W, 2.3 + Math.sin(t * 5) * 0.12 + out * 2, rz);
+  if (!p) return;
+  const S = 0.85 * p.s;
+  ctx.save();
+  ctx.globalAlpha = 1 - Math.min(1, out);
+  ctx.translate(p.x, p.y);
+  ctx.rotate(Math.sin(t * 3) * 0.15);
+  ctx.beginPath();
+  ctx.moveTo(0, -S);
+  ctx.lineTo(S * 0.9, 0);
+  ctx.lineTo(0, S * 0.7);
+  ctx.lineTo(-S * 0.9, 0);
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(8,0,12,.35)'; // translúcido: no debe tapar la pista que viene
+  ctx.fill();
+  ctx.lineWidth = Math.max(2, S * 0.1);
+  ctx.strokeStyle = ACT.dodge;
+  ctx.stroke();
+  // rotores
+  ctx.strokeStyle = hexA('#ffffff', 0.6);
+  ctx.lineWidth = Math.max(1, S * 0.06);
+  for (const sx of [-1, 1]) {
+    const w = S * 0.55 * Math.abs(Math.cos(t * 40 + sx));
+    ctx.beginPath();
+    ctx.moveTo(sx * S * 0.9 - w, -S * 0.15);
+    ctx.lineTo(sx * S * 0.9 + w, -S * 0.15);
+    ctx.stroke();
+  }
+  const ex = Math.max(-0.25, Math.min(0.25, (G.player.x - h.x) * 0.3)) * S;
+  ctx.fillStyle = h.aimT > 0 && blink ? '#fff' : '#ff2d55';
+  ctx.beginPath();
+  ctx.arc(ex, 0, S * 0.24, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
 }
 
 function drawBoss(b, t) {
@@ -672,6 +736,7 @@ export function render(dt) {
   drawGround(b, dist, t);
   drawSpeedLines(b, speed, dt);
   if (r && r.boss) drawBoss(b, t);
+  if (r && r.hunter) drawHunter(t);
 
   if (r) {
     const list = [];

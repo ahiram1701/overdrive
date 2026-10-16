@@ -4,7 +4,7 @@ import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { project } from './render.js';
 import { playerBox } from './player.js';
-import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore } from './game.js';
+import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped } from './game.js';
 
 export const BIOMES = [
   { id: 'neon', name: 'NEÓN URBANO', sky: ['#0b0221', '#6a1182'], ground: '#0d0221', road: ['#1c0638', '#12042a'], line: '#ff2bd6', edge: '#00e5ff', obs: '#ff2bd6', obs2: '#00e5ff', accent: '#ffe600', music: 0 },
@@ -36,7 +36,9 @@ const DIM = {
   fork: { w: 0.95, y0: 0, y1: 2.2, depth: 0.3 },
 };
 
-export const allowedLanes = (r) => LANES.filter((l) => l !== r.blockedLane);
+const ACT_DODGE = '#ff3b6b'; // mismo magenta que "esquiva" en render.js
+
+export const allowedLanes =(r) => LANES.filter((l) => l !== r.blockedLane);
 const isObstacle = (o) => o.type !== 'coin' && o.type !== 'fork' && o.type !== 'core';
 
 function add(type, lane, z, extra = {}) {
@@ -178,6 +180,8 @@ export function breakObj(o, cause = 'dash') {
   fx.shake(7);
   fx.hitstop(0.035);
   fx.vibe(15);
+  // un golpe que absorbe el escudo es solo visual: ni puntos, ni combo, ni overdrive, ni cadena
+  if (cause === 'shield') return;
   onBreak(o, cause, sp);
   if (r.stats.explosive && cause !== 'chain') {
     if (sp) fx.ring(sp.x, sp.y, '#ff9f0a', 420, 0.5, 18);
@@ -230,9 +234,10 @@ function resolve(o) {
   }
   if (hx && hy) {
     if (powered) return breakObj(o, 'dash');
-    if (p.invuln > 0) return;
+    if (p.invuln > 0 && !o.hunter) return;
     return onHit(o);
   }
+  if (o.hunter) hunterDodged();
   if (p.dash > 0 && r.stats.wideDash) return breakObj(o, 'dash');
 
   const since = r.time - p.lastAction;
@@ -255,6 +260,7 @@ export function spawnBoss(r) {
     hp, max: hp, x: 0, tx: 0, t: 0, fireT: 2, coreT: 3, moveT: 1.2, escapeT: 45, flash: 0,
     name: BOSS_NAMES[Math.floor(r.section / 3) % BOSS_NAMES.length],
   };
+  if (r.hunter) r.hunter.leaving = true; // el jefe ya mete presión de sobra
   sfx.alarm();
   fx.banner('⚠ JEFE ⚠', r.boss.name, '#ff2d55', true);
 }
@@ -305,6 +311,62 @@ export function hurtBoss() {
   if (b.hp <= 0) bossDefeated();
 }
 
+// ---------- Cazador: castiga quedarse quieto ----------
+// Si pasas unos segundos sin actuar aparece un dron que marca tu carril y dispara.
+// Sus disparos quitan escudo sin ventana de invulnerabilidad; esquivar 2 seguidos lo espanta.
+export const HUNTER_RZ = 12;
+const HUNTER_AIM = 0.5;
+
+const hunterDelay = (r) => Math.max(1.5, 3 - r.hunters * 0.5);
+
+function spawnHunter(r) {
+  r.hunters++;
+  r.hunter = { x: G.player.x, t: 0, fireT: 0.4, aimT: 0, aimLane: 0, shots: 0, dodged: 0, leaving: false, leaveT: 0 };
+  sfx.alarm();
+  fx.banner('⚠ CAZADOR', '¡muévete o te caza!', ACT_DODGE, true);
+  fx.vibe([40, 40, 40]);
+}
+
+function updateHunter(r, dt) {
+  const p = G.player;
+  if (!r.hunter) {
+    if (!r.boss && r.odTime <= 0 && r.time - p.lastAction > hunterDelay(r)) spawnHunter(r);
+    return;
+  }
+  const h = r.hunter;
+  h.t += dt;
+  if (h.leaving) {
+    h.leaveT += dt;
+    if (h.leaveT > 1) r.hunter = null;
+    return;
+  }
+  h.x += (p.x - h.x) * Math.min(1, dt * 2.5); // sigue tu carril con retraso
+  if (h.aimT > 0) {
+    h.aimT -= dt;
+    if (h.aimT <= 0) {
+      h.shots++;
+      add('shot', h.aimLane, r.dist + HUNTER_RZ, { vz: 6, hunter: true });
+      sfx.dash();
+      h.fireT = Math.max(0.55, 1.1 - 0.1 * h.shots);
+    }
+  } else if ((h.fireT -= dt) <= 0) {
+    h.aimLane = p.lane;
+    h.aimT = HUNTER_AIM;
+    fx.notice('¡MUÉVETE!', ACT_DODGE);
+    sfx.bump();
+  }
+}
+
+// un disparo del Cazador ha pasado sin darte
+function hunterDodged() {
+  const h = G.run.hunter;
+  if (!h || h.leaving) return;
+  if (++h.dodged >= 2) {
+    h.leaving = true;
+    hunterEscaped();
+  }
+}
+
 // ---------- Bucle del mundo ----------
 export function updateWorld(dt) {
   const r = G.run;
@@ -322,6 +384,7 @@ export function updateWorld(dt) {
   }
 
   if (r.boss) updateBoss(r, dt);
+  updateHunter(r, dt);
 
   const p = G.player;
   const pb = playerBox();
