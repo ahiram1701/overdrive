@@ -1,6 +1,7 @@
 // Genera las capturas y el GIF del README en docs/ jugando una partida real con semilla fija.
 // Uso: npm run screenshots
 import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { chromium } from '@playwright/test';
 import gifenc from 'gifenc'; // paquete CommonJS: sin exports con nombre
@@ -12,9 +13,13 @@ const BASE = `http://localhost:${PORT}`;
 const OUT = 'docs';
 mkdirSync(OUT, { recursive: true });
 
-const server = spawn(`npx http-server -p ${PORT} -c-1 -s .`, { shell: true, stdio: 'ignore' });
-const stop = () => { try { server.kill(); } catch { /* ya terminado */ } };
+// node directo, sin shell ni npx: así server.pid es el proceso que escucha en el puerto y
+// kill() lo cierra también en Windows (con shell solo moría cmd.exe y http-server quedaba huérfano)
+const httpServerBin = createRequire(import.meta.url).resolve('http-server/bin/http-server');
+const server = spawn(process.execPath, [httpServerBin, '-p', String(PORT), '-c-1', '-s', '.'], { stdio: 'ignore' });
+const stop = () => { if (server.exitCode === null) try { server.kill(); } catch { /* ya terminado */ } };
 process.on('exit', stop);
+for (const sig of ['SIGINT', 'SIGTERM']) process.on(sig, () => { stop(); process.exit(130); });
 
 async function waitServer() {
   for (let i = 0; i < 100; i++) {
