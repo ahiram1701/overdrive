@@ -22,6 +22,7 @@ const ASSETS = [
   './js/game.js',
   './js/ui.js',
   './js/input.js',
+  './js/missions.js',
 ];
 
 self.addEventListener('install', (e) => {

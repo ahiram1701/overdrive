@@ -195,8 +195,14 @@ export const fx = {
       ctx.globalAlpha = outK;
       ctx.translate(W / 2, y);
       ctx.scale(scale, scale);
-      const size = Math.min(46, W / Math.max(4, b.str.length * 0.62));
+      // se mide el texto de verdad: la estimación por caracteres se quedaba corta y se salía de pantalla
+      let size = 46;
       ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
+      const w = ctx.measureText(b.str).width + 16; // + trazo del contorno
+      if (w > W * 0.92) {
+        size = Math.floor(size * (W * 0.92) / w);
+        ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
+      }
       ctx.lineWidth = 8;
       ctx.strokeStyle = 'rgba(0,0,0,.75)';
       ctx.strokeText(b.str, 0, 0);

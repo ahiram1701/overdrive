@@ -37,13 +37,16 @@ La vibración solo funciona en Android; iOS no soporta `navigator.vibrate`.
 Puedes encadenar swipes sin levantar el dedo.
 
 ## 🚦 Leer los obstáculos
-Cada color te dice qué hacer, en todos los biomas:
+El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en todos los biomas:
 
-| Color | Qué hacer | Obstáculos |
+| Aspecto | Qué hacer | Qué es |
 |---|---|---|
-| 🟥 **Magenta** con X | Cambia de carril o haz DASH | muros, muros móviles (▶ indica hacia dónde van), puertas |
-| 🟨 **Amarillo ▲** | Salta | barreras, láser bajo, minas |
-| 🟦 **Cian ▼** | Deslízate por debajo | barra colgante, láser alto |
+| 🟥 **Magenta** con X | Cambia de carril o haz DASH (no se puede saltar) | muros, muros móviles (▶ indica hacia dónde van), puertas |
+| 🟨 **Amarillo ▲** | Salta | barreras, láser bajo |
+| 🟦 **Cian ▼** | Deslízate por debajo (tampoco se salta) | barra colgante, láser alto |
+| 🔴 **Rojo con picos** | Esquiva; si lleva ▲, también se puede saltar | disparos del jefe y del Cazador, minas |
+| 🟢 **Verde** | ¡Ve a por él con DASH! | núcleo del jefe |
+| 🟡 **Rombo dorado** con destello | Cógelo | monedas (lo único dorado de la pista) |
 
 ## 🔥 Cómo sacar puntos
 - **Near-miss:** pasa rozando un obstáculo justo después de moverte. Si lo haces en el último instante es un **¡PERFECTO!**, con cámara lenta incluida.
@@ -57,9 +60,12 @@ Cada color te dice qué hacer, en todos los biomas:
 1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".
 2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
 3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
-4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y haz **DASH contra sus núcleos rojos** antes de que escape.
+4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y haz **DASH contra sus núcleos verdes** antes de que escape.
 5. Al morir ganas **gemas 💎** para el hangar: naves nuevas y mejoras permanentes.
-6. **Reto diario:** la misma pista para todo el mundo durante el día.
+6. **Reto diario:** la misma pista para todo el mundo durante el día, elijas lo que elijas.
+
+## 🎯 Misiones diarias
+Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una difícil (+40 💎). Son las mismas para todos y cambian a medianoche. Algunas se acumulan durante el día ("haz 60 near-miss") y otras hay que lograrlas en una sola partida ("llega a x50 de combo"). Al completar una en plena partida se celebra en el momento y las gemas se suman al instante. El progreso se ve en el menú y en la pantalla final.
 
 <!-- CARDS:START -->
 ### Cartas
