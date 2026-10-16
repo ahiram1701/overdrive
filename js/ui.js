@@ -92,6 +92,11 @@ export const ui = {
         ui.syncToggles();
       });
     }
+    tap($('tgText'), () => {
+      save.settings.text = save.settings.text === 'min' ? 'normal' : 'min';
+      persist();
+      ui.syncToggles();
+    });
     ui.syncToggles();
   },
 
@@ -99,6 +104,7 @@ export const ui = {
     $('tgSound').classList.toggle('off', !save.settings.sound);
     $('tgVibe').classList.toggle('off', !save.settings.vibe);
     $('tgFx').classList.toggle('off', !save.settings.fx);
+    $('tgText').classList.toggle('off', save.settings.text === 'min');
   },
 
   hideAll() { show(null); },
