@@ -61,7 +61,8 @@ function tick(now) {
   }
 
   fx.update(real);
-  render(real);
+  // en el hangar el mundo no se ve: no dibujarlo ahorra batería
+  if (G.mode !== 'hangar') render(real);
   ui.updateHUD(real);
 }
 

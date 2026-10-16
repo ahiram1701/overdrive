@@ -13,10 +13,10 @@ export const ABILITIES = {
 
 export const NEAR_MISS_CD = 0.3; // segundos de recarga que quita cada near-miss
 
-// mods: { cd: multiplicador, dur: multiplicador, mut: id de mutación } (árbol de mejoras, F2)
+// mods: { cd, dur, pow: multiplicadores; mut: id de mutación } (árbol de mejoras del hangar)
 export function newAbility(id, mods = {}) {
   const d = ABILITIES[id];
-  return { id, cd: d.cd * (mods.cd ?? 1), dur: d.dur * (mods.dur ?? 1), mut: mods.mut || null, cdLeft: 0, active: 0 };
+  return { id, cd: d.cd * (mods.cd ?? 1), dur: d.dur * (mods.dur ?? 1), pow: mods.pow ?? 1, mut: mods.mut || null, cdLeft: 0, active: 0 };
 }
 
 export const canUse = (a) => a.cdLeft <= 0 && a.active <= 0;

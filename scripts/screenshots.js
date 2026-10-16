@@ -80,6 +80,17 @@ try {
   await page.screenshot({ path: `${OUT}/menu.png` });
   console.log(`✔ ${OUT}/menu.png`);
 
+  // Hangar con algo de progreso para que se vea el árbol
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    Object.assign(save, { gems: 340, ships: ['viper', 'brick', 'raptor'], shipLvl: { viper: { a: 2, b: 1, c: 1 } } });
+    document.getElementById('btnHangar').click();
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/hangar.png` });
+  console.log(`✔ ${OUT}/hangar.png`);
+  await page.evaluate(() => document.getElementById('btnHangarBack').click());
+
   // Partida: un obstáculo "deslízate" cerca y algo de combo
   await play(page);
   await advance(page, "G.run.time > 25 && G.run.objects.some(o => o.alive && o.type === 'overhead' && o.z - G.run.dist > 8 && o.z - G.run.dist < 13)");

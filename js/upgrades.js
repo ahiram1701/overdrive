@@ -1,5 +1,6 @@
 // Cartas de mejora, sinergias y naves. Las cartas cambian REGLAS, no solo números.
 import { MAX_SHIELDS, addShields } from './state.js';
+import { makeRng } from './rng.js';
 
 export const VAMPIRE_NEAR = 12; // near-miss por escudo de Vampiro
 
@@ -25,6 +26,7 @@ export function baseStats() {
     explosive: false,
     vampire: false,
     insurance: false,
+    hitInvuln: 0.45,    // invulnerabilidad tras perder un escudo
   };
 }
 
@@ -129,3 +131,82 @@ export const META = [
   { id: 'shield', name: 'Escudo inicial', icon: '🛡️', cost: 80, desc: 'Empiezas cada partida con 1 escudo.' },
   { id: 'card', name: 'Carta inicial', icon: '🃏', cost: 120, desc: 'Eliges una carta al empezar cada partida.' },
 ];
+
+// ---------- Árbol de mejoras por nave (hangar) ----------
+// 3 ramas x 3 niveles. Se compran en orden con gemas. A y B son comunes a todas las naves;
+// C mejora la habilidad propia de cada nave y su nivel 3 la MUTA.
+export const TREE_COSTS = { a: [40, 90, 180], b: [40, 90, 180], c: [60, 130, 260] };
+
+const TREE_A = { name: 'BLINDAJE', icon: '🛡️', nodes: ['+1 escudo al empezar', '+50% de invulnerabilidad tras perder un escudo', 'ÚLTIMO ALIENTO: sobrevives una vez a un golpe sin escudos'] };
+const TREE_B = { name: 'MOTOR', icon: '⚙️', nodes: ['Cambias de carril un 10% más rápido', '+1 carga de DASH', 'OVERDRIVE: +25% de carga y +2 s'] };
+
+// nivel 2 y mutación (nivel 3) de la rama de cada habilidad
+export const ABILITY_TREE = {
+  overclock: { lvl2: '+30% de duración', mut: 'chain', lvl3: 'Cada near-miss alarga la SOBRECARGA 0,3 s' },
+  ram: { lvl2: '+30% de duración', mut: 'recharge', lvl3: 'Cada rotura con el ARIETE recarga 1 s' },
+  phase: { lvl2: '+30% de duración', mut: 'wave', lvl3: 'Al salir de FASE, una onda rompe lo cercano' },
+  nova: { lvl2: '+30% de alcance', mut: 'full', lvl3: 'ESTALLIDO llena el OVERDRIVE entero' },
+  roar: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'RUGIDO te da 1 escudo' },
+  laser: { lvl2: 'Atraviesa 2 obstáculos', mut: 'triple', lvl3: 'Dispara en los 3 carriles' },
+  hook: { lvl2: '0,6 s invulnerable al llegar', mut: 'trail', lvl3: 'El GANCHO arrasa lo que tienes delante' },
+};
+
+export const emptyLvls = () => ({ a: 0, b: 0, c: 0 });
+export const shipLvls = (map, shipId) => ({ ...emptyLvls(), ...(map && map[shipId]) });
+
+// Descripción completa del árbol de una nave (para el hangar)
+export function treeOf(ship, abilityName, abilityIcon) {
+  const t = ABILITY_TREE[ship.ability];
+  const branch = (key, def) => ({ key, name: def.name, icon: def.icon, nodes: def.nodes.map((desc, i) => ({ desc, cost: TREE_COSTS[key][i] })) });
+  return [
+    branch('a', TREE_A),
+    branch('b', TREE_B),
+    branch('c', { name: abilityName, icon: abilityIcon, nodes: ['Recarga −15%', t.lvl2, t.lvl3] }),
+  ];
+}
+
+// Precio del siguiente nivel de una rama (null si está al máximo)
+export const treeCost = (branch, lvl) => (lvl >= 3 ? null : TREE_COSTS[branch][lvl]);
+
+// Aplica las ramas A y B a una partida (la C se aplica a la habilidad con abilityMods)
+export function applyShipTree(r, lvls) {
+  if (lvls.a >= 1) addShields(r, 1);
+  if (lvls.a >= 2) r.stats.hitInvuln *= 1.5;
+  if (lvls.a >= 3) r.lastStand = true;
+  if (lvls.b >= 1) r.stats.laneTime *= 0.9;
+  if (lvls.b >= 2) r.stats.dashMax += 1;
+  if (lvls.b >= 3) { r.stats.odRate += 0.25; r.stats.odDur += 2; }
+}
+
+export function abilityMods(ship, lvls) {
+  return {
+    cd: lvls.c >= 1 ? 0.85 : 1,
+    dur: lvls.c >= 2 ? 1.3 : 1,
+    pow: lvls.c >= 2 ? 1.3 : 1,
+    mut: lvls.c >= 3 ? ABILITY_TREE[ship.ability].mut : null,
+  };
+}
+
+// Perfil de 6 barras (0..1) de una nave con su árbol, calculado APLICANDO las reglas reales a una
+// partida simulada: así las barras del hangar nunca se desfasan de lo que de verdad hace la nave.
+export const PROFILE_KEYS = ['VELOCIDAD', 'AGILIDAD', 'DASH', 'OVERDRIVE', 'DEFENSA', 'PUNTOS'];
+
+export function shipProfile(shipId, lvls = emptyLvls()) {
+  const ship = SHIPS.find((s) => s.id === shipId);
+  const r = {
+    rng: makeRng(1), stats: baseStats(), cards: {}, synergies: new Set(),
+    shields: 0, dashCharges: 1, blockedLane: null, luck: 1, player: { lane: 0 }, lastStand: false,
+  };
+  ship.apply(r);
+  applyShipTree(r, lvls);
+  const s = r.stats;
+  const k = (v) => Math.max(0, Math.min(1, v));
+  return {
+    VELOCIDAD: k((s.speedMult - 0.8) / 1.2),
+    AGILIDAD: k((0.16 - s.laneTime) / 0.1),
+    DASH: k((s.dashMax * (4.5 / s.dashRecharge)) / 4 + (s.wideDash ? 0.25 : 0)),
+    OVERDRIVE: k((s.odRate * s.odDur) / 20),
+    DEFENSA: k((r.shields + (r.lastStand ? 1 : 0) + (s.hitInvuln / 0.45 - 1)) / 4),
+    PUNTOS: k((s.scoreMult * (1 + (s.coinValue - 1) * 0.3)) / 2.5),
+  };
+}

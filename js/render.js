@@ -701,19 +701,21 @@ function shipColor() {
 }
 
 // Rayo del LÁSER: de la nave al primer obstáculo de su carril
-function drawBeam(b) {
-  const a = project(b.x, 0.4, 0), c = project(b.x, 0.4, Math.min(b.rz, VIEW));
-  if (!a || !c) return;
-  const k = Math.max(0, b.t / 0.18);
+function drawBeam(beam) {
+  const k = Math.max(0, beam.t / 0.18);
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   ctx.lineCap = 'round';
-  ctx.strokeStyle = `rgba(255,159,10,${0.45 * k})`;
-  ctx.lineWidth = 0.35 * a.s * k;
-  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
-  ctx.strokeStyle = `rgba(255,255,255,${k})`;
-  ctx.lineWidth = 0.08 * a.s;
-  ctx.stroke();
+  for (const b of beam.rays) {
+    const a = project(b.x, 0.4, 0), c = project(b.x, 0.4, Math.min(b.rz, VIEW));
+    if (!a || !c) continue;
+    ctx.strokeStyle = `rgba(255,159,10,${0.45 * k})`;
+    ctx.lineWidth = 0.35 * a.s * k;
+    ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+    ctx.strokeStyle = `rgba(255,255,255,${k})`;
+    ctx.lineWidth = 0.08 * a.s;
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
