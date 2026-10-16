@@ -11,6 +11,7 @@ export const G = {
   player: null,
   W: 0, H: 0, dpr: 1,
   slowmo: 0, slowScale: 1,
+  timeWarp: 1, // tiempo bala de la habilidad SOBRECARGA (aparte de fx.slowmo para que no se pisen)
   hitstop: 0,
   realTime: 0,
   debug: typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug'),

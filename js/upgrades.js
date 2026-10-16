@@ -116,11 +116,13 @@ export function offerCards(run, n = 3, minRarity = null) {
 }
 
 export const SHIPS = [
-  { id: 'viper', name: 'Viper', cost: 0, color: '#00e5ff', desc: 'Equilibrada. La de siempre.', apply: () => {} },
-  { id: 'brick', name: 'Brick', cost: 60, color: '#ffd60a', desc: 'Empieza con 2 escudos, pero cambia de carril más lento.', apply: (r) => { addShields(r, 2); r.stats.laneTime *= 1.3; } },
-  { id: 'ghost', name: 'Ghost', cost: 150, color: '#e0e0ff', desc: 'Ventana de near-miss enorme y DASH que recarga rápido.', apply: (r) => { r.stats.nearWin += 0.5; r.stats.dashRecharge *= 0.7; } },
-  { id: 'nova', name: 'Nova', cost: 300, color: '#ff375f', desc: 'OVERDRIVE se llena un 60% más rápido y dura +2 s.', apply: (r) => { r.stats.odRate += 0.6; r.stats.odDur += 2; } },
-  { id: 'kaiju', name: 'Kaiju', cost: 500, color: '#30d158', desc: 'Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos.', apply: (r) => { applyCard(r, 'ancho'); applyCard(r, 'explosivo'); r.stats.scoreMult *= 0.7; } },
+  { id: 'viper', name: 'Viper', cost: 0, color: '#00e5ff', ability: 'overclock', desc: 'Equilibrada. La de siempre.', apply: () => {} },
+  { id: 'brick', name: 'Brick', cost: 60, color: '#ffd60a', ability: 'ram', desc: 'Empieza con 2 escudos, pero cambia de carril más lento.', apply: (r) => { addShields(r, 2); r.stats.laneTime *= 1.3; } },
+  { id: 'ghost', name: 'Ghost', cost: 150, color: '#e0e0ff', ability: 'phase', desc: 'Ventana de near-miss enorme y DASH que recarga rápido.', apply: (r) => { r.stats.nearWin += 0.5; r.stats.dashRecharge *= 0.7; } },
+  { id: 'nova', name: 'Nova', cost: 300, color: '#ff375f', ability: 'nova', desc: 'OVERDRIVE se llena un 60% más rápido y dura +2 s.', apply: (r) => { r.stats.odRate += 0.6; r.stats.odDur += 2; } },
+  { id: 'kaiju', name: 'Kaiju', cost: 500, color: '#30d158', ability: 'roar', desc: 'Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos.', apply: (r) => { applyCard(r, 'ancho'); applyCard(r, 'explosivo'); r.stats.scoreMult *= 0.7; } },
+  { id: 'raptor', name: 'Raptor', cost: 400, color: '#ff9f0a', ability: 'laser', desc: 'Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes.', apply: (r) => { r.stats.laneTime *= 0.8; r.stats.dashRecharge *= 0.85; } },
+  { id: 'comet', name: 'Comet', cost: 650, color: '#bf5af2', ability: 'hook', desc: 'Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento.', apply: (r) => { r.stats.coinValue += 1; r.stats.magnet += 1; r.stats.odRate -= 0.2; } },
 ];
 
 export const META = [

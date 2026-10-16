@@ -23,6 +23,8 @@ const ASSETS = [
   './js/ui.js',
   './js/input.js',
   './js/missions.js',
+  './js/abilities.js',
+  './js/pacing.js',
 ];
 
 self.addEventListener('install', (e) => {

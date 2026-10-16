@@ -58,6 +58,7 @@ export function initInput(h) {
     else if (k === 'ArrowUp' || k === 'w') h.swipe('up');
     else if (k === 'ArrowDown' || k === 's') h.swipe('down');
     else if (k === ' ' || k === 'Shift') h.double();
+    else if (k === 'e' || k === 'q') h.ability?.();
     else return;
     e.preventDefault();
   });

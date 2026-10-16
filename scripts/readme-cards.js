@@ -2,6 +2,7 @@
 // Uso: npm run docs:cards
 import { readFileSync, writeFileSync } from 'node:fs';
 import { CARDS, SYNERGIES, SHIPS, RARITY, CARD_BY_ID } from '../js/upgrades.js';
+import { ABILITIES } from '../js/abilities.js';
 
 const START = '<!-- CARDS:START -->';
 const END = '<!-- CARDS:END -->';
@@ -19,8 +20,11 @@ const syn = rows(
 );
 
 const ships = rows(
-  '| Nave | Coste | Habilidad |',
-  SHIPS.map((s) => `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : 'gratis'} | ${s.desc} |`),
+  '| Nave | Coste | Pasiva | Habilidad activa ⚡ |',
+  SHIPS.map((s) => {
+    const a = ABILITIES[s.ability];
+    return `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : 'gratis'} | ${s.desc} | ${a.icon} **${a.name}** (${a.cd} s): ${a.desc} |`;
+  }),
 );
 
 const block = `${START}

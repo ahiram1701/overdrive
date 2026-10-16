@@ -5,7 +5,7 @@ import { initInput } from './input.js';
 import { unlockAudio } from './audio.js';
 import { fx } from './fx.js';
 import { moveLane, jump, slide, dash } from './player.js';
-import { update } from './game.js';
+import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
 
 initRender(document.getElementById('game'));
@@ -22,6 +22,7 @@ initInput({
     else slide();
   },
   double: dash,
+  ability: useAbility,
   pause() {
     if (G.mode === 'play') ui.pause();
     else if (G.mode === 'paused') document.getElementById('btnResume').click();
@@ -42,13 +43,13 @@ function tick(now) {
   last = now;
   G.realTime += real;
 
-  let dt = real;
+  let dt = real * G.timeWarp;
   if (G.hitstop > 0) {
     G.hitstop -= real;
     dt = 0;
   } else if (G.slowmo > 0) {
     G.slowmo -= real;
-    dt = real * G.slowScale;
+    dt = real * Math.min(G.slowScale, G.timeWarp);
   }
 
   // paso fijo para que física y colisiones no dependan de los fps

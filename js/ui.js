@@ -6,7 +6,8 @@ import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint } from './upgrades.js';
-import { newRun, pickCard, resume, effSpeed } from './game.js';
+import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
+import { ABILITIES, readiness } from './abilities.js';
 
 const $ = (id) => document.getElementById(id);
 const OVERLAYS = ['menu', 'hangar', 'cards', 'shop', 'chest', 'death', 'pause'];
@@ -92,6 +93,13 @@ export const ui = {
     tap($('btnResume'), () => resume());
     tap($('btnQuit'), () => { musicStop(); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
+    // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
+    $('abilityBtn').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      unlockAudio();
+      useAbility();
+    });
     tap($('btnMenu'), () => ui.showMenu());
     $('death').addEventListener('click', () => {
       if (performance.now() - ui.deathAt < 700) return;
@@ -148,7 +156,8 @@ export const ui = {
       const sel = save.ship === s.id;
       const row = el('button', `item${sel ? ' sel' : ''}${!owned && save.gems < s.cost ? ' locked' : ''}`);
       row.innerHTML = `<span class="i-icon" style="color:${s.color}">▲</span>
-        <span class="i-body"><b>${s.name}</b><small>${s.desc}</small></span>
+        <span class="i-body"><b>${s.name}</b><small>${s.desc}</small>
+          <small class="i-ab">${ABILITIES[s.ability].icon} <b>${ABILITIES[s.ability].name}</b> · ${ABILITIES[s.ability].cd} s — ${ABILITIES[s.ability].desc}</small></span>
         <span class="i-act">${sel ? 'EN USO' : owned ? 'USAR' : `💎 ${s.cost}`}</span>`;
       tap(row, () => {
         if (owned) save.ship = s.id;
@@ -303,6 +312,13 @@ export const ui = {
     ui._tut = setTimeout(() => t.classList.add('hidden'), 6500);
   },
 
+  pulseAbility() {
+    const b = $('abilityBtn');
+    b.classList.remove('pulse');
+    void b.offsetWidth;
+    b.classList.add('pulse');
+  },
+
   pulseMult() {
     const m = $('mult');
     m.classList.remove('pop');
@@ -326,6 +342,12 @@ export const ui = {
     setText('dist', `${fmt(r.dist)} m`);
     setText('coins', `🪙 ${r.coins}`);
     setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, MAX_SHIELDS - r.shields)));
+    const a = r.ability;
+    const ab = $('abilityBtn');
+    ab.style.setProperty('--f', readiness(a).toFixed(3));
+    setText('abilityIcon', ABILITIES[a.id].icon);
+    ab.classList.toggle('ready', a.cdLeft <= 0 && a.active <= 0);
+    ab.classList.toggle('active', a.active > 0);
     const od = $('odbar');
     od.firstElementChild.style.transform = `scaleX(${r.odTime > 0 ? r.odTime / r.stats.odDur : r.od})`;
     od.classList.toggle('active', r.odTime > 0);

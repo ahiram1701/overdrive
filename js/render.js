@@ -3,6 +3,7 @@ import { G, LANE_W, VIEW, clamp } from './state.js';
 import { fx } from './fx.js';
 import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ, runSpeed } from './world.js';
 import { SHIPS } from './upgrades.js';
+import { isActive } from './abilities.js';
 import { save } from './save.js';
 
 const CAM_H = 3;
@@ -699,6 +700,23 @@ function shipColor() {
   return (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).color;
 }
 
+// Rayo del LÁSER: de la nave al primer obstáculo de su carril
+function drawBeam(b) {
+  const a = project(b.x, 0.4, 0), c = project(b.x, 0.4, Math.min(b.rz, VIEW));
+  if (!a || !c) return;
+  const k = Math.max(0, b.t / 0.18);
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  ctx.strokeStyle = `rgba(255,159,10,${0.45 * k})`;
+  ctx.lineWidth = 0.35 * a.s * k;
+  ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
+  ctx.strokeStyle = `rgba(255,255,255,${k})`;
+  ctx.lineWidth = 0.08 * a.s;
+  ctx.stroke();
+  ctx.restore();
+}
+
 function drawPlayer() {
   const p = G.player;
   const r = G.run;
@@ -755,7 +773,31 @@ function drawPlayer() {
   ctx.restore();
 
   const blink = p && p.invuln > 0 && Math.floor(G.realTime * 20) % 2 === 0;
-  if (!blink) drawShape(0, 0, 1, col);
+  const ab = r && r.ability;
+  const phase = isActive(ab, 'phase');
+  // FASE: nave casi transparente; ARIETE: nave al rojo con escudo frontal; SOBRECARGA: estela cian
+  if (!blink) drawShape(0, 0, phase ? 0.35 : 1, isActive(ab, 'ram') ? '#ff9f0a' : col);
+  if (ab && ab.active > 0) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    const k = 0.6 + 0.4 * Math.sin(G.realTime * 18);
+    if (phase) {
+      ctx.strokeStyle = `rgba(224,224,255,${0.5 * k})`;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 5]);
+      ctx.beginPath();
+      ctx.ellipse(sp.x, sp.y - 0.15 * s, s * 0.6, s * 0.42, 0, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (isActive(ab, 'ram')) {
+      ctx.fillStyle = `rgba(255,159,10,${0.35 * k})`;
+      ctx.beginPath();
+      ctx.ellipse(sp.x, sp.y - 0.45 * s, s * 0.55, s * 0.2, 0, Math.PI, 0);
+      ctx.fill();
+    } else if (isActive(ab, 'overclock')) {
+      for (let i = 1; i <= 4; i++) drawShape(0, i * s * 0.1, 0.12, '#00e5ff');
+    }
+    ctx.restore();
+  }
   ctx.globalAlpha = 1;
 
   if (r && r.shields > 0) {
@@ -804,6 +846,7 @@ export function render(dt) {
   drawSpeedLines(b, speed, dt);
   if (r && r.boss) drawBoss(b, t);
   if (r && r.hunter) drawHunter(t);
+  if (r && r.beam) drawBeam(r.beam);
 
   if (r) {
     const list = [];

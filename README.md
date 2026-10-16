@@ -103,13 +103,15 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **SANGRE DORADA** | 🧛 Vampiro + 🪙 Monedas de oro | Cada moneda suma combo extra. |
 
 ### Naves (hangar)
-| Nave | Coste | Habilidad |
-|---|---|---|
-| **Viper** | gratis | Equilibrada. La de siempre. |
-| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. |
-| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. |
-| **Nova** | 💎 300 | OVERDRIVE se llena un 60% más rápido y dura +2 s. |
-| **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. |
+| Nave | Coste | Pasiva | Habilidad activa ⚡ |
+|---|---|---|---|
+| **Viper** | gratis | Equilibrada. La de siempre. | ⏩ **SOBRECARGA** (18 s): 4 s de tiempo bala; los near-miss valen el doble. |
+| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. | 🐏 **ARIETE** (20 s): 2,5 s rompiendo todo lo que tocas (sin poder saltar). |
+| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. | 👻 **FASE** (16 s): 1,2 s intangible: lo que atraviesas cuenta como PERFECTO. |
+| **Nova** | 💎 300 | OVERDRIVE se llena un 60% más rápido y dura +2 s. | 💥 **ESTALLIDO** (25 s): +50% de overdrive y arrasa todo lo que tienes delante. |
+| **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. |
+| **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). |
+| **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. |
 <!-- CARDS:END -->
 
 ### Ajustes del menú

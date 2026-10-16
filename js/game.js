@@ -5,8 +5,10 @@ import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR } from './upgrades.js';
-import { newPlayer, updatePlayer } from './player.js';
-import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz } from './world.js';
+import { newPlayer, updatePlayer, hookTarget } from './player.js';
+import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed } from './world.js';
+import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
+import { baseSpeed, trackSpeed } from './pacing.js';
 import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
@@ -50,7 +52,10 @@ export function newRun(daily = false) {
   G.run = r;
   G.player = newPlayer();
   r.player = G.player;
-  (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).apply(r);
+  const ship = SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
+  ship.apply(r);
+  r.ability = newAbility(ship.ability);
+  G.timeWarp = 1;
   if (save.meta.shield) addShields(r, 1);
   r.dashCharges = r.stats.dashMax;
 
@@ -89,8 +94,11 @@ function startSection() {
     spawnBoss(r);
     r.nextEventAt = Infinity;
   } else {
-    r.sectionEnd = r.genZ + effSpeed(r) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
+    // longitud del tramo con la velocidad de referencia (por distancia): igual para todos
+    r.sectionEnd = r.genZ + trackSpeed(r.genZ, r.stats.speedMult) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
+    // el evento se decide al empezar el tramo: sacarlo del RNG más tarde mezclaría su tirada con las de la pista
     r.nextEventAt = r.section >= 1 && r.rng.chance(0.6) ? r.time + r.rng.range(5, 10) : Infinity;
+    r.pendingEvent = r.rng.pick(EVENTS);
     fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
   }
   music.biome = r.biome.music;
@@ -176,7 +184,7 @@ export function onNearMiss(o, perfect) {
   const r = run();
   r.nearMisses++;
   const ps = playerScreen();
-  const bonus = r.event?.id === 'nearonly' ? 3 : 1;
+  const bonus = (r.event?.id === 'nearonly' ? 3 : 1) * (isActive(r.ability, 'overclock') ? 2 : 1);
   addChain(perfect ? 2 : 1);
   mission('near');
   if (perfect) mission('perfect');
@@ -184,6 +192,8 @@ export function onNearMiss(o, perfect) {
   addOD(perfect ? 0.12 : 0.07);
   if (perfect && r.synergies.has('zen')) addOD(0.15);
   if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.5);
+  // jugar bien recarga antes la habilidad
+  if (onNearMissCd(r.ability)) abilityReady();
   // Vampiro solo premia jugar bien: near-miss, nunca golpes ni roturas
   if (r.stats.vampire && ++r.vampN >= VAMPIRE_NEAR) {
     r.vampN = 0;
@@ -255,6 +265,90 @@ export function hunterEscaped() {
   fx.flash('#fff', 0.35);
   sfx.milestone();
   fx.vibe([20, 30, 40]);
+}
+
+// ---------- Habilidad activa (botón ⚡) ----------
+function abilityReady() {
+  const d = ABILITIES[run().ability.id];
+  fx.notice(`${d.icon} ${d.name} LISTA`, '#00e5ff');
+  sfx.ui();
+  ui.pulseAbility();
+}
+
+export function useAbility() {
+  const r = G.run, p = G.player;
+  if (G.mode !== 'play' || !r || p.dead) return;
+  const a = r.ability;
+  // el Gancho necesita un carril de destino libre de bloqueos; si no, no se gasta
+  const hook = a.id === 'hook' ? hookTarget() : null;
+  if (!canUse(a) || (a.id === 'hook' && hook === null)) {
+    sfx.bump();
+    fx.vibe(15);
+    return;
+  }
+  trigger(a);
+  p.lastAction = r.time; // cuenta como acción (no sirve para "jugar sin jugar": la recarga es larga)
+  save.abilityUses[a.id] = (save.abilityUses[a.id] || 0) + 1;
+  const d = ABILITIES[a.id];
+  const ps = playerScreen();
+  fx.vibe(30);
+  fx.ring(ps.x, ps.y, '#00e5ff', 180, 0.4, 10);
+  switch (a.id) {
+    case 'overclock':
+      G.timeWarp = 0.55;
+      fx.flash('#00e5ff', 0.3);
+      sfx.od();
+      break;
+    case 'ram':
+      fx.shake(10);
+      fx.flash('#ff9f0a', 0.3);
+      sfx.dash();
+      break;
+    case 'phase':
+      fx.flash('#e0e0ff', 0.35);
+      sfx.slide();
+      break;
+    case 'nova': {
+      addOD(0.5);
+      const n = sweep(Math.max(14, runSpeed() * 0.5));
+      fx.ring(ps.x, ps.y - 40, '#ff375f', 600, 0.6, 26);
+      fx.flash('#ff375f', 0.55);
+      fx.shake(24);
+      sfx.boom();
+      if (n) fx.notice(`💥 ${n} destruidos`, '#ff375f');
+      break;
+    }
+    case 'roar': {
+      const n = sweep(Math.max(24, runSpeed() * 0.9));
+      for (const o of r.objects) if (o.alive && o.type === 'coin' && o.z - r.dist < 110) o.mag = true;
+      fx.ring(ps.x, ps.y - 40, '#30d158', 800, 0.8, 30);
+      fx.shake(30);
+      sfx.boom();
+      if (n) fx.notice(`🦖 ${n} destruidos`, '#30d158');
+      break;
+    }
+    case 'laser':
+      fireLaser();
+      fx.shake(6);
+      sfx.dash();
+      break;
+    case 'hook': {
+      const from = playerScreen();
+      p.lane = hook;
+      p.x = hook; // instantáneo: no pasa por el carril del medio
+      const to = playerScreen();
+      fx.ring(from.x, from.y, '#bf5af2', 120, 0.3, 8);
+      fx.ring(to.x, to.y, '#bf5af2', 160, 0.35, 10);
+      fx.burst(to.x, to.y, 18, '#bf5af2', 400, 4, 0.4, 0);
+      sfx.dash();
+      break;
+    }
+  }
+  if (d.dur > 0) fx.notice(`${d.icon} ${d.name}`, '#00e5ff');
+}
+
+function abilityEnded(a) {
+  if (a.id === 'overclock') G.timeWarp = 1;
 }
 
 export function onCoin(o) {
@@ -413,6 +507,7 @@ export function resume() {
 function die() {
   const r = run(), p = G.player;
   G.mode = 'dying';
+  G.timeWarp = 1;
   G.dyingT = 1.0;
   p.dead = true;
   const ps = playerScreen();
@@ -457,7 +552,7 @@ export function update(dt) {
   if (G.mode !== 'play') return;
   const r = run();
   r.time += dt;
-  r.speed = (28 + 95 * (1 - Math.exp(-r.time / 140)) + r.time * 0.08) * r.stats.speedMult;
+  r.speed = baseSpeed(r.time) * r.stats.speedMult;
   const eff = effSpeed(r);
   r.dist += eff * dt;
   r.curve = Math.sin(r.time * 0.23) * 0.00035 + Math.sin(r.time * 0.61) * 0.00015;
@@ -495,7 +590,7 @@ export function update(dt) {
   }
 
   if (!r.event && r.time >= r.nextEventAt) {
-    const ev = r.rng.pick(EVENTS);
+    const ev = r.pendingEvent;
     r.event = ev;
     r.eventT = ev.dur;
     r.nextEventAt = Infinity;
@@ -517,6 +612,14 @@ export function update(dt) {
   }
 
   music.bpm = 118 + Math.min(70, eff * 0.35);
+
+  const ev = tickAbility(r.ability, dt);
+  if (ev === 'ended') abilityEnded(r.ability);
+  else if (ev === 'ready') abilityReady();
+  if (r.beam) {
+    r.beam.t -= dt;
+    if (r.beam.t <= 0) r.beam = null;
+  }
 
   if (r.boss && r.boss.dying) {
     const b = r.boss;

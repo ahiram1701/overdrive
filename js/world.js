@@ -4,6 +4,8 @@ import { fx } from './fx.js';
 import { sfx } from './audio.js';
 import { project } from './render.js';
 import { playerBox } from './player.js';
+import { isActive } from './abilities.js';
+import { trackSpeed } from './pacing.js';
 import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped } from './game.js';
 
 export const BIOMES = [
@@ -129,7 +131,8 @@ function genRow(r) {
   const pat = rng.weighted(pats).id;
   const kind = PATTERNS[pat](r, z, L, rng);
 
-  const spd = r.speed;
+  // velocidad de referencia en esta distancia (no la del momento): el overdrive no cambia la pista
+  const spd = trackSpeed(z, r.stats.speedMult);
   let tGap = 0.95 - clamp(r.section / 9, 0, 1) * 0.42;
   if (r.risk) tGap *= 0.8;
   if (r.boss) tGap *= 1.7;
@@ -205,6 +208,40 @@ export function breakObj(o, cause = 'dash') {
   }
 }
 
+// Rompe todo obstáculo por delante (en los 3 carriles) hasta rzMax. Devuelve cuántos.
+export function sweep(rzMax) {
+  const r = G.run;
+  let n = 0;
+  for (const o of r.objects) {
+    if (!o.alive || !isObstacle(o)) continue;
+    const rz = o.z - r.dist;
+    if (rz > 0 && rz < rzMax) {
+      breakObj(o, 'chain');
+      n++;
+    }
+  }
+  return n;
+}
+
+// LÁSER: rompe lo primero que haya en tu carril (y si es el núcleo del jefe, le hace daño)
+export function fireLaser() {
+  const r = G.run, px = G.player.x * LANE_W;
+  let best = null, bestRz = VIEW;
+  for (const o of r.objects) {
+    if (!o.alive || !(isObstacle(o) || o.type === 'core')) continue;
+    const rz = o.z - r.dist;
+    if (rz > 0 && rz < bestRz && (o.all || Math.abs(o.x - px) < 0.6)) {
+      best = o;
+      bestRz = rz;
+    }
+  }
+  r.beam = { x: px, rz: bestRz, t: 0.18 };
+  if (!best) return null;
+  if (best.type === 'core') onCore(best);
+  else breakObj(best, 'dash');
+  return best;
+}
+
 export function quake() {
   const r = G.run, p = G.player;
   const range = Math.max(9, runSpeed(r) * 0.18) * (r.synergies.has('meteoro') ? 2 : 1);
@@ -240,7 +277,8 @@ function resolve(o) {
   }
   const hx = Math.abs(pb.x - o.x) < o.w / 2 + pb.hw;
   const hy = pb.y1 > o.y0 && pb.y0 < o.y1;
-  const powered = p.dash > 0 || r.odTime > 0;
+  // ARIETE: rompe todo lo que toca, como el dash
+  const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram');
 
   if (o.type === 'core') {
     if (hx && powered) onCore(o);
@@ -248,6 +286,8 @@ function resolve(o) {
   }
   if (hx && hy) {
     if (powered) return breakObj(o, 'dash');
+    // FASE: intangible; atravesar algo cuenta como PERFECTO. Los disparos del Cazador sí te dan.
+    if (isActive(r.ability, 'phase') && !o.hunter) return onNearMiss(o, true);
     if (p.invuln > 0 && !o.hunter) return;
     return onHit(o);
   }

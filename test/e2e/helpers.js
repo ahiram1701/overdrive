@@ -20,7 +20,7 @@ export async function startRun(page, { seed, god = false } = {}) {
 
 // Bot que esquiva leyendo los obstáculos y pulsando teclas, como haría un jugador.
 // Avanza la simulación con D.step(1/60) sin depender de requestAnimationFrame.
-export async function botInPage({ seconds, god = false, until = null }) {
+export async function botInPage({ seconds, god = false, until = null, ability = false }) {
   const G = window.G, D = window.D;
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const key = (k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
@@ -28,7 +28,7 @@ export async function botInPage({ seconds, god = false, until = null }) {
   // cada obstáculo dice cómo se esquiva (o.need, desde DIM en world.js); la tabla es solo respaldo
   const needOf = (o) => o.need || solid[o.type];
   const visible = (id) => !document.getElementById(id).classList.contains('hidden');
-  let t = 0;
+  let t = 0, uses = 0;
   while (t < seconds) {
     if (until === 'boss' && G.run.bosses >= 1) break;
     if (G.mode === 'cards') {
@@ -69,12 +69,18 @@ export async function botInPage({ seconds, god = false, until = null }) {
       } else if (need === 'jump' && !p.air && tt < 0.2) key(inv ? 'ArrowDown' : 'ArrowUp');
       else if (need === 'slide' && p.slide <= 0.05 && tt < 0.25) key(inv ? 'ArrowUp' : 'ArrowDown');
     }
+    // habilidad: solo en momentos tranquilos (nada que esquivar en 0.7 s en ningún carril),
+    // para que el Gancho no lance al bot contra un muro
+    if (ability && r.ability.cdLeft <= 0 && r.ability.active <= 0 && [-1, 0, 1].every((l) => !danger(l, -0.05, 0.7).length)) {
+      key('e');
+      uses++;
+    }
     D.step(1 / 60, false);
     t += 1 / 60;
   }
   const r = G.run;
   return {
     t, mode: G.mode, section: r.section, bosses: r.bosses, near: r.nearMisses,
-    maxMult: r.maxMult, score: r.score, hits: G.hits || [],
+    maxMult: r.maxMult, score: r.score, hits: G.hits || [], uses,
   };
 }
