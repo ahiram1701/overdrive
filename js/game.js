@@ -9,6 +9,7 @@ import { newPlayer, updatePlayer } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz } from './world.js';
 import { project } from './render.js';
 import { ui } from './ui.js';
+import { missions } from './missions.js';
 
 const EVENTS = [
   { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
@@ -62,6 +63,7 @@ export function newRun(daily = false) {
   musicStart();
   G.mode = 'play';
   if (save.runs === 0) ui.tutorial();
+  if (daily) mission('daily');
   if (save.meta.card) openCards({ title: 'CARTA INICIAL', next: false });
 }
 
@@ -78,6 +80,7 @@ function startSection() {
   r.event = null;
   // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
   r.hunters = Math.max(0, r.hunters - 1);
+  mission('section', r.section + 1);
   if (isBoss) {
     r.sectionEnd = Infinity;
     spawnBoss(r);
@@ -107,7 +110,22 @@ export function addChain(n) {
       fx.vibe([20, 30, 20]);
     }
   }
-  if (r.mult !== before) ui.pulseMult();
+  if (r.mult !== before) {
+    ui.pulseMult();
+    mission('mult', r.mult);
+  }
+}
+
+// Progreso de misiones diarias; si alguna se completa, se celebra en el momento.
+function mission(kind, value = 1) {
+  for (const m of missions.track(kind, value)) {
+    fx.banner('✔ MISIÓN COMPLETADA', `${m.text}  ·  +${m.gems} 💎`, '#30d158', true);
+    fx.flash('#30d158', 0.4);
+    sfx.chest();
+    fx.vibe([30, 40, 30, 40, 80]);
+    if (G.run) G.run.missionsDone = (G.run.missionsDone || 0) + 1;
+    persist();
+  }
 }
 
 function resetChain() {
@@ -136,6 +154,7 @@ function activateOD() {
   const r = run();
   r.od = 0;
   r.odTime = r.stats.odDur;
+  mission('od');
   music.od = true;
   sfx.od();
   fx.banner('OVERDRIVE', '¡INVENCIBLE!', '#ff2bd6', true);
@@ -156,6 +175,8 @@ export function onNearMiss(o, perfect) {
   const ps = playerScreen();
   const bonus = r.event?.id === 'nearonly' ? 3 : 1;
   addChain(perfect ? 2 : 1);
+  mission('near');
+  if (perfect) mission('perfect');
   addScore((perfect ? 150 : 60) * bonus, perfect ? '¡PERFECTO!' : 'NEAR-MISS', ps.x, ps.y - ps.s * 0.6, perfect ? '#ffe600' : '#5ac8fa');
   addOD(perfect ? 0.12 : 0.07);
   if (perfect && r.synergies.has('zen')) addOD(0.15);
@@ -226,6 +247,7 @@ export function hunterEscaped() {
   const ps = playerScreen();
   // premio decreciente y sin combo: escapar no debe compensar más que jugar (antes se farmeaba)
   addScore(2000 / Math.max(1, r.hunters), '¡ESCAPASTE!', ps.x, ps.y - 60, '#ff3b6b');
+  mission('hunter');
   fx.banner('¡ESCAPASTE!', 'el Cazador se retira', '#ff3b6b');
   fx.flash('#fff', 0.35);
   sfx.milestone();
@@ -236,6 +258,7 @@ export function onCoin(o) {
   const r = run();
   const v = r.stats.coinValue * (r.odTime > 0 && r.synergies.has('supernova') ? 3 : 1);
   r.coins += v;
+  mission('coins', v);
   r.coinStreak = r.time - r.lastCoinT < 0.45 ? r.coinStreak + 1 : 0;
   r.lastCoinT = r.time;
   addChain(0.2 + (r.synergies.has('sangre') ? 0.3 : 0));
@@ -269,6 +292,8 @@ export function bossDefeated() {
   const r = run();
   r.boss.dying = 2;
   r.bosses++;
+  mission('boss');
+  if (r.shields === 0) mission('bossNoShield');
   r.coins += 50;
   clearBossStuff();
   addScore(5000, null);
@@ -358,6 +383,7 @@ function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, r
 export function pickCard(id) {
   const r = run();
   const fresh = applyCard(r, id);
+  if (fresh.length) mission('synergy', fresh.length);
   sfx.card();
   const c = CARD_BY_ID[id];
   fx.notice(`${c.icon} ${c.name}`);
@@ -398,6 +424,7 @@ function die() {
   // raíz cuadrada: la puntuación crece de forma explosiva, las gemas no deben hacerlo
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section);
   if (r.daily) gems = Math.ceil(gems * 1.5);
+  const prevBest = save.best;
   const isBest = r.score > save.best;
   save.gems += gems;
   save.best = Math.max(save.best, Math.floor(r.score));
@@ -410,7 +437,7 @@ function die() {
   }
   save.runs++;
   persist();
-  r.result = { score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Bucle ----------
@@ -433,6 +460,15 @@ export function update(dt) {
   r.curve = Math.sin(r.time * 0.23) * 0.00035 + Math.sin(r.time * 0.61) * 0.00015;
 
   if (r.event?.id !== 'nearonly') r.score += eff * dt * 0.5 * r.mult * scoreMult(r);
+
+  // superar el récord se celebra en el momento, no al morir
+  if (!r.recordShown && save.best > 0 && r.score > save.best) {
+    r.recordShown = true;
+    fx.banner('¡NUEVO RÉCORD!', 'sigue, que cada punto cuenta', '#ffe600', true);
+    fx.flash('#ffe600', 0.5);
+    sfx.milestone();
+    fx.vibe([40, 30, 40, 30, 120]);
+  }
 
   r.chainT += dt;
   if (r.chainT > 3 && r.chain > 0) {
@@ -471,6 +507,7 @@ export function update(dt) {
   const kmh = r.speed * 10; // sin el x1.5 del overdrive: si no, su banner tapa al de OVERDRIVE
   while (r.speedMark < SPEED_MARKS.length && kmh >= SPEED_MARKS[r.speedMark][0]) {
     fx.banner(SPEED_MARKS[r.speedMark][1], '', '#7df9ff');
+    mission('speed', SPEED_MARKS[r.speedMark][0]);
     fx.flash('#7df9ff', 0.3);
     sfx.milestone();
     r.speedMark++;

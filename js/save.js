@@ -15,6 +15,7 @@ const DEFAULTS = {
   meta: { shield: false, card: false },
   settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal' },
   runs: 0,
+  missions: { key: '', list: [] },
 };
 
 function merge(base, src) {

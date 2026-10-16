@@ -95,7 +95,32 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
   overflow-y: auto; touch-action: pan-y;
   animation: fadein .2s ease-out;
 }
+/* centrado con márgenes automáticos: con justify-content:center, lo que desborda
+   quedaría cortado por arriba sin poder hacer scroll hasta ello */
+.overlay { justify-content: flex-start; }
+.overlay > :first-child { margin-top: auto; }
+.overlay > :last-child { margin-bottom: auto; }
 #menu { background: linear-gradient(rgba(5,0,12,.2), rgba(5,0,12,.75)); }
+
+/* misiones diarias */
+.missions { width: min(360px, 100%); display: flex; flex-direction: column; gap: 6px; }
+.missions h3 { margin: 0; text-align: center; font-size: 12px; }
+.mission {
+  --dc: #5ac8fa;
+  padding: 7px 10px; border-radius: 10px; background: var(--panel);
+  border: 1px solid rgba(255,255,255,.12); border-left: 3px solid var(--dc);
+}
+.mission.d-medium { --dc: #bf5af2; }
+.mission.d-hard { --dc: #ff9f0a; }
+.mission.done { border-color: #30d158; background: rgba(48,209,88,.12); }
+.m-top { display: flex; justify-content: space-between; gap: 8px; font: 700 13px var(--font); }
+.m-top b { color: var(--yellow); white-space: nowrap; font-size: 12px; }
+.m-bar { height: 4px; margin: 5px 0 3px; border-radius: 2px; background: rgba(255,255,255,.12); overflow: hidden; }
+.m-bar i { display: block; height: 100%; background: var(--dc); transform-origin: left; }
+.mission.done .m-bar i { background: #30d158; }
+.mission small { color: var(--muted); font-size: 11px; }
+.missions.compact .mission { padding: 5px 8px; }
+.missions.compact .m-top { font-size: 12px; }
 #death, #pause, #shop, #cards { background: radial-gradient(ellipse at center, rgba(20,4,40,.82), rgba(5,0,12,.95)); }
 @keyframes fadein { from { opacity: 0; } }
 

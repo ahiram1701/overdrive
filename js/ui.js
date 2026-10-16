@@ -4,6 +4,7 @@ import { save, persist } from './save.js';
 import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
+import { missions } from './missions.js';
 import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed } from './game.js';
 
@@ -59,6 +60,21 @@ function cardNode(c, run, extra = '') {
     ${syn ? `<span class="c-syn">⚡ SINERGIA: ${syn}</span>` : ''}
     ${extra}`;
   return n;
+}
+
+// Misiones de hoy con barra de progreso
+function missionsHTML(title = 'MISIONES DE HOY') {
+  const list = missions.today();
+  const rows = list.map((m) => {
+    const k = Math.min(1, m.progress / m.n);
+    const prog = m.mode === 'best' && !m.done && m.progress ? `mejor: ${fmt(m.progress)}` : `${fmt(m.progress)}/${fmt(m.n)}`;
+    return `<div class="mission d-${m.diff}${m.done ? ' done' : ''}">
+      <div class="m-top"><span>${m.done ? '✔ ' : ''}${m.text}</span><b>+${m.gems} 💎</b></div>
+      <div class="m-bar"><i style="transform:scaleX(${k})"></i></div>
+      <small>${m.done ? 'completada' : prog}</small>
+    </div>`;
+  }).join('');
+  return `<h3>${title}</h3>${rows}`;
 }
 
 function buildSummary(run) {
@@ -119,6 +135,7 @@ export const ui = {
     $('mBest').textContent = fmt(save.best);
     $('mGems').textContent = fmt(save.gems);
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
+    $('mMissions').innerHTML = missionsHTML();
     show('menu');
   },
 
@@ -264,6 +281,10 @@ export const ui = {
     ];
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+    // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
+    $('dExtra').textContent = res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
+    $('dBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
+    $('dMissions').innerHTML = missionsHTML(res.missionsDone ? `MISIONES · ${res.missionsDone} completada${res.missionsDone > 1 ? 's' : ''} en esta partida` : 'MISIONES DE HOY');
     show('death');
   },
 

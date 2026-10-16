@@ -155,6 +155,27 @@ test('la misma semilla genera la misma pista con y sin "Carta inicial"', async (
   expect(withCard).toEqual(plain);
 });
 
+test('misiones: el menú muestra 3 y completar una en partida paga gemas al momento', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?nosw');
+  await expect(page.locator('#mMissions .mission')).toHaveCount(3);
+  await startRun(page, { seed: 1 });
+  const res = await page.evaluate(async (bot) => {
+    const G = window.G;
+    const { save } = await import('/js/save.js');
+    const { todayKey } = await import('/js/rng.js');
+    save.missions = { key: todayKey(), list: [{ kind: 'near', mode: 'sum', diff: 'easy', n: 3, text: 'Haz 3 near-miss', gems: 15, progress: 0, done: false }] };
+    const gems0 = save.gems;
+    const run = new Function(`return (${bot})`)();
+    await run({ seconds: 30 });
+    return { done: save.missions.list[0].done, gained: save.gems - gems0, completedInRun: G.run.missionsDone || 0 };
+  }, botInPage.toString());
+  expect(res.done).toBe(true);
+  expect(res.gained).toBeGreaterThanOrEqual(15);
+  expect(res.completedInRun).toBe(1);
+  expect(errors).toEqual([]);
+});
+
 test('se llega y se derrota al primer jefe pasando por cartas, cofres y tienda', async ({ page }) => {
   const errors = trackErrors(page);
   await startRun(page, { seed: 7, god: true });
