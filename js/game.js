@@ -1,0 +1,458 @@
+// Reglas de la partida: velocidad, puntuación, combo, overdrive, tramos, eventos, recompensas y muerte.
+import { G, LANE_W, clamp, fmt } from './state.js';
+import { makeRng, todayKey, hashString } from './rng.js';
+import { save, persist } from './save.js';
+import { fx } from './fx.js';
+import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
+import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID } from './upgrades.js';
+import { newPlayer, updatePlayer } from './player.js';
+import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz } from './world.js';
+import { project } from './render.js';
+import { ui } from './ui.js';
+
+const EVENTS = [
+  { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
+  { id: 'coinrain', name: '¡LLUVIA DE MONEDAS!', sub: 'cógelas todas', dur: 5, color: '#ffcc00' },
+  { id: 'flip', name: '¡GRAVEDAD INVERTIDA!', sub: 'el mundo al revés', dur: 5, color: '#bf5af2' },
+  { id: 'nearonly', name: 'SOLO NEAR-MISS', sub: 'x3 por near-miss · la distancia no puntúa', dur: 8, color: '#5ac8fa' },
+];
+
+const MULT_WORDS = [[5, '¡BIEN!'], [10, '¡BRUTAL!'], [20, '¡SALVAJE!'], [30, '¡INSANO!'], [50, '¡IMPARABLE!'], [75, '¡DIVINO!'], [99, '¡¡MÁXIMO!!']];
+const SPEED_MARKS = [[500, '500 KM/H'], [800, '800 KM/H'], [1000, '1000 KM/H'], [1235, '¡MACH 1!'], [1600, '1600 KM/H'], [2000, '2000 KM/H'], [2470, '¡¡MACH 2!!'], [3705, '¡¡¡MACH 3!!!']];
+
+const run = () => G.run;
+export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
+const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 2 : 1);
+
+// ---------- Inicio ----------
+export function newRun(daily = false) {
+  const seed = daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
+  const r = {
+    daily, rng: makeRng(seed), stats: baseStats(),
+    dist: 0, time: 0, speed: 28, curve: 0,
+    score: 0, coins: 0, chain: 0, mult: 1, maxMult: 1, chainT: 0, coinStreak: 0, lastCoinT: -9,
+    od: 0, odTime: 0,
+    section: -1, biome: BIOMES[0], sectionEnd: 0, genZ: 40, genHold: false, forkPlaced: false, forkDone: false, forkRewards: {},
+    risk: false, riskNext: false, luck: 1, luckNext: 1, minRarityNext: null,
+    objects: [], event: null, eventT: 0, nextEventAt: Infinity, rainAcc: 0,
+    boss: null, cards: {}, synergies: new Set(),
+    shields: 0, dashCharges: 1, blockedLane: null,
+    nearMisses: 0, breaks: 0, bosses: 0, speedMark: 0, vampN: 0,
+    player: null, result: null,
+  };
+  G.run = r;
+  G.player = newPlayer();
+  r.player = G.player;
+  (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).apply(r);
+  if (save.meta.shield) r.shields += 1;
+  r.dashCharges = r.stats.dashMax;
+
+  fx.clear();
+  G.slowmo = 0;
+  G.hitstop = 0;
+  ui.hideAll();
+  ui.showHUD(true);
+  startSection();
+  musicStart();
+  G.mode = 'play';
+  if (save.runs === 0) ui.tutorial();
+  if (save.meta.card) openCards({ title: 'CARTA INICIAL', next: false });
+}
+
+function startSection() {
+  const r = run();
+  r.section++;
+  const isBoss = r.section % 3 === 2;
+  r.biome = BIOMES[r.section % BIOMES.length];
+  r.risk = r.riskNext;
+  r.riskNext = false;
+  r.forkPlaced = false;
+  r.genHold = false;
+  r.genZ = Math.max(r.genZ, r.dist + 45);
+  r.event = null;
+  if (isBoss) {
+    r.sectionEnd = Infinity;
+    spawnBoss(r);
+    r.nextEventAt = Infinity;
+  } else {
+    r.sectionEnd = r.genZ + effSpeed(r) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
+    r.nextEventAt = r.section >= 1 && r.rng.chance(0.6) ? r.time + r.rng.range(5, 10) : Infinity;
+    fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent, 1.8, 60);
+  }
+  music.biome = r.biome.music;
+  music.intensity = Math.min(3, r.section);
+}
+
+// ---------- Combo / puntos / overdrive ----------
+export function addChain(n) {
+  const r = run();
+  const before = r.mult;
+  r.chain = Math.min(98.99, r.chain + n);
+  r.chainT = 0;
+  r.mult = Math.min(99, 1 + Math.floor(r.chain));
+  if (r.mult > r.maxMult) r.maxMult = r.mult;
+  for (const [k, word] of MULT_WORDS) {
+    if (before < k && r.mult >= k) {
+      fx.banner(`x${k}`, word, `hsl(${k * 7},100%,60%)`, 1.2, 84);
+      fx.flash('#fff', 0.25);
+      sfx.milestone();
+      fx.vibe([20, 30, 20]);
+    }
+  }
+  if (r.stats.vampire) {
+    r.vampN += n;
+    while (r.vampN >= 25) {
+      r.vampN -= 25;
+      r.shields++;
+      fx.banner('+🛡️', 'VAMPIRO', '#30d158', 0.9, 56);
+    }
+  }
+  if (r.mult !== before) ui.pulseMult();
+}
+
+function resetChain() {
+  const r = run();
+  r.chain = 0;
+  r.mult = 1;
+  r.vampN = 0;
+}
+
+export function addScore(base, label, x, y, color = '#fff') {
+  const r = run();
+  const pts = base * r.mult * scoreMult(r);
+  r.score += pts;
+  if (label && x != null) fx.text(`${label} +${fmt(pts)}`, x, y, color, 22);
+  return pts;
+}
+
+function addOD(v) {
+  const r = run();
+  if (r.odTime > 0) return;
+  r.od = Math.min(1, r.od + v * r.stats.odRate);
+  if (r.od >= 1) activateOD();
+}
+
+function activateOD() {
+  const r = run();
+  r.od = 0;
+  r.odTime = r.stats.odDur;
+  music.od = true;
+  sfx.od();
+  fx.banner('OVERDRIVE', '¡INVENCIBLE!', '#ff2bd6', 1.6, 80);
+  fx.flash('#fff', 0.7);
+  fx.shake(22);
+  fx.vibe([60, 40, 120]);
+}
+
+// ---------- Hooks del mundo ----------
+function playerScreen() {
+  const p = G.player;
+  return project(p.x * LANE_W, p.y + 0.4, 0) || { x: G.W / 2, y: G.H * 0.7, s: 100 };
+}
+
+export function onNearMiss(o, perfect) {
+  const r = run();
+  r.nearMisses++;
+  const ps = playerScreen();
+  const bonus = r.event?.id === 'nearonly' ? 3 : 1;
+  addChain(perfect ? 2 : 1);
+  addScore((perfect ? 150 : 60) * bonus, perfect ? '¡PERFECTO!' : 'NEAR-MISS', ps.x, ps.y - ps.s * 0.6, perfect ? '#ffe600' : '#5ac8fa');
+  addOD(perfect ? 0.12 : 0.07);
+  if (perfect && r.synergies.has('zen')) addOD(0.15);
+  if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.5);
+  fx.slowmo((perfect ? 0.22 : 0.12) * r.stats.nearWin, 0.3);
+  fx.burst(ps.x, ps.y, perfect ? 22 : 10, perfect ? '#ffe600' : '#5ac8fa', 380, 4, 0.5, 0);
+  if (perfect) fx.ring(ps.x, ps.y, '#ffe600', 120, 0.3, 6);
+  fx.shake(perfect ? 5 : 2);
+  fx.vibe(perfect ? 22 : 10);
+  sfx.near(perfect, r.mult);
+}
+
+export function onBreak(o, cause, sp) {
+  const r = run();
+  r.breaks++;
+  addChain(1);
+  const s = sp || playerScreen();
+  addScore(cause === 'chain' ? 40 : 80, cause === 'chain' ? 'CADENA' : '¡CRASH!', s.x, s.y - 30, '#ff9f0a');
+  addOD(0.05);
+}
+
+export function onHit(o) {
+  const r = run(), p = G.player;
+  const ps = playerScreen();
+  if (G.god) return breakObj(o, 'dash');
+  if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id });
+  if (r.shields > 0) {
+    r.shields--;
+    p.invuln = 1.2;
+    breakObj(o, 'shield');
+    if (!r.stats.insurance) resetChain();
+    fx.banner('¡ESCUDO ROTO!', r.shields ? `quedan ${r.shields}` : 'último aviso', '#30d158', 1, 52);
+    fx.flash('#f33', 0.45);
+    fx.shake(16);
+    fx.vibe(90);
+    sfx.shield();
+    fx.ring(ps.x, ps.y, '#30d158', 220, 0.4, 14);
+    return;
+  }
+  die();
+}
+
+export function onCoin(o) {
+  const r = run();
+  const v = r.stats.coinValue * (r.odTime > 0 && r.synergies.has('supernova') ? 3 : 1);
+  r.coins += v;
+  r.coinStreak = r.time - r.lastCoinT < 0.45 ? r.coinStreak + 1 : 0;
+  r.lastCoinT = r.time;
+  addChain(0.2 + (r.synergies.has('sangre') ? 0.3 : 0));
+  r.score += 10 * v * r.mult * scoreMult(r);
+  addOD(0.012);
+  sfx.coin(r.coinStreak);
+  const sp = project(o.x, o.y, 0.3);
+  if (sp) fx.burst(sp.x, sp.y, 6, '#ffcc00', 220, 3, 0.35, 300);
+}
+
+export function onCore(o) {
+  o.alive = false;
+  const ps = playerScreen();
+  addChain(3);
+  addScore(1000, '¡GOLPE AL JEFE!', ps.x, ps.y - 60, '#ff2d55');
+  hurtBoss();
+}
+
+function clearBossStuff() {
+  const r = run();
+  for (const o of r.objects) {
+    if (o.alive && (o.type === 'shot' || o.type === 'core')) {
+      o.alive = false;
+      const sp = screenOf(o);
+      if (sp) fx.burst(sp.x, sp.y, 8, '#ffd60a', 200, 3, 0.4, 0);
+    }
+  }
+}
+
+export function bossDefeated() {
+  const r = run();
+  r.boss.dying = 2;
+  r.bosses++;
+  r.coins += 50;
+  clearBossStuff();
+  addScore(5000, null);
+  fx.banner('¡JEFE DESTRUIDO!', '+50 🪙  ·  +5 💎', '#ffe600', 2.2, 64);
+  fx.flash('#fff', 0.9);
+  fx.shake(35);
+  fx.vibe([100, 50, 100, 50, 250]);
+  sfx.boom();
+  sfx.milestone();
+}
+
+export function bossEscaped() {
+  const r = run();
+  r.boss = null;
+  clearBossStuff();
+  r.sectionEnd = r.genZ;
+  fx.banner('HA ESCAPADO…', 'la próxima vez', '#aaa', 1.6, 52);
+}
+
+// ---------- Bifurcación / cartas ----------
+export function onFork(reward) {
+  const r = run();
+  const info = FORK_REWARDS[reward];
+  fx.flash(info.color, 0.4);
+  fx.shake(8);
+  sfx.card();
+  const ps = playerScreen();
+  fx.burst(ps.x, ps.y, 30, info.color, 500, 5, 0.6, 0);
+  switch (reward) {
+    case 'riesgo':
+      r.riskNext = true;
+      fx.banner('☠ RIESGO', 'x2 puntos en el próximo tramo', info.color, 1.4, 60);
+      return openCards();
+    case 'escudo':
+      r.shields++;
+      fx.banner('+1 🛡️', 'ESCUDO', info.color, 1.2, 60);
+      return openCards();
+    case 'monedas': {
+      const c = 30 + r.section * 12;
+      r.coins += c;
+      fx.banner(`+${c} 🪙`, 'MONEDAS', info.color, 1.2, 60);
+      for (let i = 0; i < 4; i++) fx.burst(G.W * Math.random(), G.H * 0.3, 12, '#ffcc00', 300, 5, 1, 600);
+      return openCards();
+    }
+    case 'epica':
+      return openCards({ minRarity: 'rare', title: 'CARTAS RARAS' });
+    case 'tienda':
+      G.mode = 'shop';
+      musicDuck(true);
+      return ui.showShop(r, () => openCards());
+    case 'cofre': {
+      G.mode = 'chest';
+      musicDuck(true);
+      const res = rollChest(r);
+      return ui.showChest(res, () => {
+        if (res.kind === 'coins') r.coins += res.amount;
+        if (res.kind === 'shield') r.shields += res.amount;
+        if (res.kind === 'od') r.od = 0.999;
+        openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : {});
+      });
+    }
+  }
+}
+
+function rollChest(r) {
+  const k = r.rng.weighted([{ w: 40, k: 'coins' }, { w: 20, k: 'shield' }, { w: 20, k: 'od' }, { w: 20, k: 'epic' }]).k;
+  if (k === 'coins') { const a = r.rng.int(40, 100) + r.section * 15; return { kind: k, amount: a, icon: '🪙', label: `+${a} MONEDAS` }; }
+  if (k === 'shield') return { kind: k, amount: 2, icon: '🛡️', label: '+2 ESCUDOS' };
+  if (k === 'od') return { kind: k, icon: '🔥', label: 'OVERDRIVE INSTANTÁNEO' };
+  return { kind: k, icon: '🃏', label: 'CARTA ÉPICA' };
+}
+
+function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true } = {}) {
+  const r = run();
+  let offers = offerCards(r, 3, minRarity);
+  if (!offers.length) offers = offerCards(r, 3);
+  const finish = () => {
+    if (next) startSection();
+    resume();
+  };
+  if (!offers.length) return finish();
+  G.mode = 'cards';
+  musicDuck(true);
+  ui.showCards(offers, r, title, (id) => {
+    pickCard(id);
+    finish();
+  });
+}
+
+export function pickCard(id) {
+  const r = run();
+  const fresh = applyCard(r, id);
+  sfx.card();
+  const c = CARD_BY_ID[id];
+  fx.banner(`${c.icon} ${c.name.toUpperCase()}`, '', '#fff', 1, 44);
+  for (const s of fresh) {
+    fx.banner(`¡SINERGIA!`, s.name, '#ff9f0a', 2, 70);
+    fx.flash('#ff9f0a', 0.5);
+    sfx.milestone();
+  }
+  // si el carril bloqueado es el actual, apartar al jugador
+  if (r.blockedLane !== null && G.player.lane === r.blockedLane) G.player.lane = 0;
+}
+
+export function resume() {
+  G.mode = 'play';
+  musicDuck(false);
+  ui.hideAll();
+  ui.showHUD(true);
+  fx.slowmo(0.45, 0.35);
+}
+
+// ---------- Muerte ----------
+function die() {
+  const r = run(), p = G.player;
+  G.mode = 'dying';
+  G.dyingT = 1.0;
+  p.dead = true;
+  const ps = playerScreen();
+  for (const c of ['#fff', '#ff2d55', '#ffcc00', r.biome.obs]) fx.burst(ps.x, ps.y, 40, c, 800, 7, 1.1, 500);
+  fx.ring(ps.x, ps.y, '#fff', 500, 0.6, 24);
+  fx.shake(32);
+  fx.flash('#fff', 0.9);
+  fx.vibe([120, 60, 220]);
+  sfx.die();
+  musicStop();
+
+  // raíz cuadrada: la puntuación crece de forma explosiva, las gemas no deben hacerlo
+  let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section);
+  if (r.daily) gems = Math.ceil(gems * 1.5);
+  const isBest = r.score > save.best;
+  save.gems += gems;
+  save.best = Math.max(save.best, Math.floor(r.score));
+  save.bestDist = Math.max(save.bestDist, Math.floor(r.dist));
+  let dailyBest = false;
+  if (r.daily) {
+    if (save.daily.key !== todayKey()) save.daily = { key: todayKey(), best: 0 };
+    dailyBest = r.score > save.daily.best;
+    save.daily.best = Math.max(save.daily.best, Math.floor(r.score));
+  }
+  save.runs++;
+  persist();
+  r.result = { score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+}
+
+// ---------- Bucle ----------
+export function update(dt) {
+  if (G.mode === 'dying') {
+    G.dyingT -= dt;
+    if (G.dyingT <= 0) {
+      G.mode = 'dead';
+      ui.showHUD(false);
+      ui.showDeath(G.run.result);
+    }
+    return;
+  }
+  if (G.mode !== 'play') return;
+  const r = run();
+  r.time += dt;
+  r.speed = (28 + 95 * (1 - Math.exp(-r.time / 140)) + r.time * 0.08) * r.stats.speedMult;
+  const eff = effSpeed(r);
+  r.dist += eff * dt;
+  r.curve = Math.sin(r.time * 0.23) * 0.00035 + Math.sin(r.time * 0.61) * 0.00015;
+
+  if (r.event?.id !== 'nearonly') r.score += eff * dt * 0.5 * r.mult * scoreMult(r);
+
+  r.chainT += dt;
+  if (r.chainT > 3 && r.chain > 0) {
+    r.chain = Math.max(0, r.chain - dt * 3);
+    const m = Math.min(99, 1 + Math.floor(r.chain));
+    if (m !== r.mult) { r.mult = m; ui.pulseMult(); }
+  }
+
+  if (r.odTime > 0) {
+    r.odTime -= dt;
+    if (r.odTime <= 0) { r.odTime = 0; music.od = false; }
+  } else if (r.od >= 0.999) {
+    activateOD();
+  }
+
+  if (!r.event && r.time >= r.nextEventAt) {
+    const ev = r.rng.pick(EVENTS);
+    r.event = ev;
+    r.eventT = ev.dur;
+    r.nextEventAt = Infinity;
+    fx.banner(ev.name, ev.sub, ev.color, 1.8, 54);
+    sfx.event();
+    fx.vibe([30, 30, 30]);
+  } else if (r.event) {
+    r.eventT -= dt;
+    if (r.eventT <= 0) r.event = null;
+  }
+
+  const kmh = eff * 10;
+  while (r.speedMark < SPEED_MARKS.length && kmh >= SPEED_MARKS[r.speedMark][0]) {
+    fx.banner(SPEED_MARKS[r.speedMark][1], '', '#7df9ff', 1.3, 70);
+    fx.flash('#7df9ff', 0.3);
+    sfx.milestone();
+    r.speedMark++;
+  }
+
+  music.bpm = 118 + Math.min(70, eff * 0.35);
+
+  if (r.boss && r.boss.dying) {
+    const b = r.boss;
+    b.dying -= dt;
+    const sp = project(b.x, 3.4, bossRz());
+    if (sp && Math.random() < dt * 25) {
+      fx.burst(sp.x + (Math.random() - 0.5) * sp.s * 2, sp.y + (Math.random() - 0.5) * sp.s * 1.5, 20, Math.random() < 0.5 ? '#fff' : r.biome.obs, 600, 6, 0.8, 300);
+      sfx.brk();
+      fx.shake(10);
+    }
+    if (b.dying <= 0) {
+      r.boss = null;
+      r.sectionEnd = r.genZ;
+    }
+  }
+
+  updatePlayer(dt);
+  updateWorld(dt);
+}

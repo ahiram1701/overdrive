@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0221">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="OVERDRIVE">
+  <meta name="description" content="Runner de velocidad neón. Dopamina a lo bruto.">
+  <title>OVERDRIVE</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <div class="hud-top">
+      <div class="hud-left">
+        <div id="score">0</div>
+        <div id="multWrap"><span id="mult">x1</span><div id="chainbar"><i></i></div></div>
+      </div>
+      <div class="hud-right">
+        <div id="speed">0<small> KM/H</small></div>
+        <div id="dist">0 m</div>
+        <div id="coins">🪙 0</div>
+      </div>
+    </div>
+    <div id="eventTag" class="hidden"></div>
+    <div class="hud-bottom">
+      <div id="shields"></div>
+      <div id="odbar"><i></i><span>OVERDRIVE</span></div>
+      <div id="dash"></div>
+    </div>
+    <button id="pauseBtn" aria-label="Pausa">❚❚</button>
+  </div>
+
+  <section id="menu" class="overlay">
+    <h1 class="logo">OVER<span>DRIVE</span></h1>
+    <p class="tag">dopamina a lo bruto</p>
+    <div class="stats-row">
+      <div><b id="mBest">0</b><small>récord</small></div>
+      <div><b id="mGems">0</b><small>💎 gemas</small></div>
+    </div>
+    <button class="btn big" id="btnPlay">JUGAR</button>
+    <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
+    <button class="btn ghost" id="btnHangar">HANGAR</button>
+    <div class="toggles">
+      <button class="tg" id="tgSound" aria-label="Sonido">🔊</button>
+      <button class="tg" id="tgVibe" aria-label="Vibración">📳</button>
+      <button class="tg" id="tgFx" aria-label="Efectos intensos">✨</button>
+    </div>
+    <p class="hint">Desliza ← → ↑ ↓ · doble toque = DASH</p>
+  </section>
+
+  <section id="hangar" class="overlay hidden">
+    <h2>HANGAR</h2>
+    <p class="gems">💎 <b id="hGems">0</b></p>
+    <div id="shipList" class="list"></div>
+    <h3>Mejoras permanentes</h3>
+    <div id="metaList" class="list"></div>
+    <button class="btn" id="btnHangarBack">VOLVER</button>
+  </section>
+
+  <section id="cards" class="overlay hidden">
+    <h2 id="cardsTitle">ELIGE UNA CARTA</h2>
+    <div id="cardRow" class="cards"></div>
+    <div id="buildRow" class="build"></div>
+  </section>
+
+  <section id="shop" class="overlay hidden">
+    <h2>TIENDA</h2>
+    <p class="gems">🪙 <b id="sCoins">0</b></p>
+    <div id="shopRow" class="cards"></div>
+    <div class="row">
+      <button class="btn ghost" id="btnReroll">RE-TIRAR</button>
+      <button class="btn" id="btnShopDone">SEGUIR</button>
+    </div>
+  </section>
+
+  <section id="chest" class="overlay hidden">
+    <div id="chestBox">🎁</div>
+    <div id="chestResult"></div>
+    <button class="btn hidden" id="btnChestOk">¡VAMOS!</button>
+  </section>
+
+  <section id="death" class="overlay hidden">
+    <h2 class="dead">DESTRUIDO</h2>
+    <div id="dNew" class="newrec hidden">¡NUEVO RÉCORD!</div>
+    <div id="dScore" class="bigscore">0</div>
+    <div id="dGrid" class="grid"></div>
+    <div id="dGems" class="gems"></div>
+    <p class="hint blink">toca para reintentar</p>
+    <button class="btn ghost" id="btnMenu">MENÚ</button>
+  </section>
+
+  <section id="pause" class="overlay hidden">
+    <h2>PAUSA</h2>
+    <div id="pBuild" class="build"></div>
+    <button class="btn big" id="btnResume">SEGUIR</button>
+    <button class="btn ghost" id="btnQuit">ABANDONAR</button>
+  </section>
+
+  <div id="tutorial" class="hidden">
+    <div><b>← →</b> desliza para cambiar de carril</div>
+    <div><b>↑</b> saltar · <b>↓</b> deslizarse</div>
+    <div><b>doble toque</b> = DASH (rompe todo)</div>
+    <div class="t-hot">Pasa ROZANDO los obstáculos = NEAR-MISS 🔥</div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
