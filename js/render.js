@@ -522,7 +522,7 @@ function shipColor() {
   return (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).color;
 }
 
-function drawPlayer(dt) {
+function drawPlayer() {
   const p = G.player;
   const r = G.run;
   if (p && p.dead) return;
@@ -638,12 +638,12 @@ export function render(dt) {
     list.sort((a, c) => c[0] - a[0]);
     let drewPlayer = false;
     for (const [rz, o] of list) {
-      if (!drewPlayer && rz < -0.2) { drawPlayer(dt); drewPlayer = true; }
+      if (!drewPlayer && rz < -0.2) { drawPlayer(); drewPlayer = true; }
       drawObj(o, rz, b, t);
     }
-    if (!drewPlayer) drawPlayer(dt);
+    if (!drewPlayer) drawPlayer();
   } else {
-    drawPlayer(dt);
+    drawPlayer();
   }
 
   fx.draw(ctx);

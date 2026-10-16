@@ -1,5 +1,5 @@
 // Reglas de la partida: velocidad, puntuación, combo, overdrive, tramos, eventos, recompensas y muerte.
-import { G, LANE_W, clamp, fmt } from './state.js';
+import { G, LANE_W, fmt } from './state.js';
 import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
@@ -26,7 +26,10 @@ const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 
 
 // ---------- Inicio ----------
 export function newRun(daily = false) {
-  const seed = daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
+  // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
+  const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
+  const seed = forced !== null ? Number(forced) >>> 0
+    : daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
   const r = {
     daily, rng: makeRng(seed), stats: baseStats(),
     dist: 0, time: 0, speed: 28, curve: 0,

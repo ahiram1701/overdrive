@@ -1,5 +1,5 @@
 // Service worker cache-first: el juego funciona sin conexión tras la primera carga.
-// Sube la versión de CACHE cada vez que publiques cambios.
+// El workflow de despliegue sustituye 'overdrive-v1' por 'overdrive-<sha>' en cada publicación.
 const CACHE = 'overdrive-v1';
 const ASSETS = [
   './',
