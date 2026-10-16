@@ -4,6 +4,7 @@ import { sfx } from './audio.js';
 import { fx } from './fx.js';
 import { project } from './render.js';
 import { quake } from './world.js';
+import { isActive } from './abilities.js';
 
 export function newPlayer() {
   return { lane: 0, x: 0, y: 0, vy: 0, air: false, jumps: 0, slide: 0, dash: 0, lastAction: 0, tilt: 0, invuln: 0, trailT: 0 };
@@ -41,8 +42,17 @@ export function slide() {
   doSlide();
 }
 
+// Destino del GANCHO: el carril del extremo opuesto (desde el centro, el que esté libre).
+// null si no hay ninguno válido (p.ej. el Pacto de cristal bloquea el destino).
+export function hookTarget() {
+  const p = G.player, r = G.run;
+  const order = p.lane === -1 ? [1, 0] : p.lane === 1 ? [-1, 0] : [1, -1];
+  return order.find((l) => l !== p.lane && l !== r.blockedLane) ?? null;
+}
+
 function doJump() {
   const p = G.player, s = G.run.stats;
+  if (isActive(G.run.ability, 'ram')) return; // el ARIETE va pegado al suelo
   if (!p.air) {
     p.vy = s.jumpV;
     p.air = true;
