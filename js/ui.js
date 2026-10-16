@@ -5,12 +5,14 @@ import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
-import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
+import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
+import { BOSS_NAMES } from './world.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -78,6 +80,19 @@ function missionsHTML(title = 'MISIONES DE HOY') {
   return `<h3>${title}</h3>${rows}`;
 }
 
+// Barra de rango de piloto. `from` (XP antes de la partida) anima la parte ganada.
+function rankHTML(xp, from = null) {
+  const { rank, into, need } = rankOf(xp);
+  const k = need ? into / need : 1;
+  let gained = '';
+  if (from !== null && rankOf(from).rank === rank && need) {
+    const k0 = rankOf(from).into / need;
+    gained = `<u style="left:${(k0 * 100).toFixed(1)}%;width:${((k - k0) * 100).toFixed(1)}%"></u>`;
+  }
+  return `<div class="rank-top"><b>RANGO ${rank}</b><small>${rank >= MAX_RANK ? 'MÁXIMO' : `${fmt(into)} / ${fmt(need)} XP`}</small></div>
+    <div class="rank-bar"><i style="transform:scaleX(${k.toFixed(3)})"></i>${gained}</div>`;
+}
+
 function buildSummary(run) {
   const items = Object.entries(run.cards).map(([id, n]) => `<span title="${CARD_BY_ID[id].name}">${CARD_BY_ID[id].icon}${n > 1 ? `<sub>${n}</sub>` : ''}</span>`);
   const syn = [...run.synergies].map((id) => `<span class="syn">${SYNERGIES.find((s) => s.id === id).name}</span>`);
@@ -90,6 +105,10 @@ export const ui = {
     tap($('btnDaily'), () => newRun(true));
     tap($('btnHangar'), () => ui.showHangar());
     tap($('btnHangarBack'), () => ui.showMenu());
+    tap($('btnAch'), () => ui.showAchievements());
+    tap($('btnCodex'), () => ui.showCodex());
+    tap($('btnAchBack'), () => ui.showMenu());
+    tap($('btnCodexBack'), () => ui.showMenu());
     tap($('btnResume'), () => resume());
     tap($('btnQuit'), () => { musicStop(); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
@@ -144,6 +163,7 @@ export const ui = {
     $('mGems').textContent = fmt(save.gems);
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
     $('mMissions').innerHTML = missionsHTML();
+    $('mRank').innerHTML = rankHTML(save.xp);
     show('menu');
   },
 
@@ -356,7 +376,11 @@ export const ui = {
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
     $('dExtra').textContent = res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
     $('dBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
-    $('dMissions').innerHTML = missionsHTML(res.missionsDone ? `MISIONES · ${res.missionsDone} completada${res.missionsDone > 1 ? 's' : ''} en esta partida` : 'MISIONES DE HOY');
+    // XP de la partida y rangos ganados (cada uno con su premio en gemas)
+    const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+    const achs = res.achDone.length ? `<div class="rank-up ach">🏆 ${res.achDone.length} logro${res.achDone.length > 1 ? 's' : ''} desbloqueado${res.achDone.length > 1 ? 's' : ''}</div>` : '';
+    $('dXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${achs}`;
+    $('dMissions').innerHTML = missionsHTML(res.missionsDone ?`MISIONES · ${res.missionsDone} completada${res.missionsDone > 1 ? 's' : ''} en esta partida` : 'MISIONES DE HOY');
     show('death');
   },
 
@@ -373,6 +397,34 @@ export const ui = {
     t.classList.remove('hidden');
     clearTimeout(ui._tut);
     ui._tut = setTimeout(() => t.classList.add('hidden'), 6500);
+  },
+
+  showAchievements() {
+    G.mode = 'hangar'; // pantalla estática: el mundo no se dibuja
+    $('achCount').textContent = `🏆 ${achCount(save)} / ${ACHIEVEMENTS.length}`;
+    $('achList').innerHTML = ACHIEVEMENTS.map((a) => {
+      const st = save.ach[a.id] || { p: 0, done: false };
+      const k = Math.min(1, st.p / a.n);
+      return `<div class="item ach-item t-${a.tier}${st.done ? ' sel' : ' locked'}">
+        <span class="i-icon">${st.done ? '🏆' : '🔒'}</span>
+        <span class="i-body"><b>${a.name}</b><small>${a.desc}</small>
+          ${st.done ? '' : `<div class="m-bar"><i style="transform:scaleX(${k.toFixed(3)})"></i></div><small>${fmt(st.p)} / ${fmt(a.n)}${a.mode === 'best' ? ' (en una partida)' : ''}</small>`}</span>
+        <span class="i-act">${st.done ? '✔' : `💎 ${ACH_GEMS[a.tier]}`}</span></div>`;
+    }).join('');
+    show('achs');
+  },
+
+  // Colección: lo descubierto con su icono; lo que falta, en silueta
+  showCodex() {
+    G.mode = 'hangar';
+    const cards = save.codex.cards || {}, syn = save.codex.syn || {}, bosses = save.codex.bosses || {};
+    const cell = (found, icon, name, n) => `<div class="cx${found ? '' : ' unknown'}"><span>${found ? icon : '❔'}</span><small>${found ? name : '???'}</small>${found && n ? `<em>x${n}</em>` : ''}</div>`;
+    $('codexCards').innerHTML = CARDS.map((c) => cell(cards[c.id], c.icon, c.name, cards[c.id])).join('');
+    $('codexSyn').innerHTML = SYNERGIES.map((s) => cell(syn[s.id], '⚡', s.name, syn[s.id])).join('');
+    $('codexBosses').innerHTML = BOSS_NAMES.map((b) => cell(bosses[b], '👾', b, bosses[b])).join('');
+    const found = Object.keys(cards).length + Object.keys(syn).length + Object.keys(bosses).length;
+    $('codexCount').textContent = `📖 ${found} / ${CARDS.length + SYNERGIES.length + BOSS_NAMES.length} descubiertos`;
+    show('codex');
   },
 
   pulseAbility() {

@@ -47,10 +47,15 @@
       <div><b id="mBest">0</b><small>récord</small></div>
       <div><b id="mGems">0</b><small>💎 gemas</small></div>
     </div>
+    <div id="mRank" class="rank"></div>
     <div id="mMissions" class="missions"></div>
     <button class="btn big" id="btnPlay">JUGAR</button>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
     <button class="btn ghost" id="btnHangar">HANGAR</button>
+    <div class="row">
+      <button class="btn ghost" id="btnAch">🏆 LOGROS</button>
+      <button class="btn ghost" id="btnCodex">📖 COLECCIÓN</button>
+    </div>
     <div class="toggles">
       <button class="tg" id="tgSound" aria-label="Sonido">🔊</button>
       <button class="tg" id="tgVibe" aria-label="Vibración">📳</button>
@@ -70,6 +75,25 @@
     <h3>Mejoras globales</h3>
     <div id="metaList" class="list"></div>
     <button class="btn" id="btnHangarBack">VOLVER</button>
+  </section>
+
+  <section id="achs" class="overlay hidden">
+    <h2>LOGROS</h2>
+    <p class="gems" id="achCount"></p>
+    <div id="achList" class="list"></div>
+    <button class="btn" id="btnAchBack">VOLVER</button>
+  </section>
+
+  <section id="codex" class="overlay hidden">
+    <h2>COLECCIÓN</h2>
+    <p class="gems" id="codexCount"></p>
+    <h3>Cartas</h3>
+    <div id="codexCards" class="codex-grid"></div>
+    <h3>Sinergias</h3>
+    <div id="codexSyn" class="codex-grid"></div>
+    <h3>Jefes</h3>
+    <div id="codexBosses" class="codex-grid"></div>
+    <button class="btn" id="btnCodexBack">VOLVER</button>
   </section>
 
   <section id="cards" class="overlay hidden">
@@ -104,6 +128,7 @@
     <div id="dBuild" class="build"></div>
     <div id="dMissions" class="missions compact"></div>
     <div id="dGems" class="gems"></div>
+    <div id="dXp" class="rank"></div>
     <p class="hint blink">toca para reintentar</p>
     <button class="btn ghost" id="btnMenu">MENÚ</button>
   </section>

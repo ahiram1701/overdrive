@@ -25,6 +25,7 @@ const ASSETS = [
   './js/missions.js',
   './js/abilities.js',
   './js/pacing.js',
+  './js/progress.js',
 ];
 
 self.addEventListener('install', (e) => {

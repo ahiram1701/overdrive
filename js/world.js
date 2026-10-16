@@ -311,7 +311,7 @@ function resolve(o) {
 
 // ---------- Jefe ----------
 const BOSS_RZ = 42;
-const BOSS_NAMES = ['GUSANO DE NEÓN', 'OJO DEL VACÍO', 'DEVORADOR', 'EL CENSOR', 'MAMÁ OVNI'];
+export const BOSS_NAMES = ['GUSANO DE NEÓN', 'OJO DEL VACÍO', 'DEVORADOR', 'EL CENSOR', 'MAMÁ OVNI'];
 
 export function spawnBoss(r) {
   const hp = 3 + Math.floor(r.section / 3);
