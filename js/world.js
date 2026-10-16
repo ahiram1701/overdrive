@@ -25,14 +25,15 @@ export const FORK_REWARDS = {
 const TALL = 99;
 const DIM = {
   // y1 = TALL: lo que se esquiva cambiando de carril (o deslizándose) no se puede saltar, ni con Salto doble
-  wall: { w: 0.9, y0: 0, y1: TALL, depth: 0.8 },
-  barrier: { w: 0.92, y0: 0, y1: 0.5, depth: 0.35 },
-  overhead: { w: 0.96, y0: 0.45, y1: TALL, depth: 0.35 },
-  laserLow: { w: 3, y0: 0, y1: 0.35, depth: 0.05, all: true },
-  laserHigh: { w: 3, y0: 0.45, y1: TALL, depth: 0.05, all: true },
-  mine: { w: 0.5, y0: 0, y1: 0.35, depth: 0.5 },
-  mover: { w: 0.9, y0: 0, y1: TALL, depth: 0.8 },
-  shot: { w: 0.6, y0: 0, y1: 0.5, depth: 0.6 },
+  // need = cómo se esquiva (lo lee el bot de los tests E2E: así los obstáculos nuevos traen su propia solución)
+  wall: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },
+  barrier: { w: 0.92, y0: 0, y1: 0.5, depth: 0.35, need: 'jump' },
+  overhead: { w: 0.96, y0: 0.45, y1: TALL, depth: 0.35, need: 'slide' },
+  laserLow: { w: 3, y0: 0, y1: 0.35, depth: 0.05, all: true, need: 'jump' },
+  laserHigh: { w: 3, y0: 0.45, y1: TALL, depth: 0.05, all: true, need: 'slide' },
+  mine: { w: 0.5, y0: 0, y1: 0.35, depth: 0.5, need: 'lane' },
+  mover: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },
+  shot: { w: 0.6, y0: 0, y1: 0.5, depth: 0.6, need: 'lane' },
   core: { w: 0.8, y0: 0, y1: 1.2, depth: 0.8 },
   coin: { w: 0.5, y0: 0, y1: 0.5, depth: 0 },
   fork: { w: 0.95, y0: 0, y1: 2.2, depth: 0.3 },
@@ -52,6 +53,7 @@ function add(type, lane, z, extra = {}) {
   const o = {
     type, lane, x: d.all ? 0 : lane * LANE_W, z,
     w: d.w, y0: d.y0, y1: d.y1, depth: d.depth, all: !!d.all,
+    need: d.need || null,
     alive: true, rzPrev: Infinity, t: 0, vz: 0, y: 0.3,
     ...extra,
   };

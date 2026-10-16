@@ -176,6 +176,15 @@ test('misiones: el menú muestra 3 y completar una en partida paga gemas al mome
   expect(errors).toEqual([]);
 });
 
+test('?start=N empieza en el tramo N y el bot sigue sobreviviendo ahí', async ({ page }) => {
+  await page.goto('/?debug&nosw&seed=12&start=5');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
+  expect(await page.evaluate(() => window.G.run.section)).toBe(4);
+  const res = await page.evaluate(botInPage, { seconds: 45 });
+  expect(res.hits, `golpes: ${JSON.stringify(res.hits)}`).toEqual([]);
+});
+
 test('se llega y se derrota al primer jefe pasando por cartas, cofres y tienda', async ({ page }) => {
   const errors = trackErrors(page);
   await startRun(page, { seed: 7, god: true });

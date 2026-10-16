@@ -59,6 +59,9 @@ export function newRun(daily = false) {
   G.hitstop = 0;
   ui.hideAll();
   ui.showHUD(true);
+  // ?debug&start=N: empezar en el tramo N, para testear contenido avanzado sin jugar minutos
+  const start = G.debug ? Number(new URLSearchParams(location.search).get('start')) : 0;
+  if (start > 1) r.section = start - 2;
   startSection();
   musicStart();
   G.mode = 'play';
