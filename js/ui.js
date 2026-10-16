@@ -5,7 +5,7 @@ import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
-import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint } from './upgrades.js';
+import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
 
@@ -147,42 +147,105 @@ export const ui = {
     show('menu');
   },
 
-  showHangar() {
+  // Hangar: carrusel de naves, ficha con stats comparadas con la equipada y árbol de mejoras.
+  showHangar(viewId = ui.hangarView || save.ship) {
+    ui.hangarView = viewId;
+    G.mode = 'hangar';
     $('hGems').textContent = fmt(save.gems);
-    const list = $('shipList');
-    list.innerHTML = '';
+    const view = SHIPS.find((s) => s.id === viewId) || SHIPS[0];
+    const owned = save.ships.includes(view.id);
+    const equipped = save.ship === view.id;
+    const ab = ABILITIES[view.ability];
+
+    // carrusel
+    const car = $('shipCarousel');
+    car.innerHTML = '';
     for (const s of SHIPS) {
-      const owned = save.ships.includes(s.id);
-      const sel = save.ship === s.id;
-      const row = el('button', `item${sel ? ' sel' : ''}${!owned && save.gems < s.cost ? ' locked' : ''}`);
-      row.innerHTML = `<span class="i-icon" style="color:${s.color}">▲</span>
-        <span class="i-body"><b>${s.name}</b><small>${s.desc}</small>
-          <small class="i-ab">${ABILITIES[s.ability].icon} <b>${ABILITIES[s.ability].name}</b> · ${ABILITIES[s.ability].cd} s — ${ABILITIES[s.ability].desc}</small></span>
-        <span class="i-act">${sel ? 'EN USO' : owned ? 'USAR' : `💎 ${s.cost}`}</span>`;
-      tap(row, () => {
-        if (owned) save.ship = s.id;
-        else if (save.gems >= s.cost) {
-          save.gems -= s.cost;
-          save.ships.push(s.id);
-          save.ship = s.id;
-          sfx.chest();
-          fx.vibe(40);
-        } else return;
-        persist();
-        ui.showHangar();
-      });
-      list.appendChild(row);
+      const has = save.ships.includes(s.id);
+      const lv = shipLvls(save.shipLvl, s.id);
+      const stars = lv.a + lv.b + lv.c;
+      const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}`);
+      b.style.setProperty('--sc', s.color);
+      b.innerHTML = `<span class="sc-icon">▲</span><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/9` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
+      tap(b, () => ui.showHangar(s.id));
+      car.appendChild(b);
     }
+    car.querySelector('.viewing')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+
+    // ficha: barras de esta nave comparadas con la equipada (verde = mejor, rojo = peor)
+    const lv = shipLvls(save.shipLvl, view.id);
+    const prof = shipProfile(view.id, lv);
+    const base = shipProfile(save.ship, shipLvls(save.shipLvl, save.ship));
+    const bars = PROFILE_KEYS.map((k) => {
+      const d = prof[k] - base[k];
+      const diff = equipped || Math.abs(d) < 0.01 ? '' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}</em>`;
+      return `<div class="stat"><span>${k}</span><div class="bar"><i style="transform:scaleX(${prof[k].toFixed(3)})"></i>${
+        !equipped && d < 0 ? `<u style="left:${(prof[k] * 100).toFixed(1)}%;width:${(-d * 100).toFixed(1)}%"></u>` : ''}</div>${diff}</div>`;
+    }).join('');
+    let action;
+    if (equipped) action = '<button class="btn ghost" disabled>EN USO</button>';
+    else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
+    else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
+    $('shipDetail').innerHTML = `
+      <div class="sd-head" style="--sc:${view.color}"><span class="sd-icon">▲</span><div><h3>${view.name}</h3><small>${view.desc}</small></div></div>
+      <div class="sd-ability"><span>${ab.icon}</span><div><b>${ab.name}</b> · recarga ${(ab.cd * (lv.c >= 1 ? 0.85 : 1)).toFixed(1)} s<br><small>${ab.desc}</small></div></div>
+      <div class="stats">${bars}</div>
+      ${action}`;
+    $('btnEquip') && tap($('btnEquip'), () => { save.ship = view.id; persist(); fx.vibe(20); ui.showHangar(); });
+    $('btnBuyShip') && tap($('btnBuyShip'), () => {
+      if (save.gems < view.cost) return;
+      save.gems -= view.cost;
+      save.ships.push(view.id);
+      save.ship = view.id;
+      persist();
+      sfx.chest();
+      fx.vibe([30, 40, 80]);
+      ui.showHangar();
+    });
+
+    // árbol de mejoras: 3 ramas x 3 niveles, en orden
+    const tree = $('shipTree');
+    tree.innerHTML = '';
+    tree.classList.toggle('locked', !owned);
+    for (const br of treeOf(view, ab.name, ab.icon)) {
+      const col = el('div', `branch b-${br.key}`);
+      col.innerHTML = `<h4>${br.icon} ${br.name}</h4>`;
+      br.nodes.forEach((n, i) => {
+        const bought = lv[br.key] > i;
+        const next = lv[br.key] === i;
+        const afford = owned && next && save.gems >= n.cost;
+        const node = el('button', `node${bought ? ' bought' : ''}${next ? ' next' : ''}${afford ? ' afford' : ''}${i === 2 ? ' mut' : ''}`);
+        node.innerHTML = `<small>${i === 2 ? '★ NIVEL 3' : `NIVEL ${i + 1}`}</small><span>${n.desc}</span><b>${bought ? '✔' : `💎 ${n.cost}`}</b>`;
+        tap(node, () => {
+          if (!afford) {
+            if (next && owned) { node.classList.add('shake'); fx.vibe(50); setTimeout(() => node.classList.remove('shake'), 300); }
+            return;
+          }
+          save.gems -= n.cost;
+          save.shipLvl[view.id] = { ...lv, [br.key]: i + 1 };
+          persist();
+          sfx.chest();
+          fx.vibe([20, 30, 60]);
+          ui.showHangar();
+          tree.querySelector(`.b-${br.key} .node:nth-of-type(${i + 1})`)?.classList.add('just');
+        });
+        col.appendChild(node);
+      });
+      tree.appendChild(col);
+    }
+    if (!owned) tree.insertAdjacentHTML('beforeend', '<p class="tree-lock">Compra la nave para mejorarla</p>');
+
+    // mejoras globales (todas las naves)
     const ml = $('metaList');
     ml.innerHTML = '';
     for (const m of META) {
-      const owned = save.meta[m.id];
-      const row = el('button', `item${owned ? ' sel' : ''}${!owned && save.gems < m.cost ? ' locked' : ''}`);
+      const has = save.meta[m.id];
+      const row = el('button', `item${has ? ' sel' : ''}${!has && save.gems < m.cost ? ' locked' : ''}`);
       row.innerHTML = `<span class="i-icon">${m.icon}</span>
         <span class="i-body"><b>${m.name}</b><small>${m.desc}</small></span>
-        <span class="i-act">${owned ? '✔' : `💎 ${m.cost}`}</span>`;
+        <span class="i-act">${has ? '✔' : `💎 ${m.cost}`}</span>`;
       tap(row, () => {
-        if (owned || save.gems < m.cost) return;
+        if (has || save.gems < m.cost) return;
         save.gems -= m.cost;
         save.meta[m.id] = true;
         persist();

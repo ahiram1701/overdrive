@@ -224,22 +224,27 @@ export function sweep(rzMax) {
 }
 
 // LÁSER: rompe lo primero que haya en tu carril (y si es el núcleo del jefe, le hace daño)
-export function fireLaser() {
-  const r = G.run, px = G.player.x * LANE_W;
-  let best = null, bestRz = VIEW;
-  for (const o of r.objects) {
-    if (!o.alive || !(isObstacle(o) || o.type === 'core')) continue;
-    const rz = o.z - r.dist;
-    if (rz > 0 && rz < bestRz && (o.all || Math.abs(o.x - px) < 0.6)) {
-      best = o;
-      bestRz = rz;
+// pierce = cuántos obstáculos atraviesa cada rayo; triple = un rayo por cada carril
+export function fireLaser(pierce = 1, triple = false) {
+  const r = G.run;
+  const xs = triple ? allowedLanes(r).map((l) => l * LANE_W) : [G.player.x * LANE_W];
+  const rays = [];
+  let hits = 0;
+  for (const px of xs) {
+    const targets = r.objects
+      .filter((o) => o.alive && (isObstacle(o) || o.type === 'core') && o.z - r.dist > 0 && o.z - r.dist < VIEW && (o.all || Math.abs(o.x - px) < 0.6))
+      .sort((a, b) => a.z - b.z)
+      .slice(0, pierce);
+    rays.push({ x: px, rz: targets.length ? targets[targets.length - 1].z - r.dist : VIEW });
+    for (const o of targets) {
+      if (!o.alive) continue;
+      if (o.type === 'core') onCore(o);
+      else breakObj(o, 'dash');
+      hits++;
     }
   }
-  r.beam = { x: px, rz: bestRz, t: 0.18 };
-  if (!best) return null;
-  if (best.type === 'core') onCore(best);
-  else breakObj(best, 'dash');
-  return best;
+  r.beam = { t: 0.18, rays };
+  return hits;
 }
 
 export function quake() {

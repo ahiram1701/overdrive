@@ -1,7 +1,7 @@
 // Regenera en el README las tablas de cartas, sinergias y naves a partir de js/upgrades.js.
 // Uso: npm run docs:cards
 import { readFileSync, writeFileSync } from 'node:fs';
-import { CARDS, SYNERGIES, SHIPS, RARITY, CARD_BY_ID } from '../js/upgrades.js';
+import { CARDS, SYNERGIES, SHIPS, RARITY, CARD_BY_ID, ABILITY_TREE } from '../js/upgrades.js';
 import { ABILITIES } from '../js/abilities.js';
 
 const START = '<!-- CARDS:START -->';
@@ -20,10 +20,10 @@ const syn = rows(
 );
 
 const ships = rows(
-  '| Nave | Coste | Pasiva | Habilidad activa ⚡ |',
+  '| Nave | Coste | Pasiva | Habilidad activa ⚡ | ★ Mutación (árbol, nivel 3) |',
   SHIPS.map((s) => {
     const a = ABILITIES[s.ability];
-    return `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : 'gratis'} | ${s.desc} | ${a.icon} **${a.name}** (${a.cd} s): ${a.desc} |`;
+    return `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : 'gratis'} | ${s.desc} | ${a.icon} **${a.name}** (${a.cd} s): ${a.desc} | ${ABILITY_TREE[s.ability].lvl3} |`;
   }),
 );
 

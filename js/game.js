@@ -4,7 +4,7 @@ import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR } from './upgrades.js';
+import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
@@ -53,8 +53,10 @@ export function newRun(daily = false) {
   G.player = newPlayer();
   r.player = G.player;
   const ship = SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
+  const lvls = shipLvls(save.shipLvl, ship.id);
   ship.apply(r);
-  r.ability = newAbility(ship.ability);
+  applyShipTree(r, lvls);
+  r.ability = newAbility(ship.ability, abilityMods(ship, lvls));
   G.timeWarp = 1;
   if (save.meta.shield) addShields(r, 1);
   r.dashCharges = r.stats.dashMax;
@@ -194,6 +196,8 @@ export function onNearMiss(o, perfect) {
   if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.5);
   // jugar bien recarga antes la habilidad
   if (onNearMissCd(r.ability)) abilityReady();
+  // mutación "chain": los near-miss alargan la SOBRECARGA
+  if (isActive(r.ability, 'overclock') && r.ability.mut === 'chain') r.ability.active += 0.3;
   // Vampiro solo premia jugar bien: near-miss, nunca golpes ni roturas
   if (r.stats.vampire && ++r.vampN >= VAMPIRE_NEAR) {
     r.vampN = 0;
@@ -211,6 +215,8 @@ export function onBreak(o, cause, sp) {
   const r = run();
   r.breaks++;
   addChain(1);
+  // mutación "recharge": cada rotura con el ARIETE activo recarga 1 s
+  if (isActive(r.ability, 'ram') && r.ability.mut === 'recharge') r.ability.cdLeft = Math.max(0, r.ability.cdLeft - 1);
   const s = sp || playerScreen();
   addScore(cause === 'chain' ? 40 : 80, cause === 'chain' ? 'CADENA' : '¡CRASH!', s.x, s.y - 30, '#ff9f0a');
   addOD(0.05);
@@ -225,7 +231,7 @@ export function onHit(o) {
     // un golpe siempre CUESTA: escudo, medio overdrive y el combo. Nunca da premios.
     r.shields--;
     // ventana corta para no perder dos escudos con la misma fila; ninguna contra el Cazador
-    p.invuln = o.hunter ? 0.05 : 0.45;
+    p.invuln = o.hunter ? 0.05 : r.stats.hitInvuln;
     breakObj(o, 'shield');
     r.od *= 0.5;
     if (r.stats.insurance) {
@@ -238,6 +244,19 @@ export function onHit(o) {
     fx.vibe(90);
     sfx.shield();
     fx.ring(ps.x, ps.y, '#30d158', 220, 0.4, 14);
+    return;
+  }
+  // ÚLTIMO ALIENTO (árbol, BLINDAJE nivel 3): una vez por partida, un golpe sin escudos no mata
+  if (r.lastStand) {
+    r.lastStand = false;
+    p.invuln = 1.2;
+    breakObj(o, 'shield');
+    resetChain();
+    fx.banner('¡ÚLTIMO ALIENTO!', 'la próxima no hay perdón', '#ff375f', true);
+    fx.flash('#f33', 0.7);
+    fx.shake(24);
+    fx.vibe([80, 40, 160]);
+    sfx.shield();
     return;
   }
   die();
@@ -309,8 +328,10 @@ export function useAbility() {
       sfx.slide();
       break;
     case 'nova': {
-      addOD(0.5);
-      const n = sweep(Math.max(14, runSpeed() * 0.5));
+      // mutación "full": llena el overdrive entero
+      if (a.mut === 'full') r.od = 0.999;
+      else addOD(0.5);
+      const n = sweep(Math.max(14, runSpeed() * 0.5) * a.pow);
       fx.ring(ps.x, ps.y - 40, '#ff375f', 600, 0.6, 26);
       fx.flash('#ff375f', 0.55);
       fx.shake(24);
@@ -319,8 +340,9 @@ export function useAbility() {
       break;
     }
     case 'roar': {
-      const n = sweep(Math.max(24, runSpeed() * 0.9));
+      const n = sweep(Math.max(24, runSpeed() * 0.9) * a.pow);
       for (const o of r.objects) if (o.alive && o.type === 'coin' && o.z - r.dist < 110) o.mag = true;
+      if (a.mut === 'shield') gainShield(1, '🦖 +1 🛡️');
       fx.ring(ps.x, ps.y - 40, '#30d158', 800, 0.8, 30);
       fx.shake(30);
       sfx.boom();
@@ -328,7 +350,8 @@ export function useAbility() {
       break;
     }
     case 'laser':
-      fireLaser();
+      // nivel 2: atraviesa 2; mutación "triple": dispara en los 3 carriles
+      fireLaser(a.pow > 1 ? 2 : 1, a.mut === 'triple');
       fx.shake(6);
       sfx.dash();
       break;
@@ -341,6 +364,8 @@ export function useAbility() {
       fx.ring(to.x, to.y, '#bf5af2', 160, 0.35, 10);
       fx.burst(to.x, to.y, 18, '#bf5af2', 400, 4, 0.4, 0);
       sfx.dash();
+      if (a.pow > 1) p.invuln = Math.max(p.invuln, 0.6); // nivel 2
+      if (a.mut === 'trail') sweep(Math.max(10, runSpeed() * 0.25)); // mutación: arrasa lo de delante
       break;
     }
   }
@@ -349,6 +374,14 @@ export function useAbility() {
 
 function abilityEnded(a) {
   if (a.id === 'overclock') G.timeWarp = 1;
+  // mutación "wave": al salir de FASE, una onda rompe lo cercano
+  if (a.id === 'phase' && a.mut === 'wave') {
+    const ps = playerScreen();
+    sweep(Math.max(12, runSpeed() * 0.3));
+    fx.ring(ps.x, ps.y, '#e0e0ff', 400, 0.5, 18);
+    fx.shake(12);
+    sfx.boom();
+  }
 }
 
 export function onCoin(o) {
@@ -520,7 +553,8 @@ function die() {
   musicStop();
 
   // raíz cuadrada: la puntuación crece de forma explosiva, las gemas no deben hacerlo
-  let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section);
+  // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
+  let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
   if (r.daily) gems = Math.ceil(gems * 1.5);
   const prevBest = save.best;
   const isBest = r.score > save.best;
