@@ -78,9 +78,12 @@ export const fx = {
   // solo se muestran los importantes y el resto pasa a aviso.
   banner(str, sub = '', color = '#fff', important = false) {
     if (save.settings.text === 'min' && !important) return this.notice(str, color);
+    // un banner normal nunca pisa a uno importante que siga en pantalla (p.ej. OVERDRIVE)
+    const cur = banners[0];
+    if (cur && cur.important && !important && cur.life > 0.3) return this.notice(str, color);
     banners.length = 0;
     const dur = important ? 1.4 : 0.95;
-    banners.push({ str, sub, color, life: dur, max: dur });
+    banners.push({ str, sub, color, life: dur, max: dur, important });
   },
 
   // Aviso pequeño sobre la barra de overdrive (cartas, escudos, recompensas).
@@ -139,11 +142,16 @@ export const fx = {
       ctx.stroke();
     }
     ctx.restore();
+  },
 
+  // Textos de puntos: se dibujan fuera de la transformación del mundo. Si el mundo está
+  // invertido (evento 'flip') se refleja solo su posición, nunca las letras.
+  drawTexts(ctx, flipH = 0) {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const t of texts) {
+      const ty = flipH ? flipH - t.y : t.y;
       const k = t.life / t.max;
       const pop = k > 0.85 ? 1 + (k - 0.85) * 2 : 1;
       const str = `${t.label}${t.n > 1 ? ` x${t.n}` : ''} +${fmt(t.pts)}`;
@@ -151,9 +159,9 @@ export const fx = {
       ctx.font = `italic 900 ${Math.round(t.size * pop)}px system-ui, sans-serif`;
       ctx.lineWidth = 4;
       ctx.strokeStyle = 'rgba(0,0,0,.75)';
-      ctx.strokeText(str, t.x, t.y);
+      ctx.strokeText(str, t.x, ty);
       ctx.fillStyle = t.color;
-      ctx.fillText(str, t.x, t.y);
+      ctx.fillText(str, t.x, ty);
     }
     ctx.restore();
   },

@@ -14,22 +14,24 @@ export const BIOMES = [
 ];
 
 export const FORK_REWARDS = {
-  riesgo: { icon: '☠️', label: 'RIESGO', color: '#ff2d55', desc: 'x2 puntos · más caos' },
-  tienda: { icon: '🛒', label: 'TIENDA', color: '#ffd60a', desc: 'gasta monedas' },
+  riesgo: { icon: '☠️', label: 'RIESGO', color: '#ff9500', desc: 'x2 puntos · más caos' },
+  tienda: { icon: '🛒', label: 'TIENDA', color: '#5ac8fa', desc: 'gasta monedas' },
   cofre: { icon: '🎁', label: 'COFRE', color: '#bf5af2', desc: '¿qué habrá?' },
   escudo: { icon: '🛡️', label: 'ESCUDO', color: '#30d158', desc: '+1 escudo' },
-  monedas: { icon: '🪙', label: 'MONEDAS', color: '#ffcc00', desc: 'lluvia de oro' },
-  epica: { icon: '🃏', label: 'CARTA+', color: '#ff9f0a', desc: 'cartas raras' },
+  monedas: { icon: '🪙', label: 'MONEDAS', color: '#ffd60a', desc: 'lluvia de oro' },
+  epica: { icon: '🃏', label: 'CARTA+', color: '#ff6ac1', desc: 'cartas raras' },
 };
 
+const TALL = 99;
 const DIM = {
-  wall: { w: 0.9, y0: 0, y1: 1.5, depth: 0.8 },
+  // y1 = TALL: lo que se esquiva cambiando de carril (o deslizándose) no se puede saltar, ni con Salto doble
+  wall: { w: 0.9, y0: 0, y1: TALL, depth: 0.8 },
   barrier: { w: 0.92, y0: 0, y1: 0.5, depth: 0.35 },
-  overhead: { w: 0.96, y0: 0.45, y1: 1.7, depth: 0.35 },
+  overhead: { w: 0.96, y0: 0.45, y1: TALL, depth: 0.35 },
   laserLow: { w: 3, y0: 0, y1: 0.35, depth: 0.05, all: true },
-  laserHigh: { w: 3, y0: 0.45, y1: 1.8, depth: 0.05, all: true },
+  laserHigh: { w: 3, y0: 0.45, y1: TALL, depth: 0.05, all: true },
   mine: { w: 0.5, y0: 0, y1: 0.35, depth: 0.5 },
-  mover: { w: 0.9, y0: 0, y1: 1.5, depth: 0.8 },
+  mover: { w: 0.9, y0: 0, y1: TALL, depth: 0.8 },
   shot: { w: 0.6, y0: 0, y1: 0.5, depth: 0.6 },
   core: { w: 0.8, y0: 0, y1: 1.2, depth: 0.8 },
   coin: { w: 0.5, y0: 0, y1: 0.5, depth: 0 },
@@ -162,7 +164,7 @@ function placeFork(r) {
 // ---------- Destrucción ----------
 export function screenOf(o) {
   const rz = Math.max(0.3, o.z - G.run.dist);
-  return project(o.x, (o.y0 + o.y1) / 2, rz);
+  return project(o.x, (o.y0 + Math.min(o.y1, 2)) / 2, rz); // y1 puede ser TALL: usar la altura visible
 }
 
 export function breakObj(o, cause = 'dash') {
@@ -282,7 +284,7 @@ function updateBoss(r, dt) {
     b.fireT = Math.max(0.55, 1.35 - r.section * 0.04);
     const lane = r.rng.chance(0.55) ? G.player.lane : r.rng.pick(L);
     const tall = r.rng.chance(0.35);
-    add('shot', lane, r.dist + bossRz(), { vz: 16 + r.section, y1: tall ? 1.3 : 0.5, tall });
+    add('shot', lane, r.dist + bossRz(), { vz: 16 + r.section, y1: tall ? TALL : 0.5, tall });
   }
   b.coreT -= dt;
   if (b.coreT <= 0) {

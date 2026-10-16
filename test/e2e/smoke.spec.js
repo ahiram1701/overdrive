@@ -88,6 +88,35 @@ test('el Cazador aparece al quedarte quieto y se retira si esquivas 2 disparos',
   expect(errors).toEqual([]);
 });
 
+// Lo que se esquiva cambiando de carril no se puede saltar: la colisión tiene que coincidir
+// con lo que se ve (antes un salto bien medido libraba los muros de altura 1.5).
+test('un muro no se puede saltar ni con Salto doble', async ({ page }) => {
+  await startRun(page, { seed: 5 });
+  const res = await page.evaluate(() => {
+    const G = window.G, r = G.run, p = G.player;
+    const key = (k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+    r.sectionEnd = Infinity;
+    r.genHold = true;
+    r.objects.length = 0;
+    r.stats.doubleJump = true;
+    r.shields = 1;
+    for (let i = 0; i < 120; i++) window.D.step(1 / 60, false); // estabilizar
+    r.objects.push({ type: 'wall', lane: 0, x: 0, z: r.dist + r.speed * 0.6, w: 0.9, y0: 0, y1: 99, depth: 0.8, all: false, alive: true, rzPrev: Infinity, t: 0, vz: 0, y: 0 });
+    let maxY = 0, jumped = 0;
+    for (let i = 0; i < 90 && G.mode === 'play'; i++) {
+      // primer salto a ~0.35 s del muro y el segundo en lo alto: la mejor jugada posible
+      if (jumped === 0 && i === 15) { key('ArrowUp'); jumped = 1; }
+      if (jumped === 1 && p.vy <= 0.5) { key('ArrowUp'); jumped = 2; }
+      window.D.step(1 / 60, false);
+      maxY = Math.max(maxY, p.y);
+    }
+    return { hits: (G.hits || []).map((h) => h.type), maxY, jumped };
+  });
+  expect(res.jumped).toBe(2);
+  expect(res.maxY).toBeGreaterThan(1.6);
+  expect(res.hits).toEqual(['wall']);
+});
+
 test('se llega y se derrota al primer jefe pasando por cartas, cofres y tienda', async ({ page }) => {
   const errors = trackErrors(page);
   await startRun(page, { seed: 7, god: true });

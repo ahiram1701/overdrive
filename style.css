@@ -181,6 +181,12 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .build sub { font-size: 11px; font-weight: 800; }
 .build .syn { font: 900 11px var(--font); color: #ff9f0a; border: 1px solid #ff9f0a; border-radius: 6px; padding: 3px 6px; align-self: center; }
 
+.reward {
+  font: italic 900 20px var(--font); color: #30d158; text-shadow: 0 0 12px rgba(48,209,88,.6);
+  padding: 6px 16px; border: 1px solid rgba(48,209,88,.5); border-radius: 99px; background: rgba(0,0,0,.4);
+  animation: pop .45s ease-out;
+}
+
 /* cofre */
 #chestBox { font-size: 110px; line-height: 1; }
 #chestBox.shaking { animation: chestshake 0.12s linear infinite; }

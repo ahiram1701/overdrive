@@ -290,6 +290,38 @@ function neonBox(x, y0, y1, rz, w, depth, col, fill = 0.35) {
 // Código de colores por ACCIÓN, igual en todos los biomas:
 // magenta = cambia de carril · amarillo ▲ = salta · cian ▼ = deslízate.
 const ACT = { dodge: '#ff3b6b', jump: '#ffd60a', slide: '#00e5ff' };
+// Regla: el CUERPO dice qué es (rojo = peligro, verde = objetivo, dorado = premio)
+// y el CHEVRÓN dice qué hacer. El dorado queda reservado a las monedas.
+const HAZARD = '#ff2d6f';
+const TARGET = '#30d158';
+const WALL_DRAW_H = 2.1; // los muros no se pueden saltar: se dibujan más altos que el salto
+
+// Orbe de peligro con picos giratorios y núcleo oscuro con brillo pulsante.
+function spikeOrb(x, y, R, col, rot, pulse) {
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.fillStyle = hexA(col, 0.3);
+  ctx.beginPath();
+  ctx.arc(x, y, R * 1.7, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.restore();
+  ctx.fillStyle = '#1a0008';
+  ctx.strokeStyle = col;
+  ctx.lineWidth = Math.max(1.5, R * 0.16);
+  ctx.beginPath();
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 + rot;
+    const rr = i % 2 ? R * 0.8 : R * 1.35;
+    ctx.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr);
+  }
+  ctx.closePath();
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = hexA(col, 0.55 + pulse * 0.45);
+  ctx.beginPath();
+  ctx.arc(x, y, R * 0.4, 0, Math.PI * 2);
+  ctx.fill();
+}
 
 // Chevrones animados que señalan hacia dónde esquivar (dir -1 = arriba, 1 = abajo).
 function chevrons(cx, cy, size, dir, color, t, n = 2) {
@@ -339,7 +371,7 @@ function drawObj(o, rz, b, t) {
     case 'mover': {
       let x = o.x;
       if (o.gate) x += Math.sign(o.x || 1) * clamp((rz - 10) / 25, 0, 1) * 1.6;
-      const f = neonBox(x, o.y0, o.y1, rz, o.w, o.depth, ACT.dodge, 0.45);
+      const f = neonBox(x, o.y0, Math.min(o.y1, WALL_DRAW_H), rz, o.w, o.depth, ACT.dodge, 0.45);
       if (f) {
         ctx.strokeStyle = hexA(ACT.dodge, 0.7);
         ctx.lineWidth = Math.max(1, f.s * 0.03);
@@ -375,12 +407,21 @@ function drawObj(o, rz, b, t) {
       const f = neonBox(o.x, 0.47, 0.72, rz, o.w, o.depth, ACT.slide, 0.6);
       if (f) {
         hazardStripes(f);
-        const top = project(o.x, 3.2, rz);
+        // cortina rayada hasta el techo: por encima tampoco se pasa (no se puede saltar)
+        const top = project(o.x - o.w / 2, WALL_DRAW_H + 0.4, rz);
+        // sin marco ni rayas uniformes: un degradado que se desvanece, para no parecer una pared
+        const cw = f.w, chh = f.y - top.y;
+        const g = ctx.createLinearGradient(0, f.y, 0, top.y);
+        g.addColorStop(0, hexA(ACT.slide, 0.28));
+        g.addColorStop(1, hexA(ACT.slide, 0));
+        ctx.fillStyle = g;
+        ctx.fillRect(f.x, top.y, cw, chh);
+        // cables de los que cuelga la barra
         ctx.strokeStyle = hexA(ACT.slide, 0.8);
         ctx.lineWidth = Math.max(1, f.s * 0.02);
         ctx.beginPath();
-        ctx.moveTo(f.x + f.w * 0.1, f.y); ctx.lineTo(f.x + f.w * 0.1, top.y);
-        ctx.moveTo(f.x + f.w * 0.9, f.y); ctx.lineTo(f.x + f.w * 0.9, top.y);
+        ctx.moveTo(f.x + cw * 0.1, f.y); ctx.lineTo(f.x + cw * 0.1, top.y);
+        ctx.moveTo(f.x + cw * 0.9, f.y); ctx.lineTo(f.x + cw * 0.9, top.y);
         ctx.stroke();
         const c = project(o.x, 0.3, rz);
         if (c) chevrons(c.x, c.y - 0.06 * c.s, 0.32 * c.s, 1, ACT.slide, t);
@@ -391,7 +432,7 @@ function drawObj(o, rz, b, t) {
     case 'laserHigh': {
       const low = o.type === 'laserLow';
       const col = low ? ACT.jump : ACT.slide;
-      const ys = low ? [0.2] : [0.6, 0.95, 1.3];
+      const ys = low ? [0.2] : [0.6, 0.95, 1.3, 1.7, 2.1];
       const flick = 0.75 + Math.random() * 0.25;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -415,67 +456,76 @@ function drawObj(o, rz, b, t) {
       break;
     }
     case 'mine': {
+      // peligro = cuerpo oscuro con picos rojos; el chevrón amarillo dice "salta"
       const p = project(o.x, 0.2, rz);
       if (!p) break;
       const R = 0.22 * p.s;
-      const pulse = 0.5 + 0.5 * Math.sin(t * 12 + o.z);
-      ctx.fillStyle = '#220';
-      ctx.strokeStyle = ACT.jump;
-      ctx.lineWidth = Math.max(1, R * 0.15);
-      ctx.beginPath();
-      for (let i = 0; i < 16; i++) {
-        const a = (i / 16) * Math.PI * 2 + t * 2;
-        const rr = i % 2 ? R : R * 1.45;
-        ctx.lineTo(p.x + Math.cos(a) * rr, p.y + Math.sin(a) * rr);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
-      ctx.fillStyle = `rgba(255,40,40,${0.5 + pulse * 0.5})`;
-      ctx.beginPath();
-      ctx.arc(p.x, p.y, R * 0.45, 0, Math.PI * 2);
-      ctx.fill();
+      spikeOrb(p.x, p.y, R, HAZARD, t * 2, 0.5 + 0.5 * Math.sin(t * 12 + o.z));
+      const c = project(o.x, 0.75, rz);
+      if (c) chevrons(c.x, c.y, 0.22 * c.s, -1, ACT.jump, t);
       break;
     }
     case 'shot': {
+      // disparos (jefe y Cazador): orbe rojo-magenta con picos y estela. Nada que ver con una moneda.
       const p = project(o.x, o.tall ? 0.65 : 0.25, rz);
       if (!p) break;
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
       const R = 0.3 * p.s;
-      ctx.fillStyle = o.hunter ? hexA(ACT.dodge, 0.4) : 'rgba(255,120,0,.35)';
-      ctx.beginPath();
-      if (o.tall) ctx.ellipse(p.x, p.y, R * 1.3, R * 2.6, 0, 0, Math.PI * 2);
-      else ctx.arc(p.x, p.y, R * 1.6, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = o.hunter ? '#fff' : '#ffd60a';
-      ctx.beginPath();
-      if (o.tall) ctx.ellipse(p.x, p.y, R * 0.7, R * 1.9, 0, 0, Math.PI * 2);
-      else ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.restore();
+      const tail = project(o.x, o.tall ? 0.65 : 0.25, rz + 2.5);
+      if (tail) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        const g = ctx.createLinearGradient(tail.x, tail.y, p.x, p.y);
+        g.addColorStop(0, hexA(HAZARD, 0));
+        g.addColorStop(1, hexA(HAZARD, 0.55));
+        ctx.strokeStyle = g;
+        ctx.lineWidth = R * (o.tall ? 1.6 : 1.3);
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(tail.x, tail.y);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+        ctx.restore();
+      }
+      if (o.tall) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        ctx.scale(0.75, 2);
+        spikeOrb(0, 0, R, HAZARD, t * 6, 1);
+        ctx.restore();
+      } else {
+        spikeOrb(p.x, p.y, R, HAZARD, t * 6, 1);
+        const c = project(o.x, 0.85, rz);
+        if (c) chevrons(c.x, c.y, 0.22 * c.s, -1, '#ffffff', t);
+      }
       break;
     }
     case 'core': {
+      // objetivo del DASH: verde = "ve a por él"
       const p = project(o.x, 0.6, rz);
       if (!p) break;
       const R = 0.42 * p.s * (1 + 0.12 * Math.sin(t * 14));
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
-      ctx.fillStyle = 'rgba(255,45,85,.35)';
+      ctx.fillStyle = hexA(TARGET, 0.35);
       ctx.beginPath(); ctx.arc(p.x, p.y, R * 1.7, 0, Math.PI * 2); ctx.fill();
-      ctx.fillStyle = '#ff2d55';
+      ctx.fillStyle = TARGET;
       ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = '#fff';
       ctx.beginPath(); ctx.arc(p.x, p.y, R * 0.45, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+      ctx.strokeStyle = TARGET;
+      ctx.lineWidth = Math.max(1.5, R * 0.08);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, R * (1.9 + 0.2 * Math.sin(t * 8)), 0, Math.PI * 2);
+      ctx.stroke();
       ctx.fillStyle = '#fff';
       ctx.font = `italic 900 ${Math.max(10, Math.round(R * 0.9))}px system-ui`;
       ctx.textAlign = 'center';
-      ctx.fillText('DASH!', p.x, p.y - R * 1.9);
+      ctx.fillText('DASH!', p.x, p.y - R * 2.2);
       break;
     }
     case 'coin': {
+      // la ÚNICA cosa dorada y brillante de la pista
       const p = project(o.x, o.y, rz);
       if (!p) break;
       const R = 0.2 * p.s;
@@ -491,6 +541,22 @@ function drawObj(o, rz, b, t) {
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
+      // destello en cruz que aparece y desaparece
+      const gl = Math.max(0, Math.sin(t * 4 + o.z));
+      if (gl > 0.3) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.globalAlpha *= gl;
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = Math.max(1, R * 0.12);
+        const L = R * 0.9 * gl;
+        const gx = p.x + R * 0.25, gy = p.y - R * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(gx - L, gy); ctx.lineTo(gx + L, gy);
+        ctx.moveTo(gx, gy - L); ctx.lineTo(gx, gy + L);
+        ctx.stroke();
+        ctx.restore();
+      }
       break;
     }
     case 'fork': {
@@ -759,6 +825,7 @@ export function render(dt) {
 
   fx.draw(ctx);
   ctx.restore();
+  fx.drawTexts(ctx, r && r.event?.id === 'flip' ? H : 0);
 
   // post-proceso
   ctx.setTransform(1, 0, 0, 1, 0, 0);
