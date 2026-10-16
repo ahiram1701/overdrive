@@ -287,6 +287,50 @@ function neonBox(x, y0, y1, rz, w, depth, col, fill = 0.35) {
   return { x: fl.x, y: fl.y, w: fw, h: fh, s: fl.s };
 }
 
+// Código de colores por ACCIÓN, igual en todos los biomas:
+// magenta = cambia de carril · amarillo ▲ = salta · cian ▼ = deslízate.
+const ACT = { dodge: '#ff3b6b', jump: '#ffd60a', slide: '#00e5ff' };
+
+// Chevrones animados que señalan hacia dónde esquivar (dir -1 = arriba, 1 = abajo).
+function chevrons(cx, cy, size, dir, color, t, n = 2) {
+  const base = ctx.globalAlpha;
+  const ph = (t * 2.2) % 1;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(2, size * 0.22);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  for (let i = 0; i < n; i++) {
+    const k = (i + ph) / n;
+    const y = cy + dir * (k - 0.5) * size * 1.3;
+    ctx.globalAlpha = base * (1 - k * 0.75);
+    ctx.beginPath();
+    ctx.moveTo(cx - size * 0.5, y - dir * size * 0.3);
+    ctx.lineTo(cx, y + dir * size * 0.2);
+    ctx.lineTo(cx + size * 0.5, y - dir * size * 0.3);
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function hazardStripes(f) {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(f.x, f.y, f.w, f.h);
+  ctx.clip();
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  const st = Math.max(5, f.h * 0.7);
+  for (let i = -2; i < f.w / st + 2; i++) {
+    ctx.beginPath();
+    ctx.moveTo(f.x + i * st * 2, f.y + f.h);
+    ctx.lineTo(f.x + i * st * 2 + st, f.y + f.h);
+    ctx.lineTo(f.x + i * st * 2 + st * 2, f.y);
+    ctx.lineTo(f.x + i * st * 2 + st, f.y);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
 function drawObj(o, rz, b, t) {
   const fog = clamp((VIEW - rz) / 25, 0, 1);
   ctx.globalAlpha = fog;
@@ -295,10 +339,10 @@ function drawObj(o, rz, b, t) {
     case 'mover': {
       let x = o.x;
       if (o.gate) x += Math.sign(o.x || 1) * clamp((rz - 10) / 25, 0, 1) * 1.6;
-      const f = neonBox(x, o.y0, o.y1, rz, o.w, o.depth, b.obs);
+      const f = neonBox(x, o.y0, o.y1, rz, o.w, o.depth, ACT.dodge, 0.45);
       if (f) {
-        ctx.strokeStyle = hexA(b.obs, 0.6);
-        ctx.lineWidth = Math.max(1, f.s * 0.025);
+        ctx.strokeStyle = hexA(ACT.dodge, 0.7);
+        ctx.lineWidth = Math.max(1, f.s * 0.03);
         ctx.beginPath();
         ctx.moveTo(f.x, f.y); ctx.lineTo(f.x + f.w, f.y + f.h);
         ctx.moveTo(f.x + f.w, f.y); ctx.lineTo(f.x, f.y + f.h);
@@ -314,42 +358,40 @@ function drawObj(o, rz, b, t) {
       break;
     }
     case 'barrier': {
-      const f = neonBox(o.x, o.y0, o.y1, rz, o.w, o.depth, b.obs2, 0.6);
+      const f = neonBox(o.x, o.y0, o.y1, rz, o.w, o.depth, ACT.jump, 0.6);
       if (f) {
-        ctx.save();
-        ctx.beginPath();
-        ctx.rect(f.x, f.y, f.w, f.h);
-        ctx.clip();
-        ctx.fillStyle = 'rgba(0,0,0,.55)';
-        const st = Math.max(6, f.h * 0.7);
-        for (let i = -2; i < f.w / st + 2; i++) {
-          ctx.beginPath();
-          ctx.moveTo(f.x + i * st * 2, f.y + f.h);
-          ctx.lineTo(f.x + i * st * 2 + st, f.y + f.h);
-          ctx.lineTo(f.x + i * st * 2 + st * 2, f.y);
-          ctx.lineTo(f.x + i * st * 2 + st, f.y);
-          ctx.fill();
-        }
-        ctx.restore();
+        hazardStripes(f);
+        const c = project(o.x, 0.95, rz);
+        if (c) chevrons(c.x, c.y, 0.3 * c.s, -1, ACT.jump, t);
       }
       break;
     }
     case 'overhead': {
-      const f = neonBox(o.x, o.y0, o.y0 + 0.4, rz, o.w, o.depth, b.obs2, 0.5);
+      // barra fina colgada del techo con el hueco de debajo libre y marcado
+      if (quad(o.x - o.w / 2, o.x + o.w / 2, rz, rz + 0.5, 0.01)) {
+        ctx.fillStyle = hexA(ACT.slide, 0.28);
+        ctx.fill();
+      }
+      const f = neonBox(o.x, 0.47, 0.72, rz, o.w, o.depth, ACT.slide, 0.6);
       if (f) {
-        const top = project(o.x, 3, rz);
-        ctx.strokeStyle = hexA(b.obs2, 0.7);
-        ctx.lineWidth = Math.max(1, f.s * 0.03);
+        hazardStripes(f);
+        const top = project(o.x, 3.2, rz);
+        ctx.strokeStyle = hexA(ACT.slide, 0.8);
+        ctx.lineWidth = Math.max(1, f.s * 0.02);
         ctx.beginPath();
-        ctx.moveTo(f.x + f.w * 0.15, f.y); ctx.lineTo(f.x + f.w * 0.15, top.y);
-        ctx.moveTo(f.x + f.w * 0.85, f.y); ctx.lineTo(f.x + f.w * 0.85, top.y);
+        ctx.moveTo(f.x + f.w * 0.1, f.y); ctx.lineTo(f.x + f.w * 0.1, top.y);
+        ctx.moveTo(f.x + f.w * 0.9, f.y); ctx.lineTo(f.x + f.w * 0.9, top.y);
         ctx.stroke();
+        const c = project(o.x, 0.3, rz);
+        if (c) chevrons(c.x, c.y - 0.06 * c.s, 0.32 * c.s, 1, ACT.slide, t);
       }
       break;
     }
     case 'laserLow':
     case 'laserHigh': {
-      const ys = o.type === 'laserLow' ? [0.2] : [0.6, 0.95, 1.3];
+      const low = o.type === 'laserLow';
+      const col = low ? ACT.jump : ACT.slide;
+      const ys = low ? [0.2] : [0.6, 0.95, 1.3];
       const flick = 0.75 + Math.random() * 0.25;
       ctx.save();
       ctx.globalCompositeOperation = 'lighter';
@@ -357,7 +399,7 @@ function drawObj(o, rz, b, t) {
         const a = project(-1.6, y, rz), c = project(1.6, y, rz);
         if (!a || !c) continue;
         ctx.globalAlpha = fog * flick;
-        ctx.strokeStyle = hexA(b.obs, 0.35);
+        ctx.strokeStyle = hexA(col, 0.4);
         ctx.lineWidth = Math.max(4, a.s * 0.16);
         ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(c.x, c.y); ctx.stroke();
         ctx.strokeStyle = '#fff';
@@ -365,7 +407,11 @@ function drawObj(o, rz, b, t) {
         ctx.stroke();
       }
       ctx.restore();
-      for (const ex of [-1.6, 1.6]) neonBox(ex, 0, ys[ys.length - 1] + 0.25, rz, 0.15, 0.15, b.obs, 0.8);
+      for (const ex of [-1.6, 1.6]) neonBox(ex, 0, ys[ys.length - 1] + 0.25, rz, 0.15, 0.15, col, 0.8);
+      for (const lx of [-1, 0, 1]) {
+        const c = project(lx, low ? 0.6 : 0.3, rz);
+        if (c) chevrons(c.x, c.y, 0.22 * c.s, low ? -1 : 1, col, t);
+      }
       break;
     }
     case 'mine': {
@@ -374,7 +420,7 @@ function drawObj(o, rz, b, t) {
       const R = 0.22 * p.s;
       const pulse = 0.5 + 0.5 * Math.sin(t * 12 + o.z);
       ctx.fillStyle = '#220';
-      ctx.strokeStyle = b.obs;
+      ctx.strokeStyle = ACT.jump;
       ctx.lineWidth = Math.max(1, R * 0.15);
       ctx.beginPath();
       for (let i = 0; i < 16; i++) {

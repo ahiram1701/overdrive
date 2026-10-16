@@ -129,7 +129,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .row .btn { flex: 1; }
 
 .toggles { display: flex; gap: 10px; margin-top: 6px; }
-.tg { width: 46px; height: 46px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); font-size: 20px; }
+.tg { width: 46px; height: 46px; border-radius: 12px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); font-size: 20px; color: #fff; font-weight: 900; font-family: var(--font); }
 .tg.off { opacity: .35; filter: grayscale(1); }
 .hint { margin: 4px 0 0; color: var(--muted); font-size: 13px; text-align: center; }
 .blink { animation: blink 1s steps(2) infinite; }
@@ -209,3 +209,6 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 }
 #tutorial b { color: var(--yellow); }
 #tutorial .t-hot { color: var(--pink); font-weight: 900; }
+#tutorial .t-dodge { color: #ff3b6b; font-weight: 900; }
+#tutorial .t-jump { color: #ffd60a; font-weight: 900; }
+#tutorial .t-slide { color: #00e5ff; font-weight: 900; }

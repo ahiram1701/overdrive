@@ -1,5 +1,5 @@
 // "Juice": partículas, shake, flash, slow-mo, textos flotantes y banners.
-import { G } from './state.js';
+import { G, fmt } from './state.js';
 import { save } from './save.js';
 
 const MAXP = 1400;
@@ -8,6 +8,8 @@ let pIdx = 0;
 const rings = [];
 const texts = [];
 const banners = [];
+const notices = [];
+let side = 1;
 
 const fxk = () => (save.settings.fx ? 1 : 0.3);
 
@@ -56,18 +58,40 @@ export const fx = {
 
   ring(x, y, color, r = 160, life = 0.45, w = 10) { rings.push({ x, y, color, r, life, max: life, w }); },
 
-  text(str, x, y, color = '#fff', size = 28) {
-    texts.push({ str, x, y, color, size, life: 0.9, max: 0.9, vx: (Math.random() - 0.5) * 60 });
+  // Puntos ganados: pequeños, a un lado de la nave y agrupados por etiqueta ("¡CRASH! x4 +12K")
+  // para no tapar la pista que viene.
+  score(label, pts, x, y, color = '#fff') {
+    if (save.settings.text === 'min') return;
+    const same = texts.find((t) => t.label === label && t.max - t.life < 0.45);
+    if (same) {
+      same.n++;
+      same.pts += pts;
+      same.life = same.max;
+      return;
+    }
+    side = -side;
+    const off = Math.min(130, G.W * 0.3) * side;
+    texts.push({ label, pts, n: 1, x: Math.max(70, Math.min(G.W - 70, x + off)), y, color, size: 16, life: 0.65, max: 0.65 });
   },
 
-  banner(str, sub = '', color = '#fff', dur = 1.4, size = 64) {
-    banners.length = Math.min(banners.length, 2);
-    banners.push({ str, sub, color, life: dur, max: dur, size });
+  // Un solo banner a la vez, en la franja del cielo. Si el modo de texto es mínimo,
+  // solo se muestran los importantes y el resto pasa a aviso.
+  banner(str, sub = '', color = '#fff', important = false) {
+    if (save.settings.text === 'min' && !important) return this.notice(str, color);
+    banners.length = 0;
+    const dur = important ? 1.4 : 0.95;
+    banners.push({ str, sub, color, life: dur, max: dur });
+  },
+
+  // Aviso pequeño sobre la barra de overdrive (cartas, escudos, recompensas).
+  notice(str, color = '#fff') {
+    notices.length = 0;
+    notices.push({ str, color, life: 1.4, max: 1.4 });
   },
 
   clear() {
     for (const p of parts) p.on = false;
-    rings.length = texts.length = banners.length = 0;
+    rings.length = texts.length = banners.length = notices.length = 0;
     this.shakeAmt = this.flashA = 0;
   },
 
@@ -84,11 +108,11 @@ export const fx = {
     for (let i = texts.length - 1; i >= 0; i--) {
       const t = texts[i];
       t.life -= dt;
-      t.y -= 90 * dt;
-      t.x += t.vx * dt;
+      t.y -= 60 * dt;
       if (t.life <= 0) texts.splice(i, 1);
     }
     for (let i = banners.length - 1; i >= 0; i--) if ((banners[i].life -= dt) <= 0) banners.splice(i, 1);
+    for (let i = notices.length - 1; i >= 0; i--) if ((notices[i].life -= dt) <= 0) notices.splice(i, 1);
     this.shakeAmt *= Math.exp(-dt * 9);
     if (this.shakeAmt < 0.2) this.shakeAmt = 0;
     this.flashA = Math.max(0, this.flashA - dt * 3.5);
@@ -121,14 +145,15 @@ export const fx = {
     ctx.textBaseline = 'middle';
     for (const t of texts) {
       const k = t.life / t.max;
-      const pop = k > 0.8 ? 1 + (k - 0.8) * 3 : 1;
-      ctx.globalAlpha = Math.min(1, k * 2);
+      const pop = k > 0.85 ? 1 + (k - 0.85) * 2 : 1;
+      const str = `${t.label}${t.n > 1 ? ` x${t.n}` : ''} +${fmt(t.pts)}`;
+      ctx.globalAlpha = Math.min(1, k * 2.5);
       ctx.font = `italic 900 ${Math.round(t.size * pop)}px system-ui, sans-serif`;
-      ctx.lineWidth = 5;
-      ctx.strokeStyle = 'rgba(0,0,0,.7)';
-      ctx.strokeText(t.str, t.x, t.y);
+      ctx.lineWidth = 4;
+      ctx.strokeStyle = 'rgba(0,0,0,.75)';
+      ctx.strokeText(str, t.x, t.y);
       ctx.fillStyle = t.color;
-      ctx.fillText(t.str, t.x, t.y);
+      ctx.fillText(str, t.x, t.y);
     }
     ctx.restore();
   },
@@ -137,16 +162,30 @@ export const fx = {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    banners.forEach((b, i) => {
+    for (const n of notices) {
+      const a = Math.min(1, n.life / 0.3, (n.max - n.life) / 0.1);
+      ctx.globalAlpha = a;
+      ctx.font = '800 14px system-ui, sans-serif';
+      const w = ctx.measureText(n.str).width + 24;
+      const y = H - 58;
+      ctx.fillStyle = 'rgba(0,0,0,.6)';
+      ctx.beginPath();
+      ctx.roundRect(W / 2 - w / 2, y - 13, w, 26, 13);
+      ctx.fill();
+      ctx.fillStyle = n.color;
+      ctx.fillText(n.str, W / 2, y + 1);
+    }
+    banners.forEach((b) => {
       const age = b.max - b.life;
       const inK = Math.min(1, age / 0.12);
       const outK = Math.min(1, b.life / 0.25);
-      const scale = (0.4 + 0.6 * inK) * (1 + Math.max(0, 0.12 - age) * 3);
-      const y = H * 0.32 + i * (b.size * 1.1);
+      const scale = (0.5 + 0.5 * inK) * (1 + Math.max(0, 0.12 - age) * 2);
+      // franja del cielo: por encima del horizonte (H*0.36) y por debajo de la barra del jefe
+      const y = H * 0.2;
       ctx.globalAlpha = outK;
       ctx.translate(W / 2, y);
       ctx.scale(scale, scale);
-      const size = Math.min(b.size, W / Math.max(4, b.str.length * 0.62));
+      const size = Math.min(46, W / Math.max(4, b.str.length * 0.62));
       ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
       ctx.lineWidth = 8;
       ctx.strokeStyle = 'rgba(0,0,0,.75)';

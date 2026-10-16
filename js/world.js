@@ -256,7 +256,7 @@ export function spawnBoss(r) {
     name: BOSS_NAMES[Math.floor(r.section / 3) % BOSS_NAMES.length],
   };
   sfx.alarm();
-  fx.banner('⚠ JEFE ⚠', r.boss.name, '#ff2d55', 2.2, 70);
+  fx.banner('⚠ JEFE ⚠', r.boss.name, '#ff2d55', true);
 }
 
 export const bossRz = () => BOSS_RZ + Math.sin(G.run.boss.t * 1.3) * 4;

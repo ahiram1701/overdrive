@@ -9,12 +9,15 @@
     "lint": "eslint .",
     "test:unit": "node --test \"test/unit/**/*.test.js\"",
     "test:e2e": "playwright test",
-    "test": "npm run lint && npm run test:unit && npm run test:e2e"
+    "test": "npm run lint && npm run test:unit && npm run test:e2e",
+    "screenshots": "node scripts/screenshots.js",
+    "docs:cards": "node scripts/readme-cards.js"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.64.1",
     "eslint": "^10.12.0",
+    "gifenc": "^1.0.3",
     "globals": "^17.13.0",
     "http-server": "^14.1.1"
   }

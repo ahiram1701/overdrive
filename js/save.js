@@ -13,7 +13,7 @@ const DEFAULTS = {
   ships: ['viper'],
   ship: 'viper',
   meta: { shield: false, card: false },
-  settings: { sound: true, vibe: true, fx: !reducedMotion },
+  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal' },
   runs: 0,
 };
 

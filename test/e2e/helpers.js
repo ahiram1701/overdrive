@@ -10,9 +10,12 @@ export function trackErrors(page) {
 
 export async function startRun(page, { seed, god = false } = {}) {
   await page.goto(`/?debug&nosw${seed != null ? `&seed=${seed}` : ''}`);
+  await page.waitForFunction(() => !!window.G);
+  // modo manual ANTES de empezar: si no, requestAnimationFrame avanzaría el juego por su cuenta
+  // (al arrancar y mientras el bot espera a la UI) y el resultado dependería de la carga de la máquina
+  await page.evaluate((god) => { window.G.manual = true; window.G.god = god; }, god);
   await page.locator('#btnPlay').click();
-  await page.waitForFunction(() => window.G && window.G.mode === 'play');
-  if (god) await page.evaluate(() => { window.G.god = true; });
+  await page.waitForFunction(() => window.G.mode === 'play');
 }
 
 // Bot que esquiva leyendo los obstáculos y pulsando teclas, como haría un jugador.

@@ -1,5 +1,5 @@
 // Reglas de la partida: velocidad, puntuación, combo, overdrive, tramos, eventos, recompensas y muerte.
-import { G, LANE_W, fmt } from './state.js';
+import { G, LANE_W } from './state.js';
 import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
@@ -80,7 +80,7 @@ function startSection() {
   } else {
     r.sectionEnd = r.genZ + effSpeed(r) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
     r.nextEventAt = r.section >= 1 && r.rng.chance(0.6) ? r.time + r.rng.range(5, 10) : Infinity;
-    fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent, 1.8, 60);
+    fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
   }
   music.biome = r.biome.music;
   music.intensity = Math.min(3, r.section);
@@ -96,7 +96,7 @@ export function addChain(n) {
   if (r.mult > r.maxMult) r.maxMult = r.mult;
   for (const [k, word] of MULT_WORDS) {
     if (before < k && r.mult >= k) {
-      fx.banner(`x${k}`, word, `hsl(${k * 7},100%,60%)`, 1.2, 84);
+      fx.banner(`x${k}`, word, `hsl(${k * 7},100%,60%)`);
       fx.flash('#fff', 0.25);
       sfx.milestone();
       fx.vibe([20, 30, 20]);
@@ -107,7 +107,7 @@ export function addChain(n) {
     while (r.vampN >= 25) {
       r.vampN -= 25;
       r.shields++;
-      fx.banner('+🛡️', 'VAMPIRO', '#30d158', 0.9, 56);
+      fx.notice('+1 🛡️ VAMPIRO', '#30d158');
     }
   }
   if (r.mult !== before) ui.pulseMult();
@@ -124,7 +124,7 @@ export function addScore(base, label, x, y, color = '#fff') {
   const r = run();
   const pts = base * r.mult * scoreMult(r);
   r.score += pts;
-  if (label && x != null) fx.text(`${label} +${fmt(pts)}`, x, y, color, 22);
+  if (label && x != null) fx.score(label, pts, x, y, color);
   return pts;
 }
 
@@ -141,7 +141,7 @@ function activateOD() {
   r.odTime = r.stats.odDur;
   music.od = true;
   sfx.od();
-  fx.banner('OVERDRIVE', '¡INVENCIBLE!', '#ff2bd6', 1.6, 80);
+  fx.banner('OVERDRIVE', '¡INVENCIBLE!', '#ff2bd6', true);
   fx.flash('#fff', 0.7);
   fx.shake(22);
   fx.vibe([60, 40, 120]);
@@ -190,7 +190,7 @@ export function onHit(o) {
     p.invuln = 1.2;
     breakObj(o, 'shield');
     if (!r.stats.insurance) resetChain();
-    fx.banner('¡ESCUDO ROTO!', r.shields ? `quedan ${r.shields}` : 'último aviso', '#30d158', 1, 52);
+    fx.notice(`🛡️ ESCUDO ROTO · ${r.shields ? `quedan ${r.shields}` : 'último aviso'}`, '#ff6b6b');
     fx.flash('#f33', 0.45);
     fx.shake(16);
     fx.vibe(90);
@@ -241,7 +241,7 @@ export function bossDefeated() {
   r.coins += 50;
   clearBossStuff();
   addScore(5000, null);
-  fx.banner('¡JEFE DESTRUIDO!', '+50 🪙  ·  +5 💎', '#ffe600', 2.2, 64);
+  fx.banner('¡JEFE DESTRUIDO!', '+50 🪙  ·  +5 💎', '#ffe600', true);
   fx.flash('#fff', 0.9);
   fx.shake(35);
   fx.vibe([100, 50, 100, 50, 250]);
@@ -254,7 +254,7 @@ export function bossEscaped() {
   r.boss = null;
   clearBossStuff();
   r.sectionEnd = r.genZ;
-  fx.banner('HA ESCAPADO…', 'la próxima vez', '#aaa', 1.6, 52);
+  fx.banner('HA ESCAPADO…', 'la próxima vez', '#aaa');
 }
 
 // ---------- Bifurcación / cartas ----------
@@ -269,16 +269,16 @@ export function onFork(reward) {
   switch (reward) {
     case 'riesgo':
       r.riskNext = true;
-      fx.banner('☠ RIESGO', 'x2 puntos en el próximo tramo', info.color, 1.4, 60);
+      fx.notice('☠ RIESGO: x2 puntos en el próximo tramo', info.color);
       return openCards();
     case 'escudo':
       r.shields++;
-      fx.banner('+1 🛡️', 'ESCUDO', info.color, 1.2, 60);
+      fx.notice('+1 🛡️ ESCUDO', info.color);
       return openCards();
     case 'monedas': {
       const c = 30 + r.section * 12;
       r.coins += c;
-      fx.banner(`+${c} 🪙`, 'MONEDAS', info.color, 1.2, 60);
+      fx.notice(`+${c} 🪙 MONEDAS`, info.color);
       for (let i = 0; i < 4; i++) fx.burst(G.W * Math.random(), G.H * 0.3, 12, '#ffcc00', 300, 5, 1, 600);
       return openCards();
     }
@@ -332,9 +332,9 @@ export function pickCard(id) {
   const fresh = applyCard(r, id);
   sfx.card();
   const c = CARD_BY_ID[id];
-  fx.banner(`${c.icon} ${c.name.toUpperCase()}`, '', '#fff', 1, 44);
+  fx.notice(`${c.icon} ${c.name}`);
   for (const s of fresh) {
-    fx.banner(`¡SINERGIA!`, s.name, '#ff9f0a', 2, 70);
+    fx.banner('¡SINERGIA!', s.name, '#ff9f0a', true);
     fx.flash('#ff9f0a', 0.5);
     sfx.milestone();
   }
@@ -423,7 +423,7 @@ export function update(dt) {
     r.event = ev;
     r.eventT = ev.dur;
     r.nextEventAt = Infinity;
-    fx.banner(ev.name, ev.sub, ev.color, 1.8, 54);
+    fx.banner(ev.name, ev.sub, ev.color, true);
     sfx.event();
     fx.vibe([30, 30, 30]);
   } else if (r.event) {
@@ -433,7 +433,7 @@ export function update(dt) {
 
   const kmh = eff * 10;
   while (r.speedMark < SPEED_MARKS.length && kmh >= SPEED_MARKS[r.speedMark][0]) {
-    fx.banner(SPEED_MARKS[r.speedMark][1], '', '#7df9ff', 1.3, 70);
+    fx.banner(SPEED_MARKS[r.speedMark][1], '', '#7df9ff');
     fx.flash('#7df9ff', 0.3);
     sfx.milestone();
     r.speedMark++;

@@ -52,7 +52,8 @@ function frame(now) {
   }
 
   // paso fijo para que física y colisiones no dependan de los fps
-  acc += dt;
+  // G.manual (solo debug/tests): la simulación avanza únicamente con D.step, para ser determinista
+  acc = G.manual ? 0 : acc + dt;
   while (acc >= STEP) {
     update(STEP);
     acc -= STEP;
