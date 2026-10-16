@@ -178,7 +178,9 @@ export const fx = {
       const y = H - 58;
       ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.beginPath();
-      ctx.roundRect(W / 2 - w / 2, y - 13, w, 26, 13);
+      // roundRect no existe en Safari < 16: rectángulo normal como alternativa
+      if (ctx.roundRect) ctx.roundRect(W / 2 - w / 2, y - 13, w, 26, 13);
+      else ctx.rect(W / 2 - w / 2, y - 13, w, 26);
       ctx.fill();
       ctx.fillStyle = n.color;
       ctx.fillText(n.str, W / 2, y + 1);

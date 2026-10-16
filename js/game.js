@@ -31,7 +31,10 @@ export function newRun(daily = false) {
   const seed = forced !== null ? Number(forced) >>> 0
     : daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
   const r = {
-    daily, rng: makeRng(seed), stats: baseStats(),
+    // tres RNG: pista (igual para todos en el reto diario), botín (cartas, cofres) e IA (jefe, movers).
+    // Así lo que elige cada jugador no desplaza la secuencia de la pista.
+    daily, rng: makeRng(seed), lootRng: makeRng(seed ^ 0x9e3779b9), aiRng: makeRng(seed ^ 0x85ebca6b),
+    stats: baseStats(),
     dist: 0, time: 0, speed: 28, curve: 0,
     score: 0, coins: 0, chain: 0, mult: 1, maxMult: 1, chainT: 0, coinStreak: 0, lastCoinT: -9,
     od: 0, odTime: 0,
@@ -73,6 +76,8 @@ function startSection() {
   r.genHold = false;
   r.genZ = Math.max(r.genZ, r.dist + 45);
   r.event = null;
+  // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
+  r.hunters = Math.max(0, r.hunters - 1);
   if (isBoss) {
     r.sectionEnd = Infinity;
     spawnBoss(r);
@@ -217,9 +222,10 @@ function gainShield(n, label) {
 }
 
 export function hunterEscaped() {
+  const r = run();
   const ps = playerScreen();
-  addChain(3);
-  addScore(2000, '¡ESCAPASTE!', ps.x, ps.y - 60, '#ff3b6b');
+  // premio decreciente y sin combo: escapar no debe compensar más que jugar (antes se farmeaba)
+  addScore(2000 / Math.max(1, r.hunters), '¡ESCAPASTE!', ps.x, ps.y - 60, '#ff3b6b');
   fx.banner('¡ESCAPASTE!', 'el Cazador se retira', '#ff3b6b');
   fx.flash('#fff', 0.35);
   sfx.milestone();
@@ -325,8 +331,8 @@ export function onFork(reward) {
 }
 
 function rollChest(r) {
-  const k = r.rng.weighted([{ w: 40, k: 'coins' }, { w: 20, k: 'shield' }, { w: 20, k: 'od' }, { w: 20, k: 'epic' }]).k;
-  if (k === 'coins') { const a = r.rng.int(40, 100) + r.section * 15; return { kind: k, amount: a, icon: '🪙', label: `+${a} MONEDAS` }; }
+  const k = r.lootRng.weighted([{ w: 40, k: 'coins' }, { w: 20, k: 'shield' }, { w: 20, k: 'od' }, { w: 20, k: 'epic' }]).k;
+  if (k === 'coins') { const a = r.lootRng.int(40, 100) + r.section * 15; return { kind: k, amount: a, icon: '🪙', label: `+${a} MONEDAS` }; }
   if (k === 'shield') return { kind: k, amount: 1, icon: '🛡️', label: '+1 ESCUDO' };
   if (k === 'od') return { kind: k, icon: '🔥', label: 'OVERDRIVE INSTANTÁNEO' };
   return { kind: k, icon: '🃏', label: 'CARTA ÉPICA' };
@@ -437,7 +443,14 @@ export function update(dt) {
 
   if (r.odTime > 0) {
     r.odTime -= dt;
-    if (r.odTime <= 0) { r.odTime = 0; music.od = false; }
+    if (r.odTime <= 0) {
+      r.odTime = 0;
+      music.od = false;
+      // margen de salida: durante el overdrive no hace falta esquivar, así que acabarlo justo
+      // delante de un obstáculo sería una muerte sin tiempo de reacción
+      G.player.invuln = Math.max(G.player.invuln, 0.6);
+      fx.notice('OVERDRIVE terminado', '#ff2bd6');
+    }
   } else if (r.od >= 0.999) {
     activateOD();
   }

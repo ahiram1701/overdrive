@@ -36,7 +36,7 @@ const STEP = 1 / 120;
 let last = performance.now();
 let acc = 0;
 
-function frame(now) {
+function tick(now) {
   // el timestamp de rAF puede ser anterior a performance.now() del arranque: nunca dt negativo
   const real = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
@@ -62,7 +62,18 @@ function frame(now) {
   fx.update(real);
   render(real);
   ui.updateHUD(real);
-  requestAnimationFrame(frame);
+}
+
+let lastError = 0;
+function frame(now) {
+  // pase lo que pase en un frame, el siguiente se pide igual: una excepción nunca congela el juego
+  try {
+    tick(now);
+  } catch (e) {
+    if (now - lastError > 2000) { lastError = now; console.error(e); }
+  } finally {
+    requestAnimationFrame(frame);
+  }
 }
 requestAnimationFrame(frame);
 
