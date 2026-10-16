@@ -168,8 +168,11 @@ export const ui = {
     show('hangar');
   },
 
-  showCards(offers, run, title, onPick) {
+  showCards(offers, run, title, onPick, reward = '') {
     $('cardsTitle').textContent = title;
+    // lo que acabas de ganar en la bifurcación: si no, el overlay lo taparía
+    $('cardsReward').textContent = reward;
+    $('cardsReward').classList.toggle('hidden', !reward);
     const row = $('cardRow');
     row.innerHTML = '';
     let picked = false;

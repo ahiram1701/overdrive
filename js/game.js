@@ -210,10 +210,10 @@ function gainShield(n, label) {
   const before = r.shields;
   addShields(r, n);
   const extra = n - (r.shields - before);
-  if (extra > 0) {
-    r.coins += 20 * extra;
-    fx.notice(`🛡️ Escudos al máximo (${MAX_SHIELDS}) · +${20 * extra} 🪙`, '#30d158');
-  } else fx.notice(label, '#30d158');
+  const msg = extra > 0 ? `🛡️ Escudos al máximo (${MAX_SHIELDS}) · +${20 * extra} 🪙` : label;
+  if (extra > 0) r.coins += 20 * extra;
+  fx.notice(msg, '#30d158');
+  return msg;
 }
 
 export function hunterEscaped() {
@@ -294,17 +294,14 @@ export function onFork(reward) {
   switch (reward) {
     case 'riesgo':
       r.riskNext = true;
-      fx.notice('☠ RIESGO: x2 puntos en el próximo tramo', info.color);
-      return openCards();
+      return openCards({ reward: '☠ RIESGO: x2 puntos en el próximo tramo' });
     case 'escudo':
-      gainShield(1, '+1 🛡️ ESCUDO');
-      return openCards();
+      return openCards({ reward: gainShield(1, '+1 🛡️ ESCUDO') });
     case 'monedas': {
       const c = 30 + r.section * 12;
       r.coins += c;
-      fx.notice(`+${c} 🪙 MONEDAS`, info.color);
       for (let i = 0; i < 4; i++) fx.burst(G.W * Math.random(), G.H * 0.3, 12, '#ffcc00', 300, 5, 1, 600);
-      return openCards();
+      return openCards({ reward: `+${c} 🪙 MONEDAS` });
     }
     case 'epica':
       return openCards({ minRarity: 'rare', title: 'CARTAS RARAS' });
@@ -317,10 +314,11 @@ export function onFork(reward) {
       musicDuck(true);
       const res = rollChest(r);
       return ui.showChest(res, () => {
+        let reward = `${res.icon} ${res.label}`;
         if (res.kind === 'coins') r.coins += res.amount;
-        if (res.kind === 'shield') gainShield(res.amount, '+1 🛡️ ESCUDO');
+        if (res.kind === 'shield') reward = gainShield(res.amount, '+1 🛡️ ESCUDO');
         if (res.kind === 'od') r.od = 0.999;
-        openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : {});
+        openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : { reward });
       });
     }
   }
@@ -334,7 +332,7 @@ function rollChest(r) {
   return { kind: k, icon: '🃏', label: 'CARTA ÉPICA' };
 }
 
-function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true } = {}) {
+function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, reward = '' } = {}) {
   const r = run();
   let offers = offerCards(r, 3, minRarity);
   if (!offers.length) offers = offerCards(r, 3);
@@ -348,7 +346,7 @@ function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true } 
   ui.showCards(offers, r, title, (id) => {
     pickCard(id);
     finish();
-  });
+  }, reward);
 }
 
 export function pickCard(id) {
@@ -457,7 +455,7 @@ export function update(dt) {
     if (r.eventT <= 0) r.event = null;
   }
 
-  const kmh = eff * 10;
+  const kmh = r.speed * 10; // sin el x1.5 del overdrive: si no, su banner tapa al de OVERDRIVE
   while (r.speedMark < SPEED_MARKS.length && kmh >= SPEED_MARKS[r.speedMark][0]) {
     fx.banner(SPEED_MARKS[r.speedMark][1], '', '#7df9ff');
     fx.flash('#7df9ff', 0.3);
