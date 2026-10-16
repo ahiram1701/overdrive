@@ -25,6 +25,8 @@ export async function botInPage({ seconds, god = false, until = null }) {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   const key = (k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
   const solid = { wall: 'lane', mover: 'lane', mine: 'lane', shot: 'lane', barrier: 'jump', laserLow: 'jump', overhead: 'slide', laserHigh: 'slide' };
+  // cada obstáculo dice cómo se esquiva (o.need, desde DIM en world.js); la tabla es solo respaldo
+  const needOf = (o) => o.need || solid[o.type];
   const visible = (id) => !document.getElementById(id).classList.contains('hidden');
   let t = 0;
   while (t < seconds) {
@@ -48,11 +50,11 @@ export async function botInPage({ seconds, god = false, until = null }) {
     // tiempo hasta el impacto: los disparos del jefe se acercan más rápido (vz)
     const tti = (o) => (o.z - r.dist) / (sp + (o.vz || 0));
     const inLane = (o, lane) => o.all || Math.abs(o.x - lane) < 0.75;
-    const danger = (lane, a, b) => r.objects.filter((o) => o.alive && solid[o.type] && inLane(o, lane) && tti(o) > a && tti(o) < b);
-    const blocksLane = (lane, a, b) => danger(lane, a, b).some((o) => solid[o.type] === 'lane');
+    const danger = (lane, a, b) => r.objects.filter((o) => o.alive && needOf(o) && inLane(o, lane) && tti(o) > a && tti(o) < b);
+    const blocksLane = (lane, a, b) => danger(lane, a, b).some((o) => needOf(o) === 'lane');
     const near = danger(p.lane, 0, 0.4).sort((a, b) => tti(a) - tti(b))[0];
     if (near && p.dash <= 0 && r.odTime <= 0) {
-      const need = solid[near.type];
+      const need = needOf(near);
       const tt = tti(near);
       if (need === 'lane') {
         // carril libre más cercano; si hay que cruzar uno intermedio, que esté libre ahora
