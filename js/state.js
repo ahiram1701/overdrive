@@ -11,7 +11,7 @@ export const G = {
   slowmo: 0, slowScale: 1,
   hitstop: 0,
   realTime: 0,
-  debug: new URLSearchParams(location.search).has('debug'),
+  debug: typeof location !== 'undefined' && new URLSearchParams(location.search).has('debug'),
 };
 
 export const clamp = (v, a, b) => (v < a ? a : v > b ? b : v);

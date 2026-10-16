@@ -37,7 +37,8 @@ let last = performance.now();
 let acc = 0;
 
 function frame(now) {
-  let real = Math.min(0.05, (now - last) / 1000);
+  // el timestamp de rAF puede ser anterior a performance.now() del arranque: nunca dt negativo
+  const real = Math.max(0, Math.min(0.05, (now - last) / 1000));
   last = now;
   G.realTime += real;
 
@@ -68,10 +69,12 @@ requestAnimationFrame(frame);
 if (G.debug) {
   window.G = G;
   window.D = {
-    step(sec) {
+    step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { update(STEP); fx.update(STEP); }
-      render(STEP);
-      ui.updateHUD(1);
+      if (draw) {
+        render(STEP);
+        ui.updateHUD(1);
+      }
       return { mode: G.mode, section: G.run?.section, score: Math.round(G.run?.score), mult: G.run?.mult, speed: G.run?.speed };
     },
   };
