@@ -27,6 +27,67 @@ for (const seed of [1, 42, 2026]) {
   });
 }
 
+// Regresión del exploit de "no jugar": con escudos, Vampiro y Explosivo (el peor caso),
+// quedarse quieto sin tocar nada tiene que acabar en muerte en pocos segundos.
+// Es la build exacta que daba escudos infinitos: golpe -> overdrive -> roturas en cadena -> Vampiro -> escudo.
+test('quedarse quieto mata aunque tengas escudos, Vampiro, Explosivo y overdrive potenciado', async ({ page }) => {
+  await startRun(page, { seed: 9 });
+  const res = await page.evaluate(() => {
+    const G = window.G, r = G.run;
+    // un minuto de partida para tener velocidad alta (sin bifurcaciones que abran menús)
+    r.sectionEnd = Infinity;
+    G.god = true;
+    for (let i = 0; i < 3600 && G.mode === 'play'; i++) { G.player.dash = 0.3; window.D.step(1 / 60, false); }
+    G.god = false;
+    G.player.dash = 0;
+    r.shields = 3;
+    Object.assign(r.stats, { vampire: true, explosive: true, odRate: 2.05, odDur: 12 });
+    let t = 0, maxShields = r.shields;
+    while (G.mode === 'play' && t < 30) {
+      window.D.step(1 / 60, false);
+      t += 1 / 60;
+      maxShields = Math.max(maxShields, r.shields);
+    }
+    return { mode: G.mode, t, shields: r.shields, maxShields };
+  });
+  expect(res.maxShields).toBeLessThanOrEqual(3);
+  expect(res.mode, `seguía vivo tras ${res.t.toFixed(1)} s con ${res.shields} escudos`).not.toBe('play');
+});
+
+test('el Cazador aparece al quedarte quieto y se retira si esquivas 2 disparos', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startRun(page, { seed: 4 });
+  const res = await page.evaluate(() => {
+    const G = window.G, r = G.run, p = G.player;
+    const key = (k) => window.dispatchEvent(new KeyboardEvent('keydown', { key: k }));
+    r.sectionEnd = Infinity;
+    r.objects.length = 0;
+    r.genHold = true; // pista vacía: solo cuenta el Cazador
+    let t = 0;
+    while (!r.hunter && t < 6) { window.D.step(1 / 60, false); t += 1 / 60; }
+    const spawnedAt = t;
+    let lastAim = -1, dodges = 0;
+    while (r.hunter && !r.hunter.leaving && t < 20 && G.mode === 'play') {
+      const h = r.hunter;
+      // esquivar: cambiar de carril justo después de que te marque
+      if (h.aimT > 0 && h.shots !== lastAim) {
+        lastAim = h.shots;
+        key(p.lane >= 0 ? 'ArrowLeft' : 'ArrowRight');
+        dodges++;
+      }
+      window.D.step(1 / 60, false);
+      t += 1 / 60;
+    }
+    return { spawnedAt, left: !!r.hunter?.leaving || !r.hunter, mode: G.mode, hits: (G.hits || []).length, dodges };
+  });
+  expect(res.spawnedAt).toBeGreaterThan(2.9);
+  expect(res.spawnedAt).toBeLessThan(3.2);
+  expect(res.left).toBe(true);
+  expect(res.hits).toBe(0);
+  expect(res.mode).toBe('play');
+  expect(errors).toEqual([]);
+});
+
 test('se llega y se derrota al primer jefe pasando por cartas, cofres y tienda', async ({ page }) => {
   const errors = trackErrors(page);
   await startRun(page, { seed: 7, god: true });

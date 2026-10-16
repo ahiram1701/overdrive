@@ -49,6 +49,8 @@ Cada color te dice qué hacer, en todos los biomas:
 - **Near-miss:** pasa rozando un obstáculo justo después de moverte. Si lo haces en el último instante es un **¡PERFECTO!**, con cámara lenta incluida.
 - **Combo (x1 → x99):** sube con near-miss, roturas y monedas. Si pasan 3 s sin hacer nada empieza a bajar, y un golpe lo reinicia.
 - **OVERDRIVE:** se carga con near-miss y roturas. Durante unos segundos eres invencible, todo lo que tocas explota, vas un 50% más rápido y puntúas el doble.
+- **Escudos (máx. 3):** cada uno aguanta un golpe, pero un golpe nunca da nada: pierdes el escudo, el combo y medio overdrive. Solo se consiguen en bifurcaciones, cofres, cartas o con **Vampiro**, que da uno cada 12 near-miss.
+- **El Cazador:** si pasas 3 s sin tocar nada aparece un dron que marca tu carril en rojo y dispara. Sus disparos atraviesan la invulnerabilidad. Esquiva 2 seguidos y se retira con un **¡ESCAPASTE!** y bonus. Cada vez que vuelve, tarda menos en aparecer.
 - **Velocidad:** no para de subir. Hay avisos a los 500 km/h, en MACH 1, en MACH 2…
 
 ## 🛣️ Estructura de una partida
@@ -65,7 +67,7 @@ Cada color te dice qué hacer, en todos los biomas:
 |---|---|---|---|---|
 | 🧲 | **Imán** | común | Atrae las monedas cercanas. Se acumula. | 3 |
 | ⚡ | **Doble carga** | rara | +1 carga de DASH. | 2 |
-| 🛡️ | **Escudo** | común | Aguanta 1 golpe. | ∞ |
+| 🛡️ | **Escudo** | rara | Aguanta 1 golpe (máximo 3 escudos). | 2 |
 | 👁️ | **Reflejos** | común | Ventana de near-miss más grande y cámara lenta más larga. | 3 |
 | 💉 | **Adrenalina** | rara | Cada near-miss recarga media carga de DASH. | 1 |
 | 🌋 | **Terremoto** | rara | Al aterrizar de un salto destruyes lo que tengas delante en tu carril. | 1 |
@@ -77,7 +79,7 @@ Cada color te dice qué hacer, en todos los biomas:
 | 🪙 | **Monedas de oro** | común | Cada moneda vale +1. | 3 |
 | 💎 | **Pacto de cristal** | épica | x3 PUNTOS… pero pierdes un carril para siempre. | 1 |
 | 🚀 | **Nitro loco** | épica | +50% de velocidad y x2 PUNTOS. | 1 |
-| 🧛 | **Vampiro** | rara | Cada 25 de combo ganas un escudo. | 1 |
+| 🧛 | **Vampiro** | rara | Cada 12 near-miss ganas un escudo. | 1 |
 | 🧷 | **Seguro de combo** | común | Perder un escudo no reinicia tu combo. | 1 |
 | ⏱️ | **Recarga rápida** | común | El DASH recarga un 25% más rápido. | 3 |
 | 🪶 | **Ágil** | común | Cambias de carril y saltas más rápido. | 2 |

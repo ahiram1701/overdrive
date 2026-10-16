@@ -1,5 +1,5 @@
 // Capa DOM: HUD, menú, hangar, cartas, tienda, cofre, muerte y pausa.
-import { G, fmt } from './state.js';
+import { G, fmt, MAX_SHIELDS } from './state.js';
 import { save, persist } from './save.js';
 import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
@@ -299,7 +299,7 @@ export const ui = {
     setHTML('speed', `${Math.round(effSpeed(r) * 10)}<small> KM/H</small>`);
     setText('dist', `${fmt(r.dist)} m`);
     setText('coins', `🪙 ${r.coins}`);
-    setText('shields', '🛡️'.repeat(Math.min(r.shields, 6)));
+    setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, MAX_SHIELDS - r.shields)));
     const od = $('odbar');
     od.firstElementChild.style.transform = `scaleX(${r.odTime > 0 ? r.odTime / r.stats.odDur : r.od})`;
     od.classList.toggle('active', r.odTime > 0);

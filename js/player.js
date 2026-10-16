@@ -6,7 +6,7 @@ import { project } from './render.js';
 import { quake } from './world.js';
 
 export function newPlayer() {
-  return { lane: 0, x: 0, y: 0, vy: 0, air: false, jumps: 0, slide: 0, dash: 0, lastAction: -9, tilt: 0, invuln: 0, trailT: 0 };
+  return { lane: 0, x: 0, y: 0, vy: 0, air: false, jumps: 0, slide: 0, dash: 0, lastAction: 0, tilt: 0, invuln: 0, trailT: 0 };
 }
 
 export function playerBox() {

@@ -1,4 +1,7 @@
 // Cartas de mejora, sinergias y naves. Las cartas cambian REGLAS, no solo números.
+import { MAX_SHIELDS, addShields } from './state.js';
+
+export const VAMPIRE_NEAR = 12; // near-miss por escudo de Vampiro
 
 export function baseStats() {
   return {
@@ -34,7 +37,7 @@ export const RARITY = {
 export const CARDS = [
   { id: 'iman', name: 'Imán', icon: '🧲', rarity: 'common', max: 3, desc: 'Atrae las monedas cercanas. Se acumula.', apply: (r) => { r.stats.magnet += 1; } },
   { id: 'carga', name: 'Doble carga', icon: '⚡', rarity: 'rare', max: 2, desc: '+1 carga de DASH.', apply: (r) => { r.stats.dashMax += 1; r.dashCharges += 1; } },
-  { id: 'escudo', name: 'Escudo', icon: '🛡️', rarity: 'common', max: 99, desc: 'Aguanta 1 golpe.', apply: (r) => { r.shields += 1; } },
+  { id: 'escudo', name: 'Escudo', icon: '🛡️', rarity: 'rare', max: 2, desc: `Aguanta 1 golpe (máximo ${MAX_SHIELDS} escudos).`, apply: (r) => { addShields(r, 1); } },
   { id: 'reflejos', name: 'Reflejos', icon: '👁️', rarity: 'common', max: 3, desc: 'Ventana de near-miss más grande y cámara lenta más larga.', apply: (r) => { r.stats.nearWin += 0.35; } },
   { id: 'adrenalina', name: 'Adrenalina', icon: '💉', rarity: 'rare', max: 1, desc: 'Cada near-miss recarga media carga de DASH.', apply: (r) => { r.stats.nearDash = true; } },
   { id: 'terremoto', name: 'Terremoto', icon: '🌋', rarity: 'rare', max: 1, desc: 'Al aterrizar de un salto destruyes lo que tengas delante en tu carril.', apply: (r) => { r.stats.quake = true; } },
@@ -46,7 +49,7 @@ export const CARDS = [
   { id: 'oro', name: 'Monedas de oro', icon: '🪙', rarity: 'common', max: 3, desc: 'Cada moneda vale +1.', apply: (r) => { r.stats.coinValue += 1; } },
   { id: 'cristal', name: 'Pacto de cristal', icon: '💎', rarity: 'epic', max: 1, desc: 'x3 PUNTOS… pero pierdes un carril para siempre.', apply: (r) => { r.stats.scoreMult *= 3; r.blockedLane = r.player.lane === 1 ? -1 : 1; } },
   { id: 'nitro', name: 'Nitro loco', icon: '🚀', rarity: 'epic', max: 1, desc: '+50% de velocidad y x2 PUNTOS.', apply: (r) => { r.stats.speedMult *= 1.5; r.stats.scoreMult *= 2; } },
-  { id: 'vampiro', name: 'Vampiro', icon: '🧛', rarity: 'rare', max: 1, desc: 'Cada 25 de combo ganas un escudo.', apply: (r) => { r.stats.vampire = true; } },
+  { id: 'vampiro', name: 'Vampiro', icon: '🧛', rarity: 'rare', max: 1, desc: `Cada ${VAMPIRE_NEAR} near-miss ganas un escudo.`, apply: (r) => { r.stats.vampire = true; } },
   { id: 'seguro', name: 'Seguro de combo', icon: '🧷', rarity: 'common', max: 1, desc: 'Perder un escudo no reinicia tu combo.', apply: (r) => { r.stats.insurance = true; } },
   { id: 'recarga', name: 'Recarga rápida', icon: '⏱️', rarity: 'common', max: 3, desc: 'El DASH recarga un 25% más rápido.', apply: (r) => { r.stats.dashRecharge *= 0.75; } },
   { id: 'agil', name: 'Ágil', icon: '🪶', rarity: 'common', max: 2, desc: 'Cambias de carril y saltas más rápido.', apply: (r) => { r.stats.laneTime *= 0.75; r.stats.gravity *= 1.12; r.stats.jumpV *= 1.06; } },
@@ -108,7 +111,7 @@ export function offerCards(run, n = 3, minRarity = null) {
 
 export const SHIPS = [
   { id: 'viper', name: 'Viper', cost: 0, color: '#00e5ff', desc: 'Equilibrada. La de siempre.', apply: () => {} },
-  { id: 'brick', name: 'Brick', cost: 60, color: '#ffd60a', desc: 'Empieza con 2 escudos, pero cambia de carril más lento.', apply: (r) => { r.shields += 2; r.stats.laneTime *= 1.3; } },
+  { id: 'brick', name: 'Brick', cost: 60, color: '#ffd60a', desc: 'Empieza con 2 escudos, pero cambia de carril más lento.', apply: (r) => { addShields(r, 2); r.stats.laneTime *= 1.3; } },
   { id: 'ghost', name: 'Ghost', cost: 150, color: '#e0e0ff', desc: 'Ventana de near-miss enorme y DASH que recarga rápido.', apply: (r) => { r.stats.nearWin += 0.5; r.stats.dashRecharge *= 0.7; } },
   { id: 'nova', name: 'Nova', cost: 300, color: '#ff375f', desc: 'OVERDRIVE se llena un 60% más rápido y dura +2 s.', apply: (r) => { r.stats.odRate += 0.6; r.stats.odDur += 2; } },
   { id: 'kaiju', name: 'Kaiju', cost: 500, color: '#30d158', desc: 'Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos.', apply: (r) => { applyCard(r, 'ancho'); applyCard(r, 'explosivo'); r.stats.scoreMult *= 0.7; } },
