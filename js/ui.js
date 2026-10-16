@@ -4,7 +4,7 @@ import { save, persist } from './save.js';
 import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
-import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, synergyHint } from './upgrades.js';
+import { RARITY, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed } from './game.js';
 
 const $ = (id) => document.getElementById(id);
@@ -198,6 +198,8 @@ export const ui = {
     const render = (offers) => {
       $('sCoins').textContent = run.coins;
       $('btnReroll').textContent = `RE-TIRAR · 🪙${rerollCost}`;
+      // sin cartas disponibles no tiene sentido cobrar por re-tirar
+      $('btnReroll').disabled = !availableCards(run).length || run.coins < rerollCost;
       const row = $('shopRow');
       row.innerHTML = '';
       for (const c of offers) {
@@ -219,7 +221,7 @@ export const ui = {
     let offers = fresh();
     $('btnReroll').onclick = (e) => {
       e.stopPropagation();
-      if (run.coins < rerollCost) return;
+      if (run.coins < rerollCost || !availableCards(run).length) return;
       run.coins -= rerollCost;
       rerollCost += 10;
       sfx.ui();

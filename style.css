@@ -121,6 +121,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
   box-shadow: 0 0 16px rgba(0,229,255,.35), inset 0 0 12px rgba(0,229,255,.2);
 }
 .btn:active { transform: scale(.96); }
+.btn:disabled { opacity: .35; filter: grayscale(1); }
 .btn.big { padding: 18px; font-size: 26px; border-color: var(--pink); background: rgba(255,43,214,.2); box-shadow: 0 0 24px rgba(255,43,214,.55), inset 0 0 14px rgba(255,43,214,.3); animation: breathe 1.6s ease-in-out infinite; }
 @keyframes breathe { 50% { transform: scale(1.04); } }
 .btn.ghost { border-color: rgba(255,255,255,.3); background: transparent; box-shadow: none; }

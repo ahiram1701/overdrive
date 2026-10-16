@@ -95,14 +95,20 @@ export function applyCard(run, id) {
   return checkSynergies(run);
 }
 
-export function offerCards(run, n = 3, minRarity = null) {
-  const avail = CARDS.filter((c) => (run.cards[c.id] || 0) < c.max)
+// Cartas que se pueden ofrecer ahora mismo (sin tirar del RNG).
+export function availableCards(run, minRarity = null) {
+  return CARDS.filter((c) => (run.cards[c.id] || 0) < c.max)
     .filter((c) => !(c.id === 'cristal' && run.blockedLane !== null))
+    .filter((c) => !(c.id === 'escudo' && run.shields >= MAX_SHIELDS)) // con escudos llenos sería una carta muerta
     .filter((c) => !minRarity || (minRarity === 'rare' ? c.rarity !== 'common' : c.rarity === 'epic'));
+}
+
+export function offerCards(run, n = 3, minRarity = null) {
+  const avail = availableCards(run, minRarity);
   const pool = avail.map((c) => ({ c, w: RARITY[c.rarity].w * (c.rarity === 'common' ? 1 : run.luck || 1) }));
   const out = [];
   while (out.length < n && pool.length) {
-    const pick = run.rng.weighted(pool);
+    const pick = (run.lootRng || run.rng).weighted(pool);
     out.push(pick.c);
     pool.splice(pool.indexOf(pick), 1);
   }

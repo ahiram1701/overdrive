@@ -63,6 +63,7 @@ test('el Cazador aparece al quedarte quieto y se retira si esquivas 2 disparos',
     r.sectionEnd = Infinity;
     r.objects.length = 0;
     r.genHold = true; // pista vacía: solo cuenta el Cazador
+    r.section = 1; // en el primer tramo no aparece (es donde se aprende)
     let t = 0;
     while (!r.hunter && t < 6) { window.D.step(1 / 60, false); t += 1 / 60; }
     const spawnedAt = t;
@@ -115,6 +116,43 @@ test('un muro no se puede saltar ni con Salto doble', async ({ page }) => {
   expect(res.jumped).toBe(2);
   expect(res.maxY).toBeGreaterThan(1.6);
   expect(res.hits).toEqual(['wall']);
+});
+
+// El reto diario debe ser la misma pista para todos: lo que elige cada uno (aquí la "Carta inicial")
+// no puede desplazar el RNG de la pista. Se elige una carta que no cambia velocidad ni carriles.
+test('la misma semilla genera la misma pista con y sin "Carta inicial"', async ({ page }) => {
+  const track = async (withCard) => {
+    await page.addInitScript((wc) => {
+      localStorage.setItem('overdrive-save-v1', JSON.stringify({ runs: 1, meta: { shield: false, card: wc } }));
+    }, withCard);
+    await page.goto('/?debug&nosw&seed=77');
+    await page.waitForFunction(() => !!window.G);
+    return page.evaluate(async () => {
+      const G = window.G;
+      G.manual = true;
+      G.god = true;
+      document.getElementById('btnPlay').click();
+      if (G.mode === 'cards') {
+        const skip = ['Nitro loco', 'Pacto de cristal'];
+        const cs = [...document.querySelectorAll('#cardRow .card')];
+        (cs.find((c) => !skip.includes(c.querySelector('.c-name').textContent)) || cs[0]).click();
+        while (G.mode === 'cards') await new Promise((r) => setTimeout(r, 20));
+      }
+      const r = G.run;
+      r.sectionEnd = Infinity;
+      const seen = new Set();
+      for (let i = 0; i < 60 * 20; i++) {
+        G.player.dash = 0.3;
+        window.D.step(1 / 60, false);
+        for (const o of r.objects) if (o.type !== 'coin') seen.add(`${o.type}:${o.lane}:${Math.round(o.z)}`);
+      }
+      return [...seen].sort();
+    });
+  };
+  const plain = await track(false);
+  const withCard = await track(true);
+  expect(plain.length).toBeGreaterThan(30);
+  expect(withCard).toEqual(plain);
 });
 
 test('se llega y se derrota al primer jefe pasando por cartas, cofres y tienda', async ({ page }) => {

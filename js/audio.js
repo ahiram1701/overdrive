@@ -170,6 +170,8 @@ export function musicDuck(on) {
 
 function scheduler() {
   if (!ctx || !music.on) return;
+  // si el timer estuvo dormido (pestaña oculta), resincronizar en vez de soltar de golpe las notas atrasadas
+  if (music.next < ctx.currentTime - 0.05) music.next = ctx.currentTime + 0.02;
   while (music.next < ctx.currentTime + 0.12) {
     playStep(music.step, music.next - ctx.currentTime);
     music.next += 60 / music.bpm / 4;

@@ -1,7 +1,7 @@
 // Render pseudo-3D en Canvas 2D: escala = focal / profundidad (como los arcades clásicos).
 import { G, LANE_W, VIEW, clamp } from './state.js';
 import { fx } from './fx.js';
-import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ } from './world.js';
+import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ, runSpeed } from './world.js';
 import { SHIPS } from './upgrades.js';
 import { save } from './save.js';
 
@@ -370,7 +370,8 @@ function drawObj(o, rz, b, t) {
     case 'wall':
     case 'mover': {
       let x = o.x;
-      if (o.gate) x += Math.sign(o.x || 1) * clamp((rz - 10) / 25, 0, 1) * 1.6;
+      // la puerta termina de cerrarse ~0.4 s antes del impacto, a cualquier velocidad
+      if (o.gate) x += Math.sign(o.x || 1) * clamp((rz / runSpeed() - 0.4) / 0.5, 0, 1) * 1.6;
       const f = neonBox(x, o.y0, Math.min(o.y1, WALL_DRAW_H), rz, o.w, o.depth, ACT.dodge, 0.45);
       if (f) {
         ctx.strokeStyle = hexA(ACT.dodge, 0.7);

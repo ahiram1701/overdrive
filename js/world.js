@@ -40,7 +40,11 @@ const DIM = {
 
 const ACT_DODGE = '#ff3b6b'; // mismo magenta que "esquiva" en render.js
 
-export const allowedLanes =(r) => LANES.filter((l) => l !== r.blockedLane);
+// velocidad real (con overdrive): los umbrales de reacción se miden en TIEMPO, no en metros,
+// porque la velocidad no tiene tope y una distancia fija se vuelve imposible al final
+export const runSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
+
+export const allowedLanes = (r) => LANES.filter((l) => l !== r.blockedLane);
 const isObstacle = (o) => o.type !== 'coin' && o.type !== 'fork' && o.type !== 'core';
 
 function add(type, lane, z, extra = {}) {
@@ -132,12 +136,18 @@ function genRow(r) {
   if (kind === 'jump' || kind === 'mixed') gap = Math.max(gap, spd * 0.78);
   if (kind === 'slide') gap = Math.max(gap, spd * 0.66);
 
+  let coinLane = null;
   if (kind === 'jump' && rng.chance(0.5)) coinArc(rng.pick(L), z);
-  else if (rng.chance(0.45)) coinLine(rng.pick(L), z + 3, z + gap - 3);
+  else if (rng.chance(0.45)) {
+    coinLane = rng.pick(L);
+    coinLine(coinLane, z + 3, z + gap - 3);
+  }
 
-  // fila extra encadenada en tramos avanzados
+  // fila extra encadenada en tramos avanzados; nunca encima de la hilera de monedas,
+  // que si no te guiaría directa contra el muro
   if (kind === 'lane' && r.section >= 3 && rng.chance(Math.min(0.35, (r.section - 2) * 0.07)) && (gap * 0.5) / spd > 0.3) {
-    add('wall', rng.pick(L), z + gap * 0.5);
+    const wl = L.filter((l) => l !== coinLane);
+    add('wall', rng.pick(wl.length ? wl : L), z + gap * 0.5);
   }
   r.genZ += gap;
 }
@@ -195,7 +205,7 @@ export function breakObj(o, cause = 'dash') {
 
 export function quake() {
   const r = G.run, p = G.player;
-  const range = r.synergies.has('meteoro') ? 18 : 9;
+  const range = Math.max(9, runSpeed(r) * 0.18) * (r.synergies.has('meteoro') ? 2 : 1);
   const px = p.x * LANE_W;
   const sp = project(px, 0, 1.5);
   if (sp) {
@@ -276,20 +286,20 @@ function updateBoss(r, dt) {
   if (b.dying) return;
   const L = allowedLanes(r);
   b.moveT -= dt;
-  if (b.moveT <= 0) { b.moveT = 0.9 + r.rng.next() * 0.8; b.tx = r.rng.pick(L); }
+  if (b.moveT <= 0) { b.moveT = 0.9 + r.aiRng.next() * 0.8; b.tx = r.aiRng.pick(L); }
   b.x += (b.tx - b.x) * Math.min(1, dt * 3);
 
   b.fireT -= dt;
   if (b.fireT <= 0) {
     b.fireT = Math.max(0.55, 1.35 - r.section * 0.04);
-    const lane = r.rng.chance(0.55) ? G.player.lane : r.rng.pick(L);
-    const tall = r.rng.chance(0.35);
+    const lane = r.aiRng.chance(0.55) ? G.player.lane : r.aiRng.pick(L);
+    const tall = r.aiRng.chance(0.35);
     add('shot', lane, r.dist + bossRz(), { vz: 16 + r.section, y1: tall ? TALL : 0.5, tall });
   }
   b.coreT -= dt;
   if (b.coreT <= 0) {
     b.coreT = 3.4;
-    add('core', r.rng.pick(L), r.dist + bossRz());
+    add('core', r.aiRng.pick(L), r.dist + bossRz());
   }
   b.escapeT -= dt;
   if (b.escapeT <= 0) bossEscaped();
@@ -332,7 +342,8 @@ function spawnHunter(r) {
 function updateHunter(r, dt) {
   const p = G.player;
   if (!r.hunter) {
-    if (!r.boss && r.odTime <= 0 && r.time - p.lastAction > hunterDelay(r)) spawnHunter(r);
+    // nunca en el primer tramo: es donde se aprende a jugar
+    if (r.section >= 1 && !r.boss && r.odTime <= 0 && r.time - p.lastAction > hunterDelay(r)) spawnHunter(r);
     return;
   }
   const h = r.hunter;
@@ -399,19 +410,20 @@ export function updateWorld(dt) {
     if (o.vz) o.z -= o.vz * dt;
     const rz = o.z - r.dist;
 
-    if (o.type === 'mover' && rz > 16) {
+    // deja de cambiar de carril con ~0.45 s de margen, vaya a la velocidad que vaya
+    if (o.type === 'mover' && rz > Math.max(16, runSpeed(r) * 0.45)) {
       o.moveT -= dt;
       if (o.moveT <= 0) {
         o.moveT = 0.55;
         const opts = allowedLanes(r).filter((l) => l !== o.target);
-        o.target = r.rng.pick(opts);
+        o.target = r.aiRng.pick(opts);
       }
       o.x += (o.target * LANE_W - o.x) * Math.min(1, dt * 10);
       o.lane = o.target;
     }
 
     if (o.type === 'coin') {
-      if (mag > 0 && rz < 6 + mag * 5 && rz > -1 && Math.abs(o.x - pb.x) < 0.6 + mag * 0.9) o.mag = true;
+      if (mag > 0 && rz < Math.max(6 + mag * 5, runSpeed(r) * (0.15 + mag * 0.1)) && rz > -1 && Math.abs(o.x - pb.x) < 0.6 + mag * 0.9) o.mag = true;
       if (o.mag) {
         const k = Math.min(1, dt * 14);
         o.x += (pb.x - o.x) * k;
