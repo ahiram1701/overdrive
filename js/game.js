@@ -225,6 +225,13 @@ export function onBreak(o, cause, sp) {
   const r = run();
   r.breaks++;
   addChain(1);
+  // DIANA: premio extra por reventarla
+  if (o.type === 'drone') {
+    const s = sp || playerScreen();
+    addScore(300, '🎯 DIANA', s.x, s.y - 50, '#30d158');
+    addOD(0.08);
+    progress('drone');
+  }
   // mutación "recharge": cada rotura con el ARIETE activo recarga 1 s
   if (isActive(r.ability, 'ram') && r.ability.mut === 'recharge') r.ability.cdLeft = Math.max(0, r.ability.cdLeft - 1);
   const s = sp || playerScreen();
@@ -667,6 +674,22 @@ export function update(dt) {
   }
 
   music.bpm = 118 + Math.min(70, eff * 0.35);
+
+  // GRIND: mientras recorres un riel, puntos, combo y overdrive cada 0,2 s
+  if (G.player.grind) {
+    r.grindAcc = (r.grindAcc || 0) + dt;
+    while (r.grindAcc >= 0.2) {
+      r.grindAcc -= 0.2;
+      const ps = playerScreen();
+      addChain(0.3);
+      addScore(25, '🛹 GRIND', ps.x, ps.y - 30, '#ffffff');
+      addOD(0.015);
+      fx.burst(ps.x, ps.y + ps.s * 0.1, 6, '#ffd60a', 260, 3, 0.3, 500);
+      sfx.coin(r.coinStreak++ % 12);
+    }
+    r.grindT = (r.grindT || 0) + dt;
+    progress('grind', dt);
+  }
 
   const ev = tickAbility(r.ability, dt);
   if (ev === 'ended') abilityEnded(r.ability);

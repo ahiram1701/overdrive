@@ -28,7 +28,7 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
   // cada obstáculo dice cómo se esquiva (o.need, desde DIM en world.js); la tabla es solo respaldo
   const needOf = (o) => o.need || solid[o.type];
   const visible = (id) => !document.getElementById(id).classList.contains('hidden');
-  let t = 0, uses = 0;
+  let t = 0, uses = 0, fled = -1;
   while (t < seconds) {
     if (until === 'boss' && G.run.bosses >= 1) break;
     if (G.mode === 'cards') {
@@ -52,6 +52,18 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     const inLane = (o, lane) => o.all || Math.abs(o.x - lane) < 0.75;
     const danger = (lane, a, b) => r.objects.filter((o) => o.alive && needOf(o) && inLane(o, lane) && tti(o) > a && tti(o) < b);
     const blocksLane = (lane, a, b) => danger(lane, a, b).some((o) => needOf(o) === 'lane');
+    // el Cazador marca tu carril 0,5 s antes de disparar: apartarse al VER la marca, como un
+    // jugador (a mucha velocidad la bala tarda ~0,1 s, así que el aviso real es la marca)
+    const h = r.hunter;
+    if (h && !h.leaving && h.aimT > 0 && h.aimLane === p.lane && fled !== h.shots) {
+      const away = [-1, 0, 1]
+        .filter((l) => l !== p.lane && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5) && !danger(l, -0.05, 0.3).length)
+        .sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0];
+      if (away !== undefined) {
+        key((away < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');
+        fled = h.shots;
+      }
+    }
     const near = danger(p.lane, 0, 0.4).sort((a, b) => tti(a) - tti(b))[0];
     if (near && p.dash <= 0 && r.odTime <= 0) {
       const need = needOf(near);
@@ -60,6 +72,8 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
         // carril libre más cercano; si hay que cruzar uno intermedio, que esté libre ahora
         const target = [-1, 0, 1]
           .filter((l) => l !== p.lane && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5))
+          // no meterse en un carril con CUALQUIER cosa encima (algo que saltar o deslizar sin tiempo)
+          .filter((l) => !danger(l, -0.05, 0.3).length)
           .filter((l) => Math.abs(l - p.lane) === 1 || !blocksLane((l + p.lane) / 2, -0.05, 0.25))
           .sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0];
         if (target !== undefined) key((target < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');

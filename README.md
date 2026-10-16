@@ -48,6 +48,15 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
 | 🟢 **Verde** | ¡Ve a por él con DASH! | núcleo del jefe |
 | 🟡 **Rombo dorado** con destello | Cógelo | monedas (lo único dorado de la pista) |
 
+**Elementos especiales:**
+- **Pinzas** (magenta ▶◀): dos mandíbulas cierran un carril justo antes de llegar.
+- **Rodillos** (amarillo ▲): ruedan hacia ti más rápido que la pista.
+- **Plataformas que caen** (cian ▼): bajan del techo en el último momento.
+- 🌀 **Portales**: te cambian de carril; la flecha indica a cuál.
+- 🟢 **Rampas**: te lanzan por los aires con un arco de monedas.
+- **Rieles**: súbete saltando su punta y haz *grind*, que suma puntos, combo y overdrive mientras lo recorres.
+- 🎯 **Dianas**: rómpelas con DASH, láser u overdrive para un bonus.
+
 ## 🔥 Cómo sacar puntos
 - **Near-miss:** pasa rozando un obstáculo justo después de moverte. Si lo haces en el último instante es un **¡PERFECTO!**, con cámara lenta incluida.
 - **Combo (x1 → x99):** sube con near-miss, roturas y monedas. Si pasan 3 s sin hacer nada empieza a bajar, y un golpe lo reinicia.
