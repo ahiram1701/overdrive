@@ -4,6 +4,8 @@ import { fx } from './fx.js';
 import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ, runSpeed } from './world.js';
 import { SHIPS } from './upgrades.js';
 import { isActive } from './abilities.js';
+import { drawShip } from './shipdraw.js';
+import { equipped } from './cosmetics.js';
 import { save } from './save.js';
 
 const CAM_H = 3;
@@ -628,8 +630,8 @@ function drawObj(o, rz, b, t) {
       ctx.strokeStyle = hexA('#ffffff', 0.5);
       ctx.lineWidth = 1.5;
       for (let z = Math.ceil(z0 / 4) * 4; z < z1; z += 4) {
-        const a = project(o.x, 0.5, z), b = project(o.x, 0, z);
-        if (a && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+        const a = project(o.x, 0.5, z), bot = project(o.x, 0, z);
+        if (a && bot) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(bot.x, bot.y); ctx.stroke(); }
       }
       if (rz > NEAR + 0.6) {
         neonBox(o.x, 0, 0.5, rz, 0.5, 0.3, ACT.jump, 0.7);
@@ -664,14 +666,14 @@ function drawObj(o, rz, b, t) {
     }
     case 'ramp': {
       // rampa verde: te lanza por los aires
-      const a = project(o.x - 0.45, 0, rz), b = project(o.x + 0.45, 0, rz);
+      const a = project(o.x - 0.45, 0, rz), br = project(o.x + 0.45, 0, rz);
       const c = project(o.x + 0.45, 0.6, rz + o.depth), d = project(o.x - 0.45, 0.6, rz + o.depth);
-      if (!a || !b || !c || !d) break;
+      if (!a || !br || !c || !d) break;
       ctx.fillStyle = hexA(TARGET, 0.35);
       ctx.strokeStyle = TARGET;
       ctx.lineWidth = Math.max(1.5, a.s * 0.03);
       ctx.beginPath();
-      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
+      ctx.moveTo(a.x, a.y); ctx.lineTo(br.x, br.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
       ctx.closePath();
       ctx.fill();
       ctx.stroke();
@@ -834,10 +836,59 @@ function drawBoss(b, t) {
   ctx.restore();
 }
 
+// hsl(h, 100%, 60%) en hex (drawShip mezcla colores en RGB)
+function hueHex(h) {
+  const f = (n) => {
+    const k = (n + h / 30) % 12;
+    const c = 0.6 - 0.4 * Math.max(-1, Math.min(k - 3, 9 - k, 1));
+    return Math.round(c * 255).toString(16).padStart(2, '0');
+  };
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+
+const curShip = () => SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
+
+// color del borde: el de la pintura, o el de la nave; en OVERDRIVE, arcoíris
 function shipColor() {
   const r = G.run;
-  if (r && r.odTime > 0) return `hsl(${(G.realTime * 600) % 360},100%,60%)`;
-  return (SHIPS.find((s) => s.id === save.ship) || SHIPS[0]).color;
+  if (r && r.odTime > 0) return hueHex((G.realTime * 600) % 360);
+  return equipped(save).palette.edge || curShip().color;
+}
+
+// Estela según el cosmético equipado
+const ribbon = [];
+function trailFx(id, x, y, s, col, speed) {
+  const vy = 200 + speed * 4;
+  switch (id) {
+    case 'ribbon': {
+      ribbon.unshift([x, y + 0.12 * s]);
+      ribbon.length = Math.min(ribbon.length, 14);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineCap = 'round';
+      for (let i = 1; i < ribbon.length; i++) {
+        ctx.strokeStyle = hexA(col.length === 7 ? col : '#ffffff', 0.6 * (1 - i / ribbon.length));
+        ctx.lineWidth = s * 0.16 * (1 - i / ribbon.length);
+        ctx.beginPath();
+        ctx.moveTo(ribbon[i - 1][0], ribbon[i - 1][1] + (i - 1) * s * 0.06);
+        ctx.lineTo(ribbon[i][0], ribbon[i][1] + i * s * 0.06);
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'pixels':
+      fx.spark(x + (Math.random() - 0.5) * s * 0.3, y + 0.15 * s, (Math.random() - 0.5) * 60, vy * 0.7, col, s * 0.11, 0.4);
+      break;
+    case 'rainbow':
+      fx.spark(x + (Math.random() - 0.5) * s * 0.2, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, `hsl(${(G.realTime * 900) % 360},100%,60%)`, s * 0.07, 0.35);
+      break;
+    case 'comet':
+      for (let i = 0; i < 2; i++) fx.spark(x + (Math.random() - 0.5) * s * 0.1, y + 0.15 * s, (Math.random() - 0.5) * 20, vy * 1.3, i ? '#ffffff' : col, s * 0.09, 0.5);
+      break;
+    default: // chispas
+      fx.spark(x + (Math.random() - 0.5) * s * 0.15, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, col, s * 0.05, 0.25);
+  }
 }
 
 // Rayo del LÁSER: de la nave al primer obstáculo de su carril
@@ -879,27 +930,15 @@ function drawPlayer() {
   ctx.ellipse(sh.x, sh.y, s * 0.4 * (1 - Math.min(0.5, py * 0.3)), s * 0.08, 0, 0, Math.PI * 2);
   ctx.fill();
 
+  // nave 3D vista desde detrás y arriba; se inclina al cambiar de carril y se aplasta al deslizarse
+  const pal = equipped(save).palette;
   const drawShape = (ox, oy, alpha, c) => {
-    ctx.globalAlpha = alpha;
-    const x = sp.x + ox, y = sp.y + oy;
-    const bank = tilt * 0.12 * s;
-    ctx.beginPath();
-    ctx.moveTo(x + tilt * 0.12 * s, y - 0.5 * s * sq);
-    ctx.lineTo(x + 0.42 * s, y + 0.1 * s * sq - bank);
-    ctx.lineTo(x + 0.12 * s, y + 0.04 * s * sq);
-    ctx.lineTo(x, y + 0.12 * s * sq);
-    ctx.lineTo(x - 0.12 * s, y + 0.04 * s * sq);
-    ctx.lineTo(x - 0.42 * s, y + 0.1 * s * sq + bank);
-    ctx.closePath();
-    ctx.fillStyle = 'rgba(5,5,20,.92)';
-    ctx.fill();
-    ctx.lineWidth = Math.max(2, s * 0.035);
-    ctx.strokeStyle = c;
-    ctx.stroke();
+    drawShip(ctx, curShip().id, { hull: pal.hull, edge: c, glow: pal.glow }, sp.x + ox, sp.y + oy - 0.08 * s, s * 0.44,
+      { pitch: -0.62, roll: -tilt * 0.55, yaw: tilt * 0.12 }, { alpha, squash: sq, line: Math.max(1.5, s * 0.022) });
   };
 
   if (p && p.dash > 0) {
-    for (let i = 3; i >= 1; i--) drawShape(0, i * s * 0.12, 0.25 / i, '#9ff');
+    for (let i = 3; i >= 1; i--) drawShape(0, i * s * 0.12, 0.25 / i, '#99ffff');
   }
 
   // llama del motor
@@ -949,9 +988,7 @@ function drawPlayer() {
     ctx.ellipse(sp.x, sp.y - 0.15 * s, s * 0.55, s * 0.4, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (r && (G.mode === 'play')) {
-    fx.spark(sp.x + (Math.random() - 0.5) * s * 0.15, sp.y + 0.15 * s, (Math.random() - 0.5) * 40, 200 + r.speed * 4, r.odTime > 0 ? col : '#ff9a3c', s * 0.05, 0.25);
-  }
+  if (r && (G.mode === 'play')) trailFx(equipped(save).trail.id, sp.x, sp.y, s, r.odTime > 0 ? col : pal.glow, r.speed);
 }
 
 // ---------- Frame ----------

@@ -26,6 +26,9 @@ const ASSETS = [
   './js/abilities.js',
   './js/pacing.js',
   './js/progress.js',
+  './js/mesh3d.js',
+  './js/cosmetics.js',
+  './js/shipdraw.js',
 ];
 
 self.addEventListener('install', (e) => {
