@@ -3,11 +3,13 @@ import { G, LANE_W } from './state.js';
 import { sfx } from './audio.js';
 import { fx } from './fx.js';
 import { project } from './render.js';
-import { quake } from './world.js';
+import { quake, railUnder } from './world.js';
 import { isActive } from './abilities.js';
 
+export const RAIL_Y = 0.5; // altura a la que se recorre un riel
+
 export function newPlayer() {
-  return { lane: 0, x: 0, y: 0, vy: 0, air: false, jumps: 0, slide: 0, dash: 0, lastAction: 0, tilt: 0, invuln: 0, trailT: 0 };
+  return { lane: 0, x: 0, y: 0, vy: 0, air: false, jumps: 0, slide: 0, dash: 0, lastAction: 0, tilt: 0, invuln: 0, trailT: 0, grind: null };
 }
 
 export function playerBox() {
@@ -99,9 +101,33 @@ export function updatePlayer(dt) {
   if (Math.abs(dx) < 0.002) p.x = p.lane;
   p.tilt = dx;
 
+  // GRIND: sobre un riel vas a altura fija; saltar o salirte del carril te suelta
+  const rail = railUnder(p.x, r.dist);
+  if (p.grind && (p.air || rail !== p.grind)) {
+    p.grind = null;
+    if (!p.air && p.y > 0) { p.air = true; p.vy = 0; }
+  }
+  if (!p.grind && rail && p.y <= RAIL_Y + 0.08 && (!p.air || p.vy <= 0)) {
+    p.grind = rail;
+    p.y = RAIL_Y;
+    p.vy = 0;
+    p.air = false;
+    p.jumps = 0;
+    sfx.land();
+    const sp = project(p.x * LANE_W, RAIL_Y, 0);
+    if (sp) fx.burst(sp.x, sp.y, 14, '#ffffff', 300, 3, 0.35, 200);
+  }
+  if (p.grind) p.y = RAIL_Y;
+
   if (p.air) {
     p.vy -= s.gravity * dt;
     p.y += p.vy * dt;
+    // caer sobre un riel cuenta como aterrizar (se recoge arriba en el siguiente paso)
+    if (railUnder(p.x, r.dist) && p.vy < 0 && p.y <= RAIL_Y && p.y > 0) {
+      p.y = RAIL_Y;
+      p.air = false;
+      p.vy = 0;
+    }
     if (p.y <= 0) {
       p.y = 0;
       p.vy = 0;

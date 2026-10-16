@@ -25,6 +25,8 @@ export const FORK_REWARDS = {
 };
 
 const TALL = 99;
+export const RAMP_BOOST = 1.6; // multiplicador del salto al pasar por una rampa
+const FORCED = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('pattern') : null;
 const DIM = {
   // y1 = TALL: lo que se esquiva cambiando de carril (o deslizándose) no se puede saltar, ni con Salto doble
   // need = cómo se esquiva (lo lee el bot de los tests E2E: así los obstáculos nuevos traen su propia solución)
@@ -39,16 +41,27 @@ const DIM = {
   core: { w: 0.8, y0: 0, y1: 1.2, depth: 0.8 },
   coin: { w: 0.5, y0: 0, y1: 0.5, depth: 0 },
   fork: { w: 0.95, y0: 0, y1: 2.2, depth: 0.3 },
+  // F4: obstáculos con comportamiento y elementos de movimiento
+  crusher: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },  // pinzas que se cierran
+  roller: { w: 0.92, y0: 0, y1: 0.5, depth: 0.5, need: 'jump' },  // rodillo que rueda hacia ti
+  dropper: { w: 0.96, y0: 0.45, y1: TALL, depth: 0.35, need: 'slide' }, // barra que cae del techo
+  rail: { w: 0.5, y0: 0, y1: 0.5, depth: 0.2, need: 'jump' },   // la PUNTA del riel; el resto se recorre
+  portal: { w: 0.9, y0: 0, y1: 2, depth: 0.1 },                   // te cambia de carril
+  ramp: { w: 0.9, y0: 0, y1: 0.6, depth: 3 },                     // te lanza por los aires
+  drone: { w: 0.7, y0: 0.6, y1: 1.4, depth: 0.5 },                // diana: rómpela con DASH o láser
 };
 
 const ACT_DODGE = '#ff3b6b'; // mismo magenta que "esquiva" en render.js
+const TARGET_COL = '#30d158'; // verde = objetivo / impulso
 
 // velocidad real (con overdrive): los umbrales de reacción se miden en TIEMPO, no en metros,
 // porque la velocidad no tiene tope y una distancia fija se vuelve imposible al final
 export const runSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
 
 export const allowedLanes = (r) => LANES.filter((l) => l !== r.blockedLane);
-const isObstacle = (o) => o.type !== 'coin' && o.type !== 'fork' && o.type !== 'core';
+// lo que no es un obstáculo: premios, objetivos y elementos de movimiento
+const NOT_OBSTACLE = new Set(['coin', 'fork', 'core', 'portal', 'ramp', 'drone']);
+const isObstacle = (o) => !NOT_OBSTACLE.has(o.type);
 
 function add(type, lane, z, extra = {}) {
   const d = DIM[type];
@@ -95,6 +108,61 @@ const PATTERNS = {
     add('mover', l, z, { target: l, moveT: 0.3 });
     return 'lane';
   },
+  // ---- F4 ----
+  pinch(r, z, L, rng) { add('crusher', rng.pick(L), z); return 'lane'; },
+  rollers(r, z, L, rng) {
+    const lanes = rng.shuffle([...L]).slice(0, rng.int(1, L.length));
+    // rueda hacia ti más rápido que la pista, así que nace más lejos (en proporción a esa
+    // velocidad extra) para LLEGAR justo cuando llegaría una barrera fija en z: el ritmo de la
+    // pista se conserva y nunca adelanta a la fila anterior
+    const vz = 7, spd = trackSpeed(z, r.stats.speedMult);
+    const zr = z + (vz * VIEW) / spd;
+    for (const l of lanes) add('roller', l, zr, { vz });
+    return 'jump';
+  },
+  dropRow(r, z, L) { for (const l of L) add('dropper', l, z); return 'slide'; },
+  // muros en dos carriles y un portal en el hueco que te manda a otro carril; la fila
+  // siguiente solo deja libre ese carril de destino: el portal es el camino
+  portalSwap(r, z, L, rng) {
+    if (L.length < 3) return PATTERNS.wall2(r, z, L, rng);
+    const open = rng.pick(L);
+    const dest = rng.pick(L.filter((l) => l !== open));
+    for (const l of L) if (l !== open) add('wall', l, z);
+    add('portal', open, z, { dest });
+    const spd = trackSpeed(z, r.stats.speedMult);
+    const z2 = z + Math.max(8, spd * 0.45);
+    for (const l of L) if (l !== dest) add('wall', l, z2);
+    r.extraGap = z2 - z + Math.max(9, spd * 0.5);
+    return 'lane';
+  },
+  // rampa en un carril con un arco de monedas por el aire; todos los carriles tienen barrera
+  rampJump(r, z, L, rng) {
+    const l = rng.pick(L);
+    const spd = trackSpeed(z, r.stats.speedMult);
+    add('ramp', l, z);
+    const zb = z + spd * 0.35;
+    for (const l2 of L) add('barrier', l2, zb);
+    const vy = r.stats.jumpV * RAMP_BOOST, g = r.stats.gravity;
+    for (let t = 0.12; t < (2 * vy) / g - 0.1; t += 0.09) add('coin', l, z + spd * t, { y: 0.35 + vy * t - (g / 2) * t * t });
+    r.extraGap = spd * ((2 * vy) / g + 0.25);
+    return 'jump';
+  },
+  // riel largo: hay que subir saltando su punta; los otros carriles se cierran mientras dura
+  railRun(r, z, L, rng) {
+    const l = rng.pick(L);
+    const spd = trackSpeed(z, r.stats.speedMult);
+    const len = Math.max(25, spd * 0.9);
+    add('rail', l, z, { len });
+    for (const k of [0.4, 0.75]) for (const l2 of L) if (l2 !== l) add('wall', l2, z + len * k);
+    for (let d = 3; d < len - 2; d += 2.5) add('coin', l, z + d, { y: 0.85 });
+    r.extraGap = len + Math.max(9, spd * 0.5);
+    return 'jump';
+  },
+  droneLine(r, z, L, rng) {
+    const l = rng.pick(L);
+    for (let k = 0; k < 3; k++) add('drone', l, z + k * 6);
+    return 'lane';
+  },
   coinArc(r, z, L, rng) {
     const l = rng.pick(L);
     add('barrier', l, z);
@@ -105,10 +173,10 @@ const PATTERNS = {
 
 const WEIGHTS = {
   intro: { wall1: 3, wall2: 2, barrier3: 1.5, over3: 1.5, coinArc: 1.2 },
-  neon: { wall1: 2.5, wall2: 2.5, barrier3: 2, over3: 2, mixed: 1.5, gate: 1.5, coinArc: 1 },
-  lava: { mines: 3, laserLow: 2.5, laserHigh: 2, wall1: 1.5, mixed: 1, barrier3: 1 },
-  glitch: { mover: 3, wall2: 2, mixed: 2, laserHigh: 1, mines: 1, wall1: 1 },
-  hyper: { wall2: 2, gate: 2, mixed: 2.5, laserLow: 1.5, laserHigh: 1.5, mover: 1.5, mines: 1 },
+  neon: { wall1: 2.5, wall2: 2.5, barrier3: 2, over3: 2, mixed: 1.5, gate: 1.5, coinArc: 1, pinch: 1, rampJump: 1, railRun: 1, droneLine: 0.8 },
+  lava: { mines: 3, laserLow: 2.5, laserHigh: 2, wall1: 1.5, mixed: 1, barrier3: 1, rollers: 2, rampJump: 1, dropRow: 1 },
+  glitch: { mover: 3, wall2: 2, mixed: 2, laserHigh: 1, mines: 1, wall1: 1, portalSwap: 2, pinch: 1.5, railRun: 1, droneLine: 1 },
+  hyper: { wall2: 2, gate: 2, mixed: 2.5, laserLow: 1.5, laserHigh: 1.5, mover: 1.5, mines: 1, railRun: 1.5, portalSwap: 1.5, rollers: 1, dropRow: 1, rampJump: 1.2, droneLine: 1 },
   boss: { wall1: 3, mines: 2 },
 };
 
@@ -128,7 +196,10 @@ function genRow(r) {
   const L = allowedLanes(r);
   const key = r.boss ? 'boss' : r.section === 0 ? 'intro' : r.biome.id;
   const pats = Object.entries(WEIGHTS[key]).map(([id, w]) => ({ id, w }));
-  const pat = rng.weighted(pats).id;
+  let pat = rng.weighted(pats).id;
+  // ?debug&pattern=nombre: una de cada dos filas usa ese patrón (para testear cada uno con el bot)
+  if (FORCED && PATTERNS[FORCED] && key !== 'boss' && (r.forceToggle = !r.forceToggle)) pat = FORCED;
+  r.extraGap = 0;
   const kind = PATTERNS[pat](r, z, L, rng);
 
   // velocidad de referencia en esta distancia (no la del momento): el overdrive no cambia la pista
@@ -140,6 +211,13 @@ function genRow(r) {
   let gap = Math.max(9, spd * tGap);
   if (kind === 'jump' || kind === 'mixed') gap = Math.max(gap, spd * 0.78);
   if (kind === 'slide') gap = Math.max(gap, spd * 0.66);
+  gap = Math.max(gap, r.extraGap); // patrones largos (riel, portal, rampa) reservan su espacio
+
+  // los patrones largos ya traen sus monedas y su propia fila: nada genérico encima
+  if (r.extraGap) {
+    r.genZ += gap;
+    return;
+  }
 
   let coinLane = null;
   if (kind === 'jump' && rng.chance(0.5)) coinArc(rng.pick(L), z);
@@ -232,7 +310,7 @@ export function fireLaser(pierce = 1, triple = false) {
   let hits = 0;
   for (const px of xs) {
     const targets = r.objects
-      .filter((o) => o.alive && (isObstacle(o) || o.type === 'core') && o.z - r.dist > 0 && o.z - r.dist < VIEW && (o.all || Math.abs(o.x - px) < 0.6))
+      .filter((o) => o.alive && (isObstacle(o) || o.type === 'core' || o.type === 'drone') && o.z - r.dist > 0 && o.z - r.dist < VIEW && (o.all || Math.abs(o.x - px) < 0.6))
       .sort((a, b) => a.z - b.z)
       .slice(0, pierce);
     rays.push({ x: px, rz: targets.length ? targets[targets.length - 1].z - r.dist : VIEW });
@@ -268,6 +346,48 @@ export function quake() {
   if (n && r.synergies.has('meteoro')) addScore(500 * n, '+METEORO', sp?.x, (sp?.y ?? 0) - 40, '#ff9f0a');
 }
 
+// ---------- Elementos de movimiento (F4) ----------
+function teleport(dest) {
+  const r = G.run, p = G.player;
+  if (dest === r.blockedLane) return;
+  const from = project(p.x * LANE_W, 0.4, 0);
+  p.lane = dest;
+  p.x = dest;
+  const to = project(p.x * LANE_W, 0.4, 0);
+  if (from) fx.ring(from.x, from.y, '#bf5af2', 140, 0.35, 10);
+  if (to) {
+    fx.ring(to.x, to.y, '#bf5af2', 200, 0.4, 12);
+    fx.burst(to.x, to.y, 24, '#bf5af2', 420, 4, 0.5, 0);
+  }
+  r.portals = (r.portals || 0) + 1;
+  fx.flash('#bf5af2', 0.25);
+  sfx.dash();
+  addScore(150, '🌀 PORTAL', to?.x, (to?.y ?? 0) - 40, '#bf5af2');
+}
+
+function onRamp() {
+  const r = G.run, p = G.player;
+  r.ramps = (r.ramps || 0) + 1;
+  p.vy = r.stats.jumpV * RAMP_BOOST;
+  p.air = true;
+  p.jumps = 1;
+  p.slide = 0;
+  p.grind = null;
+  const sp = project(p.x * LANE_W, 0.4, 0);
+  if (sp) fx.burst(sp.x, sp.y, 20, TARGET_COL, 380, 4, 0.5, 300);
+  fx.shake(6);
+  sfx.jump();
+  addScore(200, '🚀 ¡RAMPA!', sp?.x, (sp?.y ?? 0) - 50, TARGET_COL);
+}
+
+// Riel bajo la nave en esta distancia (o null)
+export function railUnder(px, dist) {
+  for (const o of G.run.objects) {
+    if (o.alive && o.type === 'rail' && Math.abs(o.x - px * LANE_W) < 0.35 && dist >= o.z && dist <= o.z + o.len) return o;
+  }
+  return null;
+}
+
 // ---------- Resolución al cruzar el plano del jugador ----------
 function resolve(o) {
   const r = G.run, p = G.player;
@@ -278,6 +398,22 @@ function resolve(o) {
       for (const f of r.objects) if (f.type === 'fork') f.alive = false;
       onFork(r.forkRewards[Math.round(p.x)] ?? 'monedas');
     }
+    return;
+  }
+  // PORTAL: si lo cruzas, te cambia al carril de destino
+  if (o.type === 'portal') {
+    if (Math.abs(pb.x - o.x) < 0.5) teleport(o.dest);
+    return;
+  }
+  // RAMPA: pasar por ella en el suelo te lanza por los aires
+  if (o.type === 'ramp') {
+    if (Math.abs(pb.x - o.x) < 0.5 && !p.air) onRamp();
+    return;
+  }
+  // DIANA: no hace daño; con DASH, overdrive o habilidad que rompe, se revienta
+  if (o.type === 'drone') {
+    const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram');
+    if (Math.abs(pb.x - o.x) < o.w / 2 + pb.hw && powered) breakObj(o, 'dash');
     return;
   }
   const hx = Math.abs(pb.x - o.x) < o.w / 2 + pb.hw;
@@ -492,7 +628,7 @@ export function updateWorld(dt) {
 
   // limpieza
   if (r.objects.length > 40) {
-    r.objects = r.objects.filter((o) => o.alive && o.z - r.dist > -10);
+    r.objects = r.objects.filter((o) => o.alive && o.z + (o.len || 0) - r.dist > -10); // un riel vive hasta su final
   }
   if (p.y < 0) p.y = 0;
 }

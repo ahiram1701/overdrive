@@ -561,6 +561,146 @@ function drawObj(o, rz, b, t) {
       }
       break;
     }
+    // ---- F4 ----
+    case 'crusher': {
+      // dos mandíbulas que se cierran sobre el carril y terminan ~0,4 s antes del impacto
+      const open = clamp((rz / runSpeed() - 0.4) / 0.6, 0, 1);
+      const half = o.w / 2;
+      for (const side of [-1, 1]) {
+        const x = o.x + side * (half / 2 + open * 0.45);
+        const f = neonBox(x, 0, WALL_DRAW_H, rz, half, o.depth, ACT.dodge, 0.5);
+        if (f) {
+          ctx.fillStyle = '#fff';
+          ctx.font = `900 ${Math.round(f.h * 0.22)}px system-ui`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(side < 0 ? '▶' : '◀', f.x + f.w / 2, f.y + f.h / 2);
+        }
+      }
+      break;
+    }
+    case 'roller': {
+      // rodillo que rueda hacia ti (más rápido que la pista): amarillo, salta
+      const f = neonBox(o.x, 0, o.y1, rz, o.w, o.depth, ACT.jump, 0.55);
+      if (f) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(f.x, f.y, f.w, f.h);
+        ctx.clip();
+        ctx.strokeStyle = 'rgba(0,0,0,.6)';
+        ctx.lineWidth = Math.max(2, f.h * 0.18);
+        const ph = (o.t * 9) % 1;
+        for (let i = -1; i < 4; i++) {
+          const y = f.y + ((i + ph) / 3) * f.h;
+          ctx.beginPath(); ctx.moveTo(f.x, y); ctx.lineTo(f.x + f.w, y); ctx.stroke();
+        }
+        ctx.restore();
+        const c = project(o.x, 0.95, rz);
+        if (c) chevrons(c.x, c.y, 0.3 * c.s, -1, ACT.jump, t, 3);
+      }
+      break;
+    }
+    case 'dropper': {
+      // barra que baja del techo justo antes de llegar: cian, deslízate
+      const down = clamp(1 - (rz / runSpeed() - 0.3) / 0.6, 0, 1);
+      const y0 = 0.47 + (1 - down) * 1.9;
+      const f = neonBox(o.x, y0, y0 + 0.25, rz, o.w, o.depth, ACT.slide, 0.6);
+      if (f) {
+        hazardStripes(f);
+        const c = project(o.x, 0.3, rz);
+        if (c) chevrons(c.x, c.y - 0.06 * c.s, 0.32 * c.s, 1, ACT.slide, t);
+      }
+      break;
+    }
+    case 'rail': {
+      // riel: punta a la altura de una barrera (súbete saltando) y raíl largo por delante
+      const z0 = Math.max(rz, NEAR + 0.6), z1 = Math.min(rz + o.len, VIEW);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = hexA('#ffffff', 0.35);
+      ctx.lineWidth = 8;
+      polyline(o.x, 0.5, z0, z1, 3);
+      ctx.stroke();
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+      ctx.restore();
+      ctx.strokeStyle = hexA('#ffffff', 0.5);
+      ctx.lineWidth = 1.5;
+      for (let z = Math.ceil(z0 / 4) * 4; z < z1; z += 4) {
+        const a = project(o.x, 0.5, z), b = project(o.x, 0, z);
+        if (a && b) { ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); }
+      }
+      if (rz > NEAR + 0.6) {
+        neonBox(o.x, 0, 0.5, rz, 0.5, 0.3, ACT.jump, 0.7);
+        const c = project(o.x, 0.95, rz);
+        if (c) chevrons(c.x, c.y, 0.24 * c.s, -1, ACT.jump, t);
+      }
+      break;
+    }
+    case 'portal': {
+      const p = project(o.x, 0.9, rz);
+      if (!p) break;
+      const R = 0.55 * p.s;
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        ctx.strokeStyle = hexA('#bf5af2', 0.8 - i * 0.22);
+        ctx.lineWidth = Math.max(2, R * 0.12);
+        ctx.beginPath();
+        ctx.ellipse(p.x, p.y, R * (1 - i * 0.22), R * 1.4 * (1 - i * 0.22), t * (2 + i), 0, Math.PI * 1.6);
+        ctx.stroke();
+      }
+      ctx.restore();
+      const d = project(o.dest * LANE_W, 0.9, rz);
+      if (d) {
+        ctx.fillStyle = '#fff';
+        ctx.font = `900 ${Math.max(10, Math.round(R * 0.7))}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(o.dest > o.lane ? '➜' : '⬅', p.x, p.y);
+      }
+      break;
+    }
+    case 'ramp': {
+      // rampa verde: te lanza por los aires
+      const a = project(o.x - 0.45, 0, rz), b = project(o.x + 0.45, 0, rz);
+      const c = project(o.x + 0.45, 0.6, rz + o.depth), d = project(o.x - 0.45, 0.6, rz + o.depth);
+      if (!a || !b || !c || !d) break;
+      ctx.fillStyle = hexA(TARGET, 0.35);
+      ctx.strokeStyle = TARGET;
+      ctx.lineWidth = Math.max(1.5, a.s * 0.03);
+      ctx.beginPath();
+      ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.lineTo(c.x, c.y); ctx.lineTo(d.x, d.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      const m = project(o.x, 0.5, rz + o.depth * 0.5);
+      if (m) chevrons(m.x, m.y, 0.3 * m.s, -1, TARGET, t, 3);
+      break;
+    }
+    case 'drone': {
+      // diana verde flotante: rómpela con DASH, láser u overdrive
+      const p = project(o.x, 1 + Math.sin(t * 4 + o.z) * 0.1, rz);
+      if (!p) break;
+      const S = 0.32 * p.s;
+      ctx.strokeStyle = TARGET;
+      ctx.lineWidth = Math.max(1.5, S * 0.14);
+      ctx.fillStyle = hexA(TARGET, 0.25);
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y - S); ctx.lineTo(p.x + S, p.y); ctx.lineTo(p.x, p.y + S); ctx.lineTo(p.x - S, p.y);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, S * 0.35, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.fillStyle = '#fff';
+      ctx.font = `${Math.max(9, Math.round(S * 0.8))}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText('🎯', p.x, p.y - S * 1.5);
+      break;
+    }
     case 'fork': {
       const info = FORK_REWARDS[o.reward];
       const l = project(o.x - 0.47, 0, rz), rr = project(o.x + 0.47, 2.2, rz);
@@ -855,13 +995,14 @@ export function render(dt) {
     for (const o of r.objects) {
       if (!o.alive) continue;
       const rz = o.z - r.dist;
-      if (rz > VIEW || rz < NEAR + 0.5) continue;
-      list.push([rz, o]);
+      if (rz > VIEW || rz + (o.len || 0) < NEAR + 0.5) continue; // un riel se dibuja mientras quede tramo
+      // orden de dibujo: un riel por su extremo lejano (si no, taparía la nave al recorrerlo)
+      list.push([o.type === 'rail' ? rz + o.len : rz, o, rz]);
     }
     list.sort((a, c) => c[0] - a[0]);
     let drewPlayer = false;
-    for (const [rz, o] of list) {
-      if (!drewPlayer && rz < -0.2) { drawPlayer(); drewPlayer = true; }
+    for (const [key, o, rz] of list) {
+      if (!drewPlayer && key < -0.2) { drawPlayer(); drewPlayer = true; }
       drawObj(o, rz, b, t);
     }
     if (!drewPlayer) drawPlayer();
