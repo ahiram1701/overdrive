@@ -7,6 +7,8 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
 import { BOSS_NAMES } from './world.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped } from './cosmetics.js';
+import { drawShip } from './shipdraw.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
@@ -174,7 +176,7 @@ export const ui = {
     $('hGems').textContent = fmt(save.gems);
     const view = SHIPS.find((s) => s.id === viewId) || SHIPS[0];
     const owned = save.ships.includes(view.id);
-    const equipped = save.ship === view.id;
+    const inUse = save.ship === view.id;
     const ab = ABILITIES[view.ability];
 
     // carrusel
@@ -198,16 +200,17 @@ export const ui = {
     const base = shipProfile(save.ship, shipLvls(save.shipLvl, save.ship));
     const bars = PROFILE_KEYS.map((k) => {
       const d = prof[k] - base[k];
-      const diff = equipped || Math.abs(d) < 0.01 ? '' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}</em>`;
+      const diff = inUse || Math.abs(d) < 0.01 ? '' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}</em>`;
       return `<div class="stat"><span>${k}</span><div class="bar"><i style="transform:scaleX(${prof[k].toFixed(3)})"></i>${
-        !equipped && d < 0 ? `<u style="left:${(prof[k] * 100).toFixed(1)}%;width:${(-d * 100).toFixed(1)}%"></u>` : ''}</div>${diff}</div>`;
+        !inUse && d < 0 ? `<u style="left:${(prof[k] * 100).toFixed(1)}%;width:${(-d * 100).toFixed(1)}%"></u>` : ''}</div>${diff}</div>`;
     }).join('');
     let action;
-    if (equipped) action = '<button class="btn ghost" disabled>EN USO</button>';
+    if (inUse) action = '<button class="btn ghost" disabled>EN USO</button>';
     else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
     else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
     $('shipDetail').innerHTML = `
-      <div class="sd-head" style="--sc:${view.color}"><span class="sd-icon">▲</span><div><h3>${view.name}</h3><small>${view.desc}</small></div></div>
+      <canvas id="hangarView" class="hangar-view" aria-label="Nave en 3D: arrastra para girarla"></canvas>
+      <div class="sd-head" style="--sc:${view.color}"><div><h3>${view.name}</h3><small>${view.desc}</small></div></div>
       <div class="sd-ability"><span>${ab.icon}</span><div><b>${ab.name}</b> · recarga ${(ab.cd * (lv.c >= 1 ? 0.85 : 1)).toFixed(1)} s<br><small>${ab.desc}</small></div></div>
       <div class="stats">${bars}</div>
       ${action}`;
@@ -254,6 +257,38 @@ export const ui = {
       tree.appendChild(col);
     }
     if (!owned) tree.insertAdjacentHTML('beforeend', '<p class="tree-lock">Compra la nave para mejorarla</p>');
+
+    // vista 3D: la nave girando (arrastra para girarla)
+    ui.startHangarView(view);
+
+    // personalizar: pintura, estela y explosión (comunes a todas las naves)
+    const eq = equipped(save);
+    const groups = [['palette', '🎨 Pintura'], ['trail', '✨ Estela'], ['boom', '💥 Explosión']];
+    const cosm = $('cosmetics');
+    cosm.innerHTML = '';
+    for (const [g, label] of groups) {
+      const row = el('div', 'cos-row', `<small>${label}</small>`);
+      const chips = el('div', 'cos-chips');
+      for (const it of GROUPS[g]) {
+        const open = isUnlocked(it, save);
+        const on = eq[g].id === it.id;
+        const swatch = g === 'palette' ? `<i style="background:${it.edge || view.color};box-shadow:inset 0 0 0 3px ${it.hull}"></i>` : '';
+        const c = el('button', `cos${on ? ' on' : ''}${open ? '' : ' locked'}`, `${swatch}<b>${it.name}</b><small>${on ? 'EQUIPADO' : open ? 'usar' : lockText(it)}</small>`);
+        tap(c, () => {
+          if (!open) {
+            if (!buyCosmetic(it, save)) { c.classList.add('shake'); fx.vibe(50); setTimeout(() => c.classList.remove('shake'), 300); return; }
+            sfx.chest();
+          }
+          equip(g, it.id, save);
+          persist();
+          fx.vibe(20);
+          ui.showHangar();
+        });
+        chips.appendChild(c);
+      }
+      row.appendChild(chips);
+      cosm.appendChild(row);
+    }
 
     // mejoras globales (todas las naves)
     const ml = $('metaList');
@@ -397,6 +432,49 @@ export const ui = {
     t.classList.remove('hidden');
     clearTimeout(ui._tut);
     ui._tut = setTimeout(() => t.classList.add('hidden'), 6500);
+  },
+
+  // Bucle propio del canvas 3D del hangar (el mundo no se dibuja mientras el hangar está abierto)
+  startHangarView(ship) {
+    const cv = $('hangarView');
+    if (!cv) return;
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    const W = cv.clientWidth || 300, H = cv.clientHeight || 170;
+    cv.width = W * dpr;
+    cv.height = H * dpr;
+    const st = (ui._hv = { ship, yaw: ui._hv?.yaw ?? 0.6, drag: null, spin: 0.7 });
+    cv.addEventListener('pointerdown', (e) => { st.drag = e.clientX; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', (e) => {
+      if (st.drag === null) return;
+      st.yaw += (e.clientX - st.drag) * 0.012;
+      st.drag = e.clientX;
+    });
+    cv.addEventListener('pointerup', () => { st.drag = null; });
+    if (ui._hvRunning) return;
+    ui._hvRunning = true;
+    let last = performance.now();
+    const loop = (now) => {
+      const view = $('hangarView');
+      if (G.mode !== 'hangar' || !view || $('hangar').classList.contains('hidden')) { ui._hvRunning = false; return; }
+      const s = ui._hv, dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      if (s.drag === null) s.yaw += dt * s.spin;
+      const c = view.getContext('2d');
+      const w = view.width, h = view.height;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      c.clearRect(0, 0, w, h);
+      // suelo con rejilla y halo del color de la nave
+      const g = c.createRadialGradient(w / 2, h * 0.62, 0, w / 2, h * 0.62, w * 0.45);
+      g.addColorStop(0, `${s.ship.color}55`);
+      g.addColorStop(1, 'transparent');
+      c.fillStyle = g;
+      c.fillRect(0, 0, w, h);
+      const pal = equipped(save).palette;
+      drawShip(c, s.ship.id, { hull: pal.hull, edge: pal.edge || s.ship.color, glow: pal.glow }, w / 2, h * 0.52, h * 0.42,
+        { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr });
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   },
 
   showAchievements() {

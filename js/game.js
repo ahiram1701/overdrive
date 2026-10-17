@@ -13,6 +13,7 @@ import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd } from './progress.js';
+import { equipped } from './cosmetics.js';
 
 const EVENTS = [
   { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
@@ -494,11 +495,11 @@ export function onFork(reward) {
       musicDuck(true);
       const res = rollChest(r);
       return ui.showChest(res, () => {
-        let reward = `${res.icon} ${res.label}`;
+        let got = `${res.icon} ${res.label}`;
         if (res.kind === 'coins') r.coins += res.amount;
-        if (res.kind === 'shield') reward = gainShield(res.amount, '+1 🛡️ ESCUDO');
+        if (res.kind === 'shield') got = gainShield(res.amount, '+1 🛡️ ESCUDO');
         if (res.kind === 'od') r.od = 0.999;
-        openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : { reward });
+        openCards(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : { reward: got });
       });
     }
   }
@@ -559,6 +560,31 @@ export function resume() {
 }
 
 // ---------- Muerte ----------
+// Explosión de la nave según el cosmético equipado
+function boomFx(id, ps, r) {
+  const { x, y } = ps;
+  const pal = equipped(save).palette;
+  switch (id) {
+    case 'pixel':
+      for (let i = 0; i < 4; i++) fx.burst(x, y, 30, i % 2 ? '#ffffff' : (pal.edge || r.biome.obs), 650, 16, 1.2, 700);
+      break;
+    case 'confetti':
+      for (let i = 0; i < 6; i++) fx.burst(x, y, 30, () => `hsl(${Math.random() * 360},100%,60%)`, 900, 7, 1.6, 900);
+      break;
+    case 'supernova':
+      for (let i = 0; i < 3; i++) fx.ring(x, y, i ? '#ffd60a' : '#ffffff', 300 + i * 260, 0.5 + i * 0.25, 30 - i * 8);
+      fx.burst(x, y, 90, '#ffd60a', 1100, 6, 1.3, 0);
+      fx.flash('#ffd60a', 1);
+      break;
+    case 'glitch':
+      for (let i = 0; i < 8; i++) fx.burst(x + (Math.random() - 0.5) * 160, y + (Math.random() - 0.5) * 60, 14, i % 2 ? '#39ff14' : '#ff00ff', 400, 10, 0.9, 0);
+      break;
+    default:
+      for (const c of ['#fff', '#ff2d55', '#ffcc00', r.biome.obs]) fx.burst(x, y, 40, c, 800, 7, 1.1, 500);
+      fx.ring(x, y, '#fff', 500, 0.6, 24);
+  }
+}
+
 function die() {
   const r = run(), p = G.player;
   G.mode = 'dying';
@@ -566,8 +592,7 @@ function die() {
   G.dyingT = 1.0;
   p.dead = true;
   const ps = playerScreen();
-  for (const c of ['#fff', '#ff2d55', '#ffcc00', r.biome.obs]) fx.burst(ps.x, ps.y, 40, c, 800, 7, 1.1, 500);
-  fx.ring(ps.x, ps.y, '#fff', 500, 0.6, 24);
+  boomFx(equipped(save).boom.id, ps, r);
   fx.shake(32);
   fx.flash('#fff', 0.9);
   fx.vibe([120, 60, 220]);
