@@ -53,6 +53,9 @@
     <button class="btn big" id="btnPlay">JUGAR</button>
     <button class="btn ghost mods-btn" id="btnMods">⚙️ MODIFICADORES <small id="mMods"></small></button>
     <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
+    <div class="modes">
+      <button class="btn mode" id="btnArena">⚔️ ARENA <small id="mArena"></small></button>
+    </div>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
     <button class="btn mut" id="btnMutation">🧬 MUTACIÓN <small id="mMut"></small></button>
     <button class="btn ghost" id="btnHangar">HANGAR</button>
@@ -110,6 +113,37 @@
     <h3>Jefes</h3>
     <div id="codexBosses" class="codex-grid"></div>
     <button class="btn" id="btnCodexBack">VOLVER</button>
+  </section>
+
+  <div id="arenaHud" class="hidden">
+    <div class="ah-xp"><i></i></div>
+    <div class="ah-top">
+      <div><b id="ahTime">0:00</b><small id="ahGoal">sobrevive 10:00</small></div>
+      <div class="ah-lvl">NIV <b id="ahLvl">1</b></div>
+      <div class="ah-right"><b id="ahKills">0</b><small>bajas</small></div>
+    </div>
+    <div id="ahWeapons" class="ah-weapons"></div>
+    <button id="arenaPause" aria-label="Pausa">❚❚</button>
+    <button id="arenaAbility" aria-label="Habilidad"><span id="arenaAbilityIcon">⚡</span></button>
+    <div id="ahHint" class="ah-hint">Arrastra para moverte · doble toque = DASH</div>
+  </div>
+
+  <section id="arenaUp" class="overlay hidden">
+    <h2 id="auTitle">¡NIVEL 2!</h2>
+    <p class="hint">Elige una mejora</p>
+    <div id="auOptions" class="au-options"></div>
+  </section>
+
+  <section id="arenaEnd" class="overlay hidden">
+    <h2 id="aeTitle" class="dead">DESTRUIDO</h2>
+    <div id="aeNew" class="newrec hidden">¡NUEVO RÉCORD!</div>
+    <div id="aeTime" class="bigscore">0:00</div>
+    <div id="aeGrid" class="grid"></div>
+    <div id="aeBuild" class="build"></div>
+    <div id="aeGems" class="gems"></div>
+    <div id="aeXp" class="rank"></div>
+    <button class="btn big" id="btnArenaRetry">REINTENTAR</button>
+    <button class="btn ghost" id="btnArenaMenu">MENÚ</button>
   </section>
 
   <section id="mods" class="overlay hidden">

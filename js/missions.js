@@ -16,6 +16,7 @@ export const POOL = [
   { kind: 'speed', mode: 'best', diff: 'easy', n: 800, text: 'Alcanza 800 km/h' },
   { kind: 'mult', mode: 'best', diff: 'easy', n: 30, text: 'Llega a x30 de combo' },
   { kind: 'daily', mode: 'sum', diff: 'easy', n: 1, text: 'Juega el reto diario' },
+  { kind: 'arenaKills', mode: 'sum', diff: 'easy', n: 300, text: 'Elimina 300 enemigos en la ARENA' },
 
   { kind: 'perfect', mode: 'sum', diff: 'medium', n: 25, text: 'Haz 25 near-miss PERFECTOS' },
   { kind: 'near', mode: 'sum', diff: 'medium', n: 100, text: 'Haz 100 near-miss' },
@@ -27,6 +28,7 @@ export const POOL = [
   { kind: 'mult', mode: 'best', diff: 'medium', n: 50, text: 'Llega a x50 de combo' },
   { kind: 'synergy', mode: 'sum', diff: 'medium', n: 1, text: 'Activa una sinergia' },
   { kind: 'hunter', mode: 'sum', diff: 'medium', n: 2, text: 'Escapa del Cazador 2 veces' },
+  { kind: 'arenaTime', mode: 'best', diff: 'medium', n: 300, text: 'Sobrevive 5 minutos en la ARENA' },
 
   { kind: 'perfect', mode: 'sum', diff: 'hard', n: 40, text: 'Haz 40 near-miss PERFECTOS' },
   { kind: 'boss', mode: 'sum', diff: 'hard', n: 2, text: 'Derrota a 2 jefes' },

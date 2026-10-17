@@ -21,6 +21,8 @@ let fpsAcc = 0, fpsFrames = 0, fps = 0;
 const stars = Array.from({ length: 90 }, () => ({ a: Math.random() * Math.PI * 2, r: Math.random(), k: 0.5 + Math.random() }));
 const skyStars = Array.from({ length: 70 }, () => ({ x: Math.random(), y: Math.random(), s: Math.random() * 1.6 + 0.4 }));
 
+export const getCtx = () => ctx;
+
 export function initRender(c) {
   canvas = c;
   ctx = c.getContext('2d', { alpha: false });
