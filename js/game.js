@@ -1,5 +1,5 @@
 // Reglas de la partida: velocidad, puntuación, combo, overdrive, tramos, eventos, recompensas y muerte.
-import { G, LANE_W, MAX_SHIELDS, addShields } from './state.js';
+import { G, LANE_W, addShields, shieldCap } from './state.js';
 import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
@@ -14,6 +14,8 @@ import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd } from './progress.js';
 import { equipped, addShipStat } from './cosmetics.js';
+import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
+import { rankOf } from './progress.js';
 import { boomFx } from './cosfx.js';
 import { LEVEL_BY_ID, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed } from './campaign.js';
 
@@ -38,17 +40,19 @@ export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
 const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 2 : 1);
 
 // ---------- Inicio ----------
-// opts: { mode: 'endless' | 'daily' | 'campaign', level } (un booleano = reto diario sí/no)
+// opts: { mode: 'endless' | 'daily' | 'mutation' | 'campaign', level, mods } (un booleano = reto diario sí/no)
 export function newRun(opts = false) {
   if (typeof opts !== 'object' || !opts) opts = { mode: opts ? 'daily' : 'endless' };
   const daily = opts.mode === 'daily';
+  const mutation = opts.mode === 'mutation';
   const level = opts.mode === 'campaign' ? LEVEL_BY_ID[opts.level] : null;
   // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   // CAMPAÑA: cada nivel tiene su semilla fija, así que su pista es siempre la misma y se puede aprender
   const seed = level ? hashString('camp-' + level.id)
     : forced !== null ? Number(forced) >>> 0
-      : daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
+      : daily ? hashString('overdrive-' + todayKey())
+        : mutation ? hashString('mutation-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
   const r = {
     // tres RNG: pista (igual para todos en el reto diario), botín (cartas, cofres) e IA (jefe, movers).
     // Así lo que elige cada jugador no desplaza la secuencia de la pista.
@@ -75,6 +79,17 @@ export function newRun(opts = false) {
   r.ability = newAbility(ship.ability, abilityMods(ship, lvls));
   G.timeWarp = 1;
   if (save.meta.shield) addShields(r, 1);
+  // MODIFICADORES: los elegidos (infinito), los del día (mutación) o los del nivel (campaña).
+  // Se aplican después de nave y árbol, así sus topes mandan. ?debug&mods=a,b para los tests.
+  const dbgMods = G.debug ? new URLSearchParams(location.search).get('mods') : null;
+  const modIds = mutation ? mutationOf(todayKey())
+    : opts.mods ? cleanMods(opts.mods)
+      : opts.mode === 'endless' ? cleanMods(dbgMods ? dbgMods.split(',') : save.modsLast, dbgMods ? Infinity : rankOf(save.xp).rank)
+        : [];
+  r.mods = new Set(modIds);
+  for (const id of modIds) MOD_BY_ID[id].apply?.(r);
+  r.stats.scoreMult *= modScore(modIds);
+  r.shields = Math.min(r.shields, shieldCap(r));
   r.dashCharges = r.stats.dashMax;
 
   fx.clear();
@@ -102,7 +117,8 @@ function startSection() {
   const r = run();
   r.section++;
   const lv = r.camp?.level;
-  const isBoss = lv ? !!lv.boss : r.section % 3 === 2;
+  // JEFAZOS: un jefe cada 2 tramos (en vez de cada 3)
+  const isBoss = lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
   r.biome = BIOMES[lv ? lv.biome : r.section % BIOMES.length];
   if (r.camp) r.camp.left--;
   r.risk = r.riskNext;
@@ -114,6 +130,7 @@ function startSection() {
   // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
   r.hunters = Math.max(0, r.hunters - 1);
   progress('section', r.section + 1);
+  if (r.section + 1 >= 4 && r.mods.size) progress('modsRun', r.mods.size);
   if (isBoss) {
     r.sectionEnd = Infinity;
     spawnBoss(r);
@@ -122,7 +139,10 @@ function startSection() {
     // longitud del tramo con la velocidad de referencia (por distancia): igual para todos
     r.sectionEnd = r.genZ + trackSpeed(r.genZ, r.stats.speedMult) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
     // el evento se decide al empezar el tramo: sacarlo del RNG más tarde mezclaría su tirada con las de la pista
-    r.nextEventAt = r.section >= 1 && r.rng.chance(0.6) ? r.time + r.rng.range(5, 10) : Infinity;
+    // CAOS: evento en todos los tramos. La tirada se hace exactamente igual que sin él (en el tramo 1
+    // no se tira): así el resto de la pista no se mueve y las semillas siguen dando la misma pista
+    const evRoll = r.section >= 1 && r.rng.chance(0.6);
+    r.nextEventAt = evRoll || (r.section >= 1 && r.mods.has('chaos')) ? r.time + r.rng.range(5, 10) : Infinity;
     r.pendingEvent = r.rng.pick(EVENTS);
     // SET PIECE: a partir del tramo 3, a veces el tramo trae una secuencia guionizada
     const scriptId = r.section >= 2 && r.rng.chance(0.35) ? r.rng.pick(Object.keys(SCRIPTS)) : null;
@@ -140,7 +160,7 @@ function startSection() {
     r.stats.jumpV /= 0.78;
     r.lowGrav = false;
   }
-  if (r.biome.id === 'hyper' && !isBoss) {
+  if (r.biome.id === 'hyper' && !isBoss && !r.mods.has('lowgrav')) {
     r.stats.gravity *= 0.6;
     r.stats.jumpV *= 0.78;
     r.lowGrav = true;
@@ -342,7 +362,7 @@ function gainShield(n, label) {
   const before = r.shields;
   addShields(r, n);
   const extra = n - (r.shields - before);
-  const msg = extra > 0 ? `🛡️ Escudos al máximo (${MAX_SHIELDS}) · +${20 * extra} 🪙` : label;
+  const msg = extra > 0 ? `🛡️ Escudos al máximo (${shieldCap(r)}) · +${20 * extra} 🪙` : label;
   if (extra > 0) r.coins += 20 * extra;
   fx.notice(msg, '#30d158');
   return msg;
@@ -637,6 +657,18 @@ function die() {
   // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
   if (r.daily) gems = Math.ceil(gems * 1.5);
+  gems = Math.ceil(gems * modGems([...r.mods]));
+  // MUTACIÓN DEL DÍA: el primer intento de cada día paga x1,5
+  let mutationBonus = false;
+  if (r.opts.mode === 'mutation') {
+    if (save.mutation.key !== todayKey()) save.mutation = { key: todayKey(), played: false };
+    if (!save.mutation.played) {
+      gems = Math.ceil(gems * 1.5);
+      mutationBonus = true;
+      save.mutation.played = true;
+    }
+    progress('mutation');
+  }
   const prevBest = save.best;
   const isBest = r.score > save.best;
   save.gems += gems;
@@ -656,7 +688,7 @@ function die() {
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   persist();
-  r.result = { opts: r.opts, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Campaña: meta ----------

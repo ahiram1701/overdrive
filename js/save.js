@@ -28,6 +28,8 @@ const DEFAULTS = {
   cosmetics: {},    // v3, por nave: { owned: { viper: ['ice'] }, equip: { viper: { palette, ... } } }
   shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
+  modsLast: [],     // modificadores elegidos la última vez
+  mutation: { key: '', played: false }, // mutación del día: el primer intento da x1,5 gemas
 };
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves

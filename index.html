@@ -31,6 +31,7 @@
       </div>
     </div>
     <div id="eventTag" class="hidden"></div>
+    <div id="modTag" class="hidden"></div>
     <div class="hud-bottom">
       <div id="shields"></div>
       <div id="odbar"><i></i><span>OVERDRIVE</span></div>
@@ -50,8 +51,10 @@
     <div id="mRank" class="rank"></div>
     <div id="mMissions" class="missions"></div>
     <button class="btn big" id="btnPlay">JUGAR</button>
+    <button class="btn ghost mods-btn" id="btnMods">⚙️ MODIFICADORES <small id="mMods"></small></button>
     <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
+    <button class="btn mut" id="btnMutation">🧬 MUTACIÓN <small id="mMut"></small></button>
     <button class="btn ghost" id="btnHangar">HANGAR</button>
     <div class="row">
       <button class="btn ghost" id="btnAch">🏆 LOGROS</button>
@@ -98,6 +101,15 @@
     <h3>Jefes</h3>
     <div id="codexBosses" class="codex-grid"></div>
     <button class="btn" id="btnCodexBack">VOLVER</button>
+  </section>
+
+  <section id="mods" class="overlay hidden">
+    <h2>MODIFICADORES</h2>
+    <p class="hint">Más difícil = más puntos y gemas. Se guardan para la próxima.</p>
+    <div id="modTotal" class="mod-total"></div>
+    <div id="modList" class="mod-grid"></div>
+    <button class="btn big" id="btnModsPlay">JUGAR</button>
+    <button class="btn ghost" id="btnModsBack">VOLVER</button>
   </section>
 
   <section id="campaign" class="overlay hidden">

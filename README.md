@@ -13,7 +13,7 @@
 
 <img src="docs/gameplay.gif" width="270" alt="Partida a toda velocidad con explosiones y combo">
 
-<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña">
+<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores">
 
 </div>
 
@@ -84,6 +84,16 @@ Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una *
 | **Devorador** | minas + succión hacia su carril | + disparos |
 | **El Censor** | ráfaga en todos los carriles menos uno; núcleo **blindado** (el láser rebota: solo DASH) | + rayo |
 | **Mamá Ovni** | disparos + dianas | ráfaga + dianas + minas |
+
+## 🧪 Modificadores y mutación del día
+- **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:
+  - Turbo, Caos, Campo minado, Cristal, Jefazos, Cazador voraz;
+  - Avaricia, Ingravidez, Frágil, Sin DASH, Niebla y Al revés.
+- Se activan en **⚙️ MODIFICADORES**, bajo JUGAR, y se recuerdan para la próxima partida.
+- El bonus se multiplica: Turbo + Cristal = x2,08 puntos. Las gemas suben la mitad, con tope x3.
+- Se **desbloquean con el rango**, uno cada pocos rangos: siempre hay uno nuevo a la vista.
+- **🧬 Mutación del día:** cada día, 2 modificadores y la misma pista para todos. El primer intento paga **x1,5 gemas**.
+- Los tests comprueban que el bot sobrevive sin golpes con cada modificador que cambia la pista.
 
 ## 🗺️ Campaña
 Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Distrito neón, Forja de lava, El vacío e Hiperespacio):

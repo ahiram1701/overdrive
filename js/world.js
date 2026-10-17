@@ -242,6 +242,8 @@ function genRow(r) {
   const L = allowedLanes(r);
   const key = r.boss ? 'boss' : r.section === 0 ? 'intro' : r.biome.id;
   const pats = Object.entries(WEIGHTS[key]).map(([id, w]) => ({ id, w }));
+  // CAMPO MINADO: las minas pesan mucho más (fuera de la intro y del jefe)
+  if (r.mods.has('mines') && key !== 'intro' && key !== 'boss') pats.push({ id: 'mines', w: 4 });
   let pat = rng.weighted(pats).id;
   // ?debug&pattern=nombre: una de cada dos filas usa ese patrón (para testear cada uno con el bot)
   if (FORCED && PATTERNS[FORCED] && key !== 'boss' && (r.forceToggle = !r.forceToggle)) pat = FORCED;
@@ -258,6 +260,7 @@ function genRow(r) {
   const spd = trackSpeed(z, r.stats.speedMult);
   let tGap = 0.95 - clamp(r.section / 9, 0, 1) * 0.42;
   if (r.risk) tGap *= 0.8;
+  if (r.mods.has('greed')) tGap *= 0.85; // AVARICIA: filas más juntas
   if (r.boss) tGap *= 1.7;
   if (r.section === 0) tGap *= 1.15;
   let gap = Math.max(9, spd * tGap);
@@ -664,7 +667,7 @@ export function hurtBoss() {
 export const HUNTER_RZ = 12;
 const HUNTER_AIM = 0.5;
 
-const hunterDelay = (r) => Math.max(1.5, 3 - r.hunters * 0.5);
+const hunterDelay = (r) => (r.mods.has('hunter') ? 1 : Math.max(1.5, 3 - r.hunters * 0.5));
 
 function spawnHunter(r) {
   r.hunters++;

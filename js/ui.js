@@ -1,5 +1,5 @@
 // Capa DOM: HUD, menú, hangar, cartas, tienda, cofre, muerte y pausa.
-import { G, fmt, MAX_SHIELDS } from './state.js';
+import { G, fmt, shieldCap } from './state.js';
 import { save, persist } from './save.js';
 import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
@@ -15,9 +15,10 @@ import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { SECTORS, LEVEL_BY_ID, MAX_STARS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
+import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -108,6 +109,10 @@ export const ui = {
   init() {
     tap($('btnPlay'), () => newRun(false));
     tap($('btnDaily'), () => newRun(true));
+    tap($('btnMods'), () => ui.showMods());
+    tap($('btnModsBack'), () => ui.showMenu());
+    tap($('btnModsPlay'), () => newRun({ mode: 'endless' }));
+    tap($('btnMutation'), () => newRun({ mode: 'mutation' }));
     tap($('btnCampaign'), () => ui.showCampaign());
     tap($('btnCampBack'), () => ui.showMenu());
     tap($('btnNext'), () => { if (ui.victoryNext) newRun({ mode: 'campaign', level: ui.victoryNext }); });
@@ -162,7 +167,12 @@ export const ui = {
 
   hideAll() { show(null); },
 
-  showHUD(on) { $('hud').classList.toggle('hidden', !on); },
+  showHUD(on) {
+    $('hud').classList.toggle('hidden', !on);
+    const mods = on && G.run?.mods ? [...G.run.mods] : [];
+    $('modTag').classList.toggle('hidden', !mods.length);
+    $('modTag').textContent = mods.map((id) => MOD_BY_ID[id].icon).join('');
+  },
 
   showMenu() {
     G.mode = 'menu';
@@ -175,6 +185,11 @@ export const ui = {
     $('mMissions').innerHTML = missionsHTML();
     $('mRank').innerHTML = rankHTML(save.xp);
     $('mStars').textContent = `· ★ ${totalStars(save)}/${MAX_STARS}`;
+    const sel = cleanMods(save.modsLast, rankOf(save.xp).rank);
+    $('mMods').textContent = sel.length ? `${sel.map((id) => MOD_BY_ID[id].icon).join('')} · x${modScore(sel).toFixed(2)}` : '· ninguno';
+    const mut = mutationOf(todayKey());
+    const mutDone = save.mutation.key === todayKey() && save.mutation.played;
+    $('mMut').textContent = `${mut.map((id) => MOD_BY_ID[id].icon).join('')}${mutDone ? '' : ' x1,5💎'}`;
     show('menu');
   },
 
@@ -476,7 +491,8 @@ export const ui = {
       ['Roturas', res.breaks], ['Tramo', res.section], ['Jefes', res.bosses],
     ];
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
-    $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+    const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
+    $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
     $('dExtra').textContent = res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
       : res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
@@ -558,6 +574,35 @@ export const ui = {
     $('btnNext').textContent = res.next ? `SIGUIENTE · ${res.next}` : '';
     if (res.passed) sfx.chest();
     show('victory');
+  },
+
+  // Panel de modificadores: lo desbloqueado se activa y desactiva; lo bloqueado dice su rango
+  showMods() {
+    G.mode = 'hangar'; // pantalla estática
+    const rank = rankOf(save.xp).rank;
+    const sel = cleanMods(save.modsLast, rank);
+    const list = $('modList');
+    list.innerHTML = '';
+    for (const m of MODS) {
+      const open = rank >= m.rank;
+      const on = sel.includes(m.id);
+      const b = el('button', `mod${on ? ' on' : ''}${open ? '' : ' locked'}`, `<span class="mi">${open ? m.icon : '🔒'}</span><b>${m.name}</b>
+        <small>${open ? m.desc : `RANGO ${m.rank}`}</small><em>x${m.score}</em>`);
+      b.dataset.mod = m.id;
+      if (open) {
+        tap(b, () => {
+          save.modsLast = toggleMod(sel, m.id);
+          persist();
+          fx.vibe(15);
+          ui.showMods();
+        });
+      }
+      list.append(b);
+    }
+    $('modTotal').innerHTML = sel.length
+      ? `<b>x${modScore(sel).toFixed(2)}</b> puntos · <b>x${modGems(sel).toFixed(2)}</b> 💎`
+      : '<small>Sin modificadores: partida normal</small>';
+    show('mods');
   },
 
   pause() {
@@ -699,7 +744,7 @@ export const ui = {
     setHTML('speed', `${Math.round(effSpeed(r) * 10)}<small> KM/H</small>`);
     setText('dist', `${fmt(r.dist)} m`);
     setText('coins', `🪙 ${r.coins}`);
-    setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, MAX_SHIELDS - r.shields)));
+    setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, shieldCap(r) - r.shields)));
     const a = r.ability;
     const ab = $('abilityBtn');
     ab.style.setProperty('--f', readiness(a).toFixed(3));

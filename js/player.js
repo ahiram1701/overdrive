@@ -81,7 +81,7 @@ function doSlide() {
 
 export function dash() {
   const p = G.player, r = G.run;
-  if (p.dash > 0 || r.dashCharges < 1) {
+  if (p.dash > 0 || r.dashCharges < 1 || r.noDash) {
     if (r.dashCharges < 1) sfx.bump();
     return;
   }
