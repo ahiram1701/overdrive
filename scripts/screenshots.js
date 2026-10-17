@@ -110,6 +110,17 @@ try {
   console.log(`✔ ${OUT}/campaign.png`);
   await page.evaluate(() => document.getElementById('btnCampBack').click());
 
+  // Modificadores con algunos activos
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    Object.assign(save, { xp: 40000, modsLast: ['turbo', 'mines', 'glass'] });
+    document.getElementById('btnMods').click();
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/modifiers.png` });
+  console.log(`✔ ${OUT}/modifiers.png`);
+  await page.evaluate(() => document.getElementById('btnModsBack').click());
+
   // Partida: un obstáculo "deslízate" cerca y algo de combo
   await play(page);
   await advance(page, "G.run.time > 25 && G.run.objects.some(o => o.alive && o.type === 'overhead' && o.z - G.run.dist > 8 && o.z - G.run.dist < 13)");

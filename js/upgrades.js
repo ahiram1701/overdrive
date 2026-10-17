@@ -1,5 +1,5 @@
 // Cartas de mejora, sinergias y naves. Las cartas cambian REGLAS, no solo números.
-import { MAX_SHIELDS, addShields } from './state.js';
+import { MAX_SHIELDS, addShields, shieldCap } from './state.js';
 import { makeRng } from './rng.js';
 
 export const VAMPIRE_NEAR = 12; // near-miss por escudo de Vampiro
@@ -101,7 +101,8 @@ export function applyCard(run, id) {
 export function availableCards(run, minRarity = null) {
   return CARDS.filter((c) => (run.cards[c.id] || 0) < c.max)
     .filter((c) => !(c.id === 'cristal' && run.blockedLane !== null))
-    .filter((c) => !(c.id === 'escudo' && run.shields >= MAX_SHIELDS)) // con escudos llenos sería una carta muerta
+    .filter((c) => !(c.id === 'escudo' && run.shields >= shieldCap(run))) // con escudos llenos sería una carta muerta
+    .filter((c) => !(run.noDash && ['carga', 'ancho', 'recarga'].includes(c.id))) // sin DASH, sus cartas no sirven
     .filter((c) => !minRarity || (minRarity === 'rare' ? c.rarity !== 'common' : c.rarity === 'epic'));
 }
 

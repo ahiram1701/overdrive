@@ -75,6 +75,9 @@ export const ACHIEVEMENTS = [
   { id: 'camp1', kind: 'level', mode: 'sum', n: 1, tier: 'bronze', name: 'Recluta', desc: 'Supera tu primer nivel de campaña' },
   { id: 'camp16', kind: 'level', mode: 'sum', n: 16, tier: 'silver', name: 'Veterano', desc: 'Supera 16 niveles de campaña' },
   { id: 'stars48', kind: 'stars', mode: 'best', n: 48, tier: 'gold', name: 'Constelación', desc: 'Consigue las 48 estrellas de la campaña' },
+  { id: 'mods3', kind: 'modsRun', mode: 'best', n: 3, tier: 'bronze', name: 'Mutante', desc: 'Llega al tramo 4 con 3 modificadores' },
+  { id: 'mods6', kind: 'modsRun', mode: 'best', n: 6, tier: 'gold', name: 'Masoquista', desc: 'Llega al tramo 4 con 6 modificadores' },
+  { id: 'mut7', kind: 'mutation', mode: 'sum', n: 7, tier: 'silver', name: 'Experimento', desc: 'Juega 7 mutaciones del día' },
 ];
 export const ACH_GEMS = T;
 

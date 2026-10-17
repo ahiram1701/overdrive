@@ -3,7 +3,9 @@ export const LANE_W = 1;      // ancho de carril en unidades de mundo
 export const VIEW = 150;      // distancia de dibujado
 export const LANES = [-1, 0, 1];
 export const MAX_SHIELDS = 3; // los escudos son un colchón, no un modo automático
-export const addShields = (r, n) => { r.shields = Math.min(MAX_SHIELDS, r.shields + n); };
+// tope de la partida (los modificadores Cristal y Frágil lo bajan)
+export const shieldCap = (r) => r.shieldCap ?? MAX_SHIELDS;
+export const addShields = (r, n) => { r.shields = Math.max(0, Math.min(shieldCap(r), r.shields + n)); };
 
 export const G = {
   mode: 'menu',               // menu | play | dying | dead | cards | shop | chest | paused

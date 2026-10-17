@@ -1142,7 +1142,7 @@ export function render(dt) {
   ctx.save();
   const shk = fx.shakeAmt;
   if (shk) ctx.translate((Math.random() - 0.5) * shk, (Math.random() - 0.5) * shk);
-  if (r && r.event?.id === 'flip') {
+  if (r && (r.event?.id === 'flip' || r.mods?.has('upside'))) {
     ctx.translate(0, H);
     ctx.scale(1, -1);
   }
@@ -1185,14 +1185,20 @@ export function render(dt) {
   ctx.restore();
 
   // APAGÓN: solo se ve la zona cercana a la nave
-  if (r && r.event?.id === 'blackout') {
-    const g = ctx.createRadialGradient(W / 2, H * 0.78, H * 0.12, W / 2, H * 0.7, H * 0.55);
+  // NIEBLA (modificador): lo mismo pero más suave y algo más amplio
+  const fog = r && r.mods?.has('fog') && r.event?.id !== 'blackout';
+  if (r && (r.event?.id === 'blackout' || fog)) {
+    // con el mundo boca abajo la nave está arriba: la zona visible también
+    const up = r.event?.id === 'flip' || r.mods?.has('upside');
+    const cy = (k) => (up ? H * (1 - k) : H * k);
+    const g = fog ? ctx.createRadialGradient(W / 2, cy(0.74), H * 0.16, W / 2, cy(0.74), H * 0.7)
+      : ctx.createRadialGradient(W / 2, cy(0.78), H * 0.12, W / 2, cy(0.7), H * 0.55);
     g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,0.94)');
+    g.addColorStop(1, fog ? 'rgba(20,10,40,0.9)' : 'rgba(0,0,0,0.94)');
     ctx.fillStyle = g;
     ctx.fillRect(0, 0, W, H);
   }
-  fx.drawTexts(ctx, r && r.event?.id === 'flip' ? H : 0);
+  fx.drawTexts(ctx, r && (r.event?.id === 'flip' || r.mods?.has('upside')) ? H : 0);
 
   // post-proceso
   ctx.setTransform(1, 0, 0, 1, 0, 0);
