@@ -78,6 +78,9 @@ export const ACHIEVEMENTS = [
   { id: 'mods3', kind: 'modsRun', mode: 'best', n: 3, tier: 'bronze', name: 'Mutante', desc: 'Llega al tramo 4 con 3 modificadores' },
   { id: 'mods6', kind: 'modsRun', mode: 'best', n: 6, tier: 'gold', name: 'Masoquista', desc: 'Llega al tramo 4 con 6 modificadores' },
   { id: 'mut7', kind: 'mutation', mode: 'sum', n: 7, tier: 'silver', name: 'Experimento', desc: 'Juega 7 mutaciones del día' },
+  { id: 'sector10', kind: 'sector', mode: 'best', n: 10, tier: 'silver', name: 'Explorador', desc: 'Supera un nivel del sector 10' },
+  { id: 'sector25', kind: 'sector', mode: 'best', n: 25, tier: 'gold', name: 'Más allá', desc: 'Supera un nivel del sector 25' },
+  { id: 'elite1', kind: 'elite', mode: 'sum', n: 1, tier: 'silver', name: 'Cazaélites', desc: 'Derrota a un jefe ÉLITE' },
 ];
 export const ACH_GEMS = T;
 

@@ -102,6 +102,11 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 - Superar un nivel abre el siguiente; los **sectores se abren con estrellas** (6, 15 y 26).
 - La primera vez que superas un nivel ganas sus gemas, y cada estrella nueva da +5 💎.
 - Los tests comprueban que el bot llega a la meta de **todos** los niveles sin un solo golpe: ninguna pista fija es injusta.
+- **Y no se acaba:** tras el sector 4 llegan los **sectores generados** (5, 6, 7…), siempre los mismos para todos:
+  - cada uno con nombre propio, a veces con **dos biomas que se alternan**;
+  - cada nivel trae **1–2 modificadores fijos**, y la dificultad sigue subiendo;
+  - desde el sector 6, uno de cada dos acaba en un **JEFE ÉLITE**: ataques de su fase 2 desde el principio, uno prestado de otro jefe y +50% de vida;
+  - cada sector se abre al vencer al jefe del anterior, y el mapa enseña siempre el siguiente cerrado.
 
 ## 🛣️ Estructura de una partida
 1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".

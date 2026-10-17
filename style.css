@@ -386,6 +386,11 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .camp-map { display: flex; flex-direction: column; gap: 12px; width: min(440px, 100%); }
 .sector { border: 1px solid var(--bc); border-radius: 12px; padding: 10px; background: rgba(0,0,0,.35); box-shadow: 0 0 14px color-mix(in srgb, var(--bc) 35%, transparent); }
 .sector.locked { opacity: .45; filter: grayscale(.7); }
+.sector.gen { background: linear-gradient(135deg, color-mix(in srgb, var(--bc) 12%, transparent), color-mix(in srgb, var(--bc2, var(--bc)) 12%, transparent)), rgba(0,0,0,.35); }
+.lvl.elite { border-color: #ff2d55; box-shadow: 0 0 10px rgba(255,45,85,.45); }
+.l-mods { font-size: 12px; letter-spacing: 1px; }
+.lvl-mods { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.lvl-mods span { padding: 3px 8px; border-radius: 8px; background: rgba(255,43,214,.15); border: 1px solid var(--pink); font: 800 12px var(--font); }
 .sec-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
 .sec-top b { font: italic 900 16px var(--font); color: var(--bc); }
 .levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
