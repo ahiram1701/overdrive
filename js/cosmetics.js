@@ -1,7 +1,7 @@
 // Personalización POR NAVE: pintura, estela, explosión y emblema. Módulo puro (recibe el guardado).
 // Lo que se compra con gemas vale solo para la nave en la que lo compras; lo que da el rango o un
 // logro vale para todas; y cada nave tiene pinturas y un emblema EXCLUSIVOS que se ganan usándola.
-import { rankOf } from './progress.js';
+import { effectiveRank, prestigeOf } from './progress.js';
 
 const X = (ship, stat, n) => ({ ship, unlock: { stat, n } });
 
@@ -16,6 +16,7 @@ export const PALETTES = [
   // con patrón (alt = segundo color del casco)
   { id: 'tiger', name: 'Tigre', hull: '#b35f00', alt: '#0a0500', pattern: 'stripes', edge: '#ff9500', glow: '#ffd60a', unlock: { gems: 160 } },
   { id: 'duo', name: 'Dúo', hull: '#0a2a5e', alt: '#6a0058', pattern: 'split', edge: '#00e5ff', glow: '#ff2bd6', unlock: { gems: 160 } },
+  { id: 'harlequin', name: 'Arlequín', hull: '#5a0a5a', alt: '#0a4a5a', pattern: 'stripes', edge: '#ffffff', glow: '#ff2bd6', unlock: { prestige: 2 } },
   { id: 'aurora', name: 'Aurora', hull: '#00553f', alt: '#5a1a8a', pattern: 'fade', edge: '#7df9ff', glow: '#bf5af2', unlock: { rank: 18 } },
   // exclusivas: una por usar la nave (tramos) y otra de maestría (jefes con ella)
   { id: 'x-viper1', name: 'Veneno', hull: '#06140a', edge: '#39ff14', glow: '#b6ff00', ...X('viper', 'sections', 30) },
@@ -42,6 +43,7 @@ export const TRAILS = [
   { id: 'comet', name: 'Cometa', unlock: { ach: 'mach1' } },
   { id: 'smoke', name: 'Humo', unlock: { gems: 120 } },
   { id: 'lightning', name: 'Relámpago', unlock: { rank: 14 } },
+  { id: 'prism', name: 'Prisma', unlock: { prestige: 3 } },
 ];
 
 export const BOOMS = [
@@ -52,6 +54,7 @@ export const BOOMS = [
   { id: 'glitch', name: 'Glitch', unlock: { ach: 'syn10' } },
   { id: 'blackhole', name: 'Agujero negro', unlock: { gems: 180 } },
   { id: 'fireworks', name: 'Fuegos artificiales', unlock: { rank: 20 } },
+  { id: 'singularity', name: 'Singularidad', unlock: { prestige: 10 } },
 ];
 
 // Emblemas: se dibujan sobre las alas (trazos vectoriales en shipdraw.js, no emoji). 'sil' es la
@@ -65,6 +68,7 @@ export const EMBLEMS = [
   { id: 'eye', name: 'Ojo', unlock: { rank: 8 } },
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
+  { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
   ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
 ];
 
@@ -96,7 +100,8 @@ export function isUnlocked(item, save, ship = save.ship) {
   const u = item.unlock;
   if (!u) return true;
   if (u.gems) return ownedOf(save, ship).includes(item.id);
-  if (u.rank) return rankOf(save.xp).rank >= u.rank;
+  if (u.rank) return effectiveRank(save) >= u.rank;
+  if (u.prestige) return prestigeOf(save) >= u.prestige;
   if (u.ach) return !!save.ach[u.ach]?.done;
   if (u.stat) return shipStat(save, ship, u.stat) >= u.n;
   return false;
@@ -107,6 +112,7 @@ export function lockText(item, save = null, ship = null) {
   if (u.gems) return `💎 ${u.gems}`;
   if (u.rank) return `RANGO ${u.rank}`;
   if (u.ach) return '🏆 logro';
+  if (u.prestige) return `✨ PRESTIGIO ${u.prestige}`;
   if (u.stat) return save ? `${Math.min(u.n, shipStat(save, ship, u.stat))}/${u.n} ${STAT_TEXT[u.stat]}` : `${u.n} ${STAT_TEXT[u.stat]}`;
   return '';
 }

@@ -21,6 +21,7 @@ const DEFAULTS = {
   missions: { key: '', list: [] },
   // v2: progreso para la expansión (se reservan ya para no migrar en cada fase)
   xp: 0,
+  prestige: 0,      // niveles de prestigio (rango 30 -> vuelta al 1)
   shipLvl: {},      // { viper: { a: 1, b: 0, c: 2 } }
   abilityUses: {},  // { overclock: 12 }
   ach: {},          // logros

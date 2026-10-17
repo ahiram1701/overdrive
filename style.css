@@ -427,3 +427,12 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .mod.on { border-color: var(--pink); background: rgba(255,43,214,.15); box-shadow: 0 0 12px rgba(255,43,214,.4); }
 .mod.locked { opacity: .45; }
 #modTag { position: absolute; top: calc(78px + env(safe-area-inset-top)); left: 12px; font-size: 14px; letter-spacing: 2px; opacity: .85; pointer-events: none; }
+
+/* ---------- Prestigio ---------- */
+.prest { color: var(--yellow); text-shadow: 0 0 8px var(--yellow); }
+.btn.prestige { width: 100%; margin-top: 8px; padding: 10px; font-size: 16px; border-color: var(--yellow); color: var(--yellow);
+  background: linear-gradient(90deg, rgba(255,230,0,.15), rgba(255,43,214,.15)); box-shadow: 0 0 18px rgba(255,230,0,.45); animation: glowPulse 1.6s ease-in-out infinite; }
+@keyframes glowPulse { 50% { box-shadow: 0 0 30px rgba(255,230,0,.8); } }
+.btn.prestige small { display: block; font-size: 10px; color: #fff; opacity: .8; }
+.btn.prestige.confirm { border-color: #ff2d55; color: #ff2d55; box-shadow: 0 0 18px rgba(255,45,85,.6); }
+.ship-chip.gold { border-color: #ffd60a; box-shadow: 0 0 10px rgba(255,214,10,.45), inset 0 0 8px rgba(255,214,10,.2); }

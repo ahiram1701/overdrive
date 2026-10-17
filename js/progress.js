@@ -37,6 +37,32 @@ export function addXp(save, xp) {
   return ups;
 }
 
+// ---------- Prestigio ----------
+// Al llegar al rango 30 puedes volver al rango 1: subes un nivel de prestigio, ganas un bonus de
+// gemas permanente (+5% por nivel, hasta +50%) y premios exclusivos. Los rangos se vuelven a pagar
+// y lo desbloqueado por rango NO se pierde (effectiveRank).
+export const PRESTIGE_GEMS = 0.05;
+export const PRESTIGE_GEMS_MAX = 0.5;
+export const PRESTIGE_REWARDS = { 1: 'emblem:laurel', 2: 'palette:harlequin', 3: 'trail:prism', 5: 'frame:gold', 10: 'boom:singularity' };
+export const PRESTIGE_EXTRA_GEMS = 200; // a partir del 11 (y en los niveles sin premio), gemas
+
+export const prestigeOf = (save) => save.prestige || 0;
+export const canPrestige = (save) => rankOf(save.xp).rank >= MAX_RANK;
+export const prestigeBonus = (save) => Math.min(PRESTIGE_GEMS_MAX, prestigeOf(save) * PRESTIGE_GEMS);
+// el rango que cuenta para desbloquear cosas: tras un prestigio, todo lo del rango 30 sigue abierto
+export const effectiveRank = (save) => (prestigeOf(save) > 0 ? MAX_RANK : rankOf(save.xp).rank);
+
+// Hace el prestigio. Devuelve { level, reward, gems } o null si aún no se puede.
+export function doPrestige(save) {
+  if (!canPrestige(save)) return null;
+  save.prestige = prestigeOf(save) + 1;
+  save.xp = 0;
+  const reward = PRESTIGE_REWARDS[save.prestige] || null;
+  const gems = reward ? 0 : PRESTIGE_EXTRA_GEMS;
+  save.gems += gems;
+  return { level: save.prestige, reward, gems };
+}
+
 // ---------- Logros ----------
 // mode 'sum' = acumulado de por vida; 'best' = en una sola partida. tier = premio en gemas.
 const T = { bronze: 20, silver: 40, gold: 80 };
@@ -81,6 +107,8 @@ export const ACHIEVEMENTS = [
   { id: 'sector10', kind: 'sector', mode: 'best', n: 10, tier: 'silver', name: 'Explorador', desc: 'Supera un nivel del sector 10' },
   { id: 'sector25', kind: 'sector', mode: 'best', n: 25, tier: 'gold', name: 'Más allá', desc: 'Supera un nivel del sector 25' },
   { id: 'elite1', kind: 'elite', mode: 'sum', n: 1, tier: 'silver', name: 'Cazaélites', desc: 'Derrota a un jefe ÉLITE' },
+  { id: 'prest1', kind: 'prestige', mode: 'best', n: 1, tier: 'silver', name: 'Renacido', desc: 'Haz tu primer prestigio' },
+  { id: 'prest5', kind: 'prestige', mode: 'best', n: 5, tier: 'gold', name: 'Leyenda', desc: 'Llega al prestigio 5' },
 ];
 export const ACH_GEMS = T;
 

@@ -12,10 +12,9 @@ import { baseSpeed, trackSpeed } from './pacing.js';
 import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
-import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd } from './progress.js';
+import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeBonus } from './progress.js';
 import { equipped, addShipStat } from './cosmetics.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
-import { rankOf } from './progress.js';
 import { boomFx } from './cosfx.js';
 import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
 
@@ -85,7 +84,7 @@ export function newRun(opts = false) {
   const modIds = mutation ? mutationOf(todayKey())
     : level ? cleanMods(level.mods || [])
       : opts.mods ? cleanMods(opts.mods)
-      : opts.mode === 'endless' ? cleanMods(dbgMods ? dbgMods.split(',') : save.modsLast, dbgMods ? Infinity : rankOf(save.xp).rank)
+      : opts.mode === 'endless' ? cleanMods(dbgMods ? dbgMods.split(',') : save.modsLast, dbgMods ? Infinity : effectiveRank(save))
         : [];
   r.mods = new Set(modIds);
   for (const id of modIds) MOD_BY_ID[id].apply?.(r);
@@ -661,7 +660,7 @@ function die() {
   // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
   if (r.daily) gems = Math.ceil(gems * 1.5);
-  gems = Math.ceil(gems * modGems([...r.mods]));
+  gems = Math.ceil(gems * modGems([...r.mods]) * (1 + prestigeBonus(save)));
   // MUTACIÓN DEL DÍA: el primer intento de cada día paga x1,5
   let mutationBonus = false;
   if (r.opts.mode === 'mutation') {
@@ -714,6 +713,10 @@ export function onFinish() {
   const firstPass = !isPassed(save, lv.id);
   const stars = levelStars(lv, campStats(r, true));
   const res = recordResult(save, lv.id, stars);
+  // bonus de prestigio sobre las gemas del nivel
+  const extra = Math.floor(res.gems * prestigeBonus(save));
+  save.gems += extra;
+  res.gems += extra;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone });
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);

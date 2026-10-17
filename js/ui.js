@@ -5,13 +5,13 @@ import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
-import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
+import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK, effectiveRank, prestigeOf, prestigeBonus, canPrestige, doPrestige, PRESTIGE_REWARDS } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
-import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
+import { newRun, pickCard, resume, effSpeed, useAbility, progress } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -95,7 +95,8 @@ function rankHTML(xp, from = null) {
     const k0 = rankOf(from).into / need;
     gained = `<u style="left:${(k0 * 100).toFixed(1)}%;width:${((k - k0) * 100).toFixed(1)}%"></u>`;
   }
-  return `<div class="rank-top"><b>RANGO ${rank}</b><small>${rank >= MAX_RANK ? 'MÁXIMO' : `${fmt(into)} / ${fmt(need)} XP`}</small></div>
+  const p = prestigeOf(save);
+  return `<div class="rank-top"><b>${p ? `<span class="prest">✨${p}</span> · ` : ''}RANGO ${rank}</b><small>${rank >= MAX_RANK ? 'MÁXIMO' : `${fmt(into)} / ${fmt(need)} XP`}</small></div>
     <div class="rank-bar"><i style="transform:scaleX(${k.toFixed(3)})"></i>${gained}</div>`;
 }
 
@@ -184,8 +185,32 @@ export const ui = {
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
     $('mMissions').innerHTML = missionsHTML();
     $('mRank').innerHTML = rankHTML(save.xp);
+    if (canPrestige(save)) {
+      const next = prestigeOf(save) + 1;
+      const gift = PRESTIGE_REWARDS[next] ? 'un premio exclusivo' : '200 💎';
+      const b = el('button', 'btn prestige', `✨ PRESTIGIO ${next} <small>vuelves al rango 1 · +5% 💎 para siempre · ${gift}</small>`);
+      b.id = 'btnPrestige';
+      tap(b, () => {
+        // primer toque: avisa; segundo: confirma (nada de diálogos del navegador)
+        if (!b.classList.contains('confirm')) {
+          b.classList.add('confirm');
+          b.innerHTML = '¿SEGURO? <small>toca otra vez para renacer</small>';
+          return;
+        }
+        const res = doPrestige(save);
+        if (!res) return;
+        progress('prestige', res.level);
+        persist();
+        sfx.milestone();
+        fx.flash('#ffffff', 0.9);
+        fx.vibe([60, 40, 60, 40, 200]);
+        ui.showMenu();
+        fx.banner(`✨ PRESTIGIO ${res.level}`, res.reward ? '¡premio exclusivo en el hangar!' : `+${res.gems} 💎`, '#ffe600', true);
+      });
+      $('mRank').append(b);
+    }
     $('mStars').textContent = `· ★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
-    const sel = cleanMods(save.modsLast, rankOf(save.xp).rank);
+    const sel = cleanMods(save.modsLast, effectiveRank(save));
     $('mMods').textContent = sel.length ? `${sel.map((id) => MOD_BY_ID[id].icon).join('')} · x${modScore(sel).toFixed(2)}` : '· ninguno';
     const mut = mutationOf(todayKey());
     const mutDone = save.mutation.key === todayKey() && save.mutation.played;
@@ -210,7 +235,7 @@ export const ui = {
       const has = save.ships.includes(s.id);
       const lv = shipLvls(save.shipLvl, s.id);
       const stars = lv.a + lv.b + lv.c;
-      const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}`);
+      const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}${prestigeOf(save) >= 5 ? ' gold' : ''}`);
       b.style.setProperty('--sc', s.color);
       b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/9` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
       tap(b, () => { ui.preview = null; ui.showHangar(s.id); });
@@ -492,7 +517,7 @@ export const ui = {
     ];
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
-    $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}</small>`;
+    $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
     $('dExtra').textContent = res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
       : res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
@@ -587,7 +612,7 @@ export const ui = {
   // Panel de modificadores: lo desbloqueado se activa y desactiva; lo bloqueado dice su rango
   showMods() {
     G.mode = 'hangar'; // pantalla estática
-    const rank = rankOf(save.xp).rank;
+    const rank = effectiveRank(save);
     const sel = cleanMods(save.modsLast, rank);
     const list = $('modList');
     list.innerHTML = '';
