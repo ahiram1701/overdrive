@@ -6,7 +6,7 @@ import { SHIPS } from './upgrades.js';
 import { isActive } from './abilities.js';
 import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
-import { trailFx } from './cosfx.js';
+import { trailFx, auraFx } from './cosfx.js';
 import { save } from './save.js';
 import { ghostAt } from './race.js';
 
@@ -1097,7 +1097,7 @@ function drawPlayer() {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   const fl = (0.25 + Math.random() * 0.15 + (r ? Math.min(0.4, r.speed / 300) : 0)) * s;
-  ctx.fillStyle = r && r.odTime > 0 ? col : 'rgba(255,140,40,.8)';
+  ctx.fillStyle = r && r.odTime > 0 ? col : pal.glow;
   ctx.beginPath();
   ctx.moveTo(sp.x - 0.1 * s, sp.y + 0.08 * s * sq);
   ctx.lineTo(sp.x, sp.y + 0.12 * s * sq + fl);
@@ -1105,6 +1105,7 @@ function drawPlayer() {
   ctx.fill();
   ctx.restore();
 
+  auraFx(ctx, eq.aura.id, sp.x, sp.y - 0.15 * s, s * 0.62, G.realTime);
   const blink = p && p.invuln > 0 && Math.floor(G.realTime * 20) % 2 === 0;
   const ab = r && r.ability;
   const phase = isActive(ab, 'phase');
@@ -1125,6 +1126,15 @@ function drawPlayer() {
       ctx.fillStyle = `rgba(255,159,10,${0.35 * k})`;
       ctx.beginPath();
       ctx.ellipse(sp.x, sp.y - 0.45 * s, s * 0.55, s * 0.2, 0, Math.PI, 0);
+      ctx.fill();
+    } else if (isActive(ab, 'bubble')) {
+      const g = ctx.createRadialGradient(sp.x, sp.y - 0.15 * s, s * 0.2, sp.x, sp.y - 0.15 * s, s * 0.7);
+      g.addColorStop(0, 'rgba(100,210,255,0)');
+      g.addColorStop(0.8, `rgba(100,210,255,${0.18 * k})`);
+      g.addColorStop(1, `rgba(200,240,255,${0.6 * k})`);
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(sp.x, sp.y - 0.15 * s, s * 0.7, 0, Math.PI * 2);
       ctx.fill();
     } else if (isActive(ab, 'overclock')) {
       for (let i = 1; i <= 4; i++) drawShape(0, i * s * 0.1, 0.12, '#00e5ff');

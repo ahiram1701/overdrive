@@ -127,6 +127,9 @@ export const SHIPS = [
   { id: 'kaiju', name: 'Kaiju', cost: 500, color: '#30d158', ability: 'roar', desc: 'Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos.', apply: (r) => { applyCard(r, 'ancho'); applyCard(r, 'explosivo'); r.stats.scoreMult *= 0.7; } },
   { id: 'raptor', name: 'Raptor', cost: 400, color: '#ff9f0a', ability: 'laser', desc: 'Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes.', apply: (r) => { r.stats.laneTime *= 0.8; r.stats.dashRecharge *= 0.85; } },
   { id: 'comet', name: 'Comet', cost: 650, color: '#bf5af2', ability: 'hook', desc: 'Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento.', apply: (r) => { r.stats.coinValue += 1; r.stats.magnet += 1; r.stats.odRate -= 0.2; } },
+  { id: 'manta', name: 'Manta', cost: 800, color: '#64d2ff', ability: 'bubble', desc: 'Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe.', apply: (r) => { r.stats.nearWin += 0.15; r.stats.hitInvuln *= 1.2; } },
+  { id: 'spectra', name: 'Spectra', cost: 950, color: '#ffe600', ability: 'blink', desc: 'Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento.', apply: (r) => { r.stats.laneTime *= 0.85; r.stats.scoreMult *= 1.1; r.stats.dashRecharge *= 1.2; } },
+  { id: 'titan', name: 'Titán', cost: 1100, color: '#ff6b3d', ability: 'hammer', desc: 'Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.4; r.stats.scoreMult *= 0.85; } },
 ];
 
 export const META = [
@@ -151,6 +154,9 @@ export const ABILITY_TREE = {
   roar: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'RUGIDO te da 1 escudo' },
   laser: { lvl2: 'Atraviesa 2 obstáculos', mut: 'triple', lvl3: 'Dispara en los 3 carriles' },
   hook: { lvl2: '0,6 s invulnerable al llegar', mut: 'trail', lvl3: 'El GANCHO arrasa lo que tienes delante' },
+  bubble: { lvl2: '+30% de duración', mut: 'pop', lvl3: 'Al estallar, la BURBUJA arrasa lo cercano' },
+  blink: { lvl2: '+30% de distancia', mut: 'land', lvl3: 'Al aparecer, rompes lo que tienes delante' },
+  hammer: { lvl2: '+30% de alcance', mut: 'triple', lvl3: 'El MARTILLO golpea los 3 carriles' },
 };
 
 export const emptyLvls = () => ({ a: 0, b: 0, c: 0 });

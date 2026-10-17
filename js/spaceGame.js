@@ -26,7 +26,7 @@ const gal = () => save.galaxy;
 export const atlasCount = () => Object.keys(save.galaxyAtlas).length;
 const perks = () => perksFor(atlasCount());
 const stats = () => {
-  const st = shipStats(gal().up);
+  const st = shipStats(gal().up, save.ship);
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };

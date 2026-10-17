@@ -12,19 +12,35 @@ export const UPGRADES = {
 export const MAX_UP = 5;
 export const upgradeCost = (id, lvl) => (lvl >= MAX_UP ? null : UPGRADES[id].cost[lvl]);
 
-// Stats de vuelo según los niveles
-export function shipStats(up) {
+// Cada nave del hangar vuela distinto en la Galaxia (multiplicadores sobre las mejoras)
+export const GAL_PROFILE = {
+  viper: {},
+  brick: { speed: 0.9, turn: 0.9, shield: 1.1, hull: 1.3 },
+  ghost: { speed: 1.1, turn: 1.15, shield: 0.9, hull: 0.85 },
+  nova: { dmg: 1.15 },
+  kaiju: { speed: 0.9, turn: 0.85, shield: 1.2, hull: 1.25, dmg: 1.1 },
+  raptor: { speed: 1.05, turn: 1.1, shield: 0.9, hull: 0.9, dmg: 1.15 },
+  comet: { speed: 1.1, turn: 1.05, hull: 0.95, dmg: 0.95, cargo: 1.2 },
+  manta: { speed: 0.95, shield: 1.35, regen: 1.3 },
+  spectra: { speed: 1.2, turn: 1.1, hull: 0.85 },
+  titan: { speed: 0.85, turn: 0.85, hull: 1.5, dmg: 1.1 },
+};
+export const GAL_KEYS = [['speed', 'VELOCIDAD'], ['turn', 'GIRO'], ['dmg', 'DAÑO'], ['shield', 'ESCUDO'], ['hull', 'CASCO'], ['cargo', 'BODEGA']];
+
+// Stats de vuelo según los niveles (y la nave)
+export function shipStats(up, shipId = 'viper') {
   const l = (k) => up[k] || 0;
+  const m = (k) => GAL_PROFILE[shipId]?.[k] ?? 1;
   return {
-    speed: 90 + l('engine') * 16,
+    speed: (90 + l('engine') * 16) * m('speed'),
     boost: 2.3,
-    turn: 1.9 + l('engine') * 0.12,
-    dmg: 10 + l('laser') * 6,
+    turn: (1.9 + l('engine') * 0.12) * m('turn'),
+    dmg: (10 + l('laser') * 6) * m('dmg'),
     fireCd: Math.max(0.09, 0.2 - l('laser') * 0.022),
-    shield: 60 + l('shield') * 30,
-    regen: 6 + l('shield') * 2.5,
-    hull: 100,
-    cargo: 20 + l('cargo') * 15,
+    shield: Math.round((60 + l('shield') * 30) * m('shield')),
+    regen: (6 + l('shield') * 2.5) * m('regen'),
+    hull: Math.round(100 * m('hull')),
+    cargo: Math.round((20 + l('cargo') * 15) * m('cargo')),
   };
 }
 

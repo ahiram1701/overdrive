@@ -5,8 +5,8 @@ import { save } from './save.js';
 import { fx } from './fx.js';
 import { getCtx } from './render.js';
 import { drawShip } from './shipdraw.js';
-import { equipped, emblemOpts } from './cosmetics.js';
-import { trailFx } from './cosfx.js';
+import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
+import { trailFx, auraFx } from './cosfx.js';
 import { zoomOf, maxHp } from './arena.js';
 
 // ---------- Sprites ----------
@@ -183,9 +183,10 @@ export function renderArena(dt) {
 
   // tus disparos
   ctx.globalCompositeOperation = 'lighter';
+  const shotCol = equipped(save, save.ship).shot.color || DEFAULT_SHOT;
   for (const b of a.bullets) {
     if (!onScreen(b.x, b.y, 12)) continue;
-    const col = b.kind === 'missile' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : '#7df9ff';
+    const col = b.kind === 'missile' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : shotCol;
     ctx.fillStyle = col;
     ctx.beginPath();
     ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2);
@@ -237,6 +238,7 @@ export function renderArena(dt) {
     const pal = eq.palette;
     const x = sx(a.x), y = sy(a.y);
     trailFx(fx, ctx, eq.trail.id, x - Math.cos(a.face) * 14 * z, y - Math.sin(a.face) * 14 * z, 40 * z, pal.glow, 40, G.realTime);
+    auraFx(ctx, eq.aura.id, x, y, 36 * z, G.realTime);
     const blink = a.iframes > 0 && Math.floor(G.realTime * 20) % 2 === 0;
     ctx.globalAlpha = a.phaseT > 0 ? 0.4 : blink ? 0.45 : 1;
     drawShip(ctx, a.ship.id, { ...pal, edge: a.ramT > 0 ? '#ff9f0a' : pal.edge || a.ship.color }, x, y, 30 * z,

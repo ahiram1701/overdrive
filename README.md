@@ -183,11 +183,14 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - ⚙️ **MOTOR:** agilidad, una carga extra de DASH y más OVERDRIVE.
   - **La rama de la habilidad:** recarga, potencia y, en el nivel 3, una **mutación** que cambia cómo funciona.
 - **Ficha de cada nave:** 6 barras (velocidad, agilidad, DASH, overdrive, defensa y puntos), calculadas con las reglas reales del juego y comparadas con tu nave equipada (▲ mejor, ▼ peor).
-- **Hangar por pestañas:** NAVE (ficha y compra), MEJORAS (árbol), ESTILO (personalización) y GLOBAL.
+- **Hangar por pestañas:** NAVE (ficha y compra), MEJORAS (árbol), ESTILO (personalización), **GALAXIA** y GLOBAL.
+  - **GALAXIA:** cómo vuela cada nave en la Galaxia (cada una tiene su perfil: el Titán aguanta más, la Spectra corre más…) y las mejoras de la nave espacial, compradas con créditos sin salir del hangar.
   - La cabecera con el carrusel y la **vista 3D queda fija**: ves la nave mientras la mejoras o la personalizas.
   - Un puntito avisa de qué pestaña tiene algo que ya puedes comprar.
 - **Vista 3D:** la nave gira en el hangar (arrástrala para girarla) con su pintura, su emblema y su estela; al comprar una mejora destella y da una vuelta.
-- **Personalización por nave:** cada nave lleva su propia **pintura, estela, explosión y emblema**.
+- **🏛️ EXPOSICIÓN:** tu nave a pantalla completa sobre una plataforma giratoria, con focos y reflejo. Desliza para ver otra y pulsa **COMPARAR** para ponerla junto a la equipada con sus barras.
+- **Nombre propio:** ✏️ en la ficha. Se ve en el hangar, la exposición y la estación de la Galaxia.
+- **Personalización por nave:** cada nave lleva su propia **pintura, color del motor, estela, aura, color de disparo, explosión y emblema**.
   - Lo que compras con gemas vale **solo para esa nave**. Lo que da el rango o un logro vale para todas.
   - **Exclusivos** que se ganan usando la nave: 2 pinturas (30 tramos y 5 jefes con ella) y su **insignia**, la silueta de la propia nave (20 partidas).
   - **Pruébalo antes de comprar:** tocar cualquier objeto lo pone en la vista 3D. La explosión estalla y la nave se vuelve a montar.
@@ -236,7 +239,7 @@ Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una 
 | 👁️ | **Reflejos** | común | Ventana de near-miss más grande y cámara lenta más larga. | 3 |
 | 💉 | **Adrenalina** | rara | Cada near-miss recarga un cuarto de carga de DASH. | 1 |
 | 🌋 | **Terremoto** | rara | Al aterrizar de un salto destruyes lo que tengas delante en tu carril. | 1 |
-| 🦘 | **Salto doble** | rara | Puedes saltar otra vez en el aire. | 1 |
+| 🦘 | **Salto doble** | rara | Salta otra vez en el aire. Bien medido, ¡pasas por encima de los muros! | 1 |
 | 💥 | **Dash ancho** | rara | Tu DASH destruye obstáculos en los 3 carriles. | 1 |
 | 🧨 | **Explosivo** | épica | Lo que rompes explota y arrasa todo lo cercano en cadena. | 1 |
 | 🔥 | **Overdrive+** | común | El OVERDRIVE dura +2 s. | 3 |
@@ -271,10 +274,13 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. | RUGIDO te da 1 escudo |
 | **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). | Dispara en los 3 carriles |
 | **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. | El GANCHO arrasa lo que tienes delante |
+| **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +1 de imán, pero cambia de carril más lento. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
+| **Spectra** | 💎 950 | Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento. | ⚡ **SALTO CORTO** (12 s): Te teletransporta 35 m adelante (no con un jefe delante). | Al aparecer, rompes lo que tienes delante |
+| **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
 <!-- CARDS:END -->
 
 ### Ajustes del menú
-🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes) · **Aa** textos en pantalla: normal o mínimo.
+En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
 
 ## 🛠️ Desarrollo
 El juego no necesita build (HTML, CSS y JS nativos); Node solo hace falta para las herramientas.

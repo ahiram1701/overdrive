@@ -244,6 +244,25 @@ export function useArenaAbility() {
       a.iframes = 0.5;
       break;
     }
+    case 'bubble': // invulnerable un rato
+      a.iframes = 3 * a.ability.pow;
+      a.rings.push({ x: a.x, y: a.y, r: 60, t: 0.4, max: 0.4, color: '#64d2ff' });
+      break;
+    case 'blink': { // parpadeo hacia donde vas, con onda al llegar
+      const len = Math.hypot(a.input.x, a.input.y);
+      const dx = len > 0.1 ? a.input.x / len : Math.cos(a.face), dy = len > 0.1 ? a.input.y / len : Math.sin(a.face);
+      a.x += dx * 320 * a.ability.pow;
+      a.y += dy * 320 * a.ability.pow;
+      a.iframes = 0.5;
+      for (const e of near(a.x, a.y, 130)) hurtEnemy(a, e, 40);
+      a.rings.push({ x: a.x, y: a.y, r: 130, t: 0.35, max: 0.35, color: '#ffe600' });
+      break;
+    }
+    case 'hammer': { // onda en línea, ancha
+      const t = nearest(a, a.x, a.y);
+      beamHit(a, t ? Math.atan2(t.y - a.y, t.x - a.x) : a.face, 520, 60, 120 * a.ability.pow);
+      break;
+    }
   }
   fx.ring(sp.x, sp.y, '#fff', 200, 0.35, 10);
   sfx.od();

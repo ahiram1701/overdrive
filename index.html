@@ -110,11 +110,15 @@
         <span class="gems">💎 <b id="hGems">0</b></span>
       </div>
       <div id="shipCarousel" class="carousel"></div>
-      <canvas id="hangarView" class="hangar-view" aria-label="Nave en 3D: arrastra para girarla"></canvas>
+      <div class="hv-wrap">
+        <canvas id="hangarView" class="hangar-view" aria-label="Nave en 3D: arrastra para girarla"></canvas>
+        <button id="btnExpo" class="expo-btn" aria-label="Exposición">🏛️ EXPO</button>
+      </div>
       <div id="hTabs" class="h-tabs" role="tablist">
         <button data-tab="nave" role="tab">NAVE</button>
         <button data-tab="mejoras" role="tab">MEJORAS</button>
         <button data-tab="estilo" role="tab">ESTILO</button>
+        <button data-tab="galaxia" role="tab">GALAXIA</button>
         <button data-tab="global" role="tab">GLOBAL</button>
       </div>
       <div id="cosPreview" class="cos-preview hidden"></div>
@@ -122,7 +126,19 @@
     <div class="tab-panel" data-panel="nave"><div id="shipDetail" class="ship-detail"></div></div>
     <div class="tab-panel" data-panel="mejoras"><div id="shipTree" class="tree"></div></div>
     <div class="tab-panel" data-panel="estilo"><h3 id="cosTitle">Personalizar</h3><div id="cosmetics" class="cosmetics"></div></div>
+    <div class="tab-panel" data-panel="galaxia"><div id="galTab" class="gal-tab"></div></div>
     <div class="tab-panel" data-panel="global"><p class="hint">Valen para todas las naves.</p><div id="metaList" class="list"></div></div>
+  </section>
+
+  <section id="expo" class="overlay hidden expo">
+    <canvas id="expoView" aria-label="Exposición: desliza para cambiar de nave"></canvas>
+    <div class="expo-info"><b id="expoName"></b><small id="expoSub"></small></div>
+    <div class="expo-nav">
+      <button id="expoPrev" aria-label="Anterior">‹</button>
+      <button class="btn" id="expoCompare">⚖️ COMPARAR</button>
+      <button id="expoNext" aria-label="Siguiente">›</button>
+    </div>
+    <div id="expoStats" class="expo-stats"></div>
   </section>
 
   <section id="achs" class="overlay hidden">
@@ -177,7 +193,7 @@
 
   <section id="station" class="overlay hidden">
     <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
-    <p class="gems">💰 <b id="stCredits">0</b> créditos</p>
+    <p class="gems">💰 <b id="stCredits">0</b> créditos <span id="stShip" class="st-ship"></span></p>
     <div class="st-block">
       <h3>Mercado</h3>
       <div id="stCargo" class="st-cargo"></div>

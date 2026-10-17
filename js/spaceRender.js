@@ -4,8 +4,8 @@ import { save } from './save.js';
 import { fx } from './fx.js';
 import { getCtx } from './render.js';
 import { drawShip } from './shipdraw.js';
-import { equipped, emblemOpts } from './cosmetics.js';
-import { trailFx } from './cosfx.js';
+import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
+import { trailFx, auraFx } from './cosfx.js';
 import { project, projectDir, norm, sub, scale, basis, dist } from './space3d.js';
 import { ORES } from './galaxyData.js';
 import { shipDef, GAL } from './spaceGame.js';
@@ -421,12 +421,13 @@ export function renderSpace(dt) {
     }
   }
 
-  // tus disparos
+  // tus disparos (con el color elegido en el hangar)
+  const shotCol = equipped(save, save.ship).shot.color || DEFAULT_SHOT;
   for (const bo of s.bolts) {
     const p = project(cam, bo.pos, 1), q = project(cam, sub(bo.pos, scale(norm(bo.vel), 14)), 1);
     if (!p || !q) continue;
     draws.push({ z: p.z, fn: () => {
-      ctx.strokeStyle = '#7df9ff';
+      ctx.strokeStyle = shotCol;
       ctx.lineWidth = Math.max(1.5, p.s * 0.8);
       ctx.lineCap = 'round';
       ctx.beginPath();
@@ -444,6 +445,7 @@ export function renderSpace(dt) {
       const pal = eq.palette, def = shipDef();
       const size = Math.max(18, shp.s * 4.2);
       trailFx(fx, ctx, eq.trail.id, shp.x, shp.y + size * 0.15, size * 1.2, boosting ? '#7df9ff' : pal.glow, boosting ? 120 : 40, G.realTime);
+      auraFx(ctx, eq.aura.id, shp.x, shp.y, size * 0.9, G.realTime);
       drawShip(ctx, def.id, { ...pal, edge: pal.edge || def.color }, shp.x, shp.y, size,
         { pitch: -0.32, roll: sh.roll, yaw: 0 }, { line: 1.6, ...emblemOpts(eq) });
     } });

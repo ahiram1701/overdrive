@@ -33,6 +33,12 @@ export const PALETTES = [
   { id: 'x-raptor2', name: 'Depredador', hull: '#1a0000', edge: '#ff1744', glow: '#ff8a80', ...X('raptor', 'bosses', 5) },
   { id: 'x-comet1', name: 'Cola de hielo', hull: '#04121e', edge: '#7fd8ff', glow: '#ffffff', ...X('comet', 'sections', 30) },
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
+  { id: 'x-manta1', name: 'Abisal', hull: '#02101e', edge: '#3fd0ff', glow: '#9cf6ff', ...X('manta', 'sections', 30) },
+  { id: 'x-manta2', name: 'Coral', hull: '#1e0610', edge: '#ff7aa8', glow: '#ffd1e0', ...X('manta', 'bosses', 5) },
+  { id: 'x-spectra1', name: 'Tormenta', hull: '#0c0c18', edge: '#fff04a', glow: '#ffffff', ...X('spectra', 'sections', 30) },
+  { id: 'x-spectra2', name: 'Prisma roto', hull: '#140020', edge: '#7df9ff', glow: '#ff2bd6', ...X('spectra', 'bosses', 5) },
+  { id: 'x-titan1', name: 'Forja', hull: '#1a0c04', edge: '#ff8c3d', glow: '#ffd60a', ...X('titan', 'sections', 30) },
+  { id: 'x-titan2', name: 'Obsidiana', hull: '#050505', edge: '#9a9aa8', glow: '#ff3b30', ...X('titan', 'bosses', 5) },
 ];
 
 export const TRAILS = [
@@ -69,11 +75,46 @@ export const EMBLEMS = [
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
   { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
-  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
+  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
 ];
 
-export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS };
-export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto' };
+// Color del motor (llama y estela). null = el brillo de la pintura
+export const ENGINES = [
+  { id: 'e-stock', name: 'De serie', color: null },
+  { id: 'e-cyan', name: 'Plasma azul', color: '#00e5ff', unlock: { gems: 60 } },
+  { id: 'e-pink', name: 'Neón rosa', color: '#ff2bd6', unlock: { gems: 60 } },
+  { id: 'e-green', name: 'Ácido', color: '#39ff14', unlock: { rank: 4 } },
+  { id: 'e-white', name: 'Blanco solar', color: '#ffffff', unlock: { gems: 90 } },
+  { id: 'e-violet', name: 'Violeta', color: '#bf5af2', unlock: { rank: 9 } },
+  { id: 'e-red', name: 'Infierno', color: '#ff2d55', unlock: { ach: 'boss10' } },
+];
+
+// Aura alrededor de la nave (cosfx.auraFx)
+export const AURAS = [
+  { id: 'a-none', name: 'Ninguna' },
+  { id: 'a-neon', name: 'Neón', color: '#00e5ff', unlock: { gems: 150 } },
+  { id: 'a-fire', name: 'Fuego', color: '#ff6a00', unlock: { rank: 7 } },
+  { id: 'a-void', name: 'Vacío', color: '#bf5af2', unlock: { gems: 220 } },
+  { id: 'a-electric', name: 'Eléctrica', color: '#ffe600', unlock: { rank: 16 } },
+  { id: 'a-rainbow', name: 'Arcoíris', color: '#ff2bd6', unlock: { prestige: 1 } },
+];
+
+// Color de tus disparos (Arena y Galaxia). null = el de siempre
+export const SHOTS = [
+  { id: 's-stock', name: 'De serie', color: null },
+  { id: 's-pink', name: 'Rosa', color: '#ff2bd6', unlock: { gems: 50 } },
+  { id: 's-green', name: 'Verde', color: '#39ff14', unlock: { gems: 50 } },
+  { id: 's-gold', name: 'Oro', color: '#ffd60a', unlock: { rank: 6 } },
+  { id: 's-red', name: 'Rojo', color: '#ff2d55', unlock: { gems: 80 } },
+  { id: 's-white', name: 'Blanco', color: '#ffffff', unlock: { rank: 12 } },
+];
+
+export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS, engine: ENGINES, aura: AURAS, shot: SHOTS };
+export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto', engine: 'e-stock', aura: 'a-none', shot: 's-stock' };
+
+// La pintura con el brillo del motor elegido (la llama y la estela salen de pal.glow)
+export const tintEngine = (pal, engine) => (engine?.color ? { ...pal, glow: engine.color } : pal);
+export const DEFAULT_SHOT = '#7df9ff';
 
 // Estilo del emblema (gratis): dónde va y de qué color ('auto' = el brillo de la pintura)
 export const EMBLEM_AT = [['alas', 'Alas'], ['ala', 'Un ala'], ['cola', 'Cola']];
@@ -141,8 +182,10 @@ export function equipped(save, ship = save.ship) {
     const it = GROUPS[group].find((i) => i.id === e[group]);
     return it && isUnlocked(it, save, ship) ? it : GROUPS[group][0];
   };
+  const engine = pick('engine');
   return {
-    palette: pick('palette'), trail: pick('trail'), boom: pick('boom'), emblem: pick('emblem'),
+    palette: tintEngine(pick('palette'), engine), basePalette: pick('palette'), engine, aura: pick('aura'), shot: pick('shot'),
+    trail: pick('trail'), boom: pick('boom'), emblem: pick('emblem'),
     emblemAt: EMBLEM_AT.some(([k]) => k === e.emblemAt) ? e.emblemAt : 'alas',
     emblemColor: e.emblemColor in EMBLEM_COLORS ? e.emblemColor : 'auto',
   };
@@ -166,4 +209,15 @@ export function addShipStat(save, ship, stat, n = 1) {
   const st = (save.shipStats[ship] ||= {});
   st[stat] = (st[stat] || 0) + n;
   return before.filter((i) => isUnlocked(i, save, ship));
+}
+
+// Nombre propio de la nave (se ve en el hangar y en la Galaxia)
+export const MAX_NAME = 14;
+export const shipName = (save, ship) => save.shipNames?.[ship] || '';
+export function setShipName(save, ship, name) {
+  const clean = String(name || '').replace(/[<>&"]/g, '').trim().slice(0, MAX_NAME);
+  save.shipNames ||= {};
+  if (clean) save.shipNames[ship] = clean;
+  else delete save.shipNames[ship];
+  return clean;
 }

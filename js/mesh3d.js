@@ -49,6 +49,9 @@ export const MESHES = {
   kaiju: hull({ L: 0.85, W: 1.1, wz: 0.2, H: 0.45, R: 0.5, T: 0.45, F: 0.45 }),
   raptor: hull({ L: 1.2, W: 0.75, wz: 0.4, H: 0.18, R: 0.2, T: 0.4, tw: 1 }),
   comet: hull({ L: 0.95, W: 0.7, wz: 0.1, H: 0.32, R: 0.38, T: 0.25, F: 0.2 }),
+  manta: hull({ L: 0.75, W: 1.25, wz: 0.45, H: 0.16, R: 0.3, T: 0.3 }), // ala volante, plana y ancha
+  spectra: hull({ L: 1.45, W: 0.55, wz: 0.2, H: 0.15, R: 0.18, T: 0.5, tw: 1 }), // aguja con alas gemelas
+  titan: hull({ L: 0.8, W: 0.95, wz: 0.1, H: 0.5, R: 0.6, T: 0.55, F: 0.3 }), // bloque blindado
 };
 
 // Rota un vértice: yaw (eje y), pitch (eje x), roll (eje z). Escribe en `out` para no crear basura.
