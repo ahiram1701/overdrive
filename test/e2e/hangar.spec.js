@@ -135,3 +135,31 @@ test('la nave sale con SU pintura y SU emblema, y usarla desbloquea sus exclusiv
   expect(stats.sections).toBe(30);
   expect(errors).toEqual([]);
 });
+
+test('emblema: posición y color por nave, se guardan', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, JSON.stringify({
+        v: 3, runs: 3, gems: 0, ship: 'viper', ships: ['viper'],
+        cosmetics: { owned: { viper: ['star'] }, equip: { viper: { emblem: 'star' } } },
+      }));
+    }
+  }, SAVE);
+  await page.goto('/?nosw');
+  await page.locator('#btnHangar').click();
+  await expect(page.locator('.cos-style .seg button.on')).toHaveText('Alas');
+  await page.locator('.cos-style [data-at="cola"]').click();
+  await page.locator('.cos-style [data-color="cyan"]').click();
+  await expect(page.locator('.cos-style [data-at="cola"]')).toHaveClass(/on/);
+  await expect(page.locator('.cos-style [data-color="cyan"]')).toHaveClass(/on/);
+  await page.reload();
+  const eq = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).cosmetics.equip.viper, SAVE);
+  expect(eq).toMatchObject({ emblem: 'star', emblemAt: 'cola', emblemColor: 'cyan' });
+  // sin emblema no hay opciones de estilo
+  await page.locator('#btnHangar').click();
+  await page.locator('[data-cos="emblem:none"]').click();
+  await expect(page.locator('.cos-style')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});

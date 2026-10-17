@@ -31,8 +31,14 @@ function hull({ L = 1, W = 0.9, wz = 0.25, H = 0.2, R = 0.25, T = 0.35, F = 0, t
     v.push([-W * 0.75, H * 0.1, L * 0.45], [W * 0.75, H * 0.1, L * 0.45]);
     f.push([n, 3, 0, 'edge'], [0, 4, n + 1, 'edge']);
   }
-  // emblema: se pinta sobre el lado de arriba de cada ala (punta, ala, lomo)
-  return { v, f, decals: [[0, 3, 1], [0, 1, 4]] };
+  // dónde puede ir el emblema: las dos alas (punta, ala, lomo), solo la izquierda, o la cola (la
+  // parte de arriba de la trasera). La aleta NO: desde detrás, que es como se ve jugando, es una raya.
+  const decalSets = {
+    alas: [[0, 3, 1], [0, 1, 4]],
+    ala: [[0, 3, 1]],
+    cola: [[1, 5, 8], [1, 8, 6]],
+  };
+  return { v, f, decalSets, twoSided: [] };
 }
 
 export const MESHES = {
@@ -68,14 +74,14 @@ export function projectMesh(mesh, rot, cx, cy, size, focal = 4) {
     const k = focal / (focal + z); // la +z (punta) se aleja: más pequeña
     return [cx + x * size * k, cy - y * size * k, z];
   });
-  const faces = mesh.f.map(([a, b, c, role]) => {
+  const faces = mesh.f.map(([a, b, c, role], fi) => {
     const A = pts[a], B = pts[b], C = pts[c];
     const ux = B[0] - A[0], uy = B[1] - A[1], uz = B[2] - A[2];
     const vx = C[0] - A[0], vy = C[1] - A[1], vz = C[2] - A[2];
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nl = Math.hypot(nx, ny, nz) || 1;
     const shade = 0.35 + 0.65 * Math.abs((nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
-    return { pts: [scr[a], scr[b], scr[c]], depth: (A[2] + B[2] + C[2]) / 3, shade, role, vi: [a, b, c] };
+    return { pts: [scr[a], scr[b], scr[c]], depth: (A[2] + B[2] + C[2]) / 3, shade, role, vi: [a, b, c], fi };
   });
   faces.sort((p, q) => q.depth - p.depth);
   return faces;
