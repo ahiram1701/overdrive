@@ -8,6 +8,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { trailFx } from './cosfx.js';
 import { save } from './save.js';
+import { ghostAt } from './race.js';
 
 const CAM_H = 3;
 const CAM_D = 6;
@@ -369,7 +370,29 @@ function hazardStripes(f) {
   ctx.restore();
 }
 
+// Un rival (o tu fantasma) en la pista: nave en su carril con su nombre encima
+function drawRacer(o, rz) {
+  const ghost = o.type === 'ghost';
+  const x = ghost ? o.g.x : o.rv.x, y = ghost ? o.g.y : o.rv.y;
+  const sp = project(x * LANE_W, y + 0.15, rz);
+  if (!sp) return;
+  const s = sp.s;
+  const color = ghost ? '#ffffff' : o.rv.flash > 0 && Math.floor(G.realTime * 20) % 2 ? '#ff2d55' : o.rv.color;
+  const mesh = ghost ? curShip().id : o.rv.mesh;
+  drawShip(ctx, mesh, { hull: ghost ? '#20203a' : '#0a0a1a', edge: color, glow: color }, sp.x, sp.y - 0.08 * s, s * 0.44,
+    { pitch: -0.62, yaw: 0 }, { alpha: ghost ? 0.32 : clamp((VIEW - rz) / 25, 0, 1), line: Math.max(1.2, s * 0.02) });
+  if (rz > 1.5 && rz < 60) {
+    ctx.globalAlpha = ghost ? 0.6 : 1;
+    ctx.fillStyle = color;
+    ctx.font = `italic 900 ${Math.max(9, Math.round(s * 0.16))}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.fillText(ghost ? 'FANTASMA' : o.rv.name, sp.x, sp.y - s * 0.45);
+    ctx.globalAlpha = 1;
+  }
+}
+
 function drawObj(o, rz, b, t) {
+  if (o.type === 'racer' || o.type === 'ghost') return drawRacer(o, rz);
   const fog = clamp((VIEW - rz) / 25, 0, 1);
   ctx.globalAlpha = fog;
   switch (o.type) {
@@ -1171,6 +1194,18 @@ export function render(dt) {
       if (rz > VIEW || rz + (o.len || 0) < NEAR + 0.5) continue; // un riel se dibuja mientras quede tramo
       // orden de dibujo: un riel por su extremo lejano (si no, taparía la nave al recorrerlo)
       list.push([o.type === 'rail' ? rz + o.len : rz, o, rz]);
+    }
+    // CARRERA: los rivales y tu fantasma se ordenan con todo lo demás (se tapan bien)
+    if (r.race) {
+      for (const rv of r.race.rivals) {
+        const rz = rv.z - r.dist;
+        if (rz > -2.5 && rz < VIEW) list.push([rz, { type: 'racer', rv }, rz]);
+      }
+      const g = ghostAt(r.race.ghost, r.time);
+      if (g && !g.done) {
+        const rz = g.z - r.dist;
+        if (rz > -2.5 && rz < VIEW) list.push([rz, { type: 'ghost', g }, rz]);
+      }
     }
     list.sort((a, c) => c[0] - a[0]);
     let drewPlayer = false;

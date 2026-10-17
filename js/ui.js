@@ -11,8 +11,9 @@ import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, e
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
-import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest } from './game.js';
+import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
+import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -21,7 +22,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -125,6 +126,11 @@ export const ui = {
     tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpMenu'), () => ui.showMenu());
+    tap($('btnRaces'), () => ui.showRaceCups());
+    tap($('btnRacesBack'), () => ui.showMenu());
+    tap($('btnRaceMenu'), () => ui.showRaceCups());
+    tap($('btnRaceNext'), () => { const res = ui.lastRace; if (res?.next) newRun({ mode: 'race', track: res.next, points: res.points }); });
+    tap($('btnRaceRetry'), () => { const res = ui.lastRace; if (res) newRun({ mode: 'race', track: res.track.id, points: res.pointsBefore }); });
     tap($('btnRestShield'), () => expRest('shield'));
     tap($('btnRestCard'), () => expRest('card'));
     tap($('btnArenaRetry'), () => newArena());
@@ -238,6 +244,8 @@ export const ui = {
       });
       $('mRank').append(b);
     }
+    const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
+    $('mRace').textContent = Object.keys(save.raceCups).length ? `· ${golds}🥇` : '· nuevo';
     const eb = save.expedition.best;
     $('mExp').textContent = save.expedition.wins ? `· ✔ ${save.expedition.wins}` : eb ? `· acto ${Math.floor(eb / 10) + 1}` : '· nueva';
     $('mArena').textContent = save.arena.best ? `· récord ${fmtTime(save.arena.best)}` : '· nuevo';
@@ -669,6 +677,50 @@ export const ui = {
     show('victory');
   },
 
+  // ---------- CARRERAS ----------
+  showRaceCups() {
+    G.mode = 'hangar'; // pantalla estática
+    G.run = null;
+    G.player = null;
+    ui.showHUD(false);
+    const list = $('rcList');
+    list.innerHTML = '';
+    for (const cup of CUPS) {
+      const open = isCupOpen(save, cup.id);
+      const medal = save.raceCups[cup.id];
+      const box = el('div', `rc-cup${open ? '' : ' locked'}`);
+      box.style.setProperty('--cc', cup.color);
+      box.innerHTML = `<div class="rc-top"><b>${cup.name}</b><span>${medal !== undefined ? MEDALS[medal] : open ? '' : '🔒'}</span></div>
+        <div class="rc-tracks">${cup.tracks.map((t) => `<div><small>${t.name}</small><em>${save.raceBest[t.id] ? `${save.raceBest[t.id].toFixed(1)} s${save.ghosts[t.id] ? ' 👻' : ''}` : '—'}</em></div>`).join('')}</div>`;
+      const go = el('button', 'btn', open ? '🏁 CORRER LA COPA' : 'gana una medalla en la anterior');
+      go.disabled = !open;
+      go.dataset.cup = cup.id;
+      if (open) tap(go, () => newRun({ mode: 'race', track: cup.tracks[0].id, points: {} }));
+      box.append(go);
+      list.append(box);
+    }
+    show('raceCups');
+  },
+
+  showRacePodium(res) {
+    ui.lastRace = res;
+    ui.deathAt = performance.now();
+    setText('rpTitle', res.pos === 0 ? '¡VICTORIA!' : `${res.pos + 1}.º PUESTO`);
+    $('rpTitle').className = res.pos === 0 ? 'won' : '';
+    setText('rpTrack', `${res.cup.name} · ${res.track.idx + 1}/3 · ${res.track.name}`);
+    $('rpOrder').innerHTML = res.order.map((x, i) => `<div class="${x.you ? 'you' : ''}" style="--rc:${x.color}"><b>${i + 1}.º</b><span>${x.name}</span><em>${x.t.toFixed(1)} s</em><small>+${[10, 6, 3, 1][i]}</small></div>`).join('');
+    setText('rpGhost', res.hadGhost ? (res.ghostBeaten ? '👻 ¡Has batido a tu fantasma!' : `👻 Tu mejor tiempo: ${res.best.toFixed(1)} s`) : '👻 Fantasma guardado: la próxima vez corres contra ti');
+    const table = Object.entries(res.points).sort((a, b) => b[1] - a[1]);
+    const names = { you: 'TÚ', 0: 'BRUTO', 1: 'SEDA', 2: 'CHISPA' };
+    $('rpCup').innerHTML = `<small>${res.cupEnd ? 'CLASIFICACIÓN FINAL' : 'CLASIFICACIÓN DE LA COPA'}</small>${table.map(([k, v], i) => `<div class="${k === 'you' ? 'you' : ''}"><b>${i + 1}.</b> ${names[k]} <em>${v} pts</em></div>`).join('')}${res.cupEnd ? `<div class="rp-medal">${res.medal !== null ? `${MEDALS[res.medal]} ¡${['ORO', 'PLATA', 'BRONCE'][res.medal]}!` : 'Sin medalla esta vez'}</div>` : ''}`;
+    $('rpGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+    const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+    $('rpXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
+    $('btnRaceNext').classList.toggle('hidden', !res.next);
+    $('btnRaceNext').textContent = res.next ? `SIGUIENTE · ${res.track.idx + 2}/3` : '';
+    show('racePodium');
+  },
+
   // ---------- EXPEDICIÓN ----------
   // Mapa del acto: la salida abajo y el jefe arriba. Las líneas se calculan con la fila y la
   // columna de cada nodo (sin medir el DOM): el mapa es igual en cualquier pantalla.
@@ -1005,6 +1057,15 @@ export const ui = {
       dash += `<i class="${f >= 1 ? 'ready' : ''}" style="--f:${f}"></i>`;
     }
     setHTML('dash', dash);
+    const rt = $('raceTag');
+    if (r.race) {
+      const pos = racePosition(r);
+      const g = ghostAt(r.race.ghost, r.time);
+      const ghostGap = g ? ` · 👻 ${((r.dist - g.z) / Math.max(1, r.speed)).toFixed(1)} s` : '';
+      setText('raceTag', `${pos}.º / 4${ghostGap}`);
+      rt.classList.remove('hidden');
+      rt.classList.toggle('first', pos === 1);
+    } else rt.classList.add('hidden');
     const ev = $('eventTag');
     if (r.event) {
       setText('eventTag', `${r.event.name} ${Math.ceil(r.eventT)}s`);

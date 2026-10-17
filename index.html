@@ -31,6 +31,7 @@
       </div>
     </div>
     <div id="eventTag" class="hidden"></div>
+    <div id="raceTag" class="hidden"></div>
     <div id="modTag" class="hidden"></div>
     <div class="hud-bottom">
       <div id="shields"></div>
@@ -56,6 +57,7 @@
     <div class="modes">
       <button class="btn mode" id="btnArena">⚔️ ARENA <small id="mArena"></small></button>
       <button class="btn mode exp" id="btnExpedition">🗺️ EXPEDICIÓN <small id="mExp"></small></button>
+      <button class="btn mode race" id="btnRaces">🏁 CARRERAS <small id="mRace"></small></button>
     </div>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
     <button class="btn mut" id="btnMutation">🧬 MUTACIÓN <small id="mMut"></small></button>
@@ -180,6 +182,28 @@
     <div id="xeXp" class="rank"></div>
     <button class="btn big" id="btnExpAgain">OTRA EXPEDICIÓN</button>
     <button class="btn ghost" id="btnExpMenu">MENÚ</button>
+  </section>
+
+  <section id="raceCups" class="overlay hidden">
+    <h2>CARRERAS</h2>
+    <p class="hint">3 rivales, 3 pistas por copa y tu fantasma. Chocar frena, no mata.</p>
+    <div id="rcList" class="rc-list"></div>
+    <button class="btn ghost" id="btnRacesBack">VOLVER</button>
+  </section>
+
+  <section id="racePodium" class="overlay hidden">
+    <h2 id="rpTitle" class="won">¡VICTORIA!</h2>
+    <div id="rpTrack" class="hint"></div>
+    <div id="rpOrder" class="rp-order"></div>
+    <div id="rpGhost" class="hint"></div>
+    <div id="rpCup" class="rp-cup"></div>
+    <div id="rpGems" class="gems"></div>
+    <div id="rpXp" class="rank"></div>
+    <button class="btn big" id="btnRaceNext">SIGUIENTE CARRERA</button>
+    <div class="row">
+      <button class="btn ghost" id="btnRaceRetry">REPETIR</button>
+      <button class="btn ghost" id="btnRaceMenu">COPAS</button>
+    </div>
   </section>
 
   <section id="mods" class="overlay hidden">

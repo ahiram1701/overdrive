@@ -30,14 +30,17 @@ const DEFAULTS = {
   shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
   arena: { best: 0, kills: 0, wins: 0 },
-  expedition: { best: 0, wins: 0 }, // mejor progreso (acto*10 + fila) y expediciones completadas // mejor tiempo (s), más bajas y victorias en la ARENA
+  expedition: { best: 0, wins: 0 },
+  raceCups: {},     // { c1: 0 } mejor medalla de cada copa (0 oro, 1 plata, 2 bronce)
+  raceBest: {},     // { 'c1-1': 48.2 } mejor tiempo de cada pista
+  ghosts: {},       // { 'c1-1': { t, d: [[dist, x, y]…] } } tu mejor carrera, para correr contra ella // mejor progreso (acto*10 + fila) y expediciones completadas // mejor tiempo (s), más bajas y victorias en la ARENA
   modsLast: [],     // modificadores elegidos la última vez
   mutation: { key: '', played: false }, // mutación del día: el primer intento da x1,5 gemas
 };
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);

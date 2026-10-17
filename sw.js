@@ -38,6 +38,7 @@ const ASSETS = [
   './js/arena.js',
   './js/arenaRender.js',
   './js/expedition.js',
+  './js/race.js',
 ];
 
 self.addEventListener('install', (e) => {
