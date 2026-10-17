@@ -6,7 +6,8 @@ import { project } from './render.js';
 import { playerBox } from './player.js';
 import { isActive } from './abilities.js';
 import { trackSpeed } from './pacing.js';
-import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped } from './game.js';
+import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown } from './bosses.js';
+import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
 
 export const BIOMES = [
   { id: 'neon', name: 'NEÓN URBANO', sky: ['#0b0221', '#6a1182'], ground: '#0d0221', road: ['#1c0638', '#12042a'], line: '#ff2bd6', edge: '#00e5ff', obs: '#ff2bd6', obs2: '#00e5ff', accent: '#ffe600', music: 0 },
@@ -361,7 +362,7 @@ export function fireLaser(pierce = 1, triple = false) {
   let hits = 0;
   for (const px of xs) {
     const targets = r.objects
-      .filter((o) => o.alive && (isObstacle(o) || o.type === 'core' || o.type === 'drone') && o.z - r.dist > 0 && o.z - r.dist < VIEW && (o.all || Math.abs(o.x - px) < 0.6))
+      .filter((o) => o.alive && (isObstacle(o) || (o.type === 'core' && !o.shield) || o.type === 'drone') && o.z - r.dist > 0 && o.z - r.dist < VIEW && (o.all || Math.abs(o.x - px) < 0.6))
       .sort((a, b) => a.z - b.z)
       .slice(0, pierce);
     rays.push({ x: px, rz: targets.length ? targets[targets.length - 1].z - r.dist : VIEW });
@@ -497,21 +498,75 @@ function resolve(o) {
 }
 
 // ---------- Jefe ----------
+// 5 jefes con forma y ataques propios (datos en bosses.js) y una segunda fase al 50% de vida.
 const BOSS_RZ = 42;
-export const BOSS_NAMES = ['GUSANO DE NEÓN', 'OJO DEL VACÍO', 'DEVORADOR', 'EL CENSOR', 'MAMÁ OVNI'];
+export const BOSS_NAMES = BOSSES.map((b) => b.name);
+const FORCED_BOSS = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('boss') : null;
 
 export function spawnBoss(r) {
+  const def = BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
   const hp = 3 + Math.floor(r.section / 3);
   r.boss = {
-    hp, max: hp, x: 0, tx: 0, t: 0, fireT: 2, coreT: 3, moveT: 1.2, escapeT: 45, flash: 0,
-    name: BOSS_NAMES[Math.floor(r.section / 3) % BOSS_NAMES.length],
+    def, id: def.id, name: def.name, hp, max: hp, phase: 0, calm: 1.5,
+    x: 0, tx: 0, t: 0, coreT: 3, moveT: 1.2, escapeT: 45, flash: 0, timers: {}, beam: null,
   };
   if (r.hunter) r.hunter.leaving = true; // el jefe ya mete presión de sobra
   sfx.alarm();
-  fx.banner('⚠ JEFE ⚠', r.boss.name, '#ff2d55', true);
+  fx.banner('⚠ JEFE ⚠', def.name, def.color, true);
 }
 
 export const bossRz = () => BOSS_RZ + Math.sin(G.run.boss.t * 1.3) * 4;
+
+// Carriles a los que atacar dejando siempre uno libre... y que ese carril sea SEGURO: sin nada que
+// esquivar de carril en la pista mientras llega el ataque. Si no hay ninguno seguro, no se ataca
+// (antes el rayo podía marcar los dos laterales con un muro en el central: no había salida).
+function attackLanes(r, n) {
+  const L = allowedLanes(r);
+  const horizon = runSpeed(r) * 1.6;
+  const safe = L.filter((l) => !r.objects.some((o) => o.alive && o.need === 'lane' && (o.all || Math.abs(o.x - l * LANE_W) < 0.75) && o.z - r.dist > -1 && o.z - r.dist < horizon));
+  if (!safe.length) return [];
+  const free = r.aiRng.pick(safe);
+  return r.aiRng.shuffle(L.filter((l) => l !== free)).slice(0, Math.min(n, L.length - 1));
+}
+
+const ATTACKS = {
+  shots(r) {
+    const L = allowedLanes(r);
+    const lane = r.aiRng.chance(0.55) ? G.player.lane : r.aiRng.pick(L);
+    const tall = r.aiRng.chance(0.35);
+    add('shot', lane, r.dist + bossRz(), { vz: 16 + r.section, y1: tall ? TALL : 0.5, tall });
+  },
+  // lluvia de muros que caen desde el jefe hacia ti (siempre queda un carril)
+  wallRain(r) {
+    for (const l of attackLanes(r, 2)) add('wall', l, r.dist + bossRz(), { vz: 10 });
+  },
+  // rayo: marca carriles en el suelo y dispara al poco (hay tiempo de apartarse al ver la marca)
+  beam(r, b) {
+    const lanes = attackLanes(r, r.aiRng.chance(0.5) ? 2 : 1);
+    if (lanes.length) b.beam = { lanes, t: 0.75 };
+  },
+  mines(r) {
+    for (const l of attackLanes(r, 2)) add('mine', l, r.dist + bossRz(), { vz: 6 });
+  },
+  // succión: si llevas un rato sin moverte, te arrastra un carril hacia el suyo (nunca contra algo)
+  suction(r, b) {
+    const p = G.player;
+    const target = p.lane + Math.sign(Math.round(b.x) - p.lane);
+    if (target === p.lane || target === r.blockedLane || r.time - p.lastAction < 0.6) return;
+    const blocked = r.objects.some((o) => o.alive && o.need === 'lane' && (o.all || Math.abs(o.x - target) < 0.75) && o.z - r.dist > -1 && o.z - r.dist < runSpeed(r) * 0.7);
+    if (blocked) return;
+    p.lane = target;
+    fx.notice('🌀 ¡SUCCIÓN!', b.def.color);
+    sfx.slide();
+  },
+  // ráfaga: disparos bajos en todos los carriles menos uno
+  barrage(r) {
+    for (const l of attackLanes(r, 2)) add('shot', l, r.dist + bossRz(), { vz: 14 + r.section, y1: 0.5, tall: false });
+  },
+  drones(r) {
+    for (const l of attackLanes(r, 2)) add('drone', l, r.dist + bossRz());
+  },
+};
 
 function updateBoss(r, dt) {
   const b = r.boss;
@@ -523,38 +578,67 @@ function updateBoss(r, dt) {
   if (b.moveT <= 0) { b.moveT = 0.9 + r.aiRng.next() * 0.8; b.tx = r.aiRng.pick(L); }
   b.x += (b.tx - b.x) * Math.min(1, dt * 3);
 
-  b.fireT -= dt;
-  if (b.fireT <= 0) {
-    b.fireT = Math.max(0.55, 1.35 - r.section * 0.04);
-    const lane = r.aiRng.chance(0.55) ? G.player.lane : r.aiRng.pick(L);
-    const tall = r.aiRng.chance(0.35);
-    add('shot', lane, r.dist + bossRz(), { vz: 16 + r.section, y1: tall ? TALL : 0.5, tall });
+  // rayo marcado: al acabar la marca, dispara muy rápido por esos carriles
+  if (b.beam) {
+    b.beam.t -= dt;
+    if (b.beam.t <= 0) {
+      for (const l of b.beam.lanes) add('shot', l, r.dist + 22, { vz: 30, y1: TALL, tall: true, beam: true });
+      b.beam = null;
+      sfx.dash();
+      fx.shake(8);
+    }
+  }
+
+  if (b.calm > 0) {
+    b.calm -= dt; // respiro al aparecer y al cambiar de fase
+  } else {
+    for (const atk of b.def.phases[b.phase]) {
+      // con un rayo marcado no se lanza nada más: la marca deja un carril libre y otro ataque
+      // podría cerrarlo (pasaba en la fase 2 del Ojo: rayo en dos carriles + disparo al tercero)
+      if (b.beam && atk !== 'beam') continue;
+      b.timers[atk] = (b.timers[atk] ?? attackCooldown(atk, r.section, b.phase) * 0.5) - dt;
+      if (b.timers[atk] <= 0 && !(atk === 'beam' && b.beam)) {
+        b.timers[atk] = attackCooldown(atk, r.section, b.phase);
+        ATTACKS[atk](r, b);
+      }
+    }
   }
   b.coreT -= dt;
   if (b.coreT <= 0) {
     b.coreT = 3.4;
-    add('core', r.aiRng.pick(L), r.dist + bossRz());
+    add('core', r.aiRng.pick(L), r.dist + bossRz(), { shield: !!b.def.shieldedCore });
   }
   b.escapeT -= dt;
   if (b.escapeT <= 0) bossEscaped();
 }
 
 export function hurtBoss() {
-  const b = G.run.boss;
+  const r = G.run, b = r.boss;
   if (!b || b.dying) return;
   b.hp--;
   b.flash = 1;
   const sp = project(b.x, 3.4, bossRz());
   if (sp) {
     fx.burst(sp.x, sp.y, 50, '#fff', 700, 7, 0.8, 300);
-    fx.ring(sp.x, sp.y, '#ff2d55', 300, 0.5, 20);
+    fx.ring(sp.x, sp.y, b.def.color, 300, 0.5, 20);
   }
   fx.shake(18);
   fx.hitstop(0.08);
   fx.flash('#fff', 0.5);
   fx.vibe([40, 30, 40]);
   sfx.boom();
-  if (b.hp <= 0) bossDefeated();
+  if (b.hp <= 0) return bossDefeated();
+  // FASE 2: a la mitad de vida cambia de ataques, tras un respiro y limpiando lo que había en pista
+  if (b.phase === 0 && phaseOf(b.hp, b.max) === 1) {
+    b.phase = 1;
+    b.calm = 1.2;
+    b.beam = null;
+    b.timers = {};
+    for (const o of r.objects) if (o.alive && o.type === 'shot') o.alive = false;
+    fx.banner('¡FASE 2!', `${b.name} se enfurece`, b.def.color, true);
+    sfx.alarm();
+    progress('bossPhase');
+  }
 }
 
 // ---------- Cazador: castiga quedarse quieto ----------

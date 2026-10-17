@@ -28,7 +28,7 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
   // cada obstáculo dice cómo se esquiva (o.need, desde DIM en world.js); la tabla es solo respaldo
   const needOf = (o) => o.need || solid[o.type];
   const visible = (id) => !document.getElementById(id).classList.contains('hidden');
-  let t = 0, uses = 0, fled = -1;
+  let t = 0, uses = 0, fled = -1, fledFrom = null, lastBeam = null;
   while (t < seconds) {
     if (until === 'boss' && G.run.bosses >= 1) break;
     if (G.mode === 'cards') {
@@ -45,7 +45,12 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     if (G.mode !== 'play') break;
 
     const r = G.run, p = G.player, inv = r.event?.id === 'invert';
-    if (god) p.dash = 0.4;
+    if (god) {
+      p.dash = 0.4;
+      // en modo dios contra un jefe, ir a por el núcleo más cercano (antes se acertaba por casualidad)
+      const core = r.boss && r.objects.filter((o) => o.alive && o.type === 'core' && o.z - r.dist > 0).sort((a, b) => a.z - b.z)[0];
+      if (core) p.lane = core.lane;
+    }
     const sp = r.speed * (r.odTime > 0 ? 1.5 : 1);
     // tiempo hasta el impacto: los disparos del jefe se acercan más rápido (vz)
     // objetos largos que se esquivan de carril (lava): si ya estás dentro de su tramo, el peligro es inmediato
@@ -56,14 +61,29 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     const blocksLane = (lane, a, b) => danger(lane, a, b).some((o) => needOf(o) === 'lane');
     // el Cazador marca tu carril 0,5 s antes de disparar: apartarse al VER la marca, como un
     // jugador (a mucha velocidad la bala tarda ~0,1 s, así que el aviso real es la marca)
+    // huir de una marca (Cazador o rayo de jefe): mejor un carril sin nada; si no lo hay, uno sin
+    // nada que esquivar de carril (lo que haya se salta o se desliza), como haría un jugador
+    const fleeTo = (bad) => {
+      const ok = [-1, 0, 1].filter((l) => !bad(l) && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5));
+      const byDist = (a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane);
+      return ok.filter((l) => !danger(l, -0.05, 0.3).length).sort(byDist)[0] ?? ok.sort(byDist)[0];
+    };
     const h = r.hunter;
-    if (h && !h.leaving && h.aimT > 0 && h.aimLane === p.lane && fled !== h.shots) {
-      const away = [-1, 0, 1]
-        .filter((l) => l !== p.lane && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5) && !danger(l, -0.05, 0.3).length)
-        .sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0];
+    if (h && !h.leaving && h.aimT > 0 && h.aimLane === p.lane && !(fledFrom === h && fled === h.shots)) {
+      const away = fleeTo((l) => l === p.lane);
       if (away !== undefined) {
         key((away < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');
         fled = h.shots;
+        fledFrom = h; // los disparos se cuentan desde 0 en cada aparición: hay que recordar de qué dron
+      }
+    }
+    // el rayo de un jefe también se avisa marcando carriles en el suelo: apartarse al verlo
+    const bm = r.boss && r.boss.beam;
+    if (bm && bm !== lastBeam && bm.lanes.includes(p.lane)) {
+      const away = fleeTo((l) => bm.lanes.includes(l));
+      if (away !== undefined) {
+        key((away < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');
+        if (Math.abs(away - p.lane) === 1) lastBeam = bm; // si hay que cruzar dos carriles, sigue en el siguiente paso
       }
     }
     const near = danger(p.lane, 0, 0.4).sort((a, b) => tti(a) - tti(b))[0];
