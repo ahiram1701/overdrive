@@ -16,6 +16,7 @@ import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeB
 import { equipped, addShipStat } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
 import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
+import { TRACK_BY_ID, CUP_BY_ID, CUPS, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal } from './race.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
 import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
@@ -37,7 +38,8 @@ const MULT_WORDS = [[5, '¡BIEN!'], [10, '¡BRUTAL!'], [20, '¡SALVAJE!'], [30, 
 const SPEED_MARKS = [[500, '500 KM/H'], [800, '800 KM/H'], [1000, '1000 KM/H'], [1235, '¡MACH 1!'], [1600, '1600 KM/H'], [2000, '2000 KM/H'], [2470, '¡¡MACH 2!!'], [3705, '¡¡¡MACH 3!!!']];
 
 const run = () => G.run;
-export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
+// en carrera, chocar o recibir un empujón frena un momento
+export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1) * (r.crashT > 0 ? 0.45 : r.bumpT > 0 ? 0.8 : 1);
 const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 2 : 1);
 
 // ---------- Inicio ----------
@@ -47,11 +49,12 @@ export function newRun(opts = false) {
   const daily = opts.mode === 'daily';
   const mutation = opts.mode === 'mutation';
   const expedition = opts.mode === 'expedition';
+  const track = opts.mode === 'race' ? TRACK_BY_ID[opts.track] : null;
   const level = opts.mode === 'campaign' ? levelById(opts.level) : null;
   // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   // CAMPAÑA: cada nivel tiene su semilla fija, así que su pista es siempre la misma y se puede aprender
-  const seed = level ? hashString('camp-' + level.id)
+  const seed = track ? hashString('race-' + track.id) : level ? hashString('camp-' + level.id)
     : forced !== null ? Number(forced) >>> 0
       : daily ? hashString('overdrive-' + todayKey())
         : mutation ? hashString('mutation-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
@@ -72,6 +75,14 @@ export function newRun(opts = false) {
     player: null, result: null,
   };
   G.run = r;
+  if (track) {
+    // CARRERA: una pista de longitud fija, 3 rivales y tu fantasma (si ya la corriste)
+    const cup = CUP_BY_ID[track.cup];
+    r.race = {
+      track, cup, rivals: makeRivals(cup, seed), rng: makeRng(seed ^ 0x2468ace), rec: [], recAcc: 0,
+      ghost: save.ghosts[track.id] || null, points: opts.points || {},
+    };
+  }
   if (expedition) {
     // EXPEDICIÓN: mapa del acto 1; se empieza en su salida (un tramo)
     const map = genAct(seed, 0);
@@ -114,6 +125,7 @@ export function newRun(opts = false) {
     r.camp = { level, left: level.sections };
     r.section = level.diff - 1;
   }
+  if (track) r.section = track.diff - 1;
   startSection();
   musicStart();
   G.mode = 'play';
@@ -128,10 +140,10 @@ function startSection() {
   const lv = r.camp?.level;
   const node = r.exp ? nodeById(r.exp.map, r.exp.at) : null;
   // JEFAZOS: un jefe cada 2 tramos (en vez de cada 3)
-  const isBoss = node ? node.type === 'boss' : lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
+  const isBoss = r.race ? false : node ? node.type === 'boss' : lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
   // sector mezclado: los tramos alternan entre sus dos biomas
   const mixed = lv && lv.biome2 != null && (lv.sections - r.camp.left) % 2 === 1;
-  r.biome = BIOMES[node ? (r.exp.act * 2 + node.row) % BIOMES.length : lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
+  r.biome = BIOMES[r.race ? r.race.track.biome : node ? (r.exp.act * 2 + node.row) % BIOMES.length : lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
   if (r.camp) r.camp.left--;
   r.risk = r.riskNext || node?.type === 'elite'; // ÉLITE: x2 puntos y filas más juntas
   r.riskNext = false;
@@ -155,7 +167,7 @@ function startSection() {
     r.nextEventAt = Infinity;
   } else {
     // longitud del tramo con la velocidad de referencia (por distancia): igual para todos
-    r.sectionEnd = r.genZ + trackSpeed(r.genZ, r.stats.speedMult) * (r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
+    r.sectionEnd = r.genZ + trackSpeed(r.genZ, r.stats.speedMult) * (r.race ? r.race.track.len : r.section === 0 ? 14 : 16 + Math.min(r.section, 6));
     // el evento se decide al empezar el tramo: sacarlo del RNG más tarde mezclaría su tirada con las de la pista
     // CAOS: evento en todos los tramos. La tirada se hace exactamente igual que sin él (en el tramo 1
     // no se tira): así el resto de la pista no se mueve y las semillas siguen dando la misma pista
@@ -169,7 +181,7 @@ function startSection() {
     r.script = sid ? { id: sid, ...SCRIPTS[sid], i: 0, announced: false } : null;
     const forcedEvent = EVENTS.find((e) => e.id === DBG?.get('event'));
     if (forcedEvent) { r.pendingEvent = forcedEvent; r.nextEventAt = r.time + 2; }
-    const title = node ? `ACTO ${r.exp.act + 1} · ${NODE[node.type].icon} ${NODE[node.type].name.toUpperCase()}`
+    const title = r.race ? `🏁 ${r.race.track.name.toUpperCase()}` : node ? `ACTO ${r.exp.act + 1} · ${NODE[node.type].icon} ${NODE[node.type].name.toUpperCase()}`
       : lv ? `NIVEL ${lv.id} · ${lv.sections - r.camp.left}/${lv.sections}` : `TRAMO ${r.section + 1}`;
     fx.banner(title, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
   }
@@ -361,6 +373,19 @@ export function onHit(o) {
     fx.vibe(90);
     sfx.shield();
     fx.ring(ps.x, ps.y, '#30d158', 220, 0.4, 14);
+    return;
+  }
+  // CARRERA: sin escudos, chocar frena (como en un juego de carreras): la carrera siempre acaba
+  if (r.race) {
+    r.crashT = 1;
+    p.invuln = 1.2;
+    breakObj(o, 'shield');
+    resetChain();
+    fx.notice('💥 ¡CHOQUE! pierdes velocidad', '#ff6b6b');
+    fx.flash('#f33', 0.4);
+    fx.shake(18);
+    fx.vibe(90);
+    sfx.shield();
     return;
   }
   // ÚLTIMO ALIENTO (árbol, BLINDAJE nivel 3): una vez por partida, un golpe sin escudos no mata
@@ -687,6 +712,92 @@ export function resume() {
   fx.slowmo(0.45, 0.35);
 }
 
+// ---------- Carreras ----------
+function raceTick(r, dt) {
+  const p = G.player, R = r.race;
+  r.crashT = Math.max(0, (r.crashT || 0) - dt);
+  r.bumpT = Math.max(0, (r.bumpT || 0) - dt);
+  const env = { objects: r.objects, time: r.time, playerZ: r.dist, playerLane: p.lane, playerX: p.x, laneTime: r.stats.laneTime };
+  for (const ev of stepRivals(R.rivals, env, dt, R.rng, r.finishZ ?? Infinity)) {
+    if (ev.type !== 'bump') continue;
+    const rv = ev.rival;
+    const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram');
+    const ps = playerScreen();
+    if (powered) {
+      // embestida tuya: el rival sale despedido
+      rv.slowT = 1.4;
+      rv.flash = 0.5;
+      addScore(500, `💥 ¡FUERA, ${rv.name}!`, ps.x, ps.y - 50, rv.color);
+      fx.shake(14);
+      sfx.brk();
+    } else {
+      r.bumpT = 0.6;
+      rv.slowT = 0.4;
+      fx.notice(`${rv.name} te empuja`, rv.color);
+      fx.shake(10);
+      sfx.bump();
+    }
+  }
+  // fantasma: tu carrera, muestreada
+  R.recAcc += dt;
+  while (R.recAcc >= GHOST_DT) {
+    R.recAcc -= GHOST_DT;
+    R.rec.push(encodeSample(r.dist, p.x, p.y));
+  }
+}
+
+// Posición actual (1-4) para el HUD
+export function racePosition(r = G.run) {
+  if (!r?.race) return null;
+  return 1 + r.race.rivals.filter((rv) => rv.finishT !== null || rv.z > r.dist).length;
+}
+
+function raceFinish() {
+  const r = run(), R = r.race, t = R.track;
+  G.mode = 'won';
+  G.timeWarp = 1;
+  G.dyingT = 1.4;
+  const you = { who: 'you', name: 'TÚ', color: '#00e5ff', finishT: r.time, z: r.dist, you: true };
+  const rivals = R.rivals.map((rv) => ({ who: String(rv.i), name: rv.name, color: rv.color, finishT: estimateFinish(rv, r.finishZ, r.time), z: rv.z }));
+  const order = standings([you, ...rivals]);
+  const pos = order.findIndex((x) => x.you);
+  const pointsBefore = R.points;
+  const points = addPoints(R.points, order.map((x) => x.who));
+  const cupEnd = t.idx === 2;
+  const medal = cupEnd ? cupMedal(points) : null;
+  if (cupEnd && medal !== null) {
+    const prev = save.raceCups[R.cup.id];
+    save.raceCups[R.cup.id] = prev === undefined ? medal : Math.min(prev, medal);
+    if (medal === 0) progress('cupGold');
+  }
+  // fantasma y mejor tiempo
+  const best = save.raceBest[t.id];
+  const ghostBeaten = !!R.ghost && r.time < R.ghost.t;
+  if (best === undefined || r.time < best) {
+    save.raceBest[t.id] = Math.round(r.time * 100) / 100;
+    save.ghosts[t.id] = { t: r.time, d: R.rec };
+  }
+  const gems = Math.ceil(([30, 18, 10, 5][pos] + (cupEnd && medal !== null ? [80, 50, 30][medal] : 0)) * (1 + prestigeBonus(save)));
+  save.gems += gems;
+  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: 2, bosses: 0, missionsDone: r.missionsDone }) + (3 - pos) * 40;
+  const xpBefore = save.xp;
+  const rankUps = addXp(save, xp);
+  save.runs++;
+  progress('runs');
+  if (pos === 0) progress('raceWin');
+  persist();
+  const ps = playerScreen();
+  for (const c of ['#ffe600', '#fff', R.cup.color]) fx.burst(ps.x, ps.y - 80, 40, c, 700, 6, 1.2, 400);
+  fx.banner(pos === 0 ? '¡VICTORIA!' : `${pos + 1}.º PUESTO`, t.name, pos === 0 ? '#ffe600' : '#fff', true);
+  sfx.milestone();
+  musicStop();
+  const next = t.idx < 2 ? CUPS.find((c) => c.id === R.cup.id).tracks[t.idx + 1].id : null;
+  r.result = {
+    race: true, track: t, cup: R.cup, order: order.map((x) => ({ name: x.name, color: x.color, t: x.finishT, you: !!x.you })),
+    pos, points, pointsBefore, cupEnd, medal, next, gems, xp, xpBefore, rankUps, time: r.time, best: save.raceBest[t.id], ghostBeaten, hadGhost: !!R.ghost,
+  };
+}
+
 // ---------- Expedición ----------
 // Se cruza la meta de un nodo (tramo, élite o jefe): premio y, después, el mapa
 function expNodeDone() {
@@ -893,6 +1004,7 @@ const campStats = (r, finished) => ({
 export function onFinish() {
   const r = run();
   if (G.mode === 'play' && r.exp) return expNodeDone();
+  if (G.mode === 'play' && r.race) return raceFinish();
   if (G.mode !== 'play' || !r.camp) return;
   G.mode = 'won';
   G.timeWarp = 1;
@@ -941,7 +1053,8 @@ export function update(dt) {
       const won = G.mode === 'won';
       G.mode = won ? 'victory' : 'dead';
       ui.showHUD(false);
-      if (won) ui.showVictory(G.run.result);
+      if (won && G.run.race) ui.showRacePodium(G.run.result);
+      else if (won) ui.showVictory(G.run.result);
       else ui.showDeath(G.run.result);
     }
     return;
@@ -1067,4 +1180,5 @@ export function update(dt) {
 
   updatePlayer(dt);
   updateWorld(dt);
+  if (r.race) raceTick(r, dt);
 }

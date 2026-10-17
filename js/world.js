@@ -321,6 +321,7 @@ function placeFinish(r) {
   const z = r.genZ + 14;
   for (const l of allowedLanes(r)) coinLine(l, r.genZ, z - 2, 0.3);
   add('finish', 0, z);
+  r.finishZ = z;
   r.genHold = true;
 }
 
@@ -692,7 +693,8 @@ function spawnHunter(r) {
 function updateHunter(r, dt) {
   const p = G.player;
   if (!r.hunter) {
-    // nunca en el primer tramo: es donde se aprende a jugar
+    // nunca en el primer tramo (es donde se aprende) ni en una carrera (ya hay rivales)
+    if (r.race) return;
     if (r.section >= 1 && !r.boss && r.odTime <= 0 && r.time - p.lastAction > hunterDelay(r)) spawnHunter(r);
     return;
   }
@@ -743,7 +745,7 @@ function hunterDodged() {
 export function updateWorld(dt) {
   const r = G.run;
   while (!r.genHold && r.genZ < r.dist + VIEW + 10) {
-    if (r.genZ >= r.sectionEnd) ((r.camp && r.camp.left <= 0) || r.exp ? placeFinish : placeFork)(r);
+    if (r.genZ >= r.sectionEnd) ((r.camp && r.camp.left <= 0) || r.exp || r.race ? placeFinish : placeFork)(r);
     else genRow(r);
   }
 

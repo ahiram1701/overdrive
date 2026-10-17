@@ -139,6 +139,14 @@ try {
   console.log(`✔ ${OUT}/expedition.png`);
   await page.evaluate(() => { window.G.manual = false; window.G.god = false; document.getElementById('btnExpMenu').click(); });
 
+  // Carrera: al poco de salir, con los rivales delante
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnRaces').click(); });
+  await page.evaluate(() => document.querySelector('[data-cup="c1"]').click());
+  await page.evaluate(() => { for (let i = 0; i < 150; i++) window.D.step(1 / 60, false); window.D.step(1 / 60, true); });
+  await page.screenshot({ path: `${OUT}/race.png` });
+  console.log(`✔ ${OUT}/race.png`);
+  await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
+
   // Modificadores con algunos activos
   await page.evaluate(async () => {
     const { save } = await import('/js/save.js');

@@ -117,6 +117,9 @@ export const ACHIEVEMENTS = [
   { id: 'exp1', kind: 'expAct', mode: 'best', n: 1, tier: 'bronze', name: 'Explorador', desc: 'Supera el primer acto de una EXPEDICIÓN' },
   { id: 'exp3', kind: 'expAct', mode: 'best', n: 3, tier: 'gold', name: 'Leyenda del mapa', desc: 'Completa una EXPEDICIÓN entera' },
   { id: 'expEv', kind: 'expEvent', mode: 'sum', n: 15, tier: 'bronze', name: 'Curioso', desc: 'Resuelve 15 eventos de EXPEDICIÓN' },
+  { id: 'race1', kind: 'raceWin', mode: 'sum', n: 1, tier: 'bronze', name: 'Primera victoria', desc: 'Gana una carrera' },
+  { id: 'race10', kind: 'raceWin', mode: 'sum', n: 10, tier: 'silver', name: 'Piloto', desc: 'Gana 10 carreras' },
+  { id: 'cupGold', kind: 'cupGold', mode: 'sum', n: 3, tier: 'gold', name: 'Campeón', desc: 'Gana el oro en 3 copas' },
 ];
 export const ACH_GEMS = T;
 
