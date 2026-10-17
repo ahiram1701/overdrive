@@ -6,15 +6,17 @@ import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
-import { BOSS_NAMES } from './world.js';
+import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped } from './cosmetics.js';
 import { drawShip } from './shipdraw.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
+import { SECTORS, LEVEL_BY_ID, MAX_STARS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
+import { BOSS_BY_ID } from './bosses.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -105,6 +107,11 @@ export const ui = {
   init() {
     tap($('btnPlay'), () => newRun(false));
     tap($('btnDaily'), () => newRun(true));
+    tap($('btnCampaign'), () => ui.showCampaign());
+    tap($('btnCampBack'), () => ui.showMenu());
+    tap($('btnNext'), () => { if (ui.victoryNext) newRun({ mode: 'campaign', level: ui.victoryNext }); });
+    tap($('btnRetry'), () => newRun(G.run?.opts));
+    tap($('btnMap'), () => ui.showCampaign());
     tap($('btnHangar'), () => ui.showHangar());
     tap($('btnHangarBack'), () => ui.showMenu());
     tap($('btnAch'), () => ui.showAchievements());
@@ -125,7 +132,7 @@ export const ui = {
     $('death').addEventListener('click', () => {
       if (performance.now() - ui.deathAt < 700) return;
       unlockAudio();
-      newRun(G.run?.daily);
+      newRun(G.run?.opts);
     });
     const toggles = [['tgSound', 'sound'], ['tgVibe', 'vibe'], ['tgFx', 'fx']];
     for (const [id, key] of toggles) {
@@ -166,6 +173,7 @@ export const ui = {
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
     $('mMissions').innerHTML = missionsHTML();
     $('mRank').innerHTML = rankHTML(save.xp);
+    $('mStars').textContent = `· ★ ${totalStars(save)}/${MAX_STARS}`;
     show('menu');
   },
 
@@ -409,7 +417,8 @@ export const ui = {
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
-    $('dExtra').textContent = res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
+    $('dExtra').textContent = res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
+      : res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
     $('dBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
     // XP de la partida y rangos ganados (cada uno con su premio en gemas)
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
@@ -417,6 +426,77 @@ export const ui = {
     $('dXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${achs}`;
     $('dMissions').innerHTML = missionsHTML(res.missionsDone ?`MISIONES · ${res.missionsDone} completada${res.missionsDone > 1 ? 's' : ''} en esta partida` : 'MISIONES DE HOY');
     show('death');
+  },
+
+  // Mapa de campaña: sectores (se abren con estrellas) y sus niveles con las estrellas ganadas
+  showCampaign() {
+    G.mode = 'hangar'; // pantalla estática
+    G.run = null;
+    G.player = null;
+    ui.showHUD(false);
+    $('campStars').textContent = `★ ${totalStars(save)} / ${MAX_STARS}`;
+    const map = $('campMap');
+    map.innerHTML = '';
+    for (const sec of SECTORS) {
+      const open = isSectorOpen(save, sec.id);
+      const got = sec.levels.reduce((n, l) => n + starCount(starsOf(save, l.id)), 0);
+      const box = el('div', `sector${open ? '' : ' locked'}`);
+      box.style.setProperty('--bc', BIOMES[sec.biome].accent);
+      box.innerHTML = `<div class="sec-top"><b>${sec.name}</b><small>${open ? `★ ${got}/12` : `🔒 ${sec.need} ★ para abrir`}</small></div>`;
+      const row = el('div', 'levels');
+      for (const l of sec.levels) {
+        const st = starsOf(save, l.id);
+        const can = isLevelOpen(save, l.id);
+        const b = el('button', `lvl${can ? '' : ' locked'}${st[0] ? ' done' : ''}${l.boss ? ' boss' : ''}`);
+        b.dataset.level = l.id;
+        b.innerHTML = `<span class="l-id">${can ? l.id : '🔒'}</span><span class="l-ico">${l.boss ? '👾 JEFE' : `${l.sections} tramos`}</span>
+          <span class="l-stars">${st.map((x) => (x ? '★' : '☆')).join('')}</span>`;
+        if (can) tap(b, () => ui.showLevel(l.id));
+        row.append(b);
+      }
+      box.append(row);
+      map.append(box);
+    }
+    show('campaign');
+  },
+
+  // Ficha del nivel antes de jugar: objetivos de las 3 estrellas
+  showLevel(id) {
+    const l = LEVEL_BY_ID[id];
+    const st = starsOf(save, id);
+    document.querySelector('.lvl-sheet')?.remove();
+    const sheet = el('div', 'lvl-sheet');
+    sheet.innerHTML = `<h3>NIVEL ${l.id} · ${l.sectorName}</h3>
+      <div class="hint">${l.boss ? `👾 Jefe: ${BOSS_BY_ID[l.boss].name}` : `${l.sections} tramos hasta la meta · siempre la misma pista`}</div>
+      <div class="list goals">${l.stars.map((s, i) => `<div class="item${st[i] ? ' sel' : ''}"><span class="i-icon">${st[i] ? '★' : '☆'}</span><span class="i-body"><b>${s.text}</b></span></div>`).join('')}</div>
+      <div class="gems">${st[0] ? 'superado' : `primera vez: +${l.gems} 💎`}</div>`;
+    const go = el('button', 'btn big', '¡A CORRER!');
+    go.id = 'btnLevelGo';
+    tap(go, () => { sheet.remove(); newRun({ mode: 'campaign', level: id }); });
+    const back = el('button', 'btn ghost', 'CERRAR');
+    tap(back, () => sheet.remove());
+    sheet.append(go, back);
+    $('campaign').append(sheet);
+  },
+
+  showVictory(res) {
+    const l = LEVEL_BY_ID[res.level];
+    ui.victoryNext = res.next;
+    $('vTitle').textContent = res.passed ? '¡NIVEL SUPERADO!' : l.boss ? 'EL JEFE ESCAPÓ' : 'META';
+    $('vLevel').textContent = `NIVEL ${l.id} · ${l.sectorName}`;
+    $('vStars').innerHTML = res.stars.map((s, i) => `<span class="${s ? 'on' : res.best[i] ? 'had' : ''}" style="animation-delay:${(0.25 + i * 0.3).toFixed(2)}s">★</span>`).join('');
+    const hits = res.hits ? `${res.hits} golpe${res.hits > 1 ? 's' : ''}` : 'sin golpes';
+    const val = { near: res.near, perfect: res.perfect, coins: res.coins, mult: `x${res.maxMult}`, noHit: hits };
+    $('vGoals').innerHTML = l.stars.map((s, i) => `<div class="item${res.stars[i] ? ' sel' : ' locked'}"><span class="i-icon">${res.stars[i] ? '✔' : '✖'}</span>
+      <span class="i-body"><b>${s.text}</b>${val[s.kind] != null ? `<small>${val[s.kind]}</small>` : ''}</span>${res.best[i] && !res.stars[i] ? '<span class="i-act">★ ya la tenías</span>' : ''}</div>`).join('');
+    $('vGems').innerHTML = res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}/${MAX_STARS}</small>`;
+    const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+    const unl = res.unlocked ? `<div class="rank-up">🔓 ¡Nivel ${res.next} desbloqueado!</div>` : '';
+    $('vXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${unl}`;
+    $('btnNext').classList.toggle('hidden', !res.next);
+    $('btnNext').textContent = res.next ? `SIGUIENTE · ${res.next}` : '';
+    if (res.passed) sfx.chest();
+    show('victory');
   },
 
   pause() {

@@ -50,6 +50,7 @@
     <div id="mRank" class="rank"></div>
     <div id="mMissions" class="missions"></div>
     <button class="btn big" id="btnPlay">JUGAR</button>
+    <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
     <button class="btn ghost" id="btnHangar">HANGAR</button>
     <div class="row">
@@ -96,6 +97,27 @@
     <h3>Jefes</h3>
     <div id="codexBosses" class="codex-grid"></div>
     <button class="btn" id="btnCodexBack">VOLVER</button>
+  </section>
+
+  <section id="campaign" class="overlay hidden">
+    <h2>CAMPAÑA</h2>
+    <p class="gems" id="campStars"></p>
+    <div id="campMap" class="camp-map"></div>
+    <button class="btn" id="btnCampBack">VOLVER</button>
+  </section>
+
+  <section id="victory" class="overlay hidden">
+    <h2 class="won" id="vTitle">¡NIVEL SUPERADO!</h2>
+    <div id="vLevel" class="hint"></div>
+    <div id="vStars" class="vstars"></div>
+    <div id="vGoals" class="list goals"></div>
+    <div id="vGems" class="gems"></div>
+    <div id="vXp" class="rank"></div>
+    <button class="btn big" id="btnNext">SIGUIENTE NIVEL</button>
+    <div class="row">
+      <button class="btn ghost" id="btnRetry">REPETIR</button>
+      <button class="btn ghost" id="btnMap">MAPA</button>
+    </div>
   </section>
 
   <section id="cards" class="overlay hidden">

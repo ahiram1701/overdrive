@@ -7,7 +7,7 @@ import { playerBox } from './player.js';
 import { isActive } from './abilities.js';
 import { trackSpeed } from './pacing.js';
 import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown } from './bosses.js';
-import { onNearMiss, onBreak, onHit, onCoin, onFork, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
+import { onNearMiss, onBreak, onHit, onCoin, onFork, onFinish, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
 
 export const BIOMES = [
   { id: 'neon', name: 'NEÓN URBANO', sky: ['#0b0221', '#6a1182'], ground: '#0d0221', road: ['#1c0638', '#12042a'], line: '#ff2bd6', edge: '#00e5ff', obs: '#ff2bd6', obs2: '#00e5ff', accent: '#ffe600', music: 0 },
@@ -45,6 +45,7 @@ const DIM = {
   core: { w: 0.8, y0: 0, y1: 1.2, depth: 0.8 },
   coin: { w: 0.5, y0: 0, y1: 0.5, depth: 0 },
   fork: { w: 0.95, y0: 0, y1: 2.2, depth: 0.3 },
+  finish: { w: 3.2, y0: 0, y1: 2.6, depth: 0.3, all: true },
   // F4: obstáculos con comportamiento y elementos de movimiento
   crusher: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },  // pinzas que se cierran
   roller: { w: 0.92, y0: 0, y1: 0.5, depth: 0.5, need: 'jump' },  // rodillo que rueda hacia ti
@@ -75,7 +76,7 @@ export const SCRIPTS = {
 
 export const allowedLanes = (r) => LANES.filter((l) => l !== r.blockedLane);
 // lo que no es un obstáculo: premios, objetivos y elementos de movimiento
-const NOT_OBSTACLE = new Set(['coin', 'fork', 'core', 'portal', 'ramp', 'drone']);
+const NOT_OBSTACLE = new Set(['coin', 'fork', 'finish', 'core', 'portal', 'ramp', 'drone']);
 const isObstacle = (o) => !NOT_OBSTACLE.has(o.type);
 
 function add(type, lane, z, extra = {}) {
@@ -306,6 +307,14 @@ function placeFork(r) {
   r.genHold = true;
 }
 
+// CAMPAÑA: tras el último tramo de un nivel no hay bifurcación, sino la línea de meta
+function placeFinish(r) {
+  const z = r.genZ + 14;
+  for (const l of allowedLanes(r)) coinLine(l, r.genZ, z - 2, 0.3);
+  add('finish', 0, z);
+  r.genHold = true;
+}
+
 // ---------- Destrucción ----------
 export function screenOf(o) {
   const rz = Math.max(0.3, o.z - G.run.dist);
@@ -444,6 +453,7 @@ export function railUnder(px, dist) {
 function resolve(o) {
   const r = G.run, p = G.player;
   const pb = playerBox();
+  if (o.type === 'finish') return onFinish();
   if (o.type === 'fork') {
     if (!r.forkDone) {
       r.forkDone = true;
@@ -504,7 +514,7 @@ export const BOSS_NAMES = BOSSES.map((b) => b.name);
 const FORCED_BOSS = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('boss') : null;
 
 export function spawnBoss(r) {
-  const def = BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
+  const def = BOSS_BY_ID[r.camp?.level.boss] || BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
   const hp = 3 + Math.floor(r.section / 3);
   r.boss = {
     def, id: def.id, name: def.name, hp, max: hp, phase: 0, calm: 1.5,
@@ -520,10 +530,17 @@ export const bossRz = () => BOSS_RZ + Math.sin(G.run.boss.t * 1.3) * 4;
 // Carriles a los que atacar dejando siempre uno libre... y que ese carril sea SEGURO: sin nada que
 // esquivar de carril en la pista mientras llega el ataque. Si no hay ninguno seguro, no se ataca
 // (antes el rayo podía marcar los dos laterales con un muro en el central: no había salida).
+// ¿Carril sin nada que esquivar de carril de aquí a `horizon` metros? Cuenta los peligros largos
+// (lava) que ya empezaron: lo que importa es dónde ACABAN, no dónde empiezan.
+function laneClear(r, l, horizon) {
+  return !r.objects.some((o) => o.alive && o.need === 'lane' && (o.all || Math.abs(o.x - l * LANE_W) < 0.75)
+    && o.z + (o.len || 0) - r.dist > -1 && o.z - r.dist < horizon);
+}
+
 function attackLanes(r, n) {
   const L = allowedLanes(r);
   const horizon = runSpeed(r) * 1.6;
-  const safe = L.filter((l) => !r.objects.some((o) => o.alive && o.need === 'lane' && (o.all || Math.abs(o.x - l * LANE_W) < 0.75) && o.z - r.dist > -1 && o.z - r.dist < horizon));
+  const safe = L.filter((l) => laneClear(r, l, horizon));
   if (!safe.length) return [];
   const free = r.aiRng.pick(safe);
   return r.aiRng.shuffle(L.filter((l) => l !== free)).slice(0, Math.min(n, L.length - 1));
@@ -681,6 +698,14 @@ function updateHunter(r, dt) {
       h.fireT = Math.max(0.55, 1.1 - 0.1 * h.shots);
     }
   } else if ((h.fireT -= dt) <= 0) {
+    // solo se apunta si tienes adónde ir: un carril vecino libre durante el aviso y el disparo
+    // (si no, con lava al lado no habría salida). Si no lo hay, se espera un momento.
+    const horizon = runSpeed(r) * (HUNTER_AIM + 0.6);
+    const escape = allowedLanes(r).some((l) => Math.abs(l - p.lane) === 1 && l !== r.blockedLane && laneClear(r, l, horizon));
+    if (!escape) {
+      h.fireT = 0.15;
+      return;
+    }
     h.aimLane = p.lane;
     h.aimT = HUNTER_AIM;
     fx.notice('¡MUÉVETE!', ACT_DODGE);
@@ -702,7 +727,7 @@ function hunterDodged() {
 export function updateWorld(dt) {
   const r = G.run;
   while (!r.genHold && r.genZ < r.dist + VIEW + 10) {
-    if (r.genZ >= r.sectionEnd) placeFork(r);
+    if (r.genZ >= r.sectionEnd) (r.camp && r.camp.left <= 0 ? placeFinish : placeFork)(r);
     else genRow(r);
   }
 

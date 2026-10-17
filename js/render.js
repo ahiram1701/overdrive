@@ -751,6 +751,33 @@ function drawObj(o, rz, b, t) {
       ctx.fillText('🎯', p.x, p.y - S * 1.5);
       break;
     }
+    case 'finish': {
+      // META: arco a cuadros sobre los 3 carriles
+      const l = project(-1.6 * LANE_W, 0, rz), rr = project(1.6 * LANE_W, 2.6, rz);
+      if (!l || !rr) break;
+      const w = rr.x - l.x, h = l.y - rr.y;
+      const pw = Math.max(3, w * 0.025), bh = h * 0.22, n = 16, cw = w / n;
+      for (let i = 0; i < n; i++) {
+        for (let j = 0; j < 2; j++) {
+          ctx.fillStyle = (i + j) % 2 ? '#fff' : '#111';
+          ctx.fillRect(l.x + i * cw, rr.y + j * bh / 2, cw + 0.5, bh / 2 + 0.5);
+        }
+      }
+      ctx.fillStyle = '#ffe600';
+      ctx.shadowColor = '#ffe600';
+      ctx.shadowBlur = 20;
+      ctx.fillRect(l.x - pw, rr.y, pw, h);
+      ctx.fillRect(rr.x, rr.y, pw, h);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = hexA('#ffe600', 0.12);
+      ctx.fillRect(l.x, rr.y + bh, w, h - bh);
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#ffe600';
+      ctx.font = `italic 900 ${Math.round(h * 0.18)}px system-ui`;
+      ctx.fillText('META', l.x + w / 2, rr.y + bh + h * 0.2);
+      break;
+    }
     case 'fork': {
       const info = FORK_REWARDS[o.reward];
       const l = project(o.x - 0.47, 0, rz), rr = project(o.x + 0.47, 2.2, rz);
@@ -1122,7 +1149,7 @@ function drawPlayer() {
     ctx.ellipse(sp.x, sp.y - 0.15 * s, s * 0.55, s * 0.4, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (r && (G.mode === 'play')) trailFx(equipped(save).trail.id, sp.x, sp.y, s, r.odTime > 0 ? col : pal.glow, r.speed);
+  if (r && (G.mode === 'play' || G.mode === 'won')) trailFx(equipped(save).trail.id, sp.x, sp.y, s, r.odTime > 0 ? col : pal.glow, r.speed);
 }
 
 // ---------- Frame ----------

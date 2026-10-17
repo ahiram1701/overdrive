@@ -14,6 +14,7 @@ import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd } from './progress.js';
 import { equipped } from './cosmetics.js';
+import { LEVEL_BY_ID, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed } from './campaign.js';
 
 const EVENTS = [
   { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
@@ -36,15 +37,21 @@ export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
 const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 2 : 1);
 
 // ---------- Inicio ----------
-export function newRun(daily = false) {
+// opts: { mode: 'endless' | 'daily' | 'campaign', level } (un booleano = reto diario sí/no)
+export function newRun(opts = false) {
+  if (typeof opts !== 'object' || !opts) opts = { mode: opts ? 'daily' : 'endless' };
+  const daily = opts.mode === 'daily';
+  const level = opts.mode === 'campaign' ? LEVEL_BY_ID[opts.level] : null;
   // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
-  const seed = forced !== null ? Number(forced) >>> 0
-    : daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
+  // CAMPAÑA: cada nivel tiene su semilla fija, así que su pista es siempre la misma y se puede aprender
+  const seed = level ? hashString('camp-' + level.id)
+    : forced !== null ? Number(forced) >>> 0
+      : daily ? hashString('overdrive-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
   const r = {
     // tres RNG: pista (igual para todos en el reto diario), botín (cartas, cofres) e IA (jefe, movers).
     // Así lo que elige cada jugador no desplaza la secuencia de la pista.
-    daily, rng: makeRng(seed), lootRng: makeRng(seed ^ 0x9e3779b9), aiRng: makeRng(seed ^ 0x85ebca6b),
+    opts, daily, rng: makeRng(seed), lootRng: makeRng(seed ^ 0x9e3779b9), aiRng: makeRng(seed ^ 0x85ebca6b),
     stats: baseStats(),
     dist: 0, time: 0, speed: 28, curve: 0,
     score: 0, coins: 0, chain: 0, mult: 1, maxMult: 1, chainT: 0, coinStreak: 0, lastCoinT: -9,
@@ -54,7 +61,7 @@ export function newRun(daily = false) {
     objects: [], event: null, eventT: 0, nextEventAt: Infinity, rainAcc: 0,
     boss: null, hunter: null, hunters: 0, cards: {}, synergies: new Set(),
     shields: 0, dashCharges: 1, blockedLane: null,
-    nearMisses: 0, breaks: 0, bosses: 0, speedMark: 0, vampN: 0,
+    nearMisses: 0, perfects: 0, hitsTaken: 0, breaks: 0, bosses: 0, speedMark: 0, vampN: 0,
     player: null, result: null,
   };
   G.run = r;
@@ -77,6 +84,11 @@ export function newRun(daily = false) {
   // ?debug&start=N: empezar en el tramo N, para testear contenido avanzado sin jugar minutos
   const start = G.debug ? Number(new URLSearchParams(location.search).get('start')) : 0;
   if (start > 1) r.section = start - 2;
+  // la dificultad de un nivel es la de ese número de tramo del modo infinito
+  if (level) {
+    r.camp = { level, left: level.sections };
+    r.section = level.diff - 1;
+  }
   startSection();
   musicStart();
   G.mode = 'play';
@@ -88,8 +100,10 @@ export function newRun(daily = false) {
 function startSection() {
   const r = run();
   r.section++;
-  const isBoss = r.section % 3 === 2;
-  r.biome = BIOMES[r.section % BIOMES.length];
+  const lv = r.camp?.level;
+  const isBoss = lv ? !!lv.boss : r.section % 3 === 2;
+  r.biome = BIOMES[lv ? lv.biome : r.section % BIOMES.length];
+  if (r.camp) r.camp.left--;
   r.risk = r.riskNext;
   r.riskNext = false;
   r.forkPlaced = false;
@@ -116,7 +130,8 @@ function startSection() {
     r.script = sid ? { id: sid, ...SCRIPTS[sid], i: 0, announced: false } : null;
     const forcedEvent = EVENTS.find((e) => e.id === DBG?.get('event'));
     if (forcedEvent) { r.pendingEvent = forcedEvent; r.nextEventAt = r.time + 2; }
-    fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
+    const title = lv ? `NIVEL ${lv.id} · ${lv.sections - r.camp.left}/${lv.sections}` : `TRAMO ${r.section + 1}`;
+    fx.banner(title, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
   }
   // HIPERESPACIO: gravedad baja (saltos más largos y flotantes); se deshace al salir del bioma
   if (r.lowGrav) {
@@ -221,6 +236,7 @@ function playerScreen() {
 export function onNearMiss(o, perfect) {
   const r = run();
   r.nearMisses++;
+  if (perfect) r.perfects++;
   const ps = playerScreen();
   const bonus = (r.event?.id === 'nearonly' ? 3 : 1) * (isActive(r.ability, 'overclock') ? 2 : 1);
   addChain(perfect ? 2 : 1);
@@ -269,6 +285,7 @@ export function onHit(o) {
   const r = run(), p = G.player;
   const ps = playerScreen();
   if (G.god) return breakObj(o, 'dash');
+  r.hitsTaken++;
   if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id, hunter: !!o.hunter, boss: !!r.boss });
   if (r.shields > 0) {
     // un golpe siempre CUESTA: escudo, medio overdrive y el combo. Nunca da premios.
@@ -647,17 +664,64 @@ function die() {
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   persist();
-  r.result = { xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { opts: r.opts, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
 }
+
+// ---------- Campaña: meta ----------
+// Estadísticas que miran las estrellas de un nivel
+const campStats = (r, finished) => ({
+  finished, bossDefeated: r.bosses > 0, near: r.nearMisses, perfect: r.perfects,
+  coins: r.coins, maxMult: r.maxMult, hits: r.hitsTaken,
+});
+
+// Cruzar la línea de meta de un nivel de campaña
+export function onFinish() {
+  const r = run();
+  if (G.mode !== 'play' || !r.camp) return;
+  G.mode = 'won';
+  G.timeWarp = 1;
+  G.dyingT = 1.4;
+  const lv = r.camp.level;
+  const wasOpen = nextLevel(lv.id) && isLevelOpen(save, nextLevel(lv.id).id);
+  const firstPass = !isPassed(save, lv.id);
+  const stars = levelStars(lv, campStats(r, true));
+  const res = recordResult(save, lv.id, stars);
+  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone });
+  const xpBefore = save.xp;
+  const rankUps = addXp(save, xp);
+  save.runs++;
+  progress('runs');
+  if (res.stars[0] && firstPass) progress('level');
+  progress('stars', totalStars(save));
+  persist();
+  const nx = nextLevel(lv.id);
+  r.result = {
+    opts: r.opts, level: lv.id, stars, best: res.stars, newStars: res.newStars, gems: res.gems, xp, xpBefore, rankUps,
+    passed: stars[0], next: nx && isLevelOpen(save, nx.id) ? nx.id : null, unlocked: !!nx && !wasOpen && isLevelOpen(save, nx.id),
+    score: r.score, near: r.nearMisses, perfect: r.perfects, coins: r.coins, maxMult: r.maxMult, hits: r.hitsTaken,
+  };
+  const ps = playerScreen();
+  for (const c of ['#ffe600', '#fff', '#30d158', '#ff2bd6']) fx.burst(ps.x, ps.y - 80, 40, c, 700, 6, 1.2, 400);
+  fx.banner(stars[0] ? '¡NIVEL SUPERADO!' : 'META', '★'.repeat(starCountOf(stars)) || 'sin estrellas', '#ffe600', true);
+  fx.flash('#fff', 0.6);
+  fx.vibe([60, 40, 60, 40, 200]);
+  sfx.milestone();
+  musicStop();
+}
+const starCountOf = (st) => st.filter(Boolean).length;
 
 // ---------- Bucle ----------
 export function update(dt) {
-  if (G.mode === 'dying') {
+  if (G.mode === 'dying' || G.mode === 'won') {
     G.dyingT -= dt;
+    // tras la meta la nave sigue corriendo un momento (el mundo no genera nada más)
+    if (G.mode === 'won') G.run.dist += effSpeed(G.run) * dt;
     if (G.dyingT <= 0) {
-      G.mode = 'dead';
+      const won = G.mode === 'won';
+      G.mode = won ? 'victory' : 'dead';
       ui.showHUD(false);
-      ui.showDeath(G.run.result);
+      if (won) ui.showVictory(G.run.result);
+      else ui.showDeath(G.run.result);
     }
     return;
   }

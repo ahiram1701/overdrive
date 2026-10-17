@@ -91,6 +91,18 @@ try {
   console.log(`✔ ${OUT}/hangar.png`);
   await page.evaluate(() => document.getElementById('btnHangarBack').click());
 
+  // Mapa de campaña con el primer sector a medias
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    const all = [true, true, true];
+    save.campaign = { '1-1': all, '1-2': all, '1-3': [true, false, true], '1-4': [true, true, false], '2-1': [true, false, false] };
+    document.getElementById('btnCampaign').click();
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/campaign.png` });
+  console.log(`✔ ${OUT}/campaign.png`);
+  await page.evaluate(() => document.getElementById('btnCampBack').click());
+
   // Partida: un obstáculo "deslízate" cerca y algo de combo
   await play(page);
   await advance(page, "G.run.time > 25 && G.run.objects.some(o => o.alive && o.type === 'overhead' && o.z - G.run.dist > 8 && o.z - G.run.dist < 13)");
