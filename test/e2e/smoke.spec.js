@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { trackErrors, startRun, botInPage } from './helpers.js';
 
-test('el menú carga y JUGAR muestra el HUD sin errores', async ({ page }) => {
+test('el menú carga y RUNNER muestra el HUD sin errores', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/?nosw');
   await expect(page.locator('h1.logo')).toBeVisible();

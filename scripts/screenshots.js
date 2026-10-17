@@ -61,7 +61,7 @@ async function newPage(browser, seed) {
 }
 
 async function play(page) {
-  // clic por DOM: el botón JUGAR "respira" y Playwright nunca lo considera estable
+  // clic por DOM: el botón RUNNER "respira" y Playwright nunca lo considera estable
   await page.evaluate(() => { window.G.god = true; window.G.manual = true; document.getElementById('btnPlay').click(); });
 }
 

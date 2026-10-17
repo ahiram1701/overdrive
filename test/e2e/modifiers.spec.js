@@ -23,7 +23,7 @@ test('panel de modificadores: se activan, choques, bonus y se guardan', async ({
   await expect(page.locator('[data-mod="fragile"]')).toHaveClass(/\bon\b/);
   await page.reload();
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).modsLast, SAVE)).toEqual(['turbo', 'fragile']);
-  // JUGAR usa lo elegido
+  // RUNNER usa lo elegido
   await page.locator('#btnPlay').click();
   await page.waitForFunction(() => window.G?.mode === 'play' || document.querySelector('#hud:not(.hidden)'));
   await expect(page.locator('#modTag')).toHaveText('🚀🩹');

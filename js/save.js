@@ -16,7 +16,7 @@ const DEFAULTS = {
   ships: ['viper'],
   ship: 'viper',
   meta: { shield: false, card: false },
-  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal' },
+  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: true },
   runs: 0,
   missions: { key: '', list: [] },
   // v2: progreso para la expansión (se reservan ya para no migrar en cada fase)

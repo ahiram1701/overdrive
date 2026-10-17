@@ -26,10 +26,47 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'settings', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+
+// Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
+const NAV_SCREENS = new Set(['menu', 'hangar', 'achs', 'codex']);
+const BACK = {}; // id de pantalla -> qué hace "atrás" (botón ←, Esc o el atrás de Android)
+let current = null, pushed = false, skipPop = false;
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
+  $('bottomNav').classList.toggle('hidden', !NAV_SCREENS.has(id));
+  for (const b of $('bottomNav').querySelectorAll('button')) b.classList.toggle('on', b.dataset.nav === id);
+  // historial: una sola entrada mientras hay una pantalla abierta, para que el "atrás" del móvil
+  // la cierre en vez de salir de la app; al volver al menú por la UI se consume esa entrada
+  try {
+    if (BACK[id] && !pushed) { history.pushState({ overdrive: 1 }, ''); pushed = true; } else if (!BACK[id] && pushed) { pushed = false; skipPop = true; history.back(); }
+  } catch { /* sin historial: da igual */ }
+  current = id;
+}
+
+// Cabecera común: ← y título, igual en todas las pantallas
+function screenHeader(id, title, onBack) {
+  const sec = $(id);
+  BACK[id] = onBack;
+  const old = sec.querySelector(':scope > h2');
+  if (old) old.remove();
+  const head = el('div', 'scr-head', `<button class="scr-back" aria-label="Volver">←</button><b>${title}</b>`);
+  head.querySelector('button').addEventListener('click', (e) => { e.stopPropagation(); unlockAudio(); sfx.ui(); onBack(); });
+  sec.prepend(head);
+}
+
+// Aviso breve en la capa del DOM (se ve también en pantallas donde el lienzo no se dibuja)
+let toastT = 0;
+export function toast(text) {
+  const t = $('toast');
+  t.textContent = text;
+  t.classList.remove('hidden');
+  t.classList.remove('pop');
+  void t.offsetWidth;
+  t.classList.add('pop');
+  clearTimeout(toastT);
+  toastT = setTimeout(() => t.classList.add('hidden'), 2200);
 }
 
 function el(tag, cls, html) {
@@ -136,8 +173,6 @@ export const ui = {
     tap($('spacePause'), () => ui.pause());
     tap($('btnGalMap'), () => ui.showGalMap());
     tap($('btnAtlas'), () => ui.showAtlas());
-    tap($('btnAtlasBack'), () => ui.showStation(G.space));
-    tap($('btnGalMapBack'), () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     // disparar: mantener pulsado; impulso: un toque
     const fire = $('btnFire');
     fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
@@ -147,7 +182,6 @@ export const ui = {
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpMenu'), () => ui.showMenu());
     tap($('btnRaces'), () => ui.showRaceCups());
-    tap($('btnRacesBack'), () => ui.showMenu());
     tap($('btnRaceMenu'), () => ui.showRaceCups());
     tap($('btnRaceNext'), () => { const res = ui.lastRace; if (res?.next) newRun({ mode: 'race', track: res.next, points: res.points }); });
     tap($('btnRaceRetry'), () => { const res = ui.lastRace; if (res) newRun({ mode: 'race', track: res.track.id, points: res.pointsBefore }); });
@@ -162,20 +196,51 @@ export const ui = {
       unlockAudio();
       useArenaAbility();
     });
-    tap($('btnModsBack'), () => ui.showMenu());
     tap($('btnModsPlay'), () => newRun({ mode: 'endless' }));
     tap($('btnMutation'), () => newRun({ mode: 'mutation' }));
     tap($('btnCampaign'), () => ui.showCampaign());
-    tap($('btnCampBack'), () => ui.showMenu());
     tap($('btnNext'), () => { if (ui.victoryNext) newRun({ mode: 'campaign', level: ui.victoryNext }); });
     tap($('btnRetry'), () => newRun(G.run?.opts));
     tap($('btnMap'), () => ui.showCampaign());
-    tap($('btnHangar'), () => ui.showHangar());
     tap($('btnHangarBack'), () => { ui.preview = null; ui.showMenu(); });
-    tap($('btnAch'), () => ui.showAchievements());
-    tap($('btnCodex'), () => ui.showCodex());
-    tap($('btnAchBack'), () => ui.showMenu());
-    tap($('btnCodexBack'), () => ui.showMenu());
+    // barra inferior
+    for (const b of $('bottomNav').querySelectorAll('button')) {
+      tap(b, () => {
+        const to = b.dataset.nav;
+        if (to === 'menu') { ui.preview = null; ui.showMenu(); } else if (to === 'hangar') ui.showHangar();
+        else if (to === 'achs') ui.showAchievements(); else ui.showCodex();
+      });
+    }
+    tap($('btnRankBadge'), () => ui.showAchievements());
+    tap($('btnSettings'), () => ui.showSettings());
+    tap($('btnMissions'), () => {
+      const open = $('mMissions').classList.toggle('collapsed');
+      $('btnMissions').classList.toggle('open', !open);
+    });
+    // cabeceras comunes con ← (y su "atrás")
+    screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    screenHeader('achs', '🏆 LOGROS', () => ui.showMenu());
+    screenHeader('codex', '📖 COLECCIÓN', () => ui.showMenu());
+    screenHeader('campaign', '🗺️ CAMPAÑA', () => ui.showMenu());
+    screenHeader('mods', '⚙️ MODIFICADORES', () => ui.showMenu());
+    screenHeader('raceCups', '🏆 CARRERAS', () => ui.showMenu());
+    screenHeader('atlas', '📖 ATLAS', () => ui.showStation(G.space));
+    screenHeader('galMap', '🗺️ MAPA GALÁCTICO', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
+    BACK.hangar = () => { ui.preview = null; ui.showMenu(); };
+    // atrás del móvil / Esc: cierra la pantalla actual; en partida, pausa
+    addEventListener('popstate', () => {
+      if (skipPop) { skipPop = false; return; }
+      pushed = false;
+      if (BACK[current]) BACK[current]();
+      else if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();
+    });
+    addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && BACK[current] && !['play', 'arena', 'galaxy'].includes(G.mode)) { e.preventDefault(); BACK[current](); }
+    });
+    // ajustes de la Galaxia
+    $('setSens').addEventListener('input', (e) => { save.settings.sens = Number(e.target.value); persist(); });
+    tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
+    tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
     tap($('btnResume'), () => {
       if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
       else if (G.mode === 'galaxyPaused') { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); } else resume();
@@ -218,6 +283,15 @@ export const ui = {
     $('tgVibe').classList.toggle('off', !save.settings.vibe);
     $('tgFx').classList.toggle('off', !save.settings.fx);
     $('tgText').classList.toggle('off', save.settings.text === 'min');
+    $('tgInvert').classList.toggle('off', !save.settings.invertY);
+    $('tgLevel').classList.toggle('off', !save.settings.autoLevel);
+    $('setSens').value = save.settings.sens ?? 1;
+  },
+
+  showSettings() {
+    G.mode = 'hangar'; // pantalla estática
+    ui.syncToggles();
+    show('settings');
   },
 
   hideAll() { show(null); },
@@ -240,8 +314,12 @@ export const ui = {
     ui.showHUD(false);
     $('mBest').textContent = fmt(save.best);
     $('mGems').textContent = fmt(save.gems);
-    $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
+    $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `hoy ${fmt(save.daily.best)}` : 'pista nueva';
     $('mMissions').innerHTML = missionsHTML();
+    const ms = missions.today();
+    setText('mMisCount', `${ms.filter((m) => m.done).length}/${ms.length}`);
+    setText('mRankNum', String(rankOf(save.xp).rank));
+    $('btnRankBadge').classList.toggle('prest', prestigeOf(save) > 0);
     $('mRank').innerHTML = rankHTML(save.xp);
     if (canPrestige(save)) {
       const next = prestigeOf(save) + 1;
@@ -267,18 +345,18 @@ export const ui = {
       });
       $('mRank').append(b);
     }
-    $('mGalaxy').textContent = save.galaxy.started ? `· 💰 ${fmt(save.galaxy.credits)}` : '· nuevo';
+    $('mGalaxy').textContent = save.galaxy.started ? `💰 ${fmt(save.galaxy.credits)} · ${GAL[save.galaxy.sys ?? 0].name}` : 'explora, mina, comercia y lucha';
     const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
-    $('mRace').textContent = Object.keys(save.raceCups).length ? `· ${golds}🥇` : '· nuevo';
+    $('mRace').textContent = Object.keys(save.raceCups).length ? `${golds} 🥇` : '3 copas';
     const eb = save.expedition.best;
-    $('mExp').textContent = save.expedition.wins ? `· ✔ ${save.expedition.wins}` : eb ? `· acto ${Math.floor(eb / 10) + 1}` : '· nueva';
-    $('mArena').textContent = save.arena.best ? `· récord ${fmtTime(save.arena.best)}` : '· nuevo';
-    $('mStars').textContent = `· ★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
+    $('mExp').textContent = save.expedition.wins ? `✔ ${save.expedition.wins}` : eb ? `acto ${Math.floor(eb / 10) + 1}` : 'roguelite';
+    $('mArena').textContent = save.arena.best ? `récord ${fmtTime(save.arena.best)}` : 'sobrevive 10:00';
+    $('mStars').textContent = `★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
     const sel = cleanMods(save.modsLast, effectiveRank(save));
-    $('mMods').textContent = sel.length ? `${sel.map((id) => MOD_BY_ID[id].icon).join('')} · x${modScore(sel).toFixed(2)}` : '· ninguno';
+    $('mMods').textContent = sel.length ? `x${modScore(sel).toFixed(1)}` : '';
     const mut = mutationOf(todayKey());
     const mutDone = save.mutation.key === todayKey() && save.mutation.played;
-    $('mMut').textContent = `${mut.map((id) => MOD_BY_ID[id].icon).join('')}${mutDone ? '' : ' x1,5💎'}`;
+    $('mMut').textContent = `${mut.map((id) => MOD_BY_ID[id].icon).join('')}${mutDone ? '' : ' x1,5 💎'}`;
     show('menu');
   },
 
