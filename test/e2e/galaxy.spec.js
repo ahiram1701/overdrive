@@ -148,3 +148,61 @@ test('galaxia: comercio, comprar mineral local en la estación', async ({ page }
   expect(g.cargo.iron).toBe(5);
   expect(g.credits).toBeLessThan(500);
 });
+
+test('galaxia: escanear un punto de interés lo añade al ATLAS y paga', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 0, started: true } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, poi = s.pois[0];
+    for (let i = 0; i < 120; i++) {
+      s.ship.pos = { x: poi.pos.x + 40, y: poi.pos.y, z: poi.pos.z };
+      window.D.step(1 / 30, false);
+    }
+    return { atlas: Object.keys(window.__save.galaxyAtlas), credits: window.__save.galaxy.credits, id: poi.id };
+  });
+  expect(res.atlas).toContain(res.id);
+  expect(res.credits).toBeGreaterThan(0);
+  await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30, false); document.getElementById('btnDock').click(); });
+  await page.locator('#btnAtlas').click();
+  await expect(page.locator('#atCount')).toContainText('1 /');
+  expect(errors).toEqual([]);
+});
+
+test('galaxia: aceptar una misión de caza, cumplirla y cobrar', async ({ page }) => {
+  const errors = trackErrors(page);
+  // en NIMMOR (con piratas), con base allí
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 0, up: { laser: 4, jump: 1 }, visited: [0, 4], sys: 4, home: 4, started: true } });
+  await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30, false); document.getElementById('btnDock').click(); });
+  await expect(page.locator('#station')).toBeVisible();
+  const hunt = page.locator('#stMissions [data-mission="hunt"]');
+  if (await hunt.count() === 0) test.skip(true, 'este tablón no trae caza');
+  await hunt.first().click();
+  const m = await page.evaluate(() => window.__save.galaxy.missions[0]);
+  expect(m.kind).toBe('hunt');
+  await page.locator('#btnUndock').click();
+  const res = await page.evaluate((target) => {
+    const G = window.G, s = G.space;
+    G.god = true;
+    // ir al sistema del encargo si no es este
+    if (s.sysId !== target.sys) return { skipped: true };
+    const before = window.__save.galaxy.credits;
+    for (let k = 0; k < target.n + 2 && window.__save.galaxy.missions.length; k++) {
+      while (s.pirates.length < 1) { s.pirateT = 0; window.D.step(1 / 30, false); }
+      const p = s.pirates[0];
+      for (let i = 0; i < 300 && p.alive; i++) {
+        const f = { x: Math.sin(s.ship.yaw), z: Math.cos(s.ship.yaw) };
+        s.ship.pos = { x: 1800, y: 0, z: 1800 };
+        p.pos = { x: s.ship.pos.x + f.x * 60, y: s.ship.pos.y, z: s.ship.pos.z + f.z * 60 };
+        p.speed = 0;
+        s.botFire = true;
+        window.D.step(1 / 30, false);
+      }
+    }
+    s.botFire = false;
+    return { missions: window.__save.galaxy.missions.length, gained: window.__save.galaxy.credits - before };
+  }, m);
+  if (res.skipped) test.skip(true, 'la caza es en otro sistema');
+  expect(res.missions).toBe(0);
+  expect(res.gained).toBeGreaterThanOrEqual(m.reward);
+  expect(errors).toEqual([]);
+});

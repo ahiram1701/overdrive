@@ -11,6 +11,7 @@ import { ORES } from './galaxyData.js';
 import { shipDef, GAL } from './spaceGame.js';
 import { MESHES } from './mesh3d.js';
 import { canJump, jumpNeeded } from './galaxy.js';
+import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
 
 // estrellas "en el infinito" (solo giran con la cámara) y polvo cercano (da sensación de velocidad)
 const STARS = [];
@@ -334,6 +335,90 @@ export function renderSpace(dt) {
       ctx.textAlign = 'center';
       ctx.fillText(`🌀 ${gt.name}${open ? '' : ` · 🔒 Salto ${jumpNeeded(GAL[gt.to])}`}`, c.x, c.y - gt.r * c.s - 10);
     } });
+  }
+
+  // PUNTOS DE INTERÉS: se ven de lejos (marcador) y se escanean volando cerca
+  for (const poi of s.pois || []) {
+    const p = project(cam, poi.pos, 1);
+    if (!p) continue;
+    const found = !!save.galaxyAtlas[poi.id];
+    const K = POI_KINDS[poi.kind];
+    draws.push({ z: p.z, fn: () => {
+      // con tope: de cerca no debe tapar la pantalla
+      const R = Math.min(70, Math.max(10, 26 * p.s));
+      const t = G.realTime;
+      ctx.save();
+      if (poi.kind === 'anomaly') {
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 4; i++) {
+          ctx.strokeStyle = `rgba(191,90,242,${0.5 - i * 0.1})`;
+          ctx.lineWidth = Math.max(1.5, R * 0.12);
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y, R * (1 - i * 0.2), R * (0.5 - i * 0.08), t * (0.8 + i * 0.4), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else if (poi.kind === 'wreck') {
+        drawMesh3D(ctx, cam, 'brick', poi.pos, t * 0.2, 0.6, 9, { hull: '#2a2a2e', edge: '#8e8e93', glow: '#3a3a3a' }, false);
+      } else if (poi.kind === 'signal') {
+        ctx.fillStyle = Math.floor(t * 3) % 2 ? '#30d158' : '#0b3d1a';
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(4, R * 0.25), 0, Math.PI * 2);
+        ctx.fill();
+        for (let i = 0; i < 3; i++) {
+          const k = ((t * 0.8 + i / 3) % 1);
+          ctx.strokeStyle = `rgba(48,209,88,${1 - k})`;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, R * (0.4 + k * 1.4), 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      } else {
+        const g = ctx.createRadialGradient(p.x - R * 0.3, p.y - R * 0.3, R * 0.1, p.x, p.y, R);
+        g.addColorStop(0, '#fff6c0');
+        g.addColorStop(0.6, '#ffcc00');
+        g.addColorStop(1, '#3a2a00');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+      // marcador: icono y distancia (si aún no está en el ATLAS)
+      if (!found) {
+        ctx.fillStyle = K.color;
+        ctx.font = 'italic 900 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${K.icon} ${K.name} · ${Math.round(dist(poi.pos, sh.pos))} m`, p.x, p.y - R - 10);
+        if (s.scanning === poi) {
+          ctx.strokeStyle = '#ffe600';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, R + 12, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.min(1, s.scanT / SCAN_TIME));
+          ctx.stroke();
+          ctx.fillStyle = '#ffe600';
+          ctx.fillText('ESCANEANDO…', p.x, p.y + R + 22);
+        }
+      }
+    } });
+  }
+  // CARGUERO de la escolta
+  if (s.freighter) {
+    const fr = s.freighter;
+    const p = project(cam, fr.pos, 1);
+    if (p) {
+      draws.push({ z: p.z, fn: () => {
+        drawMesh3D(ctx, cam, 'brick', fr.pos, fr.yaw || 0, 0, 12, { hull: '#0b2a14', edge: '#30d158', glow: '#ffe600' }, fr.flash > 0);
+        const bw = Math.max(30, Math.min(80, p.s * 40));
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * 18 - 10, bw, 5);
+        ctx.fillStyle = '#30d158';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * 18 - 10, bw * Math.max(0, fr.hp / fr.max), 5);
+        ctx.fillStyle = '#30d158';
+        ctx.font = 'italic 900 11px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🛡️ CARGUERO', p.x, p.y - p.s * 18 - 16);
+      } });
+    }
   }
 
   // tus disparos

@@ -9,6 +9,8 @@ import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project } from './space3d.js';
 import { shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
+import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS } from './galaxyMissions.js';
+import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui } from './ui.js';
@@ -20,7 +22,14 @@ const MAGNET_R = 75;
 export const GAL = genGalaxy();
 
 const gal = () => save.galaxy;
-const stats = () => shipStats(gal().up);
+// stats de la nave: mejoras del taller + mejoras únicas del ATLAS
+export const atlasCount = () => Object.keys(save.galaxyAtlas).length;
+const perks = () => perksFor(atlasCount());
+const stats = () => {
+  const st = shipStats(gal().up);
+  if (perks().includes('alien')) st.shield += 40;
+  return st;
+};
 
 // ---------- Inicio y sistemas ----------
 export function newSpace() {
@@ -64,6 +73,9 @@ function enterSystem(s, id, fromId) {
   s.ores = [];
   s.loot = [];
   s.pirateT = 25;
+  s.pois = poisOf(GAL, id);
+  s.scanT = 0;
+  s.freighter = null;
   const g = gal();
   g.sys = id;
   if (!g.visited.includes(id)) {
@@ -127,7 +139,11 @@ function updatePirates(s, dt) {
     if (playerSafe && p.state === 'attack') p.state = 'patrol';
     if (p.state === 'patrol' && !playerSafe) p.state = 'attack';
     let target;
-    if (p.state === 'attack') {
+    const fr = s.freighter;
+    if (p.raider && fr && fr.hp > 0) {
+      target = fr.pos;
+      p.state = 'attack';
+    } else if (p.state === 'attack') {
       // apunta a donde vas a estar (te adelanta un poco)
       target = add(sh.pos, scale(basis(sh.yaw, sh.pitch).f, (sh.speed || 90) * Math.min(1, d / 400)));
     } else if (p.state === 'evade') target = add(p.pos, scale(norm(add(p.off, basis(p.yaw, p.pitch).f)), 300));
@@ -144,7 +160,9 @@ function updatePirates(s, dt) {
     if (ds < SAFE_R) p.pos = add(st, scale(norm(sub(p.pos, st)), SAFE_R));
     // disparo: alineado contigo y a tiro
     p.fireCd -= dt;
-    if (p.state === 'attack' && d < 520 && p.fireCd <= 0 && angleTo(p.pos, p.yaw, p.pitch, sh.pos) < (p.boss ? 0.35 : 0.18) && !playerSafe) {
+    const aim = p.raider && s.freighter ? s.freighter.pos : sh.pos;
+    const dAim = dist(p.pos, aim);
+    if (p.state === 'attack' && dAim < 520 && p.fireCd <= 0 && angleTo(p.pos, p.yaw, p.pitch, aim) < (p.boss ? 0.35 : 0.18) && (p.raider || !playerSafe)) {
       p.fireCd = p.boss ? 0.9 : Math.max(0.5, 1.2 - GAL[s.sysId].danger * 0.08);
       const dirs = p.boss ? [-0.12, 0, 0.12] : [0];
       for (const off of dirs) {
@@ -155,10 +173,16 @@ function updatePirates(s, dt) {
     }
     if (p.state === 'flee' && d > 1600) p.alive = false; // se escapó
   }
-  // balas enemigas
+  // balas enemigas (al carguero también)
   for (const b of s.ebolts) {
     b.life -= dt;
     b.pos = add(b.pos, scale(b.vel, dt));
+    if (s.freighter && dist(b.pos, s.freighter.pos) < 14) {
+      b.life = 0;
+      s.freighter.hp -= b.dmg;
+      s.freighter.flash = 0.1;
+      continue;
+    }
     if (dist(b.pos, sh.pos) < 6) {
       b.life = 0;
       if (dist(sh.pos, st) >= SAFE_R) hurt(s, b.dmg);
@@ -185,7 +209,7 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = p.boss ? 600 + d * 150 : 25 + d * 18;
+  const value = (p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1);
   s.loot.push({ pos: { ...p.pos }, credits: value, life: 60 });
   if (p.boss) {
     save.galaxyBoss[s.sysId] = true;
@@ -193,6 +217,7 @@ function killPirate(s, p) {
     progress('pirateBoss');
   }
   progress('pirate');
+  missionEvent(s, { type: 'kill', sys: s.sysId });
 }
 
 // ---------- Acciones ----------
@@ -200,7 +225,7 @@ export function spaceBoost() {
   const s = S();
   if (!s || G.mode !== 'galaxy' || s.ship.boostCd > 0) return;
   s.ship.boostT = 1.6;
-  s.ship.boostCd = 3.5;
+  s.ship.boostCd = perks().includes('warp') ? 2.3 : 3.5;
   sfx.dash();
   fx.vibe(20);
 }
@@ -214,6 +239,7 @@ export function dock() {
   const g = gal();
   g.hull = s.ship.hull;
   g.home = s.sysId; // aquí reapareces si te destruyen
+  missionEvent(s, { type: 'dock', sys: s.sysId });
   persist();
   ui.showStation(s);
   progress('dock');
@@ -224,6 +250,8 @@ export function undock() {
   if (!s || G.mode !== 'station') return;
   undockPose(s);
   s.ship.shield = stats().shield;
+  const esc = gal().missions.find((m) => m.kind === 'escort' && m.sys === s.sysId && m.progress < m.n);
+  if (esc && !s.freighter) startEscort(s, esc);
   G.mode = 'galaxy';
   musicDuck(false);
   ui.hideAll();
@@ -293,6 +321,115 @@ export function setRoute(to) {
   const s = S();
   if (!s) return;
   s.routeTo = to === s.sysId ? null : to;
+}
+
+// ---------- Misiones ----------
+export function boardNow(s = S()) {
+  const g = gal();
+  const taken = new Set(g.missions.map((m) => m.id));
+  return boardFor(GAL, s.sysId, g.boardSeq || 0, { jumpLvl: g.up.jump || 0, discovered: save.galaxyAtlas }).filter((m) => !taken.has(m.id));
+}
+
+export function acceptMission(m) {
+  const g = gal();
+  if (g.missions.length >= MAX_ACTIVE || g.missions.some((x) => x.id === m.id)) return false;
+  g.missions.push({ ...m });
+  persist();
+  sfx.card();
+  return true;
+}
+
+export function abandonMission(id) {
+  const g = gal();
+  g.missions = g.missions.filter((m) => m.id !== id);
+  persist();
+}
+
+// Un suceso avanza las misiones; las cumplidas se cobran al momento (la entrega, al atracar)
+function missionEvent(s, ev) {
+  const g = gal();
+  const done = advanceMissions(g.missions, ev);
+  for (const m of done) {
+    g.credits += m.reward;
+    save.gems += m.gems;
+    addXp(save, m.reward / 2);
+    g.boardSeq = (g.boardSeq || 0) + 1;
+    fx.banner(`✔ MISIÓN: ${MISSION_KINDS[m.kind].name.toUpperCase()}`, `+${m.reward} 💰 · +${m.gems} 💎`, '#30d158', true);
+    sfx.milestone();
+    progress('gmission');
+  }
+  if (done.length) {
+    g.missions = g.missions.filter((m) => m.progress < m.n);
+    persist();
+  }
+}
+
+// ESCOLTA: un carguero sale de la estación hacia una puerta; los incursores van a por él
+function startEscort(s, m) {
+  const gate = s.sys.gates.find((gt) => gt.to === m.gate);
+  if (!gate) return;
+  const from = add(s.sys.station.pos, scale(norm(sub(gate.pos, s.sys.station.pos)), 60));
+  s.freighter = { pos: from, to: gate.pos, gate: m.gate, hp: 260, max: 260, speed: 55, flash: 0, raidT: 6 };
+  fx.notice('🛡️ Escolta: protege al carguero hasta la puerta', '#30d158');
+}
+
+function updateEscort(s, dt) {
+  const fr = s.freighter;
+  if (!fr) return;
+  fr.flash = Math.max(0, fr.flash - dt);
+  const dir = norm(sub(fr.to, fr.pos));
+  fr.pos = add(fr.pos, scale(dir, fr.speed * dt));
+  fr.yaw = Math.atan2(dir.x, dir.z);
+  // incursores: dos piratas que salen a por él cuando deja la zona segura
+  fr.raidT -= dt;
+  if (fr.raidT <= 0 && !fr.raided) {
+    fr.raided = true;
+    for (let i = 0; i < 2; i++) {
+      spawnPirate(s, false);
+      const p = s.pirates[s.pirates.length - 1];
+      p.raider = true;
+      p.pos = add(fr.pos, { x: s.rng.range(-500, 500), y: s.rng.range(-80, 80), z: s.rng.range(-500, 500) });
+    }
+    fx.notice('☠ ¡Incursores a por el carguero!', '#ff2d55');
+    sfx.alarm();
+  }
+  if (fr.hp <= 0) {
+    s.freighter = null;
+    const g = gal();
+    g.missions = g.missions.filter((m) => !(m.kind === 'escort' && m.sys === s.sysId));
+    persist();
+    fx.banner('✖ CARGUERO DESTRUIDO', 'misión fallida', '#ff6b6b', true);
+    sfx.die();
+    return;
+  }
+  if (dist(fr.pos, fr.to) < 50) {
+    s.freighter = null;
+    missionEvent(s, { type: 'escort', sys: s.sysId, gate: fr.gate });
+  }
+}
+
+// ---------- Descubrimientos ----------
+function updateScan(s, dt) {
+  const sh = s.ship;
+  const poi = s.pois.find((p) => !save.galaxyAtlas[p.id] && dist(p.pos, sh.pos) < SCAN_R);
+  s.scanning = poi || null;
+  if (!poi) { s.scanT = Math.max(0, s.scanT - dt * 2); return; }
+  s.scanT += dt;
+  if (s.scanT < SCAN_TIME) return;
+  s.scanT = 0;
+  const before = perks();
+  save.galaxyAtlas[poi.id] = true;
+  const g = gal();
+  g.credits += poi.reward;
+  addXp(save, poi.reward);
+  fx.banner(`${POI_KINDS[poi.kind].icon} ${POI_KINDS[poi.kind].name.toUpperCase()} DESCUBIERTA`, poi.lore, POI_KINDS[poi.kind].color, true);
+  fx.notice(`+${poi.reward} 💰 · ATLAS ${atlasCount()}`, '#ffe600');
+  sfx.chest();
+  progress('discover');
+  missionEvent(s, { type: 'scan', poi: poi.id });
+  const fresh = ATLAS_PERKS.filter((pk) => perks().includes(pk.id) && !before.includes(pk.id));
+  for (const pk of fresh) fx.banner(`✨ ${pk.name}`, pk.desc, '#ffe600', true);
+  persist();
 }
 
 // ---------- Daño y reaparición ----------
@@ -453,6 +590,8 @@ export function updateSpace(dt) {
   s.sys.asteroids = s.sys.asteroids.filter((a) => a.alive);
 
   updatePirates(s, dt);
+  updateEscort(s, dt);
+  updateScan(s, dt);
 
   // mineral y botín: imán y recogida
   const cap = st.cargo;
@@ -533,6 +672,30 @@ function updateObjective(s) {
       s.objective = { kind: 'route', text: `Rumbo a ${GAL[s.routeTo].name}: cruza la puerta hacia ${GAL[next].name}` };
       s.target = gate.pos;
       return;
+    }
+  }
+  // MISIÓN activa: te lleva al sistema y, allí, a su objetivo
+  const m = g.missions.find((x) => x.progress < x.n);
+  if (m && !(cargoCount(g.cargo) >= stats().cargo)) {
+    if (m.sys !== s.sysId) {
+      const path = route(GAL, s.sysId, m.sys);
+      const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
+      if (gate) {
+        s.objective = { kind: 'mission', text: `${MISSION_KINDS[m.kind].icon} ${m.text} · ve a ${GAL[m.sys].name}` };
+        s.target = gate.pos;
+        return;
+      }
+    } else {
+      let t;
+      if (m.kind === 'hunt') t = s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos;
+      else if (m.kind === 'scan') t = s.pois.find((p) => p.id === m.poi)?.pos;
+      else if (m.kind === 'escort') t = s.freighter?.pos || s.sys.station.pos;
+      else t = s.sys.station.pos;
+      if (t) {
+        s.objective = { kind: 'mission', text: `${MISSION_KINDS[m.kind].icon} ${m.text}${m.n > 1 ? ` (${m.progress}/${m.n})` : ''}` };
+        s.target = t;
+        return;
+      }
     }
   }
   const o = objective({ cargo: g.cargo, cargoMax: stats().cargo, credits: g.credits, up: g.up, sold: g.sold });
