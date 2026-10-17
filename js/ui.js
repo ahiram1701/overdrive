@@ -11,7 +11,8 @@ import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, e
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
-import { newRun, pickCard, resume, effSpeed, useAbility, progress } from './game.js';
+import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest } from './game.js';
+import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -20,7 +21,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -121,6 +122,11 @@ export const ui = {
     tap($('btnDaily'), () => newRun(true));
     tap($('btnMods'), () => ui.showMods());
     tap($('btnArena'), () => newArena());
+    tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
+    tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
+    tap($('btnExpMenu'), () => ui.showMenu());
+    tap($('btnRestShield'), () => expRest('shield'));
+    tap($('btnRestCard'), () => expRest('card'));
     tap($('btnArenaRetry'), () => newArena());
     tap($('btnArenaMenu'), () => ui.showMenu());
     tap($('arenaPause'), () => ui.pause());
@@ -232,6 +238,8 @@ export const ui = {
       });
       $('mRank').append(b);
     }
+    const eb = save.expedition.best;
+    $('mExp').textContent = save.expedition.wins ? `· ✔ ${save.expedition.wins}` : eb ? `· acto ${Math.floor(eb / 10) + 1}` : '· nueva';
     $('mArena').textContent = save.arena.best ? `· récord ${fmtTime(save.arena.best)}` : '· nuevo';
     $('mStars').textContent = `· ★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
     const sel = cleanMods(save.modsLast, effectiveRank(save));
@@ -570,7 +578,8 @@ export const ui = {
     const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
     $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
-    $('dExtra').textContent = res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
+    $('dExtra').textContent = res.exp ? `EXPEDICIÓN · acto ${res.exp.act + 1} de ${ACTS.length}, fila ${res.exp.row + 1} de ${ROWS}`
+      : res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
       : res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
     $('dBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
     // XP de la partida y rangos ganados (cada uno con su premio en gemas)
@@ -658,6 +667,75 @@ export const ui = {
     $('btnNext').textContent = res.next ? `SIGUIENTE · ${res.next}` : '';
     if (res.passed) sfx.chest();
     show('victory');
+  },
+
+  // ---------- EXPEDICIÓN ----------
+  // Mapa del acto: la salida abajo y el jefe arriba. Las líneas se calculan con la fila y la
+  // columna de cada nodo (sin medir el DOM): el mapa es igual en cualquier pantalla.
+  showExpMap(e) {
+    const act = ACTS[e.act];
+    setText('emTitle', `ACTO ${e.act + 1} · ${act.name}`);
+    setText('emSub', act.sub);
+    const r = G.run;
+    $('emStatus').innerHTML = `<span>🛡️ ${r.shields}</span><span>🪙 ${r.coins}</span><span>🃏 ${Object.values(r.cards).reduce((a, b) => a + b, 0)}</span><span>🏁 ${e.acts}/${ACTS.length}</span>`;
+    const cur = nodeById(e.map, e.at);
+    const ROW_H = 78, H = ROWS * ROW_H;
+    const pos = (n) => ({ x: n.col * 100, y: H - (n.row + 0.5) * ROW_H });
+    const box = $('emMap');
+    box.style.height = `${H}px`;
+    const lines = [];
+    for (const n of e.map) {
+      for (const id of n.next) {
+        const m = nodeById(e.map, id), a = pos(n), b = pos(m);
+        const walked = e.path.includes(n.id) && e.path.includes(m.id);
+        const open = n.id === cur.id;
+        lines.push(`<line x1="${a.x}%" y1="${a.y}" x2="${b.x}%" y2="${b.y}" class="${walked ? 'walked' : open ? 'open' : ''}"/>`);
+      }
+    }
+    box.innerHTML = `<svg class="em-lines" width="100%" height="${H}">${lines.join('')}</svg>`;
+    for (const n of e.map) {
+      const p = pos(n);
+      const state = e.path.includes(n.id) ? (n.id === cur.id ? 'here' : 'done') : cur.next.includes(n.id) ? 'open' : 'locked';
+      const b = el('button', `em-node t-${n.type} ${state}`, `<span>${NODE[n.type].icon}</span><small>${NODE[n.type].name}</small>`);
+      b.style.left = `${p.x}%`;
+      b.style.top = `${p.y}px`;
+      b.dataset.node = n.id;
+      b.title = NODE[n.type].desc;
+      if (state === 'open') tap(b, () => expChoose(n.id));
+      box.append(b);
+    }
+    show('expMap');
+    // que se vea el nodo actual (abajo al principio, arriba al final del acto)
+    box.querySelector('.here')?.scrollIntoView({ block: 'center' });
+  },
+
+  showExpEvent(ev, r) {
+    setText('eeTitle', ev.title);
+    setText('eeText', ev.text);
+    const box = $('eeChoices');
+    box.innerHTML = '';
+    ev.choices.forEach((c, i) => {
+      const ok = canChoose(c, { coins: r.coins, shields: r.shields });
+      const b = el('button', `btn${ok ? '' : ' ghost'}`, c.label);
+      b.dataset.choice = i;
+      b.disabled = !ok;
+      tap(b, () => expEventChoice(ev, i));
+      box.append(b);
+    });
+    show('expEvent');
+  },
+
+  showExpRest() {
+    show('expRest');
+  },
+
+  showExpEnd(res) {
+    setText('xeScore', fmt(res.score));
+    $('xeBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
+    $('xeGems').innerHTML = `+${res.gems} 💎 por el último acto <small>(total ${fmt(save.gems)})</small>`;
+    const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+    $('xeXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
+    show('expEnd');
   },
 
   // ---------- ARENA ----------

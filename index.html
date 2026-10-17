@@ -55,6 +55,7 @@
     <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
     <div class="modes">
       <button class="btn mode" id="btnArena">⚔️ ARENA <small id="mArena"></small></button>
+      <button class="btn mode exp" id="btnExpedition">🗺️ EXPEDICIÓN <small id="mExp"></small></button>
     </div>
     <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
     <button class="btn mut" id="btnMutation">🧬 MUTACIÓN <small id="mMut"></small></button>
@@ -144,6 +145,41 @@
     <div id="aeXp" class="rank"></div>
     <button class="btn big" id="btnArenaRetry">REINTENTAR</button>
     <button class="btn ghost" id="btnArenaMenu">MENÚ</button>
+  </section>
+
+  <section id="expMap" class="overlay hidden">
+    <h2 id="emTitle">ACTO 1</h2>
+    <p class="hint" id="emSub"></p>
+    <div id="emStatus" class="em-status"></div>
+    <div id="emMap" class="em-map"></div>
+    <p class="hint">Toca un nodo iluminado para seguir tu ruta</p>
+  </section>
+
+  <section id="expEvent" class="overlay hidden">
+    <div class="ev-icon">❓</div>
+    <h2 id="eeTitle">EVENTO</h2>
+    <p id="eeText" class="ev-text"></p>
+    <div id="eeChoices" class="ev-choices"></div>
+  </section>
+
+  <section id="expRest" class="overlay hidden">
+    <div class="ev-icon">🔥</div>
+    <h2>DESCANSO</h2>
+    <p class="ev-text">Un momento de calma antes de seguir.</p>
+    <div class="ev-choices">
+      <button class="btn" id="btnRestShield">🛡️ Reparar · +1 escudo</button>
+      <button class="btn" id="btnRestCard">⬆️ Entrenar · sube de nivel una carta</button>
+    </div>
+  </section>
+
+  <section id="expEnd" class="overlay hidden">
+    <h2 class="won">¡EXPEDICIÓN COMPLETADA!</h2>
+    <div id="xeScore" class="bigscore">0</div>
+    <div id="xeBuild" class="build"></div>
+    <div id="xeGems" class="gems"></div>
+    <div id="xeXp" class="rank"></div>
+    <button class="btn big" id="btnExpAgain">OTRA EXPEDICIÓN</button>
+    <button class="btn ghost" id="btnExpMenu">MENÚ</button>
   </section>
 
   <section id="mods" class="overlay hidden">

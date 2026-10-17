@@ -29,7 +29,8 @@ const DEFAULTS = {
   cosmetics: {},    // v3, por nave: { owned: { viper: ['ice'] }, equip: { viper: { palette, ... } } }
   shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
-  arena: { best: 0, kills: 0, wins: 0 }, // mejor tiempo (s), más bajas y victorias en la ARENA
+  arena: { best: 0, kills: 0, wins: 0 },
+  expedition: { best: 0, wins: 0 }, // mejor progreso (acto*10 + fila) y expediciones completadas // mejor tiempo (s), más bajas y victorias en la ARENA
   modsLast: [],     // modificadores elegidos la última vez
   mutation: { key: '', played: false }, // mutación del día: el primer intento da x1,5 gemas
 };

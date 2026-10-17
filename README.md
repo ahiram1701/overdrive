@@ -13,7 +13,7 @@
 
 <img src="docs/gameplay.gif" width="270" alt="Partida a toda velocidad con explosiones y combo">
 
-<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores"> <img src="docs/arena.png" width="200" alt="Modo Arena">
+<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores"> <img src="docs/arena.png" width="200" alt="Modo Arena"> <img src="docs/expedition.png" width="200" alt="Mapa de la Expedición">
 
 </div>
 
@@ -97,6 +97,19 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
 - **Sobrevive 10:00.** En el 5:00 y el 10:00 llega un jefe, y un **anillo de energía** cierra el combate hasta que cae.
 - Gemas y XP para el hangar y el rango. Récord, logros y misiones propias.
 
+## 🗺️ Modo EXPEDICIÓN
+El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).
+- **Nodos:**
+  - 🛣️ Tramo (al final, una carta);
+  - ☠️ Élite: tramo duro, con carta rara;
+  - 🛒 Tienda;
+  - ❓ Evento: 12 decisiones de riesgo y recompensa, como un casino, un altar o una nave abandonada;
+  - 🎁 Tesoro;
+  - 🔥 Descanso: +1 escudo o sube de nivel una carta;
+  - 👾 Jefe.
+- Escudos, monedas y cartas te acompañan todo el viaje. Si caes, se acaba.
+- Cada acto superado da gemas; completar la expedición da un buen premio de XP. Logros propios.
+
 ## 🧪 Modificadores y mutación del día
 - **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:
   - Turbo, Caos, Campo minado, Cristal, Jefazos, Cazador voraz;
@@ -159,7 +172,7 @@ El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivi
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **47 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
+- **50 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
 
 ## ✨ Prestigio

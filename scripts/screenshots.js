@@ -127,6 +127,18 @@ try {
   console.log(`✔ ${OUT}/arena.png`);
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
 
+  // Expedición: el mapa del primer acto, tras el primer tramo
+  await page.evaluate(() => { window.G.manual = true; window.G.god = true; document.getElementById('btnExpedition').click(); });
+  await page.evaluate(() => {
+    const G = window.G;
+    for (let i = 0; i < 60 * 60 && G.mode === 'play'; i++) window.D.step(1 / 60, false);
+    if (G.mode === 'cards') document.querySelector('#cardRow .card').click();
+  });
+  await page.waitForTimeout(400);
+  await page.screenshot({ path: `${OUT}/expedition.png` });
+  console.log(`✔ ${OUT}/expedition.png`);
+  await page.evaluate(() => { window.G.manual = false; window.G.god = false; document.getElementById('btnExpMenu').click(); });
+
   // Modificadores con algunos activos
   await page.evaluate(async () => {
     const { save } = await import('/js/save.js');

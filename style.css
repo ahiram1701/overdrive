@@ -165,7 +165,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .mission small { color: var(--muted); font-size: 11px; }
 .missions.compact .mission { padding: 5px 8px; }
 .missions.compact .m-top { font-size: 12px; }
-#hangar, #achs, #codex { background: radial-gradient(ellipse at top, #1d0838, var(--bg) 70%); }
+#hangar, #achs, #codex, #expMap, #expEvent, #expRest, #expEnd { background: radial-gradient(ellipse at top, #1d0838, var(--bg) 70%); }
+#emTitle { font-size: 22px; text-align: center; }
 #death, #pause, #shop, #cards { background: radial-gradient(ellipse at center, rgba(20,4,40,.82), rgba(5,0,12,.95)); }
 @keyframes fadein { from { opacity: 0; } }
 
@@ -493,3 +494,27 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .au-opt.k-passive small { color: #30d158; }
 .au-opt.k-evolve { border-color: var(--yellow); box-shadow: 0 0 18px rgba(255,230,0,.5); }
 .au-opt.k-evolve small { color: var(--yellow); }
+
+/* ---------- Expedición ---------- */
+.btn.mode.exp { border-color: #30d158; background: rgba(48,209,88,.12); box-shadow: 0 0 16px rgba(48,209,88,.3); }
+.em-status { display: flex; gap: 14px; font: 800 14px var(--font); }
+.em-status span:last-child { color: var(--yellow); letter-spacing: 2px; }
+.em-map { position: relative; width: min(400px, 92%); flex-shrink: 0; }
+.em-lines { position: absolute; inset: 0; overflow: visible; }
+.em-lines line { stroke: rgba(255,255,255,.15); stroke-width: 2; stroke-dasharray: 4 5; }
+.em-lines line.open { stroke: var(--yellow); stroke-width: 3; stroke-dasharray: none; filter: drop-shadow(0 0 4px var(--yellow)); }
+.em-lines line.walked { stroke: var(--cyan); stroke-width: 3; stroke-dasharray: none; }
+.em-node { position: absolute; transform: translate(-50%, -50%); width: 58px; height: 58px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px solid rgba(255,255,255,.2); background: #140830; color: #fff; font-family: var(--font); padding: 0; }
+.em-node span { font-size: 22px; line-height: 1; }
+.em-node small { font: 800 8px var(--font); margin-top: 2px; }
+.em-node.locked { opacity: .35; }
+.em-node.done { opacity: .55; border-color: var(--cyan); }
+.em-node.here { border-color: var(--cyan); box-shadow: 0 0 14px var(--cyan); }
+.em-node.open { border-color: var(--yellow); box-shadow: 0 0 16px rgba(255,230,0,.6); animation: glowPulse 1.2s ease-in-out infinite; }
+.em-node.t-boss { width: 70px; height: 70px; border-color: #ff2d55; }
+.em-node.t-elite { border-color: #ff9f0a; }
+.ev-icon { font-size: 56px; }
+.ev-text { max-width: 340px; text-align: center; color: #ddd; font-size: 15px; line-height: 1.4; }
+.ev-choices { display: flex; flex-direction: column; gap: 10px; width: min(360px, 100%); }
+.ev-choices .btn { font-size: 15px; }
