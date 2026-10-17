@@ -108,6 +108,11 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - ⚙️ **MOTOR:** agilidad, una carga extra de DASH y más OVERDRIVE.
   - **La rama de la habilidad:** recarga, potencia y, en el nivel 3, una **mutación** que cambia cómo funciona.
 - **Ficha de cada nave:** 6 barras (velocidad, agilidad, DASH, overdrive, defensa y puntos), calculadas con las reglas reales del juego y comparadas con tu nave equipada (▲ mejor, ▼ peor).
+- **Vista 3D:** la nave gira en el hangar (arrástrala para girarla) con su pintura, su emblema y su estela.
+- **Personalización por nave:** cada nave lleva su propia **pintura, estela, explosión y emblema**.
+  - Lo que compras con gemas vale **solo para esa nave**. Lo que da el rango o un logro vale para todas.
+  - **Exclusivos** que se ganan usando la nave: 2 pinturas (30 tramos y 5 jefes con ella) y su **insignia**, la silueta de la propia nave (20 partidas).
+  - **Pruébalo antes de comprar:** tocar cualquier objeto lo pone en la vista 3D. La explosión estalla y la nave se vuelve a montar.
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.

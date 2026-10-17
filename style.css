@@ -232,7 +232,6 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
   padding: 8px 4px; border-radius: 12px; border: 1px solid rgba(255,255,255,.15); background: var(--panel);
   color: #fff; font-family: var(--font);
 }
-.ship-chip .sc-icon { color: var(--sc); font-size: 24px; line-height: 1; text-shadow: 0 0 10px var(--sc); }
 .ship-chip b { font: italic 900 12px var(--font); }
 .ship-chip small { font-size: 10px; color: var(--muted); }
 .ship-chip.viewing { border-color: var(--sc); box-shadow: 0 0 14px color-mix(in srgb, var(--sc) 60%, transparent); transform: translateY(-2px); }
@@ -254,6 +253,18 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .cos.on small { color: var(--yellow); }
 .cos.locked { opacity: .55; }
 .cos.shake { animation: shake .3s; }
+.cos { position: relative; }
+.cos svg { width: 24px; height: 24px; fill: var(--yellow); stroke: var(--yellow); }
+.cos.trying { border-color: var(--cyan); box-shadow: 0 0 12px rgba(0,229,255,.5); opacity: 1; }
+.cos.excl { border-color: color-mix(in srgb, var(--sc) 70%, transparent); }
+.cos em { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 6px; background: var(--sc); color: #000; font: 900 7px var(--font); font-style: normal; letter-spacing: .5px; white-space: nowrap; }
+.cos-chips { padding-top: 8px; }
+.cos-preview { position: sticky; bottom: 8px; z-index: 3; width: min(440px, 100%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(11,2,33,.95); border: 1px solid var(--cyan); box-shadow: 0 0 16px rgba(0,229,255,.35); }
+.cos-preview .pv-name { width: 100%; text-align: center; font: 800 12px var(--font); color: var(--muted); }
+.cos-preview .pv-name b { color: #fff; }
+.cos-preview small { color: var(--muted); font-size: 12px; }
+.cos-preview .btn { width: auto; flex: 1 1 0; margin: 0; padding: 10px 8px; font-size: 14px; animation: none; }
+.sc-mini { width: 48px; height: 30px; display: block; margin: 0 auto; }
 .ship-detail { width: min(440px, 100%); display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid rgba(255,255,255,.12); }
 .sd-head { --sc: #00e5ff; display: flex; gap: 12px; align-items: center; }
 .sd-head h3 { margin: 0; color: #fff; font: italic 900 22px var(--font); letter-spacing: 0; text-transform: none; }

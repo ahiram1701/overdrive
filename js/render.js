@@ -6,6 +6,7 @@ import { SHIPS } from './upgrades.js';
 import { isActive } from './abilities.js';
 import { drawShip } from './shipdraw.js';
 import { equipped } from './cosmetics.js';
+import { trailFx } from './cosfx.js';
 import { save } from './save.js';
 
 const CAM_H = 3;
@@ -1013,43 +1014,7 @@ const curShip = () => SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
 function shipColor() {
   const r = G.run;
   if (r && r.odTime > 0) return hueHex((G.realTime * 600) % 360);
-  return equipped(save).palette.edge || curShip().color;
-}
-
-// Estela según el cosmético equipado
-const ribbon = [];
-function trailFx(id, x, y, s, col, speed) {
-  const vy = 200 + speed * 4;
-  switch (id) {
-    case 'ribbon': {
-      ribbon.unshift([x, y + 0.12 * s]);
-      ribbon.length = Math.min(ribbon.length, 14);
-      ctx.save();
-      ctx.globalCompositeOperation = 'lighter';
-      ctx.lineCap = 'round';
-      for (let i = 1; i < ribbon.length; i++) {
-        ctx.strokeStyle = hexA(col.length === 7 ? col : '#ffffff', 0.6 * (1 - i / ribbon.length));
-        ctx.lineWidth = s * 0.16 * (1 - i / ribbon.length);
-        ctx.beginPath();
-        ctx.moveTo(ribbon[i - 1][0], ribbon[i - 1][1] + (i - 1) * s * 0.06);
-        ctx.lineTo(ribbon[i][0], ribbon[i][1] + i * s * 0.06);
-        ctx.stroke();
-      }
-      ctx.restore();
-      break;
-    }
-    case 'pixels':
-      fx.spark(x + (Math.random() - 0.5) * s * 0.3, y + 0.15 * s, (Math.random() - 0.5) * 60, vy * 0.7, col, s * 0.11, 0.4);
-      break;
-    case 'rainbow':
-      fx.spark(x + (Math.random() - 0.5) * s * 0.2, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, `hsl(${(G.realTime * 900) % 360},100%,60%)`, s * 0.07, 0.35);
-      break;
-    case 'comet':
-      for (let i = 0; i < 2; i++) fx.spark(x + (Math.random() - 0.5) * s * 0.1, y + 0.15 * s, (Math.random() - 0.5) * 20, vy * 1.3, i ? '#ffffff' : col, s * 0.09, 0.5);
-      break;
-    default: // chispas
-      fx.spark(x + (Math.random() - 0.5) * s * 0.15, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, col, s * 0.05, 0.25);
-  }
+  return equipped(save, save.ship).palette.edge || curShip().color;
 }
 
 // Rayo del LÁSER: de la nave al primer obstáculo de su carril
@@ -1092,10 +1057,11 @@ function drawPlayer() {
   ctx.fill();
 
   // nave 3D vista desde detrás y arriba; se inclina al cambiar de carril y se aplasta al deslizarse
-  const pal = equipped(save).palette;
-  const drawShape = (ox, oy, alpha, c) => {
+  const eq = equipped(save, save.ship);
+  const pal = eq.palette;
+  const drawShape = (ox, oy, alpha, c, emblem = null) => {
     drawShip(ctx, curShip().id, { hull: pal.hull, edge: c, glow: pal.glow }, sp.x + ox, sp.y + oy - 0.08 * s, s * 0.44,
-      { pitch: -0.62, roll: -tilt * 0.55, yaw: tilt * 0.12 }, { alpha, squash: sq, line: Math.max(1.5, s * 0.022) });
+      { pitch: -0.62, roll: -tilt * 0.55, yaw: tilt * 0.12 }, { alpha, squash: sq, line: Math.max(1.5, s * 0.022), emblem });
   };
 
   if (p && p.dash > 0) {
@@ -1118,7 +1084,7 @@ function drawPlayer() {
   const ab = r && r.ability;
   const phase = isActive(ab, 'phase');
   // FASE: nave casi transparente; ARIETE: nave al rojo con escudo frontal; SOBRECARGA: estela cian
-  if (!blink) drawShape(0, 0, phase ? 0.35 : 1, isActive(ab, 'ram') ? '#ff9f0a' : col);
+  if (!blink) drawShape(0, 0, phase ? 0.35 : 1, isActive(ab, 'ram') ? '#ff9f0a' : col, eq.emblem.id);
   if (ab && ab.active > 0) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
@@ -1149,7 +1115,7 @@ function drawPlayer() {
     ctx.ellipse(sp.x, sp.y - 0.15 * s, s * 0.55, s * 0.4, 0, 0, Math.PI * 2);
     ctx.stroke();
   }
-  if (r && (G.mode === 'play' || G.mode === 'won')) trailFx(equipped(save).trail.id, sp.x, sp.y, s, r.odTime > 0 ? col : pal.glow, r.speed);
+  if (r && (G.mode === 'play' || G.mode === 'won')) trailFx(fx, ctx, eq.trail.id, sp.x, sp.y, s, r.odTime > 0 ? col : pal.glow, r.speed, G.realTime);
 }
 
 // ---------- Frame ----------

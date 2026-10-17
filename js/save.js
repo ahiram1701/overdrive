@@ -1,7 +1,7 @@
 // Guardado persistente. localStorage puede fallar (modo privado), así que todo va en try/catch.
 // La clave de almacenamiento NO cambia entre versiones: el formato se versiona con el campo `v`.
 const KEY = 'overdrive-save-v1';
-export const SAVE_VERSION = 2;
+export const SAVE_VERSION = 3;
 
 const reducedMotion = (() => {
   try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -25,13 +25,14 @@ const DEFAULTS = {
   abilityUses: {},  // { overclock: 12 }
   ach: {},          // logros
   codex: {},        // colección
-  cosmetics: {},    // { owned: [...], equip: {...} }
+  cosmetics: {},    // v3, por nave: { owned: { viper: ['ice'] }, equip: { viper: { palette, ... } } }
+  shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
 };
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
@@ -49,12 +50,25 @@ function merge(base, src, top = true) {
   return base;
 }
 
+// v2 -> v3: la personalización era común a todas las naves; ahora es de cada una. Lo comprado
+// se pagó con las reglas antiguas, así que queda comprado en TODAS las naves que ya tenías.
+export function migrateCosmetics(c, ships) {
+  if (!c || !Array.isArray(c.owned)) return c || {};
+  const owned = {}, equip = {};
+  for (const s of ships) {
+    owned[s] = [...c.owned];
+    if (c.equip) equip[s] = { ...c.equip };
+  }
+  return { owned, equip };
+}
+
 // Lleva un guardado antiguo al formato actual. Pura: se testea en Node.
 export function migrate(data) {
   const v = data.v || 1;
   if (v < 2) {
     // v1 no tenía campos de progreso: los valores por defecto bastan
   }
+  if (v < 3) data.cosmetics = migrateCosmetics(data.cosmetics, data.ships || ['viper']);
   data.v = SAVE_VERSION;
   return data;
 }

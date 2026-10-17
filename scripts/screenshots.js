@@ -83,7 +83,14 @@ try {
   // Hangar con algo de progreso para que se vea el árbol
   await page.evaluate(async () => {
     const { save } = await import('/js/save.js');
-    Object.assign(save, { gems: 340, ships: ['viper', 'brick', 'raptor'], shipLvl: { viper: { a: 2, b: 1, c: 1 } } });
+    // cada nave con su propia personalización (Viper con su pintura exclusiva y un emblema)
+    const eq = (palette, emblem) => ({ palette, trail: 'sparks', boom: 'classic', emblem });
+    Object.assign(save, {
+      gems: 340, ships: ['viper', 'brick', 'raptor'], shipLvl: { viper: { a: 2, b: 1, c: 1 } },
+      shipStats: { viper: { sections: 34, runs: 12 } },
+      cosmetics: { owned: { viper: ['skull'], brick: ['sunset', 'bolt'], raptor: ['chrome'] },
+        equip: { viper: eq('x-viper1', 'skull'), brick: eq('sunset', 'bolt'), raptor: eq('chrome', 'none') } },
+    });
     document.getElementById('btnHangar').click();
   });
   await page.waitForTimeout(300);

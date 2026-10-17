@@ -68,3 +68,70 @@ for (const ship of ['viper', 'raptor', 'comet']) {
     expect(errors).toEqual([]);
   });
 }
+
+test('personalización por nave: probar no gasta, comprar vale solo para esa nave y persiste', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, gems: 300, ship: 'viper', ships: ['viper', 'kaiju'] }));
+    }
+  }, SAVE);
+  await page.goto('/?nosw');
+  await page.locator('#btnHangar').click();
+  await expect(page.locator('#cosTitle')).toHaveText('Personalizar · Viper');
+
+  // PROBAR: tocar algo bloqueado lo pone en la vista 3D sin gastar nada
+  await page.locator('[data-cos="palette:ice"]').click();
+  await expect(page.locator('#cosPreview')).toBeVisible();
+  await expect(page.locator('#cosPreview')).toContainText('PROBANDO: Hielo');
+  await expect(page.locator('[data-cos="palette:ice"]')).toHaveClass(/trying/);
+  await expect(page.locator('#hGems')).toHaveText('300');
+  await page.locator('#btnCosCancel').click();
+  await expect(page.locator('#cosPreview')).toBeHidden();
+
+  // COMPRAR en Viper
+  await page.locator('[data-cos="palette:ice"]').click();
+  await page.locator('#btnCosBuy').click();
+  await expect(page.locator('#hGems')).toHaveText('160');
+  await expect(page.locator('[data-cos="palette:ice"]')).toHaveClass(/\bon\b/);
+
+  // en Kaiju sigue bloqueado y no aparecen los exclusivos de Viper
+  await page.locator('#shipCarousel .ship-chip', { hasText: 'Kaiju' }).click();
+  await expect(page.locator('#cosTitle')).toHaveText('Personalizar · Kaiju');
+  await expect(page.locator('[data-cos="palette:ice"]')).toHaveClass(/locked/);
+  await expect(page.locator('[data-cos="palette:x-viper1"]')).toHaveCount(0);
+  await expect(page.locator('[data-cos="palette:x-kaiju1"]')).toContainText('0/30 tramos');
+
+  await page.reload();
+  const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
+  expect(saved.cosmetics.owned).toEqual({ viper: ['ice'] });
+  expect(saved.cosmetics.equip.viper.palette).toBe('ice');
+  expect(saved.cosmetics.equip.kaiju).toBeUndefined();
+  expect(errors).toEqual([]);
+});
+
+test('la nave sale con SU pintura y SU emblema, y usarla desbloquea sus exclusivos', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({
+    v: 3, runs: 3, ship: 'kaiju', ships: ['viper', 'kaiju'],
+    cosmetics: { owned: { kaiju: ['skull'] }, equip: { kaiju: { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'skull' } } },
+    shipStats: { kaiju: { sections: 29 } },
+  })), SAVE);
+  await page.goto('/?debug&nosw&seed=17');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
+  await page.waitForFunction(() => window.G.mode === 'play');
+  // se dibuja con el emblema (el render recorre el código del emblema) y sin errores
+  const look = await page.evaluate(async () => {
+    const { equipped } = await import('/js/cosmetics.js');
+    const { save } = await import('/js/save.js');
+    for (let i = 0; i < 30; i++) window.D.step(1 / 60, true);
+    return equipped(save, save.ship).emblem.id;
+  });
+  expect(look).toBe('skull');
+  // empezar un tramo cuenta como uso de la nave: el tramo 1 lleva a 30 y desbloquea "Magma"
+  const stats = await page.evaluate(async (k) => JSON.parse(localStorage.getItem(k)).shipStats.kaiju, SAVE);
+  expect(stats.sections).toBe(30);
+  expect(errors).toEqual([]);
+});

@@ -31,7 +31,8 @@ function hull({ L = 1, W = 0.9, wz = 0.25, H = 0.2, R = 0.25, T = 0.35, F = 0, t
     v.push([-W * 0.75, H * 0.1, L * 0.45], [W * 0.75, H * 0.1, L * 0.45]);
     f.push([n, 3, 0, 'edge'], [0, 4, n + 1, 'edge']);
   }
-  return { v, f };
+  // emblema: se pinta sobre el lado de arriba de cada ala (punta, ala, lomo)
+  return { v, f, decals: [[0, 3, 1], [0, 1, 4]] };
 }
 
 export const MESHES = {
@@ -74,7 +75,7 @@ export function projectMesh(mesh, rot, cx, cy, size, focal = 4) {
     const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
     const nl = Math.hypot(nx, ny, nz) || 1;
     const shade = 0.35 + 0.65 * Math.abs((nx * LIGHT[0] + ny * LIGHT[1] + nz * LIGHT[2]) / nl);
-    return { pts: [scr[a], scr[b], scr[c]], depth: (A[2] + B[2] + C[2]) / 3, shade, role };
+    return { pts: [scr[a], scr[b], scr[c]], depth: (A[2] + B[2] + C[2]) / 3, shade, role, vi: [a, b, c] };
   });
   faces.sort((p, q) => q.depth - p.depth);
   return faces;

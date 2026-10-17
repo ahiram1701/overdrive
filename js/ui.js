@@ -7,8 +7,9 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped } from './cosmetics.js';
-import { drawShip } from './shipdraw.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor } from './cosmetics.js';
+import { drawShip, emblemPath } from './shipdraw.js';
+import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
@@ -113,7 +114,7 @@ export const ui = {
     tap($('btnRetry'), () => newRun(G.run?.opts));
     tap($('btnMap'), () => ui.showCampaign());
     tap($('btnHangar'), () => ui.showHangar());
-    tap($('btnHangarBack'), () => ui.showMenu());
+    tap($('btnHangarBack'), () => { ui.preview = null; ui.showMenu(); });
     tap($('btnAch'), () => ui.showAchievements());
     tap($('btnCodex'), () => ui.showCodex());
     tap($('btnAchBack'), () => ui.showMenu());
@@ -196,9 +197,13 @@ export const ui = {
       const stars = lv.a + lv.b + lv.c;
       const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}`);
       b.style.setProperty('--sc', s.color);
-      b.innerHTML = `<span class="sc-icon">▲</span><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/9` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
-      tap(b, () => ui.showHangar(s.id));
+      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/9` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
+      tap(b, () => { ui.preview = null; ui.showHangar(s.id); });
       car.appendChild(b);
+      // cada nave con SU pintura y SU emblema
+      const lk = equipped(save, s.id);
+      drawShip(b.querySelector('canvas').getContext('2d'), s.id, { hull: lk.palette.hull, edge: lk.palette.edge || s.color, glow: lk.palette.glow },
+        48, 34, 34, { yaw: 0.5, pitch: -0.5 }, { line: 1.2, emblem: lk.emblem.id });
     }
     car.querySelector('.viewing')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 
@@ -269,33 +274,71 @@ export const ui = {
     // vista 3D: la nave girando (arrastra para girarla)
     ui.startHangarView(view);
 
-    // personalizar: pintura, estela y explosión (comunes a todas las naves)
-    const eq = equipped(save);
-    const groups = [['palette', '🎨 Pintura'], ['trail', '✨ Estela'], ['boom', '💥 Explosión']];
+    // personalizar: lo de ESTA nave. Tocar algo lo prueba en la vista 3D; comprar es aparte.
+    $('cosTitle').textContent = `Personalizar · ${view.name}`;
+    const eq = equipped(save, view.id);
+    const pv = ui.preview?.ship === view.id ? ui.preview : null;
+    const groups = [['palette', '🎨 Pintura'], ['trail', '✨ Estela'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
     for (const [g, label] of groups) {
       const row = el('div', 'cos-row', `<small>${label}</small>`);
       const chips = el('div', 'cos-chips');
-      for (const it of GROUPS[g]) {
-        const open = isUnlocked(it, save);
+      for (const it of itemsFor(g, view.id)) {
+        const open = isUnlocked(it, save, view.id);
         const on = eq[g].id === it.id;
-        const swatch = g === 'palette' ? `<i style="background:${it.edge || view.color};box-shadow:inset 0 0 0 3px ${it.hull}"></i>` : '';
-        const c = el('button', `cos${on ? ' on' : ''}${open ? '' : ' locked'}`, `${swatch}<b>${it.name}</b><small>${on ? 'EQUIPADO' : open ? 'usar' : lockText(it)}</small>`);
+        const trying = pv && pv.group === g && pv.id === it.id;
+        let icon = '';
+        if (g === 'palette') icon = `<i style="background:${it.edge || view.color};box-shadow:inset 0 0 0 3px ${it.hull}"></i>`;
+        if (g === 'emblem') {
+          const d = emblemPath(it.id);
+          icon = d ? `<svg viewBox="-1.1 -1.1 2.2 2.2"><path d="${d}" fill-rule="evenodd"/></svg>` : '<svg viewBox="-1 -1 2 2"><path d="M-0.6 0H0.6" stroke-width="0.2"/></svg>';
+        }
+        const tag = on ? 'EQUIPADO' : open ? (owned ? 'usar' : 'probar') : lockText(it, save, view.id);
+        const c = el('button', `cos${on ? ' on' : ''}${open ? '' : ' locked'}${trying ? ' trying' : ''}${it.ship ? ' excl' : ''}`,
+          `${it.ship ? '<em>EXCLUSIVO</em>' : ''}${icon}<b>${it.name}</b><small>${tag}</small>`);
+        c.dataset.cos = `${g}:${it.id}`;
+        if (it.ship) c.style.setProperty('--sc', view.color);
         tap(c, () => {
-          if (!open) {
-            if (!buyCosmetic(it, save)) { c.classList.add('shake'); fx.vibe(50); setTimeout(() => c.classList.remove('shake'), 300); return; }
-            sfx.chest();
+          // lo que ya puedes usar en tu nave se equipa al momento; lo demás se PRUEBA
+          if (open && owned) {
+            equip(g, it.id, save, view.id);
+            persist();
+            ui.preview = g === 'boom' ? { ship: view.id, group: g, id: it.id, equipped: true } : null;
+            fx.vibe(20);
+          } else {
+            ui.preview = { ship: view.id, group: g, id: it.id };
           }
-          equip(g, it.id, save);
-          persist();
-          fx.vibe(20);
+          if (g === 'boom') ui.boomAt = 0; // la explosión se ve al momento
           ui.showHangar();
         });
         chips.appendChild(c);
       }
       row.appendChild(chips);
       cosm.appendChild(row);
+    }
+    // barra de prueba: comprar o cancelar
+    const bar = $('cosPreview');
+    const pit = pv && !pv.equipped && GROUPS[pv.group].find((x) => x.id === pv.id);
+    bar.classList.toggle('hidden', !pit);
+    bar.innerHTML = '';
+    if (pit) {
+      const u = pit.unlock || {};
+      let act;
+      if (!owned) act = '<small>Compra la nave para personalizarla</small>';
+      else if (u.gems) act = `<button class="btn" id="btnCosBuy" ${save.gems < u.gems ? 'disabled' : ''}>COMPRAR · 💎 ${u.gems}</button>`;
+      else act = `<small>🔒 ${u.stat ? `Exclusivo: ${lockText(pit, save, view.id)} con ${view.name}` : `Se desbloquea con ${lockText(pit)}`}</small>`;
+      bar.innerHTML = `<div class="pv-name">PROBANDO: <b>${pit.name}</b></div>${act}<button class="btn ghost" id="btnCosCancel">CANCELAR</button>`;
+      tap($('btnCosCancel'), () => { ui.preview = null; ui.showHangar(); });
+      $('btnCosBuy') && tap($('btnCosBuy'), () => {
+        if (!buyCosmetic(pit, save, view.id)) return;
+        equip(pv.group, pit.id, save, view.id);
+        persist();
+        sfx.chest();
+        fx.vibe([30, 40, 80]);
+        ui.preview = null;
+        ui.showHangar();
+      });
     }
 
     // mejoras globales (todas las naves)
@@ -514,6 +557,14 @@ export const ui = {
     ui._tut = setTimeout(() => t.classList.add('hidden'), 6500);
   },
 
+  // Aspecto de una nave en el hangar: lo equipado, con lo que se esté probando encima
+  lookOf(shipId) {
+    const lk = equipped(save, shipId);
+    const pv = ui.preview;
+    if (pv && pv.ship === shipId) lk[pv.group] = GROUPS[pv.group].find((x) => x.id === pv.id) || lk[pv.group];
+    return lk;
+  },
+
   // Bucle propio del canvas 3D del hangar (el mundo no se dibuja mientras el hangar está abierto)
   startHangarView(ship) {
     const cv = $('hangarView');
@@ -549,9 +600,25 @@ export const ui = {
       g.addColorStop(1, 'transparent');
       c.fillStyle = g;
       c.fillRect(0, 0, w, h);
-      const pal = equipped(save).palette;
-      drawShip(c, s.ship.id, { hull: pal.hull, edge: pal.edge || s.ship.color, glow: pal.glow }, w / 2, h * 0.52, h * 0.42,
-        { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr });
+      const lk = ui.lookOf(s.ship.id);
+      const pal = lk.palette, edge = pal.edge || s.ship.color;
+      const parts = (ui._hvParts ||= makeParticles());
+      const sx = w / 2, sy = h * 0.52, size = h * 0.42;
+      // EXPLOSIÓN: al probarla, la nave estalla y se vuelve a montar (cada 2,4 s mientras la pruebes)
+      const pv = ui.preview;
+      const boomOn = pv && pv.ship === s.ship.id && pv.group === 'boom';
+      if (boomOn && (!ui.boomAt || now - ui.boomAt > 2400)) {
+        ui.boomAt = now;
+        boomFx(parts, lk.boom.id, sx, sy, edge, s.ship.color, 0.32 * dpr);
+      }
+      parts.update(dt);
+      if (!(boomOn && now - ui.boomAt < 1000)) {
+        drawShip(c, s.ship.id, { hull: pal.hull, edge, glow: pal.glow }, sx, sy, size,
+          { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, emblem: lk.emblem.id });
+        // ESTELA: la de la nave (o la que estés probando), saliendo hacia abajo
+        trailFx(parts, c, lk.trail.id, sx, sy + size * 0.1, size * 1.2, pal.glow, 30, now / 1000);
+      }
+      parts.draw(c, w, h);
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
