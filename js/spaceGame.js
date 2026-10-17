@@ -6,7 +6,7 @@ import { makeRng } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project } from './space3d.js';
+import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
 import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS } from './galaxyMissions.js';
@@ -31,6 +31,19 @@ const stats = () => {
   return st;
 };
 
+// La orientación manda (cuaternión); yaw/pitch se derivan para lo que solo necesita una dirección
+function syncAngles(sh) {
+  const b = basisQ(sh.q);
+  sh.f = b.f; sh.r = b.r; sh.u = b.u;
+  const a = anglesOf(b.f);
+  sh.yaw = sh._sy = a.yaw;
+  sh.pitch = sh._sp = a.pitch;
+}
+function face(sh, yaw, pitch = 0) {
+  sh.q = quatFromYawPitch(yaw, pitch);
+  syncAngles(sh);
+}
+
 // ---------- Inicio y sistemas ----------
 export function newSpace() {
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
@@ -39,7 +52,7 @@ export function newSpace() {
   const st = stats();
   const s = {
     rng: makeRng(forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0),
-    ship: { pos: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, roll: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
+    ship: { pos: { x: 0, y: 0, z: 0 }, q: quatFromYawPitch(0, 0), yaw: 0, pitch: 0, roll: 0, throttle: 1, rollIn: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
     input: { x: 0, y: 0 }, firing: false, bolts: [], ebolts: [], ores: [], loot: [], pirates: [], cam: null, t: 0, canDock: false, fullWarned: false,
     objective: null, target: null, heat: 0, overheat: false, jumpT: 0, pirateT: 30, routeTo: null,
   };
@@ -56,7 +69,7 @@ export function newSpace() {
   if (!g.started) {
     g.started = true;
     persist();
-    fx.banner('🌌 BIENVENIDO A ORIGEN', 'arrastra para virar · tu nave avanza sola', '#7df9ff', true);
+    fx.banner('🌌 BIENVENIDO A ORIGEN', 'arrastra para girar · la palanca MOTOR acelera, frena o da marcha atrás', '#7df9ff', true);
   }
   progress('galaxy');
 }
@@ -91,8 +104,7 @@ function enterSystem(s, id, fromId) {
     const back = s.sys.gates.find((gt) => gt.to === fromId);
     const inward = norm(scale(back.pos, -1));
     s.ship.pos = add(back.pos, scale(inward, 90));
-    s.ship.yaw = lookAngles(s.ship.pos, add(s.ship.pos, inward)).yaw;
-    s.ship.pitch = 0;
+    face(s.ship, lookAngles(s.ship.pos, add(s.ship.pos, inward)).yaw);
     s.cam = null;
   } else undockPose(s);
   persist();
@@ -103,8 +115,7 @@ function undockPose(s) {
   const st = s.sys.station.pos;
   const out = norm({ x: st.x, y: 0, z: st.z });
   s.ship.pos = add(st, scale(out, DOCK_R * 0.9));
-  s.ship.yaw = lookAngles(s.ship.pos, add(s.ship.pos, out)).yaw;
-  s.ship.pitch = 0;
+  face(s.ship, lookAngles(s.ship.pos, add(s.ship.pos, out)).yaw);
   s.cam = null;
 }
 
@@ -471,11 +482,13 @@ export function updateSpace(dt) {
   const s = S();
   if (!s || G.mode !== 'galaxy') return;
   const sh = s.ship, st = stats(), g = gal();
+  // si alguien fija yaw/pitch a mano (estación, puertas, tests), la orientación se rehace con ellos
+  if (!sh.f || sh.yaw !== sh._sy || sh.pitch !== sh._sp) face(sh, sh.yaw, sh.pitch);
   s.t += dt;
   // SALTO en curso: túnel de hiperespacio y aparición en el sistema nuevo
   if (s.jumpT > 0) {
     s.jumpT -= dt;
-    sh.pos = add(sh.pos, scale(basis(sh.yaw, sh.pitch).f, 600 * dt));
+    sh.pos = add(sh.pos, scale(sh.f, 600 * dt));
     if (s.jumpT <= 0) {
       const from = s.sysId;
       enterSystem(s, s.jumpTo, from);
@@ -484,18 +497,34 @@ export function updateSpace(dt) {
     s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
     return;
   }
-  // virar: el dedo (o las teclas) mueve el morro; la velocidad es automática
-  const ix = Math.max(-1, Math.min(1, s.input.x)), iy = Math.max(-1, Math.min(1, s.input.y));
-  sh.yaw += ix * st.turn * dt;
-  sh.pitch = Math.max(-1.2, Math.min(1.2, sh.pitch - iy * st.turn * 0.8 * dt));
-  sh.roll += (-ix * 0.7 - sh.roll) * Math.min(1, dt * 6);
+  // VUELO LIBRE: el dedo (o WASD) gira la nave EN SUS EJES: arriba/abajo = cabeceo sin tope (rizos),
+  // a los lados = guiñada; ↺ ↻ (o Q/E) = alabeo. Sensibilidad y eje invertido salen de Ajustes.
+  const set = save.settings || {};
+  const sens = set.sens ?? 1;
+  const ix = Math.max(-1, Math.min(1, s.input.x)), iy = Math.max(-1, Math.min(1, s.input.y)) * (set.invertY ? -1 : 1);
+  const rollIn = Math.max(-1, Math.min(1, sh.rollIn || 0));
+  sh.q = rotateLocal(sh.q, -iy * st.turn * 0.8 * sens * dt, ix * st.turn * sens * dt, rollIn * 2.4 * dt);
+  // nivelación automática (opcional): si no alabeas ni tiras fuerte, el ala vuelve a la horizontal
+  if (set.autoLevel !== false && !rollIn) {
+    const b0 = basisQ(sh.q);
+    if (Math.abs(b0.f.y) < 0.92) {
+      const err = Math.atan2(b0.r.y, b0.u.y); // 0 = nivelada; ±π = boca abajo
+      const k = 1.6 * (1 - Math.min(1, Math.abs(iy) * 1.4));
+      sh.q = rotateLocal(sh.q, 0, 0, err * Math.min(1, k * dt));
+    }
+  }
+  syncAngles(sh);
+  // alabeo visual al virar (la cámara ya sigue el alabeo real)
+  sh.roll += (-ix * 0.6 - rollIn * 0.3 - sh.roll) * Math.min(1, dt * 6);
   sh.boostT = Math.max(0, sh.boostT - dt);
   sh.boostCd = Math.max(0, sh.boostCd - dt);
-  // al virar fuerte la nave afloja sola (como en un arcade): si no, describe círculos alrededor del objetivo
+  // ACELERADOR: de marcha atrás (−40%) a tope; el impulso va aparte. Al virar fuerte se afloja un poco.
+  sh.throttle = Math.max(-0.4, Math.min(1, sh.throttle ?? 1));
   const turning = Math.min(1, Math.hypot(ix, iy));
-  const speed = st.speed * (sh.boostT > 0 ? st.boost : 1) * (1 - 0.55 * turning);
+  const thr = sh.boostT > 0 ? st.boost : sh.throttle;
+  const speed = st.speed * thr * (1 - 0.55 * turning);
   sh.speed = speed;
-  const b = basis(sh.yaw, sh.pitch);
+  const b = { f: sh.f, r: sh.r, u: sh.u };
   sh.pos = add(sh.pos, scale(b.f, speed * dt));
   // escudo: se regenera tras 2 s sin daño
   sh.hitT += dt;
@@ -644,7 +673,8 @@ export function updateSpace(dt) {
         sfx.bump();
       }
       // rebota hacia dentro
-      sh.yaw += Math.PI;
+      sh.q = rotateLocal(sh.q, 0, Math.PI, 0);
+      syncAngles(sh);
       sh.pos = add(gt.pos, scale(norm(scale(gt.pos, -1)), gt.r + 30));
       continue;
     }

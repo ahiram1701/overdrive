@@ -188,7 +188,15 @@
     <button id="btnDock" class="hidden">🛰️ ATRACAR</button>
     <button id="btnBoost" aria-label="Impulso">⏩</button>
     <button id="btnFire" aria-label="Disparar">🔫</button>
-    <div id="shHint" class="sh-hint">Arrastra para virar · mantén 🔫 para disparar</div>
+    <button id="btnRollL" class="roll-btn l" aria-label="Alabear a la izquierda">↺</button>
+    <button id="btnRollR" class="roll-btn r" aria-label="Alabear a la derecha">↻</button>
+    <div class="throttle" id="throttleBox">
+      <small>MOTOR</small>
+      <input type="range" id="throttle" min="-40" max="100" step="5" value="100" aria-label="Acelerador">
+      <b id="thrVal">100%</b>
+    </div>
+    <div id="stickVis" class="stick-vis hidden"><i></i></div>
+    <div id="shHint" class="sh-hint">Arrastra para girar (¡rizos!) · ↺ ↻ alabeo · palanca = acelerar, frenar o marcha atrás</div>
   </div>
 
   <section id="station" class="overlay hidden">

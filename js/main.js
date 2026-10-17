@@ -26,6 +26,11 @@ function simStep(dt) {
       if (kx || ky) s.input = { x: kx, y: ky };
       else if (!s.stick) s.input = s.botInput || { x: 0, y: 0 };
       s.firing = held.has(' ') || !!s.fireHeld || !!s.botFire;
+      // Q/E = alabeo; R/F = acelerador (los botones ↺ ↻ y la palanca hacen lo mismo en el móvil)
+      const kr = (held.has('e') || held.has('E') ? 1 : 0) - (held.has('q') || held.has('Q') ? 1 : 0);
+      s.ship.rollIn = kr || s.rollBtn || 0;
+      const kt = (held.has('r') || held.has('R') ? 1 : 0) - (held.has('f') || held.has('F') ? 1 : 0);
+      if (kt) s.ship.throttle = Math.max(-0.4, Math.min(1, (s.ship.throttle ?? 1) + kt * dt * 0.9));
     }
     updateSpace(dt);
   } else if (inArena()) {
@@ -51,9 +56,13 @@ initInput({
     enabled: () => G.mode === 'arena' || G.mode === 'galaxy',
     // en la arena y en la galaxia el dedo es un joystick: allí mueve, aquí vira
     target: () => (G.mode === 'galaxy' ? G.space : G.arena),
-    start() { const t = this.target(); if (t) t.stick = true; },
-    move(dx, dy) { const t = this.target(); if (t) t.input = { x: Math.max(-1, Math.min(1, dx / 60)), y: Math.max(-1, Math.min(1, dy / 60)) }; },
-    end() { const t = this.target(); if (t) { t.stick = false; t.input = { x: 0, y: 0 }; } },
+    start(x, y) { const t = this.target(); if (t) t.stick = true; if (G.mode === 'galaxy') ui.stickVis(x, y, 0, 0); },
+    move(dx, dy) {
+      const t = this.target();
+      if (t) t.input = { x: Math.max(-1, Math.min(1, dx / 60)), y: Math.max(-1, Math.min(1, dy / 60)) };
+      if (G.mode === 'galaxy') ui.stickVis(null, null, dx, dy);
+    },
+    end() { const t = this.target(); if (t) { t.stick = false; t.input = { x: 0, y: 0 }; } ui.stickVis(); },
   },
   swipe(dir) {
     if (G.mode === 'arena' || G.mode === 'galaxy') return;

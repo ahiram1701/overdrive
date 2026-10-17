@@ -178,6 +178,18 @@ export const ui = {
     fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) fire.addEventListener(ev, () => { if (G.space) G.space.fireHeld = false; });
     $('btnBoost').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceBoost(); });
+    // alabeo: mantener ↺ / ↻
+    for (const [id, dir] of [['btnRollL', -1], ['btnRollR', 1]]) {
+      const b = $(id);
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (G.space) G.space.rollBtn = dir; });
+      for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { if (G.space) G.space.rollBtn = 0; });
+    }
+    // acelerador: de −40% (marcha atrás) a 100%; con un "clic" en el 0 para poder pararse
+    $('throttle').addEventListener('input', (e) => {
+      let v = Number(e.target.value);
+      if (Math.abs(v) <= 5) v = 0;
+      if (G.space) G.space.ship.throttle = v / 100;
+    });
     tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpMenu'), () => ui.showMenu());
@@ -941,6 +953,15 @@ export const ui = {
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
   },
 
+  // joystick visible donde apoyas el dedo (Galaxia)
+  stickVis(x, y, dx = 0, dy = 0) {
+    const v = $('stickVis');
+    if (x === undefined) { v.classList.add('hidden'); return; }
+    if (x !== null) { v.style.left = `${x}px`; v.style.top = `${y}px`; v.classList.remove('hidden'); }
+    const d = Math.hypot(dx, dy), k = d > 60 ? 60 / d : 1;
+    v.firstElementChild.style.transform = `translate(${dx * k}px, ${dy * k}px)`;
+  },
+
   updateSpaceHUD() {
     const s = G.space;
     if (!s || $('spaceHud').classList.contains('hidden')) return;
@@ -951,6 +972,10 @@ export const ui = {
     $('spaceHud').querySelector('.sh-bar.cargo i').style.transform = `scaleX(${Math.min(1, n / st.cargo).toFixed(3)})`;
     setText('shCargo', `${n}/${st.cargo}`);
     setText('shCredits', fmt(g.credits));
+    const thr = Math.round((s.ship.throttle ?? 1) * 100);
+    if (document.activeElement !== $('throttle')) $('throttle').value = thr;
+    setText('thrVal', thr === 0 ? 'PARADO' : thr < 0 ? `◀ ${-thr}%` : `${thr}%`);
+    $('throttleBox').classList.toggle('rev', thr < 0);
     setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
     const sd = GAL[s.sysId];
     setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}`);
