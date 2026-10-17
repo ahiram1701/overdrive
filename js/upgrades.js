@@ -44,7 +44,7 @@ export const CARDS = [
   { id: 'reflejos', name: 'Reflejos', icon: '👁️', rarity: 'common', max: 3, desc: 'Ventana de near-miss más grande y cámara lenta más larga.', apply: (r) => { r.stats.nearWin += 0.35; } },
   { id: 'adrenalina', name: 'Adrenalina', icon: '💉', rarity: 'rare', max: 1, desc: 'Cada near-miss recarga un cuarto de carga de DASH.', apply: (r) => { r.stats.nearDash = true; } },
   { id: 'terremoto', name: 'Terremoto', icon: '🌋', rarity: 'rare', max: 1, desc: 'Al aterrizar de un salto destruyes lo que tengas delante en tu carril.', apply: (r) => { r.stats.quake = true; } },
-  { id: 'doble', name: 'Salto doble', icon: '🦘', rarity: 'rare', max: 1, desc: 'Puedes saltar otra vez en el aire.', apply: (r) => { r.stats.doubleJump = true; } },
+  { id: 'doble', name: 'Salto doble', icon: '🦘', rarity: 'rare', max: 1, desc: 'Salta otra vez en el aire. Bien medido, ¡pasas por encima de los muros!', apply: (r) => { r.stats.doubleJump = true; } },
   { id: 'ancho', name: 'Dash ancho', icon: '💥', rarity: 'rare', max: 1, desc: 'Tu DASH destruye obstáculos en los 3 carriles.', apply: (r) => { r.stats.wideDash = true; } },
   { id: 'explosivo', name: 'Explosivo', icon: '🧨', rarity: 'epic', max: 1, desc: 'Lo que rompes explota y arrasa todo lo cercano en cadena.', apply: (r) => { r.stats.explosive = true; } },
   { id: 'odplus', name: 'Overdrive+', icon: '🔥', rarity: 'common', max: 3, desc: 'El OVERDRIVE dura +2 s.', descN: (n) => `El OVERDRIVE dura +${String(stackValue(STACKS.odplus, n)).replace('.', ',')} s.`, apply: (r) => { r.stats.odDur += stackValue(STACKS.odplus, r.cards.odplus); } },

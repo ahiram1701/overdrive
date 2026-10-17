@@ -62,10 +62,16 @@ function doJump() {
     p.slide = 0;
     sfx.jump();
   } else if (s.doubleJump && p.jumps < 2) {
-    p.vy = s.jumpV * 0.92;
+    // SUMA impulso (antes lo reponía, y si saltabas pronto no se notaba). Con tope, para que la
+    // altura sea predecible: bien medido, pasa por encima de los muros
+    p.vy = Math.min(Math.max(p.vy, 0) + s.jumpV * 0.85, s.jumpV * 1.25);
     p.jumps = 2;
+    p.slide = 0;
     const sp = project(p.x * LANE_W, p.y, 0);
-    if (sp) fx.ring(sp.x, sp.y, '#fff', 80, 0.3, 6);
+    if (sp) {
+      fx.ring(sp.x, sp.y, '#7df9ff', 150, 0.4, 10);
+      fx.burst(sp.x, sp.y + sp.s * 0.2, 16, '#7df9ff', 260, 4, 0.4, 500);
+    }
     sfx.dbljump();
   } else return;
   p.lastAction = G.run.time;

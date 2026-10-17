@@ -112,7 +112,7 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".
 2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
 3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
-4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y haz **DASH contra sus núcleos verdes** antes de que escape.
+4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y **pasa por sus núcleos verdes** antes de que escape: tocarlos le hace daño, y con DASH el golpe es **crítico (doble)**. El núcleo blindado del Censor solo cede al DASH.
 5. Al morir ganas **gemas 💎** para el hangar: naves nuevas y mejoras permanentes.
 6. **Reto diario:** la misma pista para todo el mundo durante el día, elijas lo que elijas.
 
@@ -137,7 +137,7 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 ## ⚖️ Balance
 El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:
 - **Overdrive:** carga más despacio y, al acabar, se **recalienta 5 s** (barra gris: "RECALENTANDO"); no se puede encadenar uno tras otro.
-- **Topes:** cargas de overdrive x1,6, duración 8 s, 3 cargas de DASH y recarga mínima de 2,4 s.
+- **Topes:** cargas de overdrive x1,5, duración 7 s, 3 cargas de DASH y recarga mínima de 2,4 s.
 - **Cartas repetidas, menos efecto:** Cargador +35/+25/+15%, Overdrive+ +2/+1,5/+1 s, Recarga rápida −20/−15/−10%. La carta dice cuánto da la siguiente copia.
 - **Vampiro** pide cada vez más near-miss por escudo (12, 18, 24…), y Doble carga solo se puede coger una vez.
 - **Medido con el bot** en 120 s, con el árbol al máximo:

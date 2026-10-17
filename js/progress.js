@@ -109,6 +109,7 @@ export const ACHIEVEMENTS = [
   { id: 'elite1', kind: 'elite', mode: 'sum', n: 1, tier: 'silver', name: 'Cazaélites', desc: 'Derrota a un jefe ÉLITE' },
   { id: 'prest1', kind: 'prestige', mode: 'best', n: 1, tier: 'silver', name: 'Renacido', desc: 'Haz tu primer prestigio' },
   { id: 'prest5', kind: 'prestige', mode: 'best', n: 5, tier: 'gold', name: 'Leyenda', desc: 'Llega al prestigio 5' },
+  { id: 'jump10', kind: 'jumpOver', mode: 'sum', n: 10, tier: 'bronze', name: 'Canguro', desc: 'Salta 10 muros con el salto doble' },
 ];
 export const ACH_GEMS = T;
 
