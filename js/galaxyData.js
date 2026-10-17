@@ -7,6 +7,7 @@ export const UPGRADES = {
   laser: { name: 'Láser', icon: '🔫', desc: 'Más daño y cadencia: minas y luchas más rápido.', cost: [100, 220, 420, 720, 1150] },
   shield: { name: 'Escudo', icon: '🛡️', desc: 'Más escudo y se regenera antes.', cost: [110, 240, 450, 760, 1200] },
   cargo: { name: 'Bodega', icon: '📦', desc: 'Cabe más mineral en cada viaje.', cost: [90, 200, 380, 650, 1050] },
+  jump: { name: 'Salto', icon: '🌀', desc: 'Llegas a sistemas más lejanos (y peligrosos).', cost: [150, 350, 650, 1000, 1500] },
 };
 export const MAX_UP = 5;
 export const upgradeCost = (id, lvl) => (lvl >= MAX_UP ? null : UPGRADES[id].cost[lvl]);
@@ -44,6 +45,8 @@ export const repairCost = (hull, max) => Math.ceil((max - hull) * 1.2);
 export function makeSystem(seed = 1, def = {}) {
   const rng = makeRng(hashString(`sys-${seed}`));
   const sun = { pos: { x: 0, y: 0, z: 0 }, r: 260, color: def.sunColor || '#ffcc66' };
+  // PUERTAS DE SALTO: en el borde del sistema, en la dirección del vecino en el mapa galáctico
+  const gates = (def.gates || []).map((g) => ({ to: g.to, name: g.name, pos: { x: Math.cos(g.ang) * 2100, y: 0, z: Math.sin(g.ang) * 2100 }, r: 46, ang: g.ang }));
   const planets = [];
   const colors = [['#4fc3f7', '#0d47a1'], ['#ff8a65', '#6d1b00'], ['#aed581', '#1b5e20'], ['#ce93d8', '#4a148c']];
   for (let i = 0; i < (def.planets ?? 3); i++) {
@@ -61,7 +64,7 @@ export function makeSystem(seed = 1, def = {}) {
     const a = rng.range(0, Math.PI * 2), R = beltR + rng.range(-130, 130);
     asteroids.push(makeAsteroid(rng, { x: Math.cos(a) * R, y: rng.range(-60, 60), z: Math.sin(a) * R }, rng.range(9, 22), ore));
   }
-  return { seed, name: def.name || 'ORIGEN', sun, planets, station, asteroids, beltR };
+  return { seed, name: def.name || 'ORIGEN', sun, planets, station, asteroids, beltR, gates, ore, danger: def.danger || 0 };
 }
 
 // Asteroide con contorno irregular (se dibuja como polígono que gira)

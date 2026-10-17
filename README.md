@@ -94,7 +94,12 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - vendes el mineral;
   - mejoras **motor, láser, escudo y bodega** (5 niveles cada uno);
   - reparas el casco.
-- **Relajado:** si te destruyen, te remolcan a la estación. Pierdes la carga, nunca los créditos ni las mejoras.
+- **30 sistemas** unidos por **puertas de salto**: crúzalas y llegas al vecino, con un túnel de hiperespacio. El **peligro** crece con la distancia a ORIGEN, y el mineral también vale más (hierro, cristal, plasma, materia oscura). La mejora **Salto** te deja llegar más lejos.
+- **🗺️ Mapa galáctico:** ves lo visitado y sus vecinos (lo demás es niebla). Toca un sistema y **traza la ruta**: la brújula te guía de puerta en puerta.
+- **Piratas:** atacan en pasadas, esquivan y huyen con poca vida. Llevan corchetes rojos para verlos siempre, y sueltan 💰. En los sistemas más peligrosos hay **jefes piratas**. Tu láser se **sobrecalienta** si no paras.
+- **Comercio:** cada estación paga distinto. Compra barato el mineral local y véndelo donde lo paguen más.
+- **Zona segura:** junto a las estaciones los piratas no entran.
+- **Relajado:** si te destruyen, te remolcan a la última estación donde atracaste. Pierdes la carga, nunca los créditos ni las mejoras.
 - Arriba siempre está el **siguiente paso** ("Vuelve a la estación a vender") y una flecha que te lleva hasta él.
 - Un motor 3D propio sobre Canvas 2D, sin librerías: ~2 ms por fotograma en el móvil.
 

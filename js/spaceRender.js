@@ -8,7 +8,9 @@ import { equipped, emblemOpts } from './cosmetics.js';
 import { trailFx } from './cosfx.js';
 import { project, projectDir, norm, sub, scale, basis, dist } from './space3d.js';
 import { ORES } from './galaxyData.js';
-import { shipDef } from './spaceGame.js';
+import { shipDef, GAL } from './spaceGame.js';
+import { MESHES } from './mesh3d.js';
+import { canJump, jumpNeeded } from './galaxy.js';
 
 // estrellas "en el infinito" (solo giran con la cámara) y polvo cercano (da sensación de velocidad)
 const STARS = [];
@@ -47,6 +49,46 @@ function stationFaces(st) {
     faces.push({ pts: [P(a0, -R * 0.5), P(a1, -R * 0.5), P(a1, R * 0.5), P(a0, R * 0.5)], col: i % 2 ? '#00e5ff' : '#4b5363' });
   }
   return faces;
+}
+
+// Malla en el mundo: orientación yaw/pitch, sombreado plano con la luz del sol
+function rgb(hex) {
+  const n = parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+function drawMesh3D(ctx, cam, meshId, pos, yaw, pitch, size, pal, flash) {
+  const mesh = MESHES[meshId] || MESHES.viper;
+  const b = basis(yaw, pitch);
+  const world = mesh.v.map(([x, y, z]) => ({
+    x: pos.x + (b.r.x * x + b.u.x * y + b.f.x * z) * size,
+    y: pos.y + (b.r.y * x + b.u.y * y + b.f.y * z) * size,
+    z: pos.z + (b.r.z * x + b.u.z * y + b.f.z * z) * size,
+  }));
+  const scr = world.map((w) => project(cam, w, 0.5));
+  if (scr.some((q) => !q)) return;
+  const light = norm({ x: -pos.x, y: 300 - pos.y, z: -pos.z }); // hacia el sol (en el origen) y algo de arriba
+  const [er, eg, eb] = rgb(pal.edge), [hr, hg, hb] = rgb(pal.hull);
+  const faces = mesh.f.map(([i, j, k, role]) => {
+    const A = world[i], B = world[j], C = world[k];
+    const u = sub(B, A), v = sub(C, A);
+    const n = norm({ x: u.y * v.z - u.z * v.y, y: u.z * v.x - u.x * v.z, z: u.x * v.y - u.y * v.x });
+    const sh = 0.35 + 0.65 * Math.abs(n.x * light.x + n.y * light.y + n.z * light.z);
+    return { pts: [scr[i], scr[j], scr[k]], z: (scr[i].z + scr[j].z + scr[k].z) / 3, sh, role };
+  }).sort((p, q) => q.z - p.z);
+  ctx.lineJoin = 'round';
+  ctx.lineWidth = 1;
+  for (const f of faces) {
+    ctx.beginPath();
+    f.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+    ctx.closePath();
+    if (flash) ctx.fillStyle = '#ffffff';
+    else if (f.role === 'glow') ctx.fillStyle = pal.glow;
+    else if (f.role === 'edge') ctx.fillStyle = `rgb(${er * f.sh | 0},${eg * f.sh | 0},${eb * f.sh | 0})`;
+    else ctx.fillStyle = `rgb(${hr + (er - hr) * 0.2 * f.sh | 0},${hg + (eg - hg) * 0.2 * f.sh | 0},${hb + (eb - hb) * 0.2 * f.sh | 0})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(${er},${eg},${eb},.8)`;
+    ctx.stroke();
+  }
 }
 
 let fpsAcc = 0, fpsFrames = 0, fps = 0;
@@ -207,6 +249,93 @@ export function renderSpace(dt) {
     } });
   }
 
+  // PIRATAS: mallas 3D de verdad, con su barra de vida
+  for (const pr of s.pirates) {
+    const p = project(cam, pr.pos, 1);
+    if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
+    draws.push({ z: p.z, fn: () => {
+      const size = pr.boss ? 13 : 6;
+      drawMesh3D(ctx, cam, pr.mesh, pr.pos, pr.yaw, pr.pitch, size, pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : { hull: '#1a0505', edge: '#ff375f', glow: '#ff9f0a' }, pr.flash > 0);
+      // corchetes rojos de objetivo: siempre se ve dónde está cada pirata, aunque esté lejos
+      const R = Math.max(14, p.s * size * 1.3), c = R * 0.45;
+      ctx.strokeStyle = pr.boss ? '#ffe600' : '#ff2d55';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
+        ctx.moveTo(p.x + sx * R, p.y + sy * (R - c));
+        ctx.lineTo(p.x + sx * R, p.y + sy * R);
+        ctx.lineTo(p.x + sx * (R - c), p.y + sy * R);
+      }
+      ctx.stroke();
+      if (p.z < 900) {
+        const bw = Math.max(18, Math.min(60, p.s * size * 3));
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw, 4);
+        ctx.fillStyle = '#ff2d55';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw * Math.max(0, pr.hp / pr.max), 4);
+        if (pr.boss) {
+          ctx.fillStyle = '#ffe600';
+          ctx.font = 'italic 900 11px system-ui';
+          ctx.textAlign = 'center';
+          ctx.fillText('☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+        }
+      }
+    } });
+  }
+  // balas enemigas: rojas, siempre distintas de las tuyas
+  for (const bo of s.ebolts) {
+    const p = project(cam, bo.pos, 1), q = project(cam, sub(bo.pos, scale(norm(bo.vel), 12)), 1);
+    if (!p || !q) continue;
+    draws.push({ z: p.z, fn: () => {
+      ctx.strokeStyle = '#ff2d55';
+      ctx.lineWidth = Math.max(2, p.s * 1.2);
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x, p.y);
+      ctx.lineTo(q.x, q.y);
+      ctx.stroke();
+    } });
+  }
+  // botín (créditos)
+  for (const l of s.loot) {
+    const p = project(cam, l.pos, 1);
+    if (!p) continue;
+    draws.push({ z: p.z, fn: () => {
+      ctx.font = `${Math.max(14, Math.min(40, p.s * 9))}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('💰', p.x, p.y);
+    } });
+  }
+  // PUERTAS DE SALTO: anillos con el nombre del destino (y un candado si tu Salto no da)
+  for (const gt of s.sys.gates) {
+    const c = project(cam, gt.pos, 1);
+    if (!c) continue;
+    const open = canJump(GAL[gt.to], save.galaxy.up.jump || 0);
+    const col = open ? '#7df9ff' : '#ff9f0a';
+    // el anillo mira hacia el centro del sistema
+    const n = norm(gt.pos), side = norm({ x: -n.z, y: 0, z: n.x });
+    draws.push({ z: c.z, fn: () => {
+      ctx.strokeStyle = col;
+      ctx.lineWidth = Math.max(2, c.s * 4);
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 14;
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = (i / 24) * Math.PI * 2;
+        const q = project(cam, { x: gt.pos.x + side.x * Math.cos(a) * gt.r, y: gt.pos.y + Math.sin(a) * gt.r, z: gt.pos.z + side.z * Math.cos(a) * gt.r }, 1);
+        if (!q) continue;
+        if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y);
+      }
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = col;
+      ctx.font = 'italic 900 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`🌀 ${gt.name}${open ? '' : ` · 🔒 Salto ${jumpNeeded(GAL[gt.to])}`}`, c.x, c.y - gt.r * c.s - 10);
+    } });
+  }
+
   // tus disparos
   for (const bo of s.bolts) {
     const p = project(cam, bo.pos, 1), q = project(cam, sub(bo.pos, scale(norm(bo.vel), 14)), 1);
@@ -238,8 +367,28 @@ export function renderSpace(dt) {
   draws.sort((a, b) => b.z - a.z);
   for (const d of draws) d.fn();
 
+  // SALTO: túnel de hiperespacio
+  if (s.jumpT > 0) {
+    const k = 1 - s.jumpT / 1.1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < 70; i++) {
+      const a = (i / 70) * Math.PI * 2 + i * 0.37;
+      const r0 = 30 + ((G.realTime * 900 + i * 53) % 400), r1 = r0 + 60 + k * 200;
+      ctx.strokeStyle = i % 3 ? 'rgba(125,249,255,.6)' : 'rgba(191,90,242,.6)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(W / 2 + Math.cos(a) * r0, H / 2 + Math.sin(a) * r0);
+      ctx.lineTo(W / 2 + Math.cos(a) * r1, H / 2 + Math.sin(a) * r1);
+      ctx.stroke();
+    }
+    ctx.restore();
+    ctx.fillStyle = `rgba(255,255,255,${Math.max(0, k - 0.7) * 3})`;
+    ctx.fillRect(0, 0, W, H);
+  }
+
   // brújula: flecha hacia el objetivo actual
-  if (s.target) {
+  if (s.target && s.jumpT <= 0) {
     const tp = project(cam, s.target, 1);
     const onScreen = tp && tp.x > 30 && tp.x < W - 30 && tp.y > 90 && tp.y < H - 120;
     const dd = Math.round(dist(s.target, sh.pos));

@@ -1,51 +1,89 @@
-// GALAXIA: lógica de vuelo, minería, estación y reaparición. Vista pseudo-3D detrás de la nave.
-// Relajado: si te destruyen, te remolcan a la estación (pierdes la carga, no la partida).
+// GALAXIA: lógica de vuelo, minería, combate, comercio, saltos y reaparición. Pseudo-3D detrás de la nave.
+// Relajado: si te destruyen, te remolcan a tu estación base (pierdes la carga, no la partida), y
+// junto a las estaciones hay zona segura (los piratas no entran).
 import { G } from './state.js';
 import { makeRng } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, project } from './space3d.js';
+import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project } from './space3d.js';
 import { shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
+import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
 import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui } from './ui.js';
 
 const S = () => G.space;
 const DOCK_R = 150;
+const SAFE_R = 380; // zona segura alrededor de la estación
 const MAGNET_R = 75;
+export const GAL = genGalaxy();
 
 const gal = () => save.galaxy;
 const stats = () => shipStats(gal().up);
 
-// ---------- Inicio ----------
+// ---------- Inicio y sistemas ----------
 export function newSpace() {
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
-  const sys = makeSystem(1, { name: 'ORIGEN' });
+  const g = gal();
+  if (!g.visited?.length) g.visited = [0];
   const st = stats();
   const s = {
-    sys, rng: makeRng(forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0),
-    ship: { pos: { ...sys.station.pos }, yaw: 0, pitch: 0, roll: 0, shield: st.shield, hull: gal().hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
-    input: { x: 0, y: 0 }, firing: false, bolts: [], ores: [], cam: null, t: 0, canDock: false, fullWarned: false,
-    objective: null, target: null,
+    rng: makeRng(forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0),
+    ship: { pos: { x: 0, y: 0, z: 0 }, yaw: 0, pitch: 0, roll: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
+    input: { x: 0, y: 0 }, firing: false, bolts: [], ebolts: [], ores: [], loot: [], pirates: [], cam: null, t: 0, canDock: false, fullWarned: false,
+    objective: null, target: null, heat: 0, overheat: false, jumpT: 0, pirateT: 30, routeTo: null,
   };
-  undockPose(s);
   G.space = s;
+  enterSystem(s, g.sys ?? 0, null);
   G.run = null;
   G.mode = 'galaxy';
   G.timeWarp = 1;
   fx.clear();
   ui.hideAll();
   ui.showSpaceHUD(true);
-  music.biome = 3;
   music.intensity = 0;
   musicStart();
-  if (!gal().started) {
-    gal().started = true;
+  if (!g.started) {
+    g.started = true;
     persist();
     fx.banner('🌌 BIENVENIDO A ORIGEN', 'arrastra para virar · tu nave avanza sola', '#7df9ff', true);
   }
   progress('galaxy');
+}
+
+// Construye el sistema `id`. Si vienes de `fromId`, apareces junto a la puerta que lleva de vuelta.
+function enterSystem(s, id, fromId) {
+  const def = GAL[id];
+  const gates = def.links.map((to) => ({ to, name: GAL[to].name, ang: Math.atan2(GAL[to].y - def.y, GAL[to].x - def.x) }));
+  s.sysId = id;
+  s.sys = makeSystem(id + 1, { name: def.name, sunColor: def.star.color, planets: def.planets, ore: def.ore, gates, danger: def.danger, asteroids: id === 0 ? 80 : 70 });
+  s.pirates = [];
+  s.ebolts = [];
+  s.bolts = [];
+  s.ores = [];
+  s.loot = [];
+  s.pirateT = 25;
+  const g = gal();
+  g.sys = id;
+  if (!g.visited.includes(id)) {
+    g.visited.push(id);
+    progress('systems', g.visited.length);
+    if (fromId !== null) fx.banner(`🌌 ${def.name}`, `sistema nuevo · peligro ${'☠'.repeat(def.danger) || 'ninguno'}`, def.star.color, true);
+  } else if (fromId !== null) fx.banner(`🌌 ${def.name}`, `peligro ${'☠'.repeat(def.danger) || 'ninguno'}`, def.star.color);
+  music.biome = Math.min(3, def.danger);
+  // piratas: los que tocan al llegar (ORIGEN es seguro)
+  for (let i = 0; i < def.pirates; i++) spawnPirate(s, false);
+  if (def.boss && !save.galaxyBoss[id]) spawnPirate(s, true);
+  if (fromId !== null) {
+    const back = s.sys.gates.find((gt) => gt.to === fromId);
+    const inward = norm(scale(back.pos, -1));
+    s.ship.pos = add(back.pos, scale(inward, 90));
+    s.ship.yaw = lookAngles(s.ship.pos, add(s.ship.pos, inward)).yaw;
+    s.ship.pitch = 0;
+    s.cam = null;
+  } else undockPose(s);
+  persist();
 }
 
 // colocarse fuera de la estación, mirando hacia fuera del sol: el cinturón está más allá
@@ -56,6 +94,105 @@ function undockPose(s) {
   s.ship.yaw = lookAngles(s.ship.pos, add(s.ship.pos, out)).yaw;
   s.ship.pitch = 0;
   s.cam = null;
+}
+
+// ---------- Piratas ----------
+function spawnPirate(s, boss) {
+  const def = GAL[s.sysId];
+  const d = def.danger;
+  const a = s.rng.range(0, Math.PI * 2), R = s.rng.range(700, 1300);
+  const pos = { x: Math.cos(a) * R, y: s.rng.range(-120, 120), z: Math.sin(a) * R };
+  if (dist(pos, s.sys.station.pos) < SAFE_R + 200) pos.x += 600;
+  const hp = boss ? 400 + d * 120 : 30 + d * 14;
+  s.pirates.push({
+    pos, yaw: s.rng.range(-3, 3), pitch: 0, hp, max: hp, boss, alive: true, flash: 0, state: 'attack', t: 0,
+    speed: (boss ? 70 : 85) + d * 7, turn: boss ? 1.1 : 1.7, fireCd: s.rng.range(1, 2), dmg: (boss ? 9 : 5) + d * 1.6,
+    mesh: boss ? 'kaiju' : s.rng.pick(['raptor', 'viper', 'comet']), off: { x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) },
+  });
+  if (boss) fx.notice(`☠ Hay un JEFE PIRATA en ${def.name}`, '#ff2d55');
+}
+
+function updatePirates(s, dt) {
+  const sh = s.ship, st = s.sys.station.pos;
+  for (const p of s.pirates) {
+    if (!p.alive) continue;
+    p.t += dt;
+    p.flash = Math.max(0, p.flash - dt);
+    const d = dist(p.pos, sh.pos);
+    const playerSafe = dist(sh.pos, st) < SAFE_R;
+    // estados: atacar (pasada), evadir tras cruzarse, huir con poca vida, merodear si estás a salvo
+    if (!p.boss && p.hp < p.max * 0.25 && p.state !== 'flee') { p.state = 'flee'; p.t = 0; }
+    if (p.state === 'attack' && d < 70) { p.state = 'evade'; p.t = 0; }
+    if (p.state === 'evade' && p.t > 1.4) p.state = 'attack';
+    if (playerSafe && p.state === 'attack') p.state = 'patrol';
+    if (p.state === 'patrol' && !playerSafe) p.state = 'attack';
+    let target;
+    if (p.state === 'attack') {
+      // apunta a donde vas a estar (te adelanta un poco)
+      target = add(sh.pos, scale(basis(sh.yaw, sh.pitch).f, (sh.speed || 90) * Math.min(1, d / 400)));
+    } else if (p.state === 'evade') target = add(p.pos, scale(norm(add(p.off, basis(p.yaw, p.pitch).f)), 300));
+    else if (p.state === 'flee') target = add(p.pos, scale(norm(sub(p.pos, sh.pos)), 500));
+    else target = add(st, scale(norm(sub(p.pos, st)), SAFE_R + 260)); // ronda fuera de la zona segura
+    const want = lookAngles(p.pos, target);
+    p.yaw += Math.max(-p.turn * dt, Math.min(p.turn * dt, angDiff(want.yaw, p.yaw)));
+    p.pitch += Math.max(-p.turn * dt, Math.min(p.turn * dt, want.pitch - p.pitch));
+    p.pitch = Math.max(-1.1, Math.min(1.1, p.pitch));
+    const f = basis(p.yaw, p.pitch).f;
+    p.pos = add(p.pos, scale(f, p.speed * (p.state === 'flee' ? 1.3 : 1) * dt));
+    // nunca dentro de la zona segura
+    const ds = dist(p.pos, st);
+    if (ds < SAFE_R) p.pos = add(st, scale(norm(sub(p.pos, st)), SAFE_R));
+    // disparo: alineado contigo y a tiro
+    p.fireCd -= dt;
+    if (p.state === 'attack' && d < 520 && p.fireCd <= 0 && angleTo(p.pos, p.yaw, p.pitch, sh.pos) < (p.boss ? 0.35 : 0.18) && !playerSafe) {
+      p.fireCd = p.boss ? 0.9 : Math.max(0.5, 1.2 - GAL[s.sysId].danger * 0.08);
+      const dirs = p.boss ? [-0.12, 0, 0.12] : [0];
+      for (const off of dirs) {
+        const b = basis(p.yaw + off, p.pitch);
+        s.ebolts.push({ pos: add(p.pos, scale(b.f, 6)), vel: scale(b.f, 520 + p.speed), life: 1.3, dmg: p.dmg });
+      }
+      sfx.bump();
+    }
+    if (p.state === 'flee' && d > 1600) p.alive = false; // se escapó
+  }
+  // balas enemigas
+  for (const b of s.ebolts) {
+    b.life -= dt;
+    b.pos = add(b.pos, scale(b.vel, dt));
+    if (dist(b.pos, sh.pos) < 6) {
+      b.life = 0;
+      if (dist(sh.pos, st) >= SAFE_R) hurt(s, b.dmg);
+    }
+  }
+  s.ebolts = s.ebolts.filter((b) => b.life > 0);
+  s.pirates = s.pirates.filter((p) => p.alive);
+  // refuerzos de vez en cuando (si el sistema tiene piratas)
+  const def = GAL[s.sysId];
+  s.pirateT -= dt;
+  if (def.pirates && s.pirateT <= 0) {
+    s.pirateT = 45;
+    if (s.pirates.filter((p) => !p.boss).length < def.pirates) spawnPirate(s, false);
+  }
+}
+
+function killPirate(s, p) {
+  p.alive = false;
+  const pp = s.cam && project(s.cam, p.pos);
+  if (pp) {
+    for (const c of ['#ff2d55', '#ffe600', '#fff']) fx.burst(pp.x, pp.y, p.boss ? 60 : 22, c, p.boss ? 600 : 380, 5, 0.7, 0);
+    fx.ring(pp.x, pp.y, '#ff9f0a', p.boss ? 400 : 160, 0.4, 10);
+  }
+  sfx.boom();
+  fx.shake(p.boss ? 25 : 8);
+  const d = GAL[s.sysId].danger;
+  const value = p.boss ? 600 + d * 150 : 25 + d * 18;
+  s.loot.push({ pos: { ...p.pos }, credits: value, life: 60 });
+  if (p.boss) {
+    save.galaxyBoss[s.sysId] = true;
+    fx.banner('☠ JEFE PIRATA DERROTADO', `+${value} 💰 al recogerlo`, '#ffe600', true);
+    progress('pirateBoss');
+  }
+  progress('pirate');
 }
 
 // ---------- Acciones ----------
@@ -74,7 +211,9 @@ export function dock() {
   G.mode = 'station';
   musicDuck(true);
   sfx.chest();
-  gal().hull = s.ship.hull;
+  const g = gal();
+  g.hull = s.ship.hull;
+  g.home = s.sysId; // aquí reapareces si te destruyen
   persist();
   ui.showStation(s);
   progress('dock');
@@ -91,11 +230,15 @@ export function undock() {
   ui.showSpaceHUD(true);
 }
 
+// precio al que compra/vende ESTA estación
+export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
+export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.2);
+
 export function sellAll() {
-  const s = S(), g = gal();
+  const g = gal(), prices = stationPrices();
   let got = 0;
   for (const [k, n] of Object.entries(g.cargo)) {
-    got += n * ORES[k].price;
+    got += n * prices[k];
     g.cargo[k] = 0;
   }
   if (!got) return 0;
@@ -105,8 +248,20 @@ export function sellAll() {
   progress('galaxyCredits', got);
   sfx.chest();
   persist();
-  void s;
   return got;
+}
+
+// COMERCIO: comprar el mineral de este sistema para venderlo más caro en otro
+export function buyOre(ore, n = 1) {
+  const g = gal(), price = buyPrice(ore);
+  const space = stats().cargo - cargoCount(g.cargo);
+  const k = Math.min(n, space, Math.floor(g.credits / price));
+  if (k <= 0) return 0;
+  g.credits -= k * price;
+  g.cargo[ore] = (g.cargo[ore] || 0) + k;
+  sfx.coin(3);
+  persist();
+  return k;
 }
 
 export function buyUpgrade(id) {
@@ -133,6 +288,13 @@ export function repair() {
   return true;
 }
 
+// Mapa galáctico: elegir destino (la brújula guía puerta a puerta)
+export function setRoute(to) {
+  const s = S();
+  if (!s) return;
+  s.routeTo = to === s.sysId ? null : to;
+}
+
 // ---------- Daño y reaparición ----------
 function hurt(s, dmg) {
   if (G.god) return;
@@ -148,7 +310,7 @@ function hurt(s, dmg) {
   if (sh.hull <= 0) respawn(s);
 }
 
-// Relajado: te remolcan a la estación; pierdes la carga, no el progreso
+// Relajado: te remolcan a tu estación base; pierdes la carga, no el progreso
 function respawn(s) {
   const g = gal();
   for (const k of Object.keys(g.cargo)) g.cargo[k] = 0;
@@ -156,10 +318,14 @@ function respawn(s) {
   s.ship.hull = st.hull;
   s.ship.shield = st.shield;
   g.hull = st.hull;
-  s.ores = [];
+  const home = g.home ?? 0;
+  if (home !== s.sysId) enterSystem(s, home, null);
+  else {
+    s.ores = [];
+    undockPose(s);
+  }
   persist();
-  undockPose(s);
-  fx.banner('💥 NAVE DESTRUIDA', 'te han remolcado a la estación · has perdido la carga', '#ff6b6b', true);
+  fx.banner('💥 NAVE DESTRUIDA', `te han remolcado a ${GAL[home].name} · has perdido la carga`, '#ff6b6b', true);
   sfx.die();
 }
 
@@ -169,6 +335,18 @@ export function updateSpace(dt) {
   if (!s || G.mode !== 'galaxy') return;
   const sh = s.ship, st = stats(), g = gal();
   s.t += dt;
+  // SALTO en curso: túnel de hiperespacio y aparición en el sistema nuevo
+  if (s.jumpT > 0) {
+    s.jumpT -= dt;
+    sh.pos = add(sh.pos, scale(basis(sh.yaw, sh.pitch).f, 600 * dt));
+    if (s.jumpT <= 0) {
+      const from = s.sysId;
+      enterSystem(s, s.jumpTo, from);
+      progress('jump');
+    }
+    s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
+    return;
+  }
   // virar: el dedo (o las teclas) mueve el morro; la velocidad es automática
   const ix = Math.max(-1, Math.min(1, s.input.x)), iy = Math.max(-1, Math.min(1, s.input.y));
   sh.yaw += ix * st.turn * dt;
@@ -194,39 +372,62 @@ export function updateSpace(dt) {
     fx.notice('🔥 ¡Demasiado cerca del sol!', '#ff9f0a');
   }
 
-  // disparo (con autoapuntado suave hacia lo que tengas delante)
+  // láser: se calienta al disparar; sobrecalentado, no dispara hasta enfriarse
+  s.heat = Math.max(0, s.heat - dt * 0.45);
+  if (s.overheat && s.heat < 0.35) s.overheat = false;
   sh.fireT -= dt;
-  if (s.firing && sh.fireT <= 0) {
+  if (s.firing && sh.fireT <= 0 && !s.overheat) {
     sh.fireT = st.fireCd;
-    let dir = b.f;
-    let best = null, bestA = 0.3;
-    for (const a of s.sys.asteroids) {
-      if (!a.alive) continue;
-      const d = dist(a.pos, sh.pos);
-      if (d > 750) continue;
-      const ang = angleTo(sh.pos, sh.yaw, sh.pitch, a.pos);
-      if (ang < bestA) { bestA = ang; best = a; }
+    s.heat += 0.06;
+    if (s.heat >= 1) { s.overheat = true; fx.notice('🌡️ Láser sobrecalentado', '#ff6a00'); sfx.bump(); }
+    // autoapuntado suave: primero piratas, luego asteroides
+    let dir = b.f, best = null, bestA = 0.3;
+    for (const p of s.pirates) {
+      const d = dist(p.pos, sh.pos), ang = angleTo(sh.pos, sh.yaw, sh.pitch, p.pos);
+      if (d < 800 && ang < 0.35 && (!best || ang < bestA)) { best = p.pos; bestA = ang; }
     }
-    if (best) dir = norm(sub(best.pos, sh.pos));
+    if (!best) {
+      for (const a of s.sys.asteroids) {
+        if (dist(a.pos, sh.pos) > 750) continue;
+        const ang = angleTo(sh.pos, sh.yaw, sh.pitch, a.pos);
+        if (ang < bestA) { bestA = ang; best = a.pos; }
+      }
+    }
+    if (best) dir = norm(sub(best, sh.pos));
     sh.side = -sh.side;
     const from = add(add(sh.pos, scale(b.r, sh.side * 2.2)), scale(b.f, 4));
     s.bolts.push({ pos: from, vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
     sfx.swish();
   }
 
-  // proyectiles contra asteroides
+  // tus proyectiles: piratas y asteroides
   for (const bo of s.bolts) {
     bo.life -= dt;
     bo.pos = add(bo.pos, scale(bo.vel, dt));
-    for (const a of s.sys.asteroids) {
-      if (!a.alive || dist(a.pos, bo.pos) > a.r + 3) continue;
+    let hit = false;
+    for (const p of s.pirates) {
+      if (!p.alive || dist(p.pos, bo.pos) > (p.boss ? 20 : 8)) continue;
+      p.hp -= bo.dmg;
+      p.flash = 0.08;
+      if (p.state === 'patrol') p.state = 'attack';
+      if (p.hp <= 0) killPirate(s, p);
+      hit = true;
+      break;
+    }
+    if (!hit) {
+      for (const a of s.sys.asteroids) {
+        if (!a.alive || dist(a.pos, bo.pos) > a.r + 3) continue;
+        a.hp -= bo.dmg;
+        a.flash = 0.08;
+        if (a.hp <= 0) breakAsteroid(s, a);
+        hit = true;
+        break;
+      }
+    }
+    if (hit) {
       bo.life = 0;
-      a.hp -= bo.dmg;
-      a.flash = 0.08;
       const p = s.cam && project(s.cam, bo.pos);
       if (p) fx.burst(p.x, p.y, 5, '#ffd9a0', 160, 2.5, 0.25, 0);
-      if (a.hp <= 0) breakAsteroid(s, a);
-      break;
     }
   }
   s.bolts = s.bolts.filter((bo) => bo.life > 0);
@@ -244,14 +445,16 @@ export function updateSpace(dt) {
   }
   // repoblar el cinturón lejos de ti (siempre hay qué minar)
   const alive = s.sys.asteroids.filter((a) => a.alive);
-  if (alive.length < 60) {
+  if (alive.length < 55) {
     const a = s.rng.range(0, Math.PI * 2), R = s.sys.beltR + s.rng.range(-130, 130);
     const pos = { x: Math.cos(a) * R, y: s.rng.range(-60, 60), z: Math.sin(a) * R };
-    if (dist(pos, sh.pos) > 500) s.sys.asteroids.push(makeAsteroid(s.rng, pos, s.rng.range(9, 22), 'iron'));
+    if (dist(pos, sh.pos) > 500) s.sys.asteroids.push(makeAsteroid(s.rng, pos, s.rng.range(9, 22), s.sys.ore));
   }
   s.sys.asteroids = s.sys.asteroids.filter((a) => a.alive);
 
-  // mineral: imán y recogida
+  updatePirates(s, dt);
+
+  // mineral y botín: imán y recogida
   const cap = st.cargo;
   for (const o of s.ores) {
     o.life -= dt;
@@ -272,21 +475,84 @@ export function updateSpace(dt) {
     }
   }
   s.ores = s.ores.filter((o) => o.life > 0);
+  for (const l of s.loot) {
+    l.life -= dt;
+    const d = dist(l.pos, sh.pos);
+    if (d < MAGNET_R * 1.6) l.pos = add(l.pos, scale(norm(sub(sh.pos, l.pos)), Math.min(d, 400 * dt)));
+    if (d < 10) {
+      l.life = 0;
+      g.credits += l.credits;
+      persist();
+      fx.notice(`+${l.credits} 💰`, '#ffe600');
+      sfx.chest();
+    }
+  }
+  s.loot = s.loot.filter((l) => l.life > 0);
   if (cargoCount(g.cargo) < cap) s.fullWarned = false;
 
   // estación: gira y deja atracar si estás cerca
   s.sys.station.spin += dt * 0.25;
   s.canDock = dist(sh.pos, s.sys.station.pos) < DOCK_R;
 
+  // PUERTAS DE SALTO: atravesarlas te lleva al sistema vecino (si tu Salto da)
+  for (const gt of s.sys.gates) {
+    if (dist(gt.pos, sh.pos) > gt.r) continue;
+    const to = GAL[gt.to];
+    if (!canJump(to, g.up.jump || 0)) {
+      if (!s.gateWarnT || s.t - s.gateWarnT > 2) {
+        s.gateWarnT = s.t;
+        fx.notice(`🌀 ${to.name} necesita Salto ${jumpNeeded(to)} (mejóralo en el taller)`, '#ff9f0a');
+        sfx.bump();
+      }
+      // rebota hacia dentro
+      sh.yaw += Math.PI;
+      sh.pos = add(gt.pos, scale(norm(scale(gt.pos, -1)), gt.r + 30));
+      continue;
+    }
+    s.jumpT = 1.1;
+    s.jumpTo = gt.to;
+    fx.flash('#ffffff', 0.8);
+    fx.banner('🌀 SALTO', `rumbo a ${to.name}`, '#7df9ff', true);
+    sfx.od();
+    break;
+  }
+
   // objetivo actual y brújula
-  s.objective = objective({ cargo: g.cargo, cargoMax: cap, credits: g.credits, up: g.up, sold: g.sold });
-  if (s.objective.kind === 'mine') {
+  updateObjective(s);
+  s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
+}
+
+function updateObjective(s) {
+  const g = gal(), sh = s.ship;
+  if (s.routeTo !== null && s.routeTo === s.sysId) s.routeTo = null;
+  if (s.routeTo !== null) {
+    const path = route(GAL, s.sysId, s.routeTo);
+    const next = path && path[1];
+    const gate = s.sys.gates.find((gt) => gt.to === next);
+    if (gate) {
+      s.objective = { kind: 'route', text: `Rumbo a ${GAL[s.routeTo].name}: cruza la puerta hacia ${GAL[next].name}` };
+      s.target = gate.pos;
+      return;
+    }
+  }
+  const o = objective({ cargo: g.cargo, cargoMax: stats().cargo, credits: g.credits, up: g.up, sold: g.sold });
+  // ya con alguna mejora y sin nada urgente: explorar
+  const anyUp = Object.values(g.up).some((n) => n > 0);
+  if (o.kind === 'mine' && anyUp && g.visited.length < 3 && cargoCount(g.cargo) === 0) {
+    const open = s.sys.gates.filter((gt) => canJump(GAL[gt.to], g.up.jump || 0));
+    if (open.length) {
+      const near = open.sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0];
+      s.objective = { kind: 'explore', text: `Explora: cruza la puerta de salto hacia ${near.name}` };
+      s.target = near.pos;
+      return;
+    }
+  }
+  s.objective = o;
+  if (o.kind === 'mine') {
     let best = null, bd = Infinity;
     for (const a of s.sys.asteroids) { const d = dist(a.pos, sh.pos); if (d < bd) { bd = d; best = a; } }
     s.target = best ? best.pos : null;
   } else s.target = s.sys.station.pos;
-
-  s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
 }
 
 function breakAsteroid(s, a) {

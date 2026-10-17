@@ -13,7 +13,7 @@ import { updateSpace, spaceBoost, spaceStats } from './spaceGame.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 
-const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused';
+const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap';
 
 const inArena = () => G.mode.startsWith('arena');
 // un paso de simulación del modo que toque
