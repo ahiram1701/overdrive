@@ -10,7 +10,7 @@ import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles } from './cosfx.js';
-import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
@@ -222,6 +222,17 @@ export const ui = {
   showHangar(viewId = ui.hangarView || save.ship) {
     ui.hangarView = viewId;
     G.mode = 'hangar';
+    ui.hangarTab ||= 'nave';
+    if (!ui._tabsReady) {
+      ui._tabsReady = true;
+      for (const b of $('hTabs').querySelectorAll('button')) {
+        tap(b, () => {
+          ui.hangarTab = b.dataset.tab;
+          ui.showHangar();
+          $('hangar').scrollTop = 0; // cada pestaña empieza arriba, justo bajo la nave
+        });
+      }
+    }
     $('hGems').textContent = fmt(save.gems);
     const view = SHIPS.find((s) => s.id === viewId) || SHIPS[0];
     const owned = save.ships.includes(view.id);
@@ -262,7 +273,6 @@ export const ui = {
     else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
     else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
     $('shipDetail').innerHTML = `
-      <canvas id="hangarView" class="hangar-view" aria-label="Nave en 3D: arrastra para girarla"></canvas>
       <div class="sd-head" style="--sc:${view.color}"><div><h3>${view.name}</h3><small>${view.desc}</small></div></div>
       <div class="sd-ability"><span>${ab.icon}</span><div><b>${ab.name}</b> · recarga ${(ab.cd * (lv.c >= 1 ? 0.85 : 1)).toFixed(1)} s<br><small>${ab.desc}</small></div></div>
       <div class="stats">${bars}</div>
@@ -302,6 +312,7 @@ export const ui = {
           persist();
           sfx.chest();
           fx.vibe([20, 30, 60]);
+          if (ui._hv) { ui._hv.flash = 1; ui._hv.boost = Math.PI * 2; } // la nave lo celebra arriba
           ui.showHangar();
           tree.querySelector(`.b-${br.key} .node:nth-of-type(${i + 1})`)?.classList.add('just');
         });
@@ -418,6 +429,22 @@ export const ui = {
       });
       ml.appendChild(row);
     }
+
+    // pestañas: solo se ve la activa; un puntito avisa de que hay algo que ya puedes comprar
+    const lvNow = shipLvls(save.shipLvl, view.id);
+    const treeBuy = owned && ['a', 'b', 'c'].some((k) => lvNow[k] < 3 && save.gems >= TREE_COSTS[k][lvNow[k]]);
+    const dots = {
+      nave: !owned && save.gems >= view.cost,
+      mejoras: treeBuy,
+      estilo: false,
+      global: META.some((m) => !save.meta[m.id] && save.gems >= m.cost),
+    };
+    for (const b of $('hTabs').querySelectorAll('button')) {
+      b.classList.toggle('on', b.dataset.tab === ui.hangarTab);
+      b.classList.toggle('dot', !!dots[b.dataset.tab]);
+      b.setAttribute('aria-selected', b.dataset.tab === ui.hangarTab);
+    }
+    for (const panel of $('hangar').querySelectorAll('.tab-panel')) panel.classList.toggle('hidden', panel.dataset.panel !== ui.hangarTab);
     show('hangar');
   },
 
@@ -669,14 +696,18 @@ export const ui = {
     const W = cv.clientWidth || 300, H = cv.clientHeight || 170;
     cv.width = W * dpr;
     cv.height = H * dpr;
-    const st = (ui._hv = { ship, yaw: ui._hv?.yaw ?? 0.6, drag: null, spin: 0.7 });
-    cv.addEventListener('pointerdown', (e) => { st.drag = e.clientX; cv.setPointerCapture(e.pointerId); });
-    cv.addEventListener('pointermove', (e) => {
-      if (st.drag === null) return;
-      st.yaw += (e.clientX - st.drag) * 0.012;
-      st.drag = e.clientX;
-    });
-    cv.addEventListener('pointerup', () => { st.drag = null; });
+    // el estado se conserva entre repintados (giro, destello); el canvas es siempre el mismo
+    ui._hv = { yaw: 0.6, drag: null, spin: 0.7, flash: 0, boost: 0, ...ui._hv, ship };
+    if (!cv.dataset.ready) {
+      cv.dataset.ready = '1';
+      cv.addEventListener('pointerdown', (e) => { ui._hv.drag = e.clientX; cv.setPointerCapture(e.pointerId); });
+      cv.addEventListener('pointermove', (e) => {
+        if (ui._hv.drag === null) return;
+        ui._hv.yaw += (e.clientX - ui._hv.drag) * 0.012;
+        ui._hv.drag = e.clientX;
+      });
+      cv.addEventListener('pointerup', () => { ui._hv.drag = null; });
+    }
     if (ui._hvRunning) return;
     ui._hvRunning = true;
     let last = performance.now();
@@ -686,6 +717,13 @@ export const ui = {
       const s = ui._hv, dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       if (s.drag === null) s.yaw += dt * s.spin;
+      // vuelta rápida al comprar una mejora
+      if (s.boost > 0) {
+        const d = Math.min(s.boost, dt * 9);
+        s.yaw += d;
+        s.boost -= d;
+      }
+      s.flash = Math.max(0, s.flash - dt * 1.8);
       const c = view.getContext('2d');
       const w = view.width, h = view.height;
       c.setTransform(1, 0, 0, 1, 0, 0);
@@ -715,6 +753,13 @@ export const ui = {
         trailFx(parts, c, lk.trail.id, sx, sy + size * 0.1, size * 1.2, pal.glow, 30, now / 1000);
       }
       parts.draw(c, w, h);
+      if (s.flash > 0) {
+        const fg = c.createRadialGradient(sx, sy, 0, sx, sy, w * 0.5);
+        fg.addColorStop(0, `rgba(255,255,255,${(0.7 * s.flash).toFixed(3)})`);
+        fg.addColorStop(1, 'rgba(255,255,255,0)');
+        c.fillStyle = fg;
+        c.fillRect(0, 0, w, h);
+      }
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);

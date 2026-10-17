@@ -38,7 +38,9 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     }
     if (G.mode === 'shop') { document.getElementById('btnShopDone').click(); continue; }
     if (G.mode === 'chest') {
-      while (!visible('btnChestOk')) await wait(50);
+      // la animación del cofre usa temporizadores reales: con la máquina cargada pueden tardar;
+      // esperar como mucho 3 s y pulsar igual (el botón ya tiene su manejador)
+      for (let i = 0; i < 60 && !visible('btnChestOk'); i++) await wait(50);
       document.getElementById('btnChestOk').click();
       continue;
     }

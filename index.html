@@ -70,18 +70,27 @@
   </section>
 
   <section id="hangar" class="overlay hidden">
-    <h2>HANGAR</h2>
-    <p class="gems">💎 <b id="hGems">0</b></p>
-    <div id="shipCarousel" class="carousel"></div>
-    <div id="shipDetail" class="ship-detail"></div>
-    <h3>Árbol de mejoras</h3>
-    <div id="shipTree" class="tree"></div>
-    <h3 id="cosTitle">Personalizar</h3>
-    <div id="cosPreview" class="cos-preview hidden"></div>
-    <div id="cosmetics" class="cosmetics"></div>
-    <h3>Mejoras globales</h3>
-    <div id="metaList" class="list"></div>
-    <button class="btn" id="btnHangarBack">VOLVER</button>
+    <!-- cabecera fija: la nave se ve siempre mientras mejoras o personalizas -->
+    <div class="hangar-top">
+      <div class="h-bar">
+        <button class="btn ghost h-back" id="btnHangarBack" aria-label="Volver">← VOLVER</button>
+        <b>HANGAR</b>
+        <span class="gems">💎 <b id="hGems">0</b></span>
+      </div>
+      <div id="shipCarousel" class="carousel"></div>
+      <canvas id="hangarView" class="hangar-view" aria-label="Nave en 3D: arrastra para girarla"></canvas>
+      <div id="hTabs" class="h-tabs" role="tablist">
+        <button data-tab="nave" role="tab">NAVE</button>
+        <button data-tab="mejoras" role="tab">MEJORAS</button>
+        <button data-tab="estilo" role="tab">ESTILO</button>
+        <button data-tab="global" role="tab">GLOBAL</button>
+      </div>
+      <div id="cosPreview" class="cos-preview hidden"></div>
+    </div>
+    <div class="tab-panel" data-panel="nave"><div id="shipDetail" class="ship-detail"></div></div>
+    <div class="tab-panel" data-panel="mejoras"><div id="shipTree" class="tree"></div></div>
+    <div class="tab-panel" data-panel="estilo"><h3 id="cosTitle">Personalizar</h3><div id="cosmetics" class="cosmetics"></div></div>
+    <div class="tab-panel" data-panel="global"><p class="hint">Valen para todas las naves.</p><div id="metaList" class="list"></div></div>
   </section>
 
   <section id="achs" class="overlay hidden">
