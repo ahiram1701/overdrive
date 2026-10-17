@@ -33,6 +33,7 @@ const ASSETS = [
   './js/campaign.js',
   './js/cosfx.js',
   './js/modifiers.js',
+  './js/balance.js',
 ];
 
 self.addEventListener('install', (e) => {

@@ -16,11 +16,15 @@ test('al morir se gana XP, la colección registra las cartas y el menú muestra 
   await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
   // jugar hasta pasar la primera bifurcación (elige carta), y después dejarse matar
   await page.evaluate(botInPage, { seconds: 30 });
-  await page.evaluate(() => {
+  // morir a propósito (sin depender de la suerte: con overdrive se podía llegar a un cofre)
+  await page.evaluate(async () => {
     const G = window.G;
+    const { onHit } = await import('/js/game.js');
     G.run.shields = 0;
-    for (let i = 0; i < 600 && G.mode === 'play'; i++) window.D.step(0.05, false);
-    window.D.step(1.5);
+    G.run.lastStand = false;
+    G.player.invuln = 0;
+    onHit({ type: 'wall', x: G.player.x, y0: 0, y1: 2, z: G.run.dist, alive: true });
+    for (let i = 0; i < 40 && G.mode !== 'dead'; i++) window.D.step(0.05, false);
   });
   await expect(page.locator('#death')).toBeVisible();
   await expect(page.locator('#dXp .xp-gain')).toContainText('XP');

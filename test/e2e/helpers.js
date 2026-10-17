@@ -63,6 +63,8 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     // jugador (a mucha velocidad la bala tarda ~0,1 s, así que el aviso real es la marca)
     // huir de una marca (Cazador o rayo de jefe): mejor un carril sin nada; si no lo hay, uno sin
     // nada que esquivar de carril (lo que haya se salta o se desliza), como haría un jugador
+    // un riel que empieza es la salida de su tramo (el resto se cierra con muros): preferirlo
+    const rail = (l) => r.objects.some((o) => o.alive && o.type === 'rail' && inLane(o, l) && o.z - r.dist < sp * 1.5 && o.z + (o.len || 0) - r.dist > 0);
     const fleeTo = (bad) => {
       const ok = [-1, 0, 1].filter((l) => !bad(l) && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5))
         // cruzar dos carriles pasa por el del medio: que esté libre (con lava ahí, es meterse en ella)
@@ -71,12 +73,17 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
       // como un jugador que mira la pista: mejor el carril que sigue libre más tiempo (no meterse
       // en uno que la próxima fila va a cerrar justo mientras el Cazador apunta al de al lado)
       const calm = ok.filter((l) => !danger(l, -0.05, 0.3).length);
-      return calm.filter((l) => !blocksLane(l, -0.05, 1.0)).sort(byDist)[0] ?? calm.sort(byDist)[0] ?? ok.sort(byDist)[0];
+      const pref = (a, b) => (rail(b) - rail(a)) || byDist(a, b);
+      return calm.filter((l) => !blocksLane(l, -0.05, 1.0)).sort(pref)[0] ?? calm.sort(pref)[0] ?? ok.sort(pref)[0];
     };
     const h = r.hunter;
     if (h && !h.leaving && h.aimT > 0 && h.aimLane === p.lane && !(fledFrom === h && fled === h.shots)) {
       const away = fleeTo((l) => l === p.lane);
-      if (away !== undefined) {
+      // el carril del riel está ocupado solo por algo que pasa YA: esperar un instante, como un jugador
+      const railSoon = [-1, 0, 1].some((l) => Math.abs(l - p.lane) === 1 && l !== r.blockedLane && rail(l) && blocksLane(l, -0.05, 0.15) && !blocksLane(l, 0.15, 0.6));
+      if (railSoon && h.aimT > 0.2) {
+        // espera
+      } else if (away !== undefined) {
         key((away < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');
         fled = h.shots;
         fledFrom = h; // los disparos se cuentan desde 0 en cada aparición: hay que recordar de qué dron

@@ -117,7 +117,7 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 6. **Reto diario:** la misma pista para todo el mundo durante el día, elijas lo que elijas.
 
 ## ⚡ Habilidades y hangar
-- **Cada nave tiene una habilidad activa propia.** Se lanza con el botón ⚡ (abajo a la derecha) o con **E**/**Q** en el teclado. Tiene un tiempo de recarga, que se ve en el anillo del botón, y **cada near-miss lo recorta 0,3 s**.
+- **Cada nave tiene una habilidad activa propia.** Se lanza con el botón ⚡ (abajo a la derecha) o con **E**/**Q** en el teclado. Tiene un tiempo de recarga, que se ve en el anillo del botón, y **cada near-miss lo recorta 0,15 s**.
 - **Árbol de mejoras por nave** en el hangar: 3 ramas de 3 niveles que se compran con gemas.
   - 🛡️ **BLINDAJE:** escudo inicial, más invulnerabilidad y ÚLTIMO ALIENTO.
   - ⚙️ **MOTOR:** agilidad, una carga extra de DASH y más OVERDRIVE.
@@ -130,6 +130,17 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - **Pruébalo antes de comprar:** tocar cualquier objeto lo pone en la vista 3D. La explosión estalla y la nave se vuelve a montar.
   - **Emblema a tu gusto:** en las dos alas, en una sola o en la cola, y en el color que quieras (gratis). Siempre cabe dentro de su cara: se centra en el incentro del triángulo y se recorta a su contorno.
   - **Pinturas con patrón** (Tigre a franjas, Dúo partida, Aurora en degradado), estelas de **Humo** y **Relámpago**, y explosiones **Agujero negro** y **Fuegos artificiales**.
+
+## ⚖️ Balance
+El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:
+- **Overdrive:** carga más despacio y, al acabar, se **recalienta 5 s** (barra gris: "RECALENTANDO"); no se puede encadenar uno tras otro.
+- **Topes:** cargas de overdrive x1,6, duración 8 s, 3 cargas de DASH y recarga mínima de 2,4 s.
+- **Cartas repetidas, menos efecto:** Cargador +35/+25/+15%, Overdrive+ +2/+1,5/+1 s, Recarga rápida −20/−15/−10%. La carta dice cuánto da la siguiente copia.
+- **Vampiro** pide cada vez más near-miss por escudo (12, 18, 24…), y Doble carga solo se puede coger una vez.
+- **Medido con el bot** en 120 s, con el árbol al máximo:
+  - ninguna nave pasa del 28% del tiempo en overdrive ni del 35% invulnerable en total;
+  - Nova con la build más rota se queda en ~34%;
+  - antes: Viper 64%, Nova 84% y Nova rota 96%.
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
@@ -157,10 +168,10 @@ Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una 
 | | Carta | Rareza | Efecto | Máx. |
 |---|---|---|---|---|
 | 🧲 | **Imán** | común | Atrae las monedas cercanas. Se acumula. | 3 |
-| ⚡ | **Doble carga** | rara | +1 carga de DASH. | 2 |
+| ⚡ | **Doble carga** | rara | +1 carga de DASH. | 1 |
 | 🛡️ | **Escudo** | rara | Aguanta 1 golpe (máximo 3 escudos). | 2 |
 | 👁️ | **Reflejos** | común | Ventana de near-miss más grande y cámara lenta más larga. | 3 |
-| 💉 | **Adrenalina** | rara | Cada near-miss recarga media carga de DASH. | 1 |
+| 💉 | **Adrenalina** | rara | Cada near-miss recarga un cuarto de carga de DASH. | 1 |
 | 🌋 | **Terremoto** | rara | Al aterrizar de un salto destruyes lo que tengas delante en tu carril. | 1 |
 | 🦘 | **Salto doble** | rara | Puedes saltar otra vez en el aire. | 1 |
 | 💥 | **Dash ancho** | rara | Tu DASH destruye obstáculos en los 3 carriles. | 1 |
@@ -170,9 +181,9 @@ Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una 
 | 🪙 | **Monedas de oro** | común | Cada moneda vale +1. | 3 |
 | 💎 | **Pacto de cristal** | épica | x3 PUNTOS… pero pierdes un carril para siempre. | 1 |
 | 🚀 | **Nitro loco** | épica | +50% de velocidad y x2 PUNTOS. | 1 |
-| 🧛 | **Vampiro** | rara | Cada 12 near-miss ganas un escudo. | 1 |
+| 🧛 | **Vampiro** | rara | Ganas un escudo a los 12 near-miss; cada uno siguiente pide 6 más. | 1 |
 | 🧷 | **Seguro de combo** | común | Perder un escudo no reinicia tu combo. | 1 |
-| ⏱️ | **Recarga rápida** | común | El DASH recarga un 25% más rápido. | 3 |
+| ⏱️ | **Recarga rápida** | común | El DASH recarga un 20% más rápido. | 3 |
 | 🪶 | **Ágil** | común | Cambias de carril y saltas más rápido. | 2 |
 
 ### Sinergias
@@ -191,9 +202,9 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | Nave | Coste | Pasiva | Habilidad activa ⚡ | ★ Mutación (árbol, nivel 3) |
 |---|---|---|---|---|
 | **Viper** | gratis | Equilibrada. La de siempre. | ⏩ **SOBRECARGA** (18 s): 4 s de tiempo bala; los near-miss valen el doble. | Cada near-miss alarga la SOBRECARGA 0,3 s |
-| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. | 🐏 **ARIETE** (20 s): 2,5 s rompiendo todo lo que tocas (sin poder saltar). | Cada rotura con el ARIETE recarga 1 s |
-| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. | 👻 **FASE** (16 s): 1,2 s intangible: lo que atraviesas cuenta como PERFECTO. | Al salir de FASE, una onda rompe lo cercano |
-| **Nova** | 💎 300 | OVERDRIVE se llena un 60% más rápido y dura +2 s. | 💥 **ESTALLIDO** (25 s): +50% de overdrive y arrasa todo lo que tienes delante. | ESTALLIDO llena el OVERDRIVE entero |
+| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. | 🐏 **ARIETE** (24 s): 2,5 s rompiendo todo lo que tocas (sin poder saltar). | Cada rotura con el ARIETE recarga 1 s |
+| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. | 👻 **FASE** (18 s): 1,2 s intangible: lo que atraviesas cuenta como PERFECTO. | Al salir de FASE, una onda rompe lo cercano |
+| **Nova** | 💎 300 | OVERDRIVE se llena un 20% más rápido y dura +1 s. | 💥 **ESTALLIDO** (25 s): +10% de overdrive y arrasa todo lo que tienes delante. | ESTALLIDO carga un 25% de OVERDRIVE |
 | **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. | RUGIDO te da 1 escudo |
 | **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). | Dispara en los 3 carriles |
 | **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. | El GANCHO arrasa lo que tienes delante |

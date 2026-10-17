@@ -1,5 +1,6 @@
 // Cartas de mejora, sinergias y naves. Las cartas cambian REGLAS, no solo números.
 import { MAX_SHIELDS, addShields, shieldCap } from './state.js';
+import { STACKS, stackValue, vampireNeed } from './balance.js';
 import { makeRng } from './rng.js';
 
 export const VAMPIRE_NEAR = 12; // near-miss por escudo de Vampiro
@@ -38,22 +39,22 @@ export const RARITY = {
 
 export const CARDS = [
   { id: 'iman', name: 'Imán', icon: '🧲', rarity: 'common', max: 3, desc: 'Atrae las monedas cercanas. Se acumula.', apply: (r) => { r.stats.magnet += 1; } },
-  { id: 'carga', name: 'Doble carga', icon: '⚡', rarity: 'rare', max: 2, desc: '+1 carga de DASH.', apply: (r) => { r.stats.dashMax += 1; r.dashCharges += 1; } },
+  { id: 'carga', name: 'Doble carga', icon: '⚡', rarity: 'rare', max: 1, desc: '+1 carga de DASH.', apply: (r) => { r.stats.dashMax += 1; r.dashCharges += 1; } },
   { id: 'escudo', name: 'Escudo', icon: '🛡️', rarity: 'rare', max: 2, desc: `Aguanta 1 golpe (máximo ${MAX_SHIELDS} escudos).`, apply: (r) => { addShields(r, 1); } },
   { id: 'reflejos', name: 'Reflejos', icon: '👁️', rarity: 'common', max: 3, desc: 'Ventana de near-miss más grande y cámara lenta más larga.', apply: (r) => { r.stats.nearWin += 0.35; } },
-  { id: 'adrenalina', name: 'Adrenalina', icon: '💉', rarity: 'rare', max: 1, desc: 'Cada near-miss recarga media carga de DASH.', apply: (r) => { r.stats.nearDash = true; } },
+  { id: 'adrenalina', name: 'Adrenalina', icon: '💉', rarity: 'rare', max: 1, desc: 'Cada near-miss recarga un cuarto de carga de DASH.', apply: (r) => { r.stats.nearDash = true; } },
   { id: 'terremoto', name: 'Terremoto', icon: '🌋', rarity: 'rare', max: 1, desc: 'Al aterrizar de un salto destruyes lo que tengas delante en tu carril.', apply: (r) => { r.stats.quake = true; } },
   { id: 'doble', name: 'Salto doble', icon: '🦘', rarity: 'rare', max: 1, desc: 'Puedes saltar otra vez en el aire.', apply: (r) => { r.stats.doubleJump = true; } },
   { id: 'ancho', name: 'Dash ancho', icon: '💥', rarity: 'rare', max: 1, desc: 'Tu DASH destruye obstáculos en los 3 carriles.', apply: (r) => { r.stats.wideDash = true; } },
   { id: 'explosivo', name: 'Explosivo', icon: '🧨', rarity: 'epic', max: 1, desc: 'Lo que rompes explota y arrasa todo lo cercano en cadena.', apply: (r) => { r.stats.explosive = true; } },
-  { id: 'odplus', name: 'Overdrive+', icon: '🔥', rarity: 'common', max: 3, desc: 'El OVERDRIVE dura +2 s.', apply: (r) => { r.stats.odDur += 2; } },
-  { id: 'cargador', name: 'Cargador', icon: '🔋', rarity: 'common', max: 3, desc: 'El OVERDRIVE se llena un 35% más rápido.', apply: (r) => { r.stats.odRate += 0.35; } },
+  { id: 'odplus', name: 'Overdrive+', icon: '🔥', rarity: 'common', max: 3, desc: 'El OVERDRIVE dura +2 s.', descN: (n) => `El OVERDRIVE dura +${String(stackValue(STACKS.odplus, n)).replace('.', ',')} s.`, apply: (r) => { r.stats.odDur += stackValue(STACKS.odplus, r.cards.odplus); } },
+  { id: 'cargador', name: 'Cargador', icon: '🔋', rarity: 'common', max: 3, desc: 'El OVERDRIVE se llena un 35% más rápido.', descN: (n) => `El OVERDRIVE se llena un ${Math.round(stackValue(STACKS.cargador, n) * 100)}% más rápido.`, apply: (r) => { r.stats.odRate += stackValue(STACKS.cargador, r.cards.cargador); } },
   { id: 'oro', name: 'Monedas de oro', icon: '🪙', rarity: 'common', max: 3, desc: 'Cada moneda vale +1.', apply: (r) => { r.stats.coinValue += 1; } },
   { id: 'cristal', name: 'Pacto de cristal', icon: '💎', rarity: 'epic', max: 1, desc: 'x3 PUNTOS… pero pierdes un carril para siempre.', apply: (r) => { r.stats.scoreMult *= 3; r.blockedLane = r.player.lane === 1 ? -1 : 1; } },
   { id: 'nitro', name: 'Nitro loco', icon: '🚀', rarity: 'epic', max: 1, desc: '+50% de velocidad y x2 PUNTOS.', apply: (r) => { r.stats.speedMult *= 1.5; r.stats.scoreMult *= 2; } },
-  { id: 'vampiro', name: 'Vampiro', icon: '🧛', rarity: 'rare', max: 1, desc: `Cada ${VAMPIRE_NEAR} near-miss ganas un escudo.`, apply: (r) => { r.stats.vampire = true; } },
+  { id: 'vampiro', name: 'Vampiro', icon: '🧛', rarity: 'rare', max: 1, desc: `Ganas un escudo a los ${vampireNeed(0)} near-miss; cada uno siguiente pide ${vampireNeed(1) - vampireNeed(0)} más.`, apply: (r) => { r.stats.vampire = true; } },
   { id: 'seguro', name: 'Seguro de combo', icon: '🧷', rarity: 'common', max: 1, desc: 'Perder un escudo no reinicia tu combo.', apply: (r) => { r.stats.insurance = true; } },
-  { id: 'recarga', name: 'Recarga rápida', icon: '⏱️', rarity: 'common', max: 3, desc: 'El DASH recarga un 25% más rápido.', apply: (r) => { r.stats.dashRecharge *= 0.75; } },
+  { id: 'recarga', name: 'Recarga rápida', icon: '⏱️', rarity: 'common', max: 3, desc: 'El DASH recarga un 20% más rápido.', descN: (n) => `El DASH recarga un ${Math.round((1 - stackValue(STACKS.recarga, n)) * 100)}% más rápido.`, apply: (r) => { r.stats.dashRecharge *= stackValue(STACKS.recarga, r.cards.recarga); } },
   { id: 'agil', name: 'Ágil', icon: '🪶', rarity: 'common', max: 2, desc: 'Cambias de carril y saltas más rápido.', apply: (r) => { r.stats.laneTime *= 0.75; r.stats.gravity *= 1.12; r.stats.jumpV *= 1.06; } },
 ];
 
@@ -122,7 +123,7 @@ export const SHIPS = [
   { id: 'viper', name: 'Viper', cost: 0, color: '#00e5ff', ability: 'overclock', desc: 'Equilibrada. La de siempre.', apply: () => {} },
   { id: 'brick', name: 'Brick', cost: 60, color: '#ffd60a', ability: 'ram', desc: 'Empieza con 2 escudos, pero cambia de carril más lento.', apply: (r) => { addShields(r, 2); r.stats.laneTime *= 1.3; } },
   { id: 'ghost', name: 'Ghost', cost: 150, color: '#e0e0ff', ability: 'phase', desc: 'Ventana de near-miss enorme y DASH que recarga rápido.', apply: (r) => { r.stats.nearWin += 0.5; r.stats.dashRecharge *= 0.7; } },
-  { id: 'nova', name: 'Nova', cost: 300, color: '#ff375f', ability: 'nova', desc: 'OVERDRIVE se llena un 60% más rápido y dura +2 s.', apply: (r) => { r.stats.odRate += 0.6; r.stats.odDur += 2; } },
+  { id: 'nova', name: 'Nova', cost: 300, color: '#ff375f', ability: 'nova', desc: 'OVERDRIVE se llena un 20% más rápido y dura +1 s.', apply: (r) => { r.stats.odRate += 0.2; r.stats.odDur += 1; } },
   { id: 'kaiju', name: 'Kaiju', cost: 500, color: '#30d158', ability: 'roar', desc: 'Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos.', apply: (r) => { applyCard(r, 'ancho'); applyCard(r, 'explosivo'); r.stats.scoreMult *= 0.7; } },
   { id: 'raptor', name: 'Raptor', cost: 400, color: '#ff9f0a', ability: 'laser', desc: 'Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes.', apply: (r) => { r.stats.laneTime *= 0.8; r.stats.dashRecharge *= 0.85; } },
   { id: 'comet', name: 'Comet', cost: 650, color: '#bf5af2', ability: 'hook', desc: 'Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento.', apply: (r) => { r.stats.coinValue += 1; r.stats.magnet += 1; r.stats.odRate -= 0.2; } },
@@ -139,14 +140,14 @@ export const META = [
 export const TREE_COSTS = { a: [40, 90, 180], b: [40, 90, 180], c: [60, 130, 260] };
 
 const TREE_A = { name: 'BLINDAJE', icon: '🛡️', nodes: ['+1 escudo al empezar', '+50% de invulnerabilidad tras perder un escudo', 'ÚLTIMO ALIENTO: sobrevives una vez a un golpe sin escudos'] };
-const TREE_B = { name: 'MOTOR', icon: '⚙️', nodes: ['Cambias de carril un 10% más rápido', '+1 carga de DASH', 'OVERDRIVE: +25% de carga y +2 s'] };
+const TREE_B = { name: 'MOTOR', icon: '⚙️', nodes: ['Cambias de carril un 10% más rápido', '+1 carga de DASH', 'OVERDRIVE: +20% de carga y +1 s'] };
 
 // nivel 2 y mutación (nivel 3) de la rama de cada habilidad
 export const ABILITY_TREE = {
   overclock: { lvl2: '+30% de duración', mut: 'chain', lvl3: 'Cada near-miss alarga la SOBRECARGA 0,3 s' },
   ram: { lvl2: '+30% de duración', mut: 'recharge', lvl3: 'Cada rotura con el ARIETE recarga 1 s' },
   phase: { lvl2: '+30% de duración', mut: 'wave', lvl3: 'Al salir de FASE, una onda rompe lo cercano' },
-  nova: { lvl2: '+30% de alcance', mut: 'full', lvl3: 'ESTALLIDO llena el OVERDRIVE entero' },
+  nova: { lvl2: '+30% de alcance', mut: 'full', lvl3: 'ESTALLIDO carga un 25% de OVERDRIVE' },
   roar: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'RUGIDO te da 1 escudo' },
   laser: { lvl2: 'Atraviesa 2 obstáculos', mut: 'triple', lvl3: 'Dispara en los 3 carriles' },
   hook: { lvl2: '0,6 s invulnerable al llegar', mut: 'trail', lvl3: 'El GANCHO arrasa lo que tienes delante' },
@@ -176,7 +177,7 @@ export function applyShipTree(r, lvls) {
   if (lvls.a >= 3) r.lastStand = true;
   if (lvls.b >= 1) r.stats.laneTime *= 0.9;
   if (lvls.b >= 2) r.stats.dashMax += 1;
-  if (lvls.b >= 3) { r.stats.odRate += 0.25; r.stats.odDur += 2; }
+  if (lvls.b >= 3) { r.stats.odRate += 0.2; r.stats.odDur += 1; }
 }
 
 export function abilityMods(ship, lvls) {

@@ -3,15 +3,15 @@
 
 export const ABILITIES = {
   overclock: { name: 'SOBRECARGA', icon: '⏩', cd: 18, dur: 4, desc: '4 s de tiempo bala; los near-miss valen el doble.' },
-  ram: { name: 'ARIETE', icon: '🐏', cd: 20, dur: 2.5, desc: '2,5 s rompiendo todo lo que tocas (sin poder saltar).' },
-  phase: { name: 'FASE', icon: '👻', cd: 16, dur: 1.2, desc: '1,2 s intangible: lo que atraviesas cuenta como PERFECTO.' },
-  nova: { name: 'ESTALLIDO', icon: '💥', cd: 25, dur: 0, desc: '+50% de overdrive y arrasa todo lo que tienes delante.' },
+  ram: { name: 'ARIETE', icon: '🐏', cd: 24, dur: 2.5, desc: '2,5 s rompiendo todo lo que tocas (sin poder saltar).' },
+  phase: { name: 'FASE', icon: '👻', cd: 18, dur: 1.2, desc: '1,2 s intangible: lo que atraviesas cuenta como PERFECTO.' },
+  nova: { name: 'ESTALLIDO', icon: '💥', cd: 25, dur: 0, desc: '+10% de overdrive y arrasa todo lo que tienes delante.' },
   roar: { name: 'RUGIDO', icon: '🦖', cd: 30, dur: 0, desc: 'Limpia los 3 carriles por delante y atrae todas las monedas.' },
   laser: { name: 'LÁSER', icon: '🔫', cd: 6, dur: 0, desc: 'Dispara por tu carril y rompe el primer obstáculo (o daña al jefe).' },
   hook: { name: 'GANCHO', icon: '🪝', cd: 10, dur: 0, desc: 'Te lanza al carril del extremo opuesto al instante.' },
 };
 
-export const NEAR_MISS_CD = 0.3; // segundos de recarga que quita cada near-miss
+export const NEAR_MISS_CD = 0.15; // segundos de recarga que quita cada near-miss
 
 // mods: { cd, dur, pow: multiplicadores; mut: id de mutación } (árbol de mejoras del hangar)
 export function newAbility(id, mods = {}) {

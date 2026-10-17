@@ -4,7 +4,7 @@ import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
+import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed, SCRIPTS } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
@@ -14,6 +14,7 @@ import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeBonus } from './progress.js';
 import { equipped, addShipStat } from './cosmetics.js';
+import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
 import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
@@ -90,6 +91,7 @@ export function newRun(opts = false) {
   for (const id of modIds) MOD_BY_ID[id].apply?.(r);
   r.stats.scoreMult *= modScore(modIds);
   r.shields = Math.min(r.shields, shieldCap(r));
+  capStats(r);
   r.dashCharges = r.stats.dashMax;
 
   fx.clear();
@@ -243,10 +245,12 @@ export function addScore(base, label, x, y, color = '#fff') {
   return pts;
 }
 
-function addOD(v) {
+// Carga de overdrive por jugar (near-miss, roturas, monedas…): escala con odRate y con OD_GAIN.
+// flat: carga directa (ESTALLIDO), que no se multiplica. Nada carga en overdrive ni recalentando.
+function addOD(v, flat = false) {
   const r = run();
-  if (r.odTime > 0) return;
-  r.od = Math.min(1, r.od + v * r.stats.odRate);
+  if (r.odTime > 0 || r.odCool > 0) return;
+  r.od = Math.min(1, r.od + (flat ? v : v * OD_GAIN * r.stats.odRate));
   if (r.od >= 1) activateOD();
 }
 
@@ -281,14 +285,15 @@ export function onNearMiss(o, perfect) {
   addScore((perfect ? 150 : 60) * bonus, perfect ? '¡PERFECTO!' : 'NEAR-MISS', ps.x, ps.y - ps.s * 0.6, perfect ? '#ffe600' : '#5ac8fa');
   addOD(perfect ? 0.12 : 0.07);
   if (perfect && r.synergies.has('zen')) addOD(0.15);
-  if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.5);
+  if (r.stats.nearDash) r.dashCharges = Math.min(r.stats.dashMax, r.dashCharges + 0.25);
   // jugar bien recarga antes la habilidad
   if (onNearMissCd(r.ability)) abilityReady();
   // mutación "chain": los near-miss alargan la SOBRECARGA
   if (isActive(r.ability, 'overclock') && r.ability.mut === 'chain') r.ability.active += 0.3;
   // Vampiro solo premia jugar bien: near-miss, nunca golpes ni roturas
-  if (r.stats.vampire && ++r.vampN >= VAMPIRE_NEAR) {
+  if (r.stats.vampire && ++r.vampN >= vampireNeed(r.vampGot || 0)) {
     r.vampN = 0;
+    r.vampGot = (r.vampGot || 0) + 1;
     gainShield(1, '+1 🛡️ VAMPIRO');
   }
   fx.slowmo((perfect ? 0.22 : 0.12) * r.stats.nearWin, 0.3);
@@ -426,8 +431,8 @@ export function useAbility() {
       break;
     case 'nova': {
       // mutación "full": llena el overdrive entero
-      if (a.mut === 'full') r.od = 0.999;
-      else addOD(0.5);
+      // carga plana (no la multiplica el Cargador): 10%, o 25% con la mutación
+      addOD(a.mut === 'full' ? 0.25 : 0.1, true);
       const n = sweep(Math.max(14, runSpeed() * 0.5) * a.pow);
       fx.ring(ps.x, ps.y - 40, '#ff375f', 600, 0.6, 26);
       fx.flash('#ff375f', 0.55);
@@ -612,6 +617,7 @@ function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, r
 export function pickCard(id) {
   const r = run();
   const fresh = applyCard(r, id);
+  capStats(r); // topes: ninguna combinación de cartas pasa de ahí
   codexAdd(save, 'cards', id);
   for (const s of fresh) codexAdd(save, 'syn', s.id);
   progress('cards');
@@ -787,12 +793,15 @@ export function update(dt) {
     r.odTime -= dt;
     if (r.odTime <= 0) {
       r.odTime = 0;
+      r.odCool = OD_COOL; // RECALENTANDO: la barra no carga durante unos segundos
       music.od = false;
       // margen de salida: durante el overdrive no hace falta esquivar, así que acabarlo justo
       // delante de un obstáculo sería una muerte sin tiempo de reacción
       G.player.invuln = Math.max(G.player.invuln, 0.6);
       fx.notice('OVERDRIVE terminado', '#ff2bd6');
     }
+  } else if (r.odCool > 0) {
+    r.odCool = Math.max(0, r.odCool - dt);
   } else if (r.od >= 0.999) {
     activateOD();
   }

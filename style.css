@@ -93,6 +93,8 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 }
 #odbar i { position: absolute; inset: 0; background: linear-gradient(90deg, var(--pink), var(--yellow)); transform-origin: left; transform: scaleX(0); }
 #odbar span { position: absolute; inset: 0; text-align: center; font: italic 900 10px/16px var(--font); letter-spacing: 2px; }
+#odbar.cool i { background: linear-gradient(90deg, #555, #888); }
+#odbar.cool span { color: #aaa; }
 #odbar.active i { background: linear-gradient(90deg, #f0f, #0ff, #ff0, #f0f); background-size: 300% 100%; animation: rainbow 0.6s linear infinite; }
 @keyframes rainbow { to { background-position: 300% 0; } }
 #dash { display: flex; gap: 4px; min-width: 40px; justify-content: flex-end; }

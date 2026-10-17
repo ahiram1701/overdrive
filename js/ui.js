@@ -64,7 +64,7 @@ function cardNode(c, run, extra = '') {
     <span class="c-rar">${rar.name}</span>
     <span class="c-icon">${c.icon}</span>
     <span class="c-name">${c.name}</span>
-    <span class="c-desc">${c.desc}</span>
+    <span class="c-desc">${c.descN ? c.descN(lvl + 1) : c.desc}</span>
     ${lvl ? `<span class="c-lvl">Nv ${lvl} → ${lvl + 1}</span>` : ''}
     ${syn ? `<span class="c-syn">⚡ SINERGIA: ${syn}</span>` : ''}
     ${extra}`;
@@ -787,6 +787,9 @@ export const ui = {
     const od = $('odbar');
     od.firstElementChild.style.transform = `scaleX(${r.odTime > 0 ? r.odTime / r.stats.odDur : r.od})`;
     od.classList.toggle('active', r.odTime > 0);
+    // RECALENTANDO: tras un overdrive la barra no carga unos segundos
+    od.classList.toggle('cool', r.odCool > 0);
+    setText('odLabel', r.odCool > 0 ? 'RECALENTANDO' : 'OVERDRIVE');
     const full = Math.floor(r.dashCharges);
     const part = r.dashCharges - full;
     let dash = '';
