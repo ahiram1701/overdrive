@@ -14,6 +14,8 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availabl
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats } from './spaceGame.js';
+import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount } from './galaxyData.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -22,7 +24,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'station', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -123,6 +125,18 @@ export const ui = {
     tap($('btnDaily'), () => newRun(true));
     tap($('btnMods'), () => ui.showMods());
     tap($('btnArena'), () => newArena());
+    tap($('btnGalaxy'), () => newSpace());
+    tap($('btnDock'), () => dock());
+    tap($('btnUndock'), () => undock());
+    tap($('btnSell'), () => { const got = sellAll(); if (got) fx.notice(`+${got} 💰`, '#ffe600'); ui.showStation(G.space); });
+    tap($('btnRepair'), () => { repair(); ui.showStation(G.space); });
+    tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
+    tap($('spacePause'), () => ui.pause());
+    // disparar: mantener pulsado; impulso: un toque
+    const fire = $('btnFire');
+    fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) fire.addEventListener(ev, () => { if (G.space) G.space.fireHeld = false; });
+    $('btnBoost').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceBoost(); });
     tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpMenu'), () => ui.showMenu());
@@ -157,9 +171,10 @@ export const ui = {
     tap($('btnAchBack'), () => ui.showMenu());
     tap($('btnCodexBack'), () => ui.showMenu());
     tap($('btnResume'), () => {
-      if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); } else resume();
+      if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
+      else if (G.mode === 'galaxyPaused') { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); } else resume();
     });
-    tap($('btnQuit'), () => { musicStop(); G.arena = null; ui.showArenaHUD(false); ui.showMenu(); });
+    tap($('btnQuit'), () => { if (G.space) leaveSpace(); musicStop(); G.arena = null; ui.showArenaHUD(false); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
     // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
     $('abilityBtn').addEventListener('pointerdown', (e) => {
@@ -212,7 +227,9 @@ export const ui = {
     G.mode = 'menu';
     G.run = null;
     G.arena = null;
+    G.space = null;
     ui.showArenaHUD(false);
+    ui.showSpaceHUD(false);
     G.player = null;
     ui.showHUD(false);
     $('mBest').textContent = fmt(save.best);
@@ -244,6 +261,7 @@ export const ui = {
       });
       $('mRank').append(b);
     }
+    $('mGalaxy').textContent = save.galaxy.started ? `· 💰 ${fmt(save.galaxy.credits)}` : '· nuevo';
     const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
     $('mRace').textContent = Object.keys(save.raceCups).length ? `· ${golds}🥇` : '· nuevo';
     const eb = save.expedition.best;
@@ -677,6 +695,61 @@ export const ui = {
     show('victory');
   },
 
+  // ---------- GALAXIA ----------
+  showSpaceHUD(on) {
+    $('spaceHud').classList.toggle('hidden', !on);
+    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
+  },
+
+  updateSpaceHUD() {
+    const s = G.space;
+    if (!s || $('spaceHud').classList.contains('hidden')) return;
+    const st = spaceStats(), g = save.galaxy;
+    $('spaceHud').querySelector('.sh-bar.shield i').style.transform = `scaleX(${(s.ship.shield / st.shield).toFixed(3)})`;
+    $('spaceHud').querySelector('.sh-bar.hull i').style.transform = `scaleX(${Math.max(0, s.ship.hull / st.hull).toFixed(3)})`;
+    const n = cargoCount(g.cargo);
+    $('spaceHud').querySelector('.sh-bar.cargo i').style.transform = `scaleX(${Math.min(1, n / st.cargo).toFixed(3)})`;
+    setText('shCargo', `${n}/${st.cargo}`);
+    setText('shCredits', fmt(g.credits));
+    setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
+    $('btnDock').classList.toggle('hidden', !s.canDock);
+    $('btnBoost').classList.toggle('cool', s.ship.boostCd > 0);
+    $('shHint').classList.toggle('hidden', s.t > 8);
+  },
+
+  // Estación: mercado, taller y reparación, todo en una pantalla
+  showStation(s) {
+    ui.showSpaceHUD(false); // atracado: solo la estación
+    const g = save.galaxy, st = spaceStats();
+    setText('stCredits', fmt(g.credits));
+    const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
+    $('stCargo').innerHTML = items.length
+      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}</span><b>${n} × ${ORES[k].price} = ${n * ORES[k].price} 💰</b></div>`).join('')
+      : '<small>Bodega vacía. Mina asteroides y vuelve a vender.</small>';
+    $('btnSell').disabled = !items.length;
+    const box = $('stUpgrades');
+    box.innerHTML = '';
+    for (const [id, u] of Object.entries(SP_UP)) {
+      const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
+      const b = el('button', `st-up${c !== null && g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">${u.icon}</span>
+        <span class="su-body"><b>${u.name}</b><small>${u.desc}</small><i>${'●'.repeat(lvl)}${'○'.repeat(MAX_UP - lvl)}</i></span>
+        <span class="su-cost">${c === null ? 'MÁX' : `${c} 💰`}</span>`);
+      b.dataset.up = id;
+      b.disabled = c === null;
+      tap(b, () => {
+        if (!buyUpgrade(id)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
+        fx.vibe([20, 30, 60]);
+        ui.showStation(s);
+      });
+      box.append(b);
+    }
+    const rc = repairCost(s.ship.hull, st.hull);
+    $('stRepairBox').classList.toggle('hidden', !rc);
+    $('btnRepair').textContent = `REPARAR · ${rc} 💰`;
+    $('btnRepair').disabled = g.credits < rc;
+    show('station');
+  },
+
   // ---------- CARRERAS ----------
   showRaceCups() {
     G.mode = 'hangar'; // pantalla estática
@@ -872,6 +945,14 @@ export const ui = {
   },
 
   pause() {
+    if (G.mode === 'galaxy') {
+      G.mode = 'galaxyPaused';
+      musicDuck(true);
+      if (G.space) G.space.fireHeld = false;
+      $('pBuild').innerHTML = '<small>🌌 GALAXIA</small>';
+      show('pause');
+      return;
+    }
     if (G.mode === 'arena') {
       G.mode = 'arenaPaused';
       musicDuck(true);

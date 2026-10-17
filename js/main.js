@@ -9,11 +9,26 @@ import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility } from './arena.js';
 import { renderArena } from './arenaRender.js';
+import { updateSpace, spaceBoost, spaceStats } from './spaceGame.js';
+import { save } from './save.js';
+import { renderSpace } from './spaceRender.js';
+
+const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused';
 
 const inArena = () => G.mode.startsWith('arena');
 // un paso de simulación del modo que toque
 function simStep(dt) {
-  if (inArena()) {
+  if (inSpace()) {
+    const s = G.space;
+    if (s && G.mode === 'galaxy') {
+      const kx = (held.has('ArrowRight') || held.has('d') ? 1 : 0) - (held.has('ArrowLeft') || held.has('a') ? 1 : 0);
+      const ky = (held.has('ArrowDown') || held.has('s') ? 1 : 0) - (held.has('ArrowUp') || held.has('w') ? 1 : 0);
+      if (kx || ky) s.input = { x: kx, y: ky };
+      else if (!s.stick) s.input = s.botInput || { x: 0, y: 0 };
+      s.firing = held.has(' ') || !!s.fireHeld || !!s.botFire;
+    }
+    updateSpace(dt);
+  } else if (inArena()) {
     if (G.arena && G.mode === 'arena') {
       const kx = (held.has('ArrowRight') || held.has('d') ? 1 : 0) - (held.has('ArrowLeft') || held.has('a') ? 1 : 0);
       const ky = (held.has('ArrowDown') || held.has('s') ? 1 : 0) - (held.has('ArrowUp') || held.has('w') ? 1 : 0);
@@ -30,31 +45,34 @@ ui.showMenu();
 
 initInput({
   any: unlockAudio,
-  enabled: () => G.mode === 'play' || G.mode === 'arena',
+  enabled: () => G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy',
   // ARENA: el dedo mueve la nave como un joystick (60 px = velocidad máxima)
   stick: {
-    enabled: () => G.mode === 'arena',
-    start() { if (G.arena) G.arena.stick = true; },
-    move(dx, dy) { if (G.arena) G.arena.input = { x: Math.max(-1, Math.min(1, dx / 60)), y: Math.max(-1, Math.min(1, dy / 60)) }; },
-    end() { if (G.arena) { G.arena.stick = false; G.arena.input = { x: 0, y: 0 }; } },
+    enabled: () => G.mode === 'arena' || G.mode === 'galaxy',
+    // en la arena y en la galaxia el dedo es un joystick: allí mueve, aquí vira
+    target: () => (G.mode === 'galaxy' ? G.space : G.arena),
+    start() { const t = this.target(); if (t) t.stick = true; },
+    move(dx, dy) { const t = this.target(); if (t) t.input = { x: Math.max(-1, Math.min(1, dx / 60)), y: Math.max(-1, Math.min(1, dy / 60)) }; },
+    end() { const t = this.target(); if (t) { t.stick = false; t.input = { x: 0, y: 0 }; } },
   },
   swipe(dir) {
-    if (G.mode === 'arena') return;
+    if (G.mode === 'arena' || G.mode === 'galaxy') return;
     if (dir === 'left') moveLane(-1);
     else if (dir === 'right') moveLane(1);
     else if (dir === 'up') jump();
     else slide();
   },
-  double: () => (G.mode === 'arena' ? arenaDash() : dash()),
+  // doble toque (o Shift): DASH en el runner y la arena; impulso en la galaxia (el espacio dispara)
+  double: () => (G.mode === 'galaxy' ? (held.has(' ') ? null : spaceBoost()) : G.mode === 'arena' ? arenaDash() : dash()),
   ability: () => (G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {
-    if (G.mode === 'play' || G.mode === 'arena') ui.pause();
-    else if (G.mode === 'paused' || G.mode === 'arenaPaused') document.getElementById('btnResume').click();
+    if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();
+    else if (G.mode === 'paused' || G.mode === 'arenaPaused' || G.mode === 'galaxyPaused') document.getElementById('btnResume').click();
   },
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && (G.mode === 'play' || G.mode === 'arena')) ui.pause();
+  if (document.hidden && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy')) ui.pause();
 });
 
 const STEP = 1 / 120;
@@ -86,7 +104,10 @@ function tick(now) {
 
   fx.update(real);
   // en el hangar el mundo no se ve: no dibujarlo ahorra batería
-  if (inArena()) {
+  if (inSpace()) {
+    renderSpace(real);
+    ui.updateSpaceHUD();
+  } else if (inArena()) {
     renderArena(real);
     ui.updateArenaHUD();
   } else {
@@ -111,11 +132,13 @@ requestAnimationFrame(frame);
 // Herramientas de depuración (?debug): G.god = true ignora golpes; D.step(s) simula s segundos.
 if (G.debug) {
   window.G = G;
+  window.__save = save; // para los bots de los tests
+  window.__spaceStats = spaceStats;
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }
       if (draw) {
-        if (inArena()) { renderArena(STEP); ui.updateArenaHUD(); } else { render(STEP); ui.updateHUD(1); }
+        if (inSpace()) { renderSpace(STEP); ui.updateSpaceHUD(); } else if (inArena()) { renderArena(STEP); ui.updateArenaHUD(); } else { render(STEP); ui.updateHUD(1); }
       }
       return { mode: G.mode, section: G.run?.section, score: Math.round(G.run?.score), mult: G.run?.mult, speed: G.run?.speed };
     },

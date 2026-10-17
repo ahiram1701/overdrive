@@ -120,6 +120,9 @@ export const ACHIEVEMENTS = [
   { id: 'race1', kind: 'raceWin', mode: 'sum', n: 1, tier: 'bronze', name: 'Primera victoria', desc: 'Gana una carrera' },
   { id: 'race10', kind: 'raceWin', mode: 'sum', n: 10, tier: 'silver', name: 'Piloto', desc: 'Gana 10 carreras' },
   { id: 'cupGold', kind: 'cupGold', mode: 'sum', n: 3, tier: 'gold', name: 'Campeón', desc: 'Gana el oro en 3 copas' },
+  { id: 'gal1', kind: 'asteroid', mode: 'sum', n: 50, tier: 'bronze', name: 'Minero', desc: 'Rompe 50 asteroides en la GALAXIA' },
+  { id: 'gal2', kind: 'galaxyCredits', mode: 'sum', n: 5000, tier: 'silver', name: 'Magnate', desc: 'Gana 5.000 créditos en la GALAXIA' },
+  { id: 'gal3', kind: 'galaxyUpgrade', mode: 'sum', n: 10, tier: 'silver', name: 'Mecánico', desc: 'Compra 10 mejoras para tu nave espacial' },
 ];
 export const ACH_GEMS = T;
 

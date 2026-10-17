@@ -13,7 +13,7 @@
 
 <img src="docs/gameplay.gif" width="270" alt="Partida a toda velocidad con explosiones y combo">
 
-<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores"> <img src="docs/arena.png" width="200" alt="Modo Arena"> <img src="docs/expedition.png" width="200" alt="Mapa de la Expedición"> <img src="docs/race.png" width="200" alt="Carrera contra rivales">
+<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores"> <img src="docs/arena.png" width="200" alt="Modo Arena"> <img src="docs/expedition.png" width="200" alt="Mapa de la Expedición"> <img src="docs/race.png" width="200" alt="Carrera contra rivales"> <img src="docs/galaxy.png" width="200" alt="Galaxia en 3D">
 
 </div>
 
@@ -84,6 +84,19 @@ Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una *
 | **Devorador** | minas + succión hacia su carril | + disparos |
 | **El Censor** | ráfaga en todos los carriles menos uno; núcleo **blindado** (el láser rebota: solo DASH) | + rayo |
 | **Mamá Ovni** | disparos + dianas | ráfaga + dianas + minas |
+
+## 🌌 Modo GALAXIA (nuevo)
+Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia que se explora a tu ritmo.
+- **Vuelo:** arrastra el dedo para virar (arriba, abajo y a los lados). La nave avanza sola y afloja al girar fuerte. ⏩ da un impulso y 🔫 dispara, con autoapuntado suave hacia lo que tengas delante. En teclado: WASD/flechas, espacio y Shift.
+- **Sistema ORIGEN:** un sol (no te acerques demasiado), 3 planetas, un cinturón de asteroides y una estación que gira.
+- **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
+- **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:
+  - vendes el mineral;
+  - mejoras **motor, láser, escudo y bodega** (5 niveles cada uno);
+  - reparas el casco.
+- **Relajado:** si te destruyen, te remolcan a la estación. Pierdes la carga, nunca los créditos ni las mejoras.
+- Arriba siempre está el **siguiente paso** ("Vuelve a la estación a vender") y una flecha que te lleva hasta él.
+- Un motor 3D propio sobre Canvas 2D, sin librerías: ~2 ms por fotograma en el móvil.
 
 ## ⚔️ Modo ARENA
 Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
@@ -181,7 +194,7 @@ El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivi
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **53 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
+- **56 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
 
 ## ✨ Prestigio
