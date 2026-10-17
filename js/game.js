@@ -13,7 +13,8 @@ import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd } from './progress.js';
-import { equipped } from './cosmetics.js';
+import { equipped, addShipStat } from './cosmetics.js';
+import { boomFx } from './cosfx.js';
 import { LEVEL_BY_ID, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed } from './campaign.js';
 
 const EVENTS = [
@@ -149,6 +150,9 @@ function startSection() {
   music.intensity = Math.min(3, r.section);
 }
 
+// eventos de progreso que cuentan como uso de la nave
+const SHIP_STAT = { section: 'sections', boss: 'bosses', runs: 'runs' };
+
 // ---------- Combo / puntos / overdrive ----------
 export function addChain(n) {
   const r = run();
@@ -174,6 +178,16 @@ export function addChain(n) {
 // Fuente única de eventos de progreso: alimenta misiones diarias y logros (y en el futuro la campaña).
 // Lo que se completa se celebra en el momento.
 export function progress(kind, value = 1) {
+  // uso de la nave equipada: desbloquea sus pinturas y su insignia exclusivas
+  const stat = SHIP_STAT[kind];
+  if (stat) {
+    for (const it of addShipStat(save, save.ship, stat)) {
+      fx.banner('🎨 ¡EXCLUSIVO DESBLOQUEADO!', `${it.name} · en el hangar de tu nave`, '#bf5af2', true);
+      sfx.chest();
+      if (G.run) (G.run.cosDone ||= []).push(it.id);
+      persist();
+    }
+  }
   for (const m of missions.track(kind, value)) {
     fx.banner('✔ MISIÓN COMPLETADA', `${m.text}  ·  +${m.gems} 💎`, '#30d158', true);
     fx.flash('#30d158', 0.4);
@@ -603,30 +617,6 @@ export function resume() {
 
 // ---------- Muerte ----------
 // Explosión de la nave según el cosmético equipado
-function boomFx(id, ps, r) {
-  const { x, y } = ps;
-  const pal = equipped(save).palette;
-  switch (id) {
-    case 'pixel':
-      for (let i = 0; i < 4; i++) fx.burst(x, y, 30, i % 2 ? '#ffffff' : (pal.edge || r.biome.obs), 650, 16, 1.2, 700);
-      break;
-    case 'confetti':
-      for (let i = 0; i < 6; i++) fx.burst(x, y, 30, () => `hsl(${Math.random() * 360},100%,60%)`, 900, 7, 1.6, 900);
-      break;
-    case 'supernova':
-      for (let i = 0; i < 3; i++) fx.ring(x, y, i ? '#ffd60a' : '#ffffff', 300 + i * 260, 0.5 + i * 0.25, 30 - i * 8);
-      fx.burst(x, y, 90, '#ffd60a', 1100, 6, 1.3, 0);
-      fx.flash('#ffd60a', 1);
-      break;
-    case 'glitch':
-      for (let i = 0; i < 8; i++) fx.burst(x + (Math.random() - 0.5) * 160, y + (Math.random() - 0.5) * 60, 14, i % 2 ? '#39ff14' : '#ff00ff', 400, 10, 0.9, 0);
-      break;
-    default:
-      for (const c of ['#fff', '#ff2d55', '#ffcc00', r.biome.obs]) fx.burst(x, y, 40, c, 800, 7, 1.1, 500);
-      fx.ring(x, y, '#fff', 500, 0.6, 24);
-  }
-}
-
 function die() {
   const r = run(), p = G.player;
   G.mode = 'dying';
@@ -634,7 +624,9 @@ function die() {
   G.dyingT = 1.0;
   p.dead = true;
   const ps = playerScreen();
-  boomFx(equipped(save).boom.id, ps, r);
+  const eq = equipped(save, save.ship);
+  const ship = SHIPS.find((sh) => sh.id === save.ship) || SHIPS[0];
+  boomFx(fx, eq.boom.id, ps.x, ps.y, eq.palette.edge || ship.color, r.biome.obs);
   fx.shake(32);
   fx.flash('#fff', 0.9);
   fx.vibe([120, 60, 220]);
