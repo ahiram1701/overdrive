@@ -4,7 +4,6 @@
 export function spaceBotInPage({ seconds, until = 'dock', fill = 0.6 }) {
   const G = window.G, D = window.D;
   let t = 0;
-  const ang = (a) => Math.atan2(Math.sin(a), Math.cos(a));
   while (t < seconds) {
     if (G.mode !== 'galaxy') break;
     const s = G.space, sh = s.ship, g = window.__save.galaxy;
@@ -30,8 +29,11 @@ export function spaceBotInPage({ seconds, until = 'dock', fill = 0.6 }) {
       }
     }
     const dx = target.x - sh.pos.x, dy = target.y - sh.pos.y, dz = target.z - sh.pos.z;
-    const yaw = Math.atan2(dx, dz), pitch = Math.atan2(dy, Math.hypot(dx, dz));
-    const dyaw = ang(yaw - sh.yaw), dp = pitch - sh.pitch;
+    // como un jugador: el objetivo visto desde la nave (derecha/arriba/delante en SUS ejes)
+    const d3 = { x: dx, y: dy, z: dz };
+    const loc = (v) => d3.x * v.x + d3.y * v.y + d3.z * v.z;
+    const lx = loc(sh.r), ly = loc(sh.u), lz = loc(sh.f);
+    const dyaw = Math.atan2(lx, lz), dp = Math.atan2(ly, Math.hypot(lx, lz));
     s.botInput = { x: Math.max(-1, Math.min(1, dyaw * 3)), y: Math.max(-1, Math.min(1, -dp * 3)) };
     const dist = Math.hypot(dx, dy, dz);
     s.botFire = !goHome && Math.abs(dyaw) < 0.25 && Math.abs(dp) < 0.25 && dist < 650;

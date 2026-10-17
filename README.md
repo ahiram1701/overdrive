@@ -87,7 +87,13 @@ Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una *
 
 ## 🌌 Modo GALAXIA (nuevo)
 Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia que se explora a tu ritmo.
-- **Vuelo:** arrastra el dedo para virar (arriba, abajo y a los lados). La nave avanza sola y afloja al girar fuerte. ⏩ da un impulso y 🔫 dispara, con autoapuntado suave hacia lo que tengas delante. En teclado: WASD/flechas, espacio y Shift.
+- **Vuelo libre:** la nave gira en **sus propios ejes**, así que puedes dar **rizos completos**, volar boca abajo y alabear.
+  - **Joystick** donde apoyes el dedo: arriba/abajo = cabeceo sin tope, a los lados = giro.
+  - **↺ ↻** para alabear sobre ti misma. Con la **nivelación automática** (en Ajustes) el ala vuelve sola a la horizontal.
+  - **Palanca MOTOR** (izquierda): de **marcha atrás** (−40%) a **parado** y **a tope**. Puedes pararte junto a la estación o un asteroide. ⏩ da un impulso aparte.
+  - 🔫 dispara, con autoapuntado suave hacia lo que tengas delante.
+  - En teclado: **WASD**/flechas = cabeceo y giro, **Q/E** = alabeo, **R/F** = acelerador, espacio = disparar, Shift = impulso.
+  - Sensibilidad y eje vertical invertido, en ⚙️ Ajustes.
 - **Sistema ORIGEN:** un sol (no te acerques demasiado), 3 planetas, un cinturón de asteroides y una estación que gira.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:

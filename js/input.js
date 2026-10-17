@@ -9,7 +9,7 @@ export const held = new Set();
 export function initInput(h) {
   let sx = 0, sy = 0, st = 0, active = false, swiped = false, moved = 0, lastTap = 0, pid = null, stick = false;
 
-  const ignore = (e) => e.target.closest && e.target.closest('button, .overlay');
+  const ignore = (e) => e.target.closest && e.target.closest('button, input, .overlay, .throttle');
 
   addEventListener('pointerdown', (e) => {
     h.any?.();

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { v3, basis, makeCam, project, projectDir, chaseCam, lookAngles, angleTo, dot, len } from '../../js/space3d.js';
+import { v3, basis, makeCam, project, projectDir, chaseCam, lookAngles, angleTo, dot, len, quatFromYawPitch, rotateLocal, basisQ, slerp, anglesOf } from '../../js/space3d.js';
 import { shipStats, UPGRADES, upgradeCost, MAX_UP, makeSystem, cargoCount, cargoValue, repairCost, objective } from '../../js/galaxyData.js';
 
 const close = (a, b, e = 1e-9) => Math.abs(a - b) < e;
@@ -66,3 +66,43 @@ test('sistema determinista y objetivo según lo que llevas', () => {
   assert.equal(objective({ cargo: { iron: 20 }, cargoMax: 20, credits: 0, up: {}, sold: false }).kind, 'sell');
   assert.equal(objective({ cargo: { iron: 0 }, cargoMax: 20, credits: 500, up: {}, sold: true }).kind, 'upgrade');
 });
+
+test('cuaterniones: equivalen a yaw/pitch, se mantienen normalizados y un rizo vuelve al rumbo', () => {
+  for (const [y, p] of [[0, 0], [1, 0.3], [-2, -0.9]]) {
+    const a = basis(y, p), b = basisQ(quatFromYawPitch(y, p));
+    for (const k of ['f', 'r', 'u']) for (const c of ['x', 'y', 'z']) assert.ok(close(a[k][c], b[k][c], 1e-9), `${k}.${c}`);
+  }
+  let q = quatFromYawPitch(0.4, 0);
+  const f0 = basisQ(q).f;
+  // rizo completo en 600 pasos: nunca se desnormaliza y vuelve exactamente al mismo rumbo
+  for (let i = 0; i < 600; i++) {
+    q = rotateLocal(q, (Math.PI * 2) / 600, 0, 0);
+    assert.ok(close(Math.hypot(q.w, q.x, q.y, q.z), 1, 1e-9));
+  }
+  const f1 = basisQ(q).f;
+  assert.ok(close(dot(f0, f1), 1, 1e-9), 'mismo rumbo tras 360°');
+  // a mitad del rizo vas boca abajo, mirando hacia atrás
+  const half = rotateLocal(quatFromYawPitch(0, 0), Math.PI, 0, 0);
+  assert.ok(basisQ(half).u.y < -0.99 && basisQ(half).f.z < -0.99);
+  // alabeo a la derecha: el ala derecha baja; guiñada a la derecha: el morro va a +x
+  assert.ok(basisQ(rotateLocal(quat0(), 0, 0, 0.3)).r.y < 0);
+  assert.ok(basisQ(rotateLocal(quat0(), 0, 0.3, 0)).f.x > 0);
+  assert.ok(basisQ(rotateLocal(quat0(), 0.3, 0, 0)).f.y > 0, 'cabeceo positivo = morro arriba');
+  for (const k of ['f', 'r', 'u']) assert.ok(close(len(basisQ(q)[k]), 1));
+  // slerp en los extremos
+  const a = quatFromYawPitch(0, 0), b = quatFromYawPitch(1, 0.5);
+  assert.ok(close(anglesOf(basisQ(slerp(a, b, 1)).f).yaw, 1, 1e-6));
+  assert.ok(close(anglesOf(basisQ(slerp(a, b, 0)).f).yaw, 0, 1e-6));
+});
+
+test('cámara de persecución boca abajo: sigue el "arriba" de la nave', () => {
+  const q = rotateLocal(quatFromYawPitch(0, 0), Math.PI, 0, 0);
+  const ship = { pos: v3(), q };
+  let cam = null;
+  for (let i = 0; i < 300; i++) cam = chaseCam(cam, ship, 1 / 60, 375, 812);
+  assert.ok(cam.u.y < -0.9, 'la cámara también está invertida');
+  const p = project(cam, ship.pos);
+  assert.ok(p && p.y > 406, 'la nave sigue en el tercio inferior de la pantalla');
+});
+
+function quat0() { return quatFromYawPitch(0, 0); }
