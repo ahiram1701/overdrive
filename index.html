@@ -130,6 +130,10 @@
     <div class="tab-panel" data-panel="global"><p class="hint">Valen para todas las naves.</p><div id="metaList" class="list"></div></div>
   </section>
 
+  <section id="planet" class="overlay hidden">
+    <div id="planetInfo" class="planet-info"></div>
+  </section>
+
   <section id="expo" class="overlay hidden expo">
     <canvas id="expoView" aria-label="Exposición: desliza para cambiar de nave"></canvas>
     <div class="expo-info"><b id="expoName"></b><small id="expoSub"></small></div>
@@ -188,6 +192,8 @@
     <button id="btnDock" class="hidden">🛰️ ATRACAR</button>
     <button id="btnBoost" aria-label="Impulso">⏩</button>
     <button id="btnFire" aria-label="Disparar">🔫</button>
+    <button id="btnMissile" class="hidden" aria-label="Misil">🚀<b id="shMis">0</b></button>
+    <button id="btnAct" class="hidden"></button>
     <button id="btnRollL" class="roll-btn l" aria-label="Alabear a la izquierda">↺</button>
     <button id="btnRollR" class="roll-btn r" aria-label="Alabear a la derecha">↻</button>
     <div class="throttle" id="throttleBox">
@@ -196,7 +202,7 @@
       <b id="thrVal">100%</b>
     </div>
     <div id="stickVis" class="stick-vis hidden"><i></i></div>
-    <div id="shHint" class="sh-hint">Arrastra para girar (¡rizos!) · ↺ ↻ alabeo · palanca = acelerar, frenar o marcha atrás</div>
+    <div id="shHint" class="sh-hint">Arrastra para girar (¡rizos!) · doble toque = tonel · ↺ ↻ alabeo · palanca = acelerar o frenar</div>
   </div>
 
   <section id="station" class="overlay hidden">

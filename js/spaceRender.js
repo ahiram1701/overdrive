@@ -8,12 +8,47 @@ import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
 import { trailFx, auraFx } from './cosfx.js';
 import { project, projectDir, norm, sub, scale, basis, dist } from './space3d.js';
 import { ORES } from './galaxyData.js';
-import { shipDef, GAL } from './spaceGame.js';
+import { shipDef, GAL, turretPos } from './spaceGame.js';
 import { MESHES } from './mesh3d.js';
 import { canJump, jumpNeeded } from './galaxy.js';
 import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
 
 // estrellas "en el infinito" (solo giran con la cámara) y polvo cercano (da sensación de velocidad)
+import { makeRng, hashString } from './rng.js';
+import { EVENTS } from './galaxyEvents.js';
+
+// NEBULOSAS: nubes de fondo por sistema, con el color de su estrella. Se pintan una vez en canvas
+// pequeños y luego solo se estiran (barato en el móvil).
+let neb = null;
+function nebulaFor(sysId, starColor) {
+  if (neb && neb.sys === sysId) return neb.blobs;
+  const rng = makeRng(hashString(`neb-${sysId}`));
+  const cols = [starColor, '#bf5af2', '#00e5ff', '#ff2bd6', '#30d158'];
+  const blobs = [];
+  for (let i = 0; i < 6; i++) {
+    const th = rng.range(0, Math.PI * 2), ph = rng.range(-0.6, 0.6);
+    const dir = { x: Math.cos(ph) * Math.sin(th), y: Math.sin(ph), z: Math.cos(ph) * Math.cos(th) };
+    const col = i < 3 ? starColor : rng.pick(cols);
+    let img = null;
+    if (typeof document !== 'undefined') {
+      img = document.createElement('canvas');
+      img.width = img.height = 128;
+      const c = img.getContext('2d');
+      for (let k = 0; k < 7; k++) {
+        const x = 64 + rng.range(-28, 28), y = 64 + rng.range(-28, 28), r = rng.range(24, 60);
+        const g = c.createRadialGradient(x, y, 0, x, y, r);
+        g.addColorStop(0, hexA(col, 0.32));
+        g.addColorStop(1, hexA(col, 0));
+        c.fillStyle = g;
+        c.fillRect(0, 0, 128, 128);
+      }
+    }
+    blobs.push({ dir, ang: rng.range(0.35, 0.75), img, rot: rng.range(0, Math.PI) });
+  }
+  neb = { sys: sysId, blobs };
+  return blobs;
+}
+
 const STARS = [];
 for (let i = 0; i < 520; i++) {
   const u = Math.random() * 2 - 1, a = Math.random() * Math.PI * 2, r = Math.sqrt(1 - u * u);
@@ -93,6 +128,13 @@ function drawMesh3D(ctx, cam, meshId, pos, yaw, pitch, size, pal, flash) {
 }
 
 let fpsAcc = 0, fpsFrames = 0, fps = 0;
+const KIND_PAL = {
+  fighter: { hull: '#1a0505', edge: '#ff375f', glow: '#ff9f0a' },
+  interceptor: { hull: '#1a0a00', edge: '#ffb340', glow: '#ffe600' },
+  bomber: { hull: '#14000c', edge: '#ff2bd6', glow: '#ff375f' },
+  drone: { hull: '#100010', edge: '#ff6bd5', glow: '#ff2d55' },
+};
+
 export function renderSpace(dt) {
   const ctx = getCtx();
   const s = G.space;
@@ -113,6 +155,19 @@ export function renderSpace(dt) {
     ctx.fillStyle = `rgba(255,255,255,${st.b})`;
     ctx.fillRect(p.x, p.y, st.s, st.s);
   }
+
+  // nebulosas
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (const b of nebulaFor(s.sysId, s.sys.sun.color)) {
+    if (!b.img) continue;
+    const p = projectDir(cam, b.dir);
+    if (!p) continue;
+    const R = Math.tan(b.ang) * cam.focal;
+    if (p.x < -R || p.x > W + R || p.y < -R || p.y > H + R) continue;
+    ctx.drawImage(b.img, p.x - R, p.y - R, R * 2, R * 2);
+  }
+  ctx.restore();
 
   const sh = s.ship;
   const boosting = sh.boostT > 0;
@@ -162,6 +217,14 @@ export function renderSpace(dt) {
     draws.push({ z: p.z, fn: () => {
       // dirección de la luz en pantalla
       const toSun = sunP ? norm({ x: sunP.x - p.x, y: sunP.y - p.y, z: 0 }) : { x: -0.6, y: -0.6 };
+      // atmósfera brillante
+      const at = ctx.createRadialGradient(p.x, p.y, R * 0.95, p.x, p.y, R * 1.28);
+      at.addColorStop(0, hexA(pl.c1, 0.45));
+      at.addColorStop(1, hexA(pl.c1, 0));
+      ctx.fillStyle = at;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, R * 1.28, 0, Math.PI * 2);
+      ctx.fill();
       const g = ctx.createRadialGradient(p.x + toSun.x * R * 0.45, p.y + toSun.y * R * 0.45, R * 0.1, p.x, p.y, R * 1.05);
       g.addColorStop(0, pl.c1);
       g.addColorStop(0.7, pl.c2);
@@ -170,8 +233,31 @@ export function renderSpace(dt) {
       ctx.beginPath();
       ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
       ctx.fill();
+      if (R > 6) {
+        ctx.save();
+        ctx.clip();
+        // bandas de nubes
+        ctx.globalAlpha = 0.22;
+        for (let i = -3; i <= 3; i++) {
+          ctx.fillStyle = i % 2 ? pl.c1 : pl.c2;
+          ctx.beginPath();
+          ctx.ellipse(p.x, p.y + i * R * 0.27 + Math.sin(G.realTime * 0.2 + i) * R * 0.03, R * 1.1, R * 0.07, -0.18, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+        // lado nocturno
+        const lg = ctx.createLinearGradient(p.x + toSun.x * R, p.y + toSun.y * R, p.x - toSun.x * R, p.y - toSun.y * R);
+        lg.addColorStop(0, 'rgba(0,0,0,0)');
+        lg.addColorStop(0.5, 'rgba(0,0,0,0.1)');
+        lg.addColorStop(1, 'rgba(0,0,8,0.8)');
+        ctx.fillStyle = lg;
+        ctx.fillRect(p.x - R, p.y - R, R * 2, R * 2);
+        ctx.restore();
+      }
       ctx.strokeStyle = hexA(pl.c1, 0.4);
       ctx.lineWidth = Math.max(1, R * 0.03);
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, R, 0, Math.PI * 2);
       ctx.stroke();
       if (pl.rings) {
         ctx.strokeStyle = hexA(pl.c1, 0.55);
@@ -255,8 +341,9 @@ export function renderSpace(dt) {
     const p = project(cam, pr.pos, 1);
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
     draws.push({ z: p.z, fn: () => {
-      const size = pr.boss ? 13 : 6;
-      drawMesh3D(ctx, cam, pr.mesh, pr.pos, pr.yaw, pr.pitch, size, pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : { hull: '#1a0505', edge: '#ff375f', glow: '#ff9f0a' }, pr.flash > 0);
+      const size = pr.size || (pr.boss ? 13 : 6);
+      const pal = pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : KIND_PAL[pr.kind] || KIND_PAL.fighter;
+      drawMesh3D(ctx, cam, pr.mesh, pr.pos, pr.yaw, pr.pitch, size, pal, pr.flash > 0);
       // corchetes rojos de objetivo: siempre se ve dónde está cada pirata, aunque esté lejos
       const R = Math.max(14, p.s * size * 1.3), c = R * 0.45;
       ctx.strokeStyle = pr.boss ? '#ffe600' : '#ff2d55';
@@ -421,6 +508,134 @@ export function renderSpace(dt) {
     }
   }
 
+  // BASE PIRATA: anillo con torretas y vida
+  if (s.base) {
+    const b = s.base, p = project(cam, b.pos, 1);
+    if (p) {
+      draws.push({ z: p.z, fn: () => {
+        drawMesh3D(ctx, cam, 'titan', b.pos, b.spin, 0, b.r * 0.8, { hull: '#1a0008', edge: '#ff2d55', glow: '#ff9f0a' }, b.flash > 0);
+        ctx.strokeStyle = '#ff2d55';
+        ctx.lineWidth = Math.max(2, p.s * 3);
+        ctx.beginPath();
+        for (let i = 0; i <= 24; i++) {
+          const a = (i / 24) * Math.PI * 2 + b.spin;
+          const q = project(cam, { x: b.pos.x + Math.cos(a) * b.r, y: b.pos.y + 8, z: b.pos.z + Math.sin(a) * b.r }, 1);
+          if (q) { if (i) ctx.lineTo(q.x, q.y); else ctx.moveTo(q.x, q.y); }
+        }
+        ctx.stroke();
+        for (const t of b.turrets) {
+          const q = project(cam, turretPos(b, t), 1);
+          if (!q) continue;
+          ctx.fillStyle = t.cd < 0.3 ? '#ffe600' : '#ff9f0a';
+          ctx.beginPath();
+          ctx.arc(q.x, q.y, Math.max(2.5, q.s * 4), 0, Math.PI * 2);
+          ctx.fill();
+        }
+        const bw = Math.max(40, Math.min(120, p.s * 80));
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * 50 - 12, bw, 5);
+        ctx.fillStyle = '#ff2d55';
+        ctx.fillRect(p.x - bw / 2, p.y - p.s * 50 - 12, bw * Math.max(0, b.hp / b.max), 5);
+        ctx.fillStyle = '#ff2d55';
+        ctx.font = 'italic 900 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🏴‍☠️ BASE PIRATA', p.x, p.y - p.s * 50 - 18);
+      } });
+    }
+  }
+  // SUCESOS: cápsula, convoy y agujero de gusano
+  const ev = s.event;
+  if (ev && !ev.done) {
+    const label = (p, text, col, dy) => { ctx.fillStyle = col; ctx.font = 'italic 900 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(text, p.x, p.y - dy); };
+    if (ev.kind === 'rescue' && !ev.held) {
+      const p = project(cam, ev.pod.pos, 1);
+      if (p) draws.push({ z: p.z, fn: () => {
+        const R = Math.max(5, p.s * 6), k = 0.5 + 0.5 * Math.sin(G.realTime * 6);
+        ctx.fillStyle = '#e8fff0';
+        ctx.beginPath(); ctx.ellipse(p.x, p.y, R, R * 0.6, 0.4, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = `rgba(48,209,88,${0.4 + 0.6 * k})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R * (1.6 + k), 0, Math.PI * 2); ctx.stroke();
+        label(p, `🆘 CÁPSULA · ${Math.round(dist(ev.pod.pos, sh.pos))} m`, '#30d158', R * 2.8);
+      } });
+    } else if (ev.kind === 'convoy') {
+      for (const [i, c] of ev.ships.entries()) {
+        const p = project(cam, c.pos, 1);
+        if (p) draws.push({ z: p.z, fn: () => {
+          drawMesh3D(ctx, cam, 'brick', c.pos, c.yaw, 0, 11, { hull: '#0b2a14', edge: '#ffe600', glow: '#30d158' }, false);
+          if (!i) label(p, '🚚 CONVOY MERCANTE', '#ffe600', p.s * 16 + 10);
+        } });
+      }
+    } else if (ev.kind === 'wormhole') {
+      const p = project(cam, ev.pos, 1);
+      if (p) draws.push({ z: p.z, fn: () => {
+        const R = Math.max(12, p.s * 40), t = G.realTime;
+        ctx.save();
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R);
+        g.addColorStop(0, '#000'); g.addColorStop(0.55, 'rgba(20,0,40,.9)'); g.addColorStop(1, 'rgba(191,90,242,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.fill();
+        ctx.globalCompositeOperation = 'lighter';
+        for (let i = 0; i < 5; i++) {
+          ctx.strokeStyle = `rgba(${i % 2 ? '125,249,255' : '191,90,242'},${0.6 - i * 0.08})`;
+          ctx.lineWidth = Math.max(1.5, R * 0.05);
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, R * (0.5 + i * 0.12), t * (2 + i) + i, t * (2 + i) + i + 2.2);
+          ctx.stroke();
+        }
+        ctx.restore();
+        label(p, `${EVENTS.wormhole.icon} AGUJERO DE GUSANO`, '#bf5af2', R + 10);
+      } });
+    }
+  }
+  // MISILES: los tuyos (blancos, con humo) y los del bombardero (rojos, parpadean)
+  for (const [list, col] of [[s.missiles, '#ffffff'], [s.emissiles, '#ff2d55']]) {
+    for (const m of list) {
+      const p = project(cam, m.pos, 1), q = project(cam, sub(m.pos, scale(norm(m.vel), 22)), 1);
+      if (!p || !q) continue;
+      draws.push({ z: p.z, fn: () => {
+        ctx.strokeStyle = 'rgba(200,200,220,.35)';
+        ctx.lineWidth = Math.max(2, p.s * 2.5);
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+        ctx.fillStyle = col === '#ff2d55' && Math.floor(G.realTime * 10) % 2 ? '#ffe600' : col;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(2.5, p.s * 1.6), 0, Math.PI * 2); ctx.fill();
+      } });
+    }
+  }
+  // ONDAS EXPANSIVAS y chispas
+  for (const b of s.blasts) {
+    const p = project(cam, b.pos, 1);
+    if (!p) continue;
+    const k = b.t / b.max;
+    draws.push({ z: p.z, fn: () => {
+      const r = Math.max(3, b.R * Math.sqrt(k) * p.s);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      if (k < 0.35) {
+        const g = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r);
+        g.addColorStop(0, `rgba(255,255,255,${0.9 * (1 - k / 0.35)})`);
+        g.addColorStop(0.5, hexA(b.col, 0.6 * (1 - k / 0.35)));
+        g.addColorStop(1, hexA(b.col, 0));
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.strokeStyle = hexA(b.col, 0.85 * (1 - k));
+      ctx.lineWidth = Math.max(1.5, r * 0.08 * (1 - k) + 1);
+      ctx.beginPath(); ctx.ellipse(p.x, p.y, r, r * 0.92, 0, 0, Math.PI * 2); ctx.stroke();
+      ctx.restore();
+    } });
+  }
+  for (const sp of s.sparks) {
+    const p = project(cam, sp.pos, 1);
+    if (!p) continue;
+    draws.push({ z: p.z, fn: () => {
+      ctx.fillStyle = sp.col;
+      const r = Math.max(1.2, p.s * 0.8);
+      ctx.fillRect(p.x - r, p.y - r, r * 2, r * 2);
+    } });
+  }
+
   // tus disparos (con el color elegido en el hangar)
   const shotCol = equipped(save, save.ship).shot.color || DEFAULT_SHOT;
   for (const bo of s.bolts) {
@@ -444,10 +659,43 @@ export function renderSpace(dt) {
       const eq = equipped(save, save.ship);
       const pal = eq.palette, def = shipDef();
       const size = Math.max(18, shp.s * 4.2);
+      // ESTELA 3D: cinta en el mundo, con el color del motor
+      if (s.trail.length > 2) {
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.lineCap = 'round';
+        let prev = null;
+        for (let i = 0; i < s.trail.length; i++) {
+          // los puntos pegados a la cámara se saltan: su escala se dispara
+          const q = project(cam, s.trail[i], 9);
+          if (q && prev) {
+            const k = 1 - i / s.trail.length;
+            ctx.strokeStyle = hexA(boosting ? '#7df9ff' : pal.glow, 0.55 * k);
+            ctx.lineWidth = Math.min(size * 0.25, Math.max(1, q.s * 2.2 * k));
+            ctx.beginPath(); ctx.moveTo(prev.x, prev.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+          }
+          prev = q;
+        }
+        ctx.restore();
+      }
       trailFx(fx, ctx, eq.trail.id, shp.x, shp.y + size * 0.15, size * 1.2, boosting ? '#7df9ff' : pal.glow, boosting ? 120 : 40, G.realTime);
       auraFx(ctx, eq.aura.id, shp.x, shp.y, size * 0.9, G.realTime);
+      // TONEL: una vuelta completa
+      const spin = sh.barrelT > 0 ? sh.barrelDir * Math.PI * 2 * (1 - sh.barrelT / 0.55) : 0;
       drawShip(ctx, def.id, { ...pal, edge: pal.edge || def.color }, shp.x, shp.y, size,
-        { pitch: -0.32, roll: sh.roll, yaw: 0 }, { line: 1.6, ...emblemOpts(eq) });
+        { pitch: -0.32, roll: sh.roll + spin, yaw: 0 }, { line: 1.6, ...emblemOpts(eq) });
+      // ESCUDO: brilla al recibir
+      if (sh.shieldFx > 0) {
+        ctx.save();
+        ctx.strokeStyle = `rgba(125,249,255,${Math.min(1, sh.shieldFx * 2)})`;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([size * 0.18, size * 0.1]);
+        ctx.lineDashOffset = -G.realTime * 60;
+        ctx.shadowColor = '#7df9ff';
+        ctx.shadowBlur = 12;
+        ctx.beginPath(); ctx.ellipse(shp.x, shp.y, size * 0.95, size * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
+        ctx.restore();
+      }
     } });
   }
 
@@ -505,6 +753,27 @@ export function renderSpace(dt) {
       ctx.fill();
       ctx.restore();
       ctx.fillText(`${dd} m`, ax, ay - 16);
+    }
+  }
+
+  // VISOR DE MISIL: rombo que se cierra sobre el blanco; rojo = FIJADO
+  if (s.lock?.ref) {
+    const tp = project(cam, s.lock.ref.pos, 1);
+    if (tp) {
+      const k = Math.min(1, s.lock.t / 0.6), R = 34 - 16 * k;
+      ctx.save();
+      ctx.translate(tp.x, tp.y);
+      ctx.rotate(Math.PI / 4 + (s.lock.locked ? 0 : G.realTime * 3));
+      ctx.strokeStyle = s.lock.locked ? '#ff2d55' : '#ffe600';
+      ctx.lineWidth = 2.5;
+      ctx.strokeRect(-R, -R, R * 2, R * 2);
+      ctx.restore();
+      if (s.lock.locked) {
+        ctx.fillStyle = '#ff2d55';
+        ctx.font = 'italic 900 12px system-ui';
+        ctx.textAlign = 'center';
+        ctx.fillText('🚀 FIJADO', tp.x, tp.y + 34);
+      }
     }
   }
 

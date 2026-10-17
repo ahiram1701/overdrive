@@ -108,7 +108,7 @@ try {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/campaign.png` });
   console.log(`✔ ${OUT}/campaign.png`);
-  await page.evaluate(() => document.getElementById('btnCampBack').click());
+  await page.evaluate(() => document.querySelector('#campaign .scr-back').click());
 
   // Arena en plena partida (simulada, con algunas mejoras)
   await page.evaluate(() => { window.G.manual = true; });
@@ -169,7 +169,7 @@ try {
   await page.waitForTimeout(300);
   await page.screenshot({ path: `${OUT}/modifiers.png` });
   console.log(`✔ ${OUT}/modifiers.png`);
-  await page.evaluate(() => document.getElementById('btnModsBack').click());
+  await page.evaluate(() => document.querySelector('#mods .scr-back').click());
 
   // Partida: un obstáculo "deslízate" cerca y algo de combo
   await play(page);

@@ -14,7 +14,7 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availabl
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
@@ -26,7 +26,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'settings', 'expo', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'settings', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'achs', 'codex']);
@@ -178,6 +178,8 @@ export const ui = {
     fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) fire.addEventListener(ev, () => { if (G.space) G.space.fireHeld = false; });
     $('btnBoost').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceBoost(); });
+    $('btnMissile').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceMissile(); });
+    tap($('btnAct'), () => spaceAct());
     // alabeo: mantener ↺ / ↻
     for (const [id, dir] of [['btnRollL', -1], ['btnRollR', 1]]) {
       const b = $(id);
@@ -232,6 +234,7 @@ export const ui = {
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
     screenHeader('expo', '🏛️ EXPOSICIÓN', () => ui.showHangar());
+    screenHeader('planet', '🪐 EN ÓRBITA', () => leaveOrbit());
     tap($('btnExpo'), () => ui.showExpo(ui.hangarView || save.ship));
     screenHeader('achs', '🏆 LOGROS', () => ui.showMenu());
     screenHeader('codex', '📖 COLECCIÓN', () => ui.showMenu());
@@ -953,6 +956,27 @@ export const ui = {
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
   },
 
+  // ÓRBITA: el planeta, su historia, la primera visita paga y compra un mineral caro
+  showPlanet(idx) {
+    ui.showSpaceHUD(false);
+    const info = planetOf(idx), g = save.galaxy;
+    const first = orbitVisit(idx);
+    const n = g.cargo[info.buys] || 0;
+    const price = Math.round(stationPrices()[info.buys] * info.mult);
+    const pl = G.space.sys.planets[idx];
+    $('planetInfo').innerHTML = `
+      <div class="pl-globe" style="--c1:${pl.c1};--c2:${pl.c2}">${pl.rings ? '<i></i>' : ''}</div>
+      <h3>${info.name}</h3><small class="pl-type">${info.type}</small>
+      <p>${info.desc}</p>
+      ${first ? `<p class="pl-first">📡 Primer sobrevuelo: +${first} 💰</p>` : ''}
+      <div class="pl-trade"><span>${ORES[info.buys].icon} Aquí pagan el <b>${ORES[info.buys].name}</b> a <b>💰 ${price}</b> (×${info.mult})</span>
+        <button class="btn" id="btnPlanetSell" ${n ? '' : 'disabled'}>VENDER ${n} · 💰 ${fmt(n * price)}</button></div>
+      <button class="btn ghost" id="btnPlanetLeave">🚀 SALIR DE ÓRBITA</button>`;
+    tap($('btnPlanetSell'), () => { const got = planetSell(idx); if (got) { toast(`+${fmt(got)} 💰`); ui.showPlanet(idx); } });
+    tap($('btnPlanetLeave'), () => leaveOrbit());
+    show('planet');
+  },
+
   // joystick visible donde apoyas el dedo (Galaxia)
   stickVis(x, y, dx = 0, dy = 0) {
     const v = $('stickVis');
@@ -976,6 +1000,15 @@ export const ui = {
     if (document.activeElement !== $('throttle')) $('throttle').value = thr;
     setText('thrVal', thr === 0 ? 'PARADO' : thr < 0 ? `◀ ${-thr}%` : `${thr}%`);
     $('throttleBox').classList.toggle('rev', thr < 0);
+    // misiles (si tienes la mejora) y botón de contexto (COMERCIAR / ORBITAR)
+    const hasMis = (g.up.missile || 0) > 0;
+    $('btnMissile').classList.toggle('hidden', !hasMis);
+    if (hasMis) {
+      setText('shMis', String(g.missiles || 0));
+      $('btnMissile').classList.toggle('lock', !!s.lock?.locked);
+    }
+    $('btnAct').classList.toggle('hidden', !s.act);
+    if (s.act) setText('btnAct', s.act.label);
     setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
     const sd = GAL[s.sysId];
     setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}`);

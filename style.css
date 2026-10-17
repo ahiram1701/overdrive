@@ -575,7 +575,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 #btnBoost { position: absolute; right: 116px; bottom: calc(env(safe-area-inset-bottom, 0px) + 34px); width: 60px; height: 60px; border-radius: 50%; font-size: 24px;
   border: 2px solid var(--cyan); background: rgba(0,229,255,.18); color: #fff; touch-action: none; }
 #btnBoost.cool { opacity: .4; }
-#btnDock { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 130px); transform: translateX(-50%); padding: 14px 22px; border-radius: 14px;
+#btnDock { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 262px); transform: translateX(-50%); padding: 14px 22px; border-radius: 14px;
   border: 2px solid #30d158; background: rgba(48,209,88,.25); color: #fff; font: italic 900 18px var(--font); box-shadow: 0 0 20px rgba(48,209,88,.6); animation: glowPulse 1.2s infinite; }
 #btnDock.hidden { display: none; }
 .sh-hint { position: absolute; bottom: calc(env(safe-area-inset-bottom, 0px) + 196px); padding: 0 70px; left: 0; right: 0; text-align: center; font: 800 13px var(--font); color: #fff; opacity: .8; }
@@ -754,3 +754,21 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .stick-vis { position: fixed; width: 120px; height: 120px; margin: -60px 0 0 -60px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); background: rgba(255,255,255,.05); pointer-events: none; z-index: 3; }
 .stick-vis.hidden { display: none; }
 .stick-vis i { position: absolute; left: 36px; top: 36px; width: 48px; height: 48px; border-radius: 50%; background: rgba(125,249,255,.45); box-shadow: 0 0 14px rgba(125,249,255,.6); }
+
+/* ---------- Galaxia: combate y contenido (U4) ---------- */
+#btnMissile { position: absolute; right: 190px; bottom: calc(env(safe-area-inset-bottom, 0px) + 36px); width: 56px; height: 56px; border-radius: 50%;
+  border: 2px solid #ffe600; background: rgba(255,230,0,.15); font-size: 22px; color: #fff; touch-action: none; }
+#btnMissile b { position: absolute; right: -4px; top: -4px; min-width: 20px; padding: 1px 4px; border-radius: 10px; background: #ffe600; color: #000; font: 900 11px var(--font); }
+#btnMissile.lock { border-color: #ff2d55; background: rgba(255,45,85,.35); box-shadow: 0 0 16px rgba(255,45,85,.7); }
+#btnMissile.hidden, #btnAct.hidden { display: none; }
+#btnAct { position: absolute; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 262px); transform: translateX(-50%); padding: 12px 20px; border-radius: 14px;
+  border: 2px solid #ffe600; background: rgba(255,230,0,.2); color: #fff; font: italic 900 17px var(--font); box-shadow: 0 0 18px rgba(255,230,0,.5); }
+.planet-info { width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; gap: var(--sp-2); text-align: center; }
+.planet-info h3 { margin: 0; font: italic 900 26px var(--font); }
+.planet-info p { margin: 0; color: #ddd; }
+.pl-type { color: var(--cyan); font-weight: 800; }
+.pl-first { color: var(--yellow) !important; font-weight: 800; }
+.pl-globe { position: relative; width: 140px; height: 140px; border-radius: 50%; margin: var(--sp-2) 0;
+  background: radial-gradient(circle at 35% 30%, var(--c1), var(--c2) 65%, #020108); box-shadow: 0 0 40px var(--c1), inset -20px -16px 40px rgba(0,0,0,.7); animation: glowPulse 3s infinite; }
+.pl-globe i { position: absolute; left: -40px; right: -40px; top: 58px; height: 24px; border-radius: 50%; border: 5px solid var(--c1); opacity: .7; transform: rotate(-12deg); }
+.pl-trade { width: 100%; display: flex; flex-direction: column; gap: var(--sp-2); padding: var(--sp-3); border-radius: var(--r-2); background: var(--panel); border: 1px solid rgba(255,255,255,.15); }

@@ -8,6 +8,7 @@ export const UPGRADES = {
   shield: { name: 'Escudo', icon: '🛡️', desc: 'Más escudo y se regenera antes.', cost: [110, 240, 450, 760, 1200] },
   cargo: { name: 'Bodega', icon: '📦', desc: 'Cabe más mineral en cada viaje.', cost: [90, 200, 380, 650, 1050] },
   jump: { name: 'Salto', icon: '🌀', desc: 'Llegas a sistemas más lejanos (y peligrosos).', cost: [150, 350, 650, 1000, 1500] },
+  missile: { name: 'Misiles', icon: '🚀', desc: 'Misiles teledirigidos: fija un blanco y dispara. Más munición y daño.', cost: [200, 380, 620, 950, 1400] },
 };
 export const MAX_UP = 5;
 export const upgradeCost = (id, lvl) => (lvl >= MAX_UP ? null : UPGRADES[id].cost[lvl]);
