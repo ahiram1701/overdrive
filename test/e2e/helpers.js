@@ -48,7 +48,9 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     if (god) p.dash = 0.4;
     const sp = r.speed * (r.odTime > 0 ? 1.5 : 1);
     // tiempo hasta el impacto: los disparos del jefe se acercan más rápido (vz)
-    const tti = (o) => (o.z - r.dist) / (sp + (o.vz || 0));
+    // objetos largos que se esquivan de carril (lava): si ya estás dentro de su tramo, el peligro es inmediato
+    // (los rieles NO: se recorren)
+    const tti = (o) => (o.len && needOf(o) === 'lane' && o.z - r.dist <= 0 && o.z + o.len - r.dist > 0 ? 0 : (o.z - r.dist) / (sp + (o.vz || 0)));
     const inLane = (o, lane) => o.all || Math.abs(o.x - lane) < 0.75;
     const danger = (lane, a, b) => r.objects.filter((o) => o.alive && needOf(o) && inLane(o, lane) && tti(o) > a && tti(o) < b);
     const blocksLane = (lane, a, b) => danger(lane, a, b).some((o) => needOf(o) === 'lane');

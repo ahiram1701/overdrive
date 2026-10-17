@@ -6,7 +6,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, VAMPIRE_NEAR, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
-import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed } from './world.js';
+import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed, SCRIPTS } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
 import { baseSpeed, trackSpeed } from './pacing.js';
 import { project } from './render.js';
@@ -20,7 +20,13 @@ const EVENTS = [
   { id: 'coinrain', name: '¡LLUVIA DE MONEDAS!', sub: 'cógelas todas', dur: 5, color: '#ffcc00' },
   { id: 'flip', name: '¡GRAVEDAD INVERTIDA!', sub: 'el mundo al revés', dur: 5, color: '#bf5af2' },
   { id: 'nearonly', name: 'SOLO NEAR-MISS', sub: 'x3 por near-miss · la distancia no puntúa', dur: 8, color: '#5ac8fa' },
+  { id: 'blackout', name: '¡APAGÓN!', sub: 'solo ves lo que tienes cerca', dur: 5, color: '#8e8e93' },
+  { id: 'magstorm', name: 'TORMENTA MAGNÉTICA', sub: 'todas las monedas vienen a ti', dur: 6, color: '#ffd60a' },
+  { id: 'double', name: 'COMBO DOBLE', sub: 'cada acción suma el doble', dur: 7, color: '#ff2bd6' },
 ];
+
+// Debug: ?event=id fuerza el evento de cada tramo, ?script=id fuerza un set piece
+const DBG = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search) : null;
 
 const MULT_WORDS = [[5, '¡BIEN!'], [10, '¡BRUTAL!'], [20, '¡SALVAJE!'], [30, '¡INSANO!'], [50, '¡IMPARABLE!'], [75, '¡DIVINO!'], [99, '¡¡MÁXIMO!!']];
 const SPEED_MARKS = [[500, '500 KM/H'], [800, '800 KM/H'], [1000, '1000 KM/H'], [1235, '¡MACH 1!'], [1600, '1600 KM/H'], [2000, '2000 KM/H'], [2470, '¡¡MACH 2!!'], [3705, '¡¡¡MACH 3!!!']];
@@ -103,7 +109,26 @@ function startSection() {
     // el evento se decide al empezar el tramo: sacarlo del RNG más tarde mezclaría su tirada con las de la pista
     r.nextEventAt = r.section >= 1 && r.rng.chance(0.6) ? r.time + r.rng.range(5, 10) : Infinity;
     r.pendingEvent = r.rng.pick(EVENTS);
+    // SET PIECE: a partir del tramo 3, a veces el tramo trae una secuencia guionizada
+    const scriptId = r.section >= 2 && r.rng.chance(0.35) ? r.rng.pick(Object.keys(SCRIPTS)) : null;
+    const forcedScript = DBG?.get('script');
+    const sid = forcedScript && SCRIPTS[forcedScript] ? forcedScript : scriptId;
+    r.script = sid ? { id: sid, ...SCRIPTS[sid], i: 0, announced: false } : null;
+    const forcedEvent = EVENTS.find((e) => e.id === DBG?.get('event'));
+    if (forcedEvent) { r.pendingEvent = forcedEvent; r.nextEventAt = r.time + 2; }
     fx.banner(`TRAMO ${r.section + 1}`, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
+  }
+  // HIPERESPACIO: gravedad baja (saltos más largos y flotantes); se deshace al salir del bioma
+  if (r.lowGrav) {
+    r.stats.gravity /= 0.6;
+    r.stats.jumpV /= 0.78;
+    r.lowGrav = false;
+  }
+  if (r.biome.id === 'hyper' && !isBoss) {
+    r.stats.gravity *= 0.6;
+    r.stats.jumpV *= 0.78;
+    r.lowGrav = true;
+    fx.notice('🪐 Gravedad baja: saltos más largos', '#7df9ff');
   }
   music.biome = r.biome.music;
   music.intensity = Math.min(3, r.section);
@@ -113,7 +138,7 @@ function startSection() {
 export function addChain(n) {
   const r = run();
   const before = r.mult;
-  r.chain = Math.min(98.99, r.chain + n);
+  r.chain = Math.min(98.99, r.chain + n * (r.event?.id === 'double' ? 2 : 1)); // evento COMBO DOBLE
   r.chainT = 0;
   r.mult = Math.min(99, 1 + Math.floor(r.chain));
   if (r.mult > r.maxMult) r.maxMult = r.mult;
@@ -687,6 +712,19 @@ export function update(dt) {
   } else if (r.event) {
     r.eventT -= dt;
     if (r.eventT <= 0) r.event = null;
+  }
+
+  // SET PIECE: se anuncia al llegar a él (no al generarlo, que es ~150 m antes) y termina al pasarlo
+  if (r.script && r.script.z0 !== undefined) {
+    if (!r.script.announced && r.dist >= r.script.z0 - runSpeed() * 1.2) {
+      r.script.announced = true;
+      fx.banner(`⚡ ${r.script.name}`, r.script.sub, '#ff9f0a', true);
+      (r.scriptsSeen ||= []).push(r.script.id);
+      sfx.alarm();
+      fx.vibe([30, 30, 60]);
+      progress('script');
+    }
+    if (r.script.z1 !== undefined && r.dist > r.script.z1) r.script = null;
   }
 
   const kmh = r.speed * 10; // sin el x1.5 del overdrive: si no, su banner tapa al de OVERDRIVE
