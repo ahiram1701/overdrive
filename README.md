@@ -95,10 +95,23 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - En teclado: **WASD**/flechas = cabeceo y giro, **Q/E** = alabeo, **R/F** = acelerador, espacio = disparar, Shift = impulso.
   - Sensibilidad y eje vertical invertido, en ⚙️ Ajustes.
 - **Sistema ORIGEN:** un sol (no te acerques demasiado), 3 planetas, un cinturón de asteroides y una estación que gira.
+- **Espectáculo:** nebulosas de fondo con el color de cada estrella, planetas con atmósfera, bandas de nubes y lado nocturno, estela 3D con el color de tu motor, explosiones con onda expansiva, chispas al impactar y el escudo que brilla al recibir.
+- **Combate:**
+  - **🚀 Misiles teledirigidos** (mejora *Misiles*): mantén un enemigo en el visor hasta que ponga **FIJADO** y dispara. La munición se recarga al atracar. En teclado: **M**.
+  - **🌀 Tonel** (doble toque o **X**): una vuelta de campana hacia un lado, invulnerable mientras dura. Esquiva balas y misiles.
+  - **Enemigos:** cazas, **interceptores** rápidos y frágiles, **bombarderos** lentos que lanzan misiles (derríbalos a tiros) y **enjambres de drones**. Aparecen más tipos al alejarte de ORIGEN.
+  - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín y 3 💎.
+- **Sucesos al llegar a un sistema** (con aviso):
+  - ☄️ **lluvia de meteoritos**: minería rápida, el doble de mineral, pero duelen;
+  - 🆘 **cápsula de rescate**: llévala a la estación (créditos y 💎);
+  - 🚚 **convoy mercante**: alcánzalo y te compra la carga a +40%;
+  - 🌀 **agujero de gusano**: un atajo a un sistema al azar;
+  - 🏴‍☠️ **asalto a una base pirata**.
+- **🪐 ORBITAR planetas:** al acercarte a uno aparece ORBITAR. Cada planeta tiene nombre, tipo e historia; el primer sobrevuelo paga y cada uno compra un mineral a ×1,5.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:
   - vendes el mineral;
-  - mejoras **motor, láser, escudo y bodega** (5 niveles cada uno);
+  - mejoras **motor, láser, escudo, bodega, salto y misiles** (5 niveles cada uno);
   - reparas el casco.
 - **30 sistemas** unidos por **puertas de salto**: crúzalas y llegas al vecino, con un túnel de hiperespacio. El **peligro** crece con la distancia a ORIGEN, y el mineral también vale más (hierro, cristal, plasma, materia oscura). La mejora **Salto** te deja llegar más lejos.
 - **🗺️ Mapa galáctico:** ves lo visitado y sus vecinos (lo demás es niebla). Toca un sistema y **traza la ruta**: la brújula te guía de puerta en puerta.

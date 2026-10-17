@@ -9,11 +9,11 @@ import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent } from './spaceGame.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 
-const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap';
+const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap' || G.mode === 'planet';
 
 const inArena = () => G.mode.startsWith('arena');
 // un paso de simulación del modo que toque
@@ -71,8 +71,9 @@ initInput({
     else if (dir === 'up') jump();
     else slide();
   },
-  // doble toque (o Shift): DASH en el runner y la arena; impulso en la galaxia (el espacio dispara)
-  double: () => (G.mode === 'galaxy' ? (held.has(' ') ? null : spaceBoost()) : G.mode === 'arena' ? arenaDash() : dash()),
+  // doble toque (o Shift): DASH en el runner y la arena. En la galaxia, doble toque = TONEL y Shift = impulso
+  double: () => (G.mode === 'galaxy' ? (held.has('Shift') ? spaceBoost() : held.has(' ') ? null : spaceRoll()) : G.mode === 'arena' ? arenaDash() : dash()),
+  extra: (k) => { if (G.mode === 'galaxy') (k === 'x' ? spaceRoll() : spaceMissile()); },
   ability: () => (G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {
     if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();
@@ -143,6 +144,7 @@ if (G.debug) {
   window.G = G;
   window.__save = save; // para los bots de los tests
   window.__spaceStats = spaceStats;
+  window.__forceEvent = forceEvent;
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }
