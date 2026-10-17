@@ -158,7 +158,7 @@ export function addChain(n) {
 
 // Fuente única de eventos de progreso: alimenta misiones diarias y logros (y en el futuro la campaña).
 // Lo que se completa se celebra en el momento.
-function progress(kind, value = 1) {
+export function progress(kind, value = 1) {
   for (const m of missions.track(kind, value)) {
     fx.banner('✔ MISIÓN COMPLETADA', `${m.text}  ·  +${m.gems} 💎`, '#30d158', true);
     fx.flash('#30d158', 0.4);

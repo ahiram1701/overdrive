@@ -525,7 +525,19 @@ function drawObj(o, rz, b, t) {
       ctx.fillStyle = '#fff';
       ctx.font = `italic 900 ${Math.max(10, Math.round(R * 0.9))}px system-ui`;
       ctx.textAlign = 'center';
-      ctx.fillText('DASH!', p.x, p.y - R * 2.2);
+      ctx.fillText(o.shield ? 'SOLO DASH' : 'DASH!', p.x, p.y - R * 2.2);
+      if (o.shield) {
+        // núcleo blindado (EL CENSOR): el láser rebota, hay que embestirlo
+        ctx.strokeStyle = '#5ac8fa';
+        ctx.lineWidth = Math.max(2, R * 0.12);
+        ctx.beginPath();
+        for (let i = 0; i < 6; i++) {
+          const a = (i / 6) * Math.PI * 2 + t;
+          ctx.lineTo(p.x + Math.cos(a) * R * 1.45, p.y + Math.sin(a) * R * 1.45);
+        }
+        ctx.closePath();
+        ctx.stroke();
+      }
       break;
     }
     case 'coin': {
@@ -833,42 +845,128 @@ function drawHunter(t) {
 
 function drawBoss(b, t) {
   const r = G.run, bo = r.boss;
+  const col = bo.def ? bo.def.color : b.obs;
+  const shape = bo.def ? bo.def.shape : 'worm';
   const rz = bossRz();
+
+  // marca del rayo en el suelo: apártate de esos carriles
+  if (bo.beam) {
+    const blink = Math.floor(t * 14) % 2 === 0;
+    for (const l of bo.beam.lanes) {
+      if (quad(l * LANE_W - 0.48, l * LANE_W + 0.48, -1, rz, 0.02)) {
+        ctx.fillStyle = hexA(HAZARD, blink ? 0.5 : 0.22);
+        ctx.fill();
+      }
+    }
+  }
+
   const p = project(bo.x, 3.4, rz);
   if (!p) return;
   const S = 4.2 * p.s * (bo.dying ? 1 + (2 - bo.dying) * 0.3 : 1);
+  const body = bo.flash > 0 ? `rgba(255,255,255,${0.4 + bo.flash * 0.6})` : 'rgba(10,0,20,.9)';
+  const enraged = bo.phase === 1;
   ctx.save();
   ctx.translate(p.x, p.y + Math.sin(t * 3) * S * 0.1);
-  // tentáculos
-  ctx.strokeStyle = b.obs;
-  ctx.lineWidth = Math.max(2, S * 0.08);
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 5 - 0.5) * 1.6;
-    ctx.beginPath();
-    ctx.moveTo(Math.sin(a) * S * 0.5, S * 0.3);
-    for (let k = 1; k <= 6; k++) {
-      ctx.lineTo(Math.sin(a) * S * (0.5 + k * 0.12) + Math.sin(t * 5 + k + i) * S * 0.08, S * (0.3 + k * 0.17));
-    }
-    ctx.stroke();
-  }
-  // cuerpo
-  ctx.beginPath();
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
-    ctx.lineTo(Math.cos(a) * S * 0.65, Math.sin(a) * S * 0.55);
-  }
-  ctx.closePath();
-  ctx.fillStyle = bo.flash > 0 ? `rgba(255,255,255,${0.4 + bo.flash * 0.6})` : 'rgba(10,0,20,.9)';
-  ctx.fill();
+  if (enraged) ctx.translate((Math.random() - 0.5) * S * 0.03, 0); // en fase 2 tiembla
+  ctx.strokeStyle = col;
   ctx.lineWidth = Math.max(2, S * 0.06);
-  ctx.strokeStyle = b.obs;
-  ctx.stroke();
-  // ojo que mira al jugador
-  const ex = clamp((G.player.x - bo.x) * 0.12, -0.15, 0.15) * S;
-  ctx.fillStyle = '#ff2d55';
-  ctx.beginPath(); ctx.ellipse(0, 0, S * 0.28, S * 0.2, 0, 0, Math.PI * 2); ctx.fill();
-  ctx.fillStyle = '#fff';
-  ctx.beginPath(); ctx.arc(ex, S * 0.03, S * 0.09, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = body;
+  const eye = (cx, cy, rx, ry) => {
+    const ex = clamp((G.player.x - bo.x) * 0.12, -0.15, 0.15) * S;
+    ctx.fillStyle = enraged ? '#ff2d55' : col;
+    ctx.beginPath(); ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.beginPath(); ctx.arc(cx + ex, cy + ry * 0.15, Math.min(rx, ry) * 0.45, 0, Math.PI * 2); ctx.fill();
+  };
+
+  switch (shape) {
+    case 'eye': {
+      // OJO DEL VACÍO: un ojo enorme con párpados
+      ctx.beginPath(); ctx.ellipse(0, 0, S * 0.75, S * 0.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      for (let i = 0; i < 10; i++) {
+        const a = (i / 10) * Math.PI * 2 + t;
+        ctx.beginPath();
+        ctx.moveTo(Math.cos(a) * S * 0.78, Math.sin(a) * S * 0.52);
+        ctx.lineTo(Math.cos(a) * S * 0.98, Math.sin(a) * S * 0.7);
+        ctx.stroke();
+      }
+      eye(0, 0, S * 0.42, S * 0.36);
+      break;
+    }
+    case 'maw': {
+      // DEVORADOR: una boca con dientes que se abre y se cierra
+      const open = 0.25 + 0.2 * Math.sin(t * 4);
+      ctx.beginPath(); ctx.arc(0, 0, S * 0.7, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.fillStyle = '#1a0008';
+      ctx.beginPath(); ctx.ellipse(0, S * 0.15, S * 0.5, S * open, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff';
+      for (let i = -3; i <= 3; i++) {
+        for (const dir of [-1, 1]) {
+          const y0 = S * 0.15 + dir * S * open;
+          ctx.beginPath();
+          ctx.moveTo(i * S * 0.13 - S * 0.05, y0);
+          ctx.lineTo(i * S * 0.13 + S * 0.05, y0);
+          ctx.lineTo(i * S * 0.13, y0 - dir * S * 0.12);
+          ctx.fill();
+        }
+      }
+      eye(-S * 0.3, -S * 0.38, S * 0.11, S * 0.09);
+      eye(S * 0.3, -S * 0.38, S * 0.11, S * 0.09);
+      break;
+    }
+    case 'cube': {
+      // EL CENSOR: un cubo que gira con una franja de censura
+      ctx.rotate(Math.sin(t * 0.8) * 0.3 + t * 0.4);
+      ctx.beginPath(); ctx.rect(-S * 0.55, -S * 0.55, S * 1.1, S * 1.1); ctx.fill(); ctx.stroke();
+      ctx.strokeRect(-S * 0.38, -S * 0.38, S * 0.76, S * 0.76);
+      ctx.fillStyle = '#000';
+      ctx.fillRect(-S * 0.6, -S * 0.1, S * 1.2, S * 0.2);
+      ctx.fillStyle = col;
+      ctx.font = `900 ${Math.round(S * 0.14)}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('CENSURADO', 0, 0);
+      break;
+    }
+    case 'ufo': {
+      // MAMÁ OVNI: platillo con cúpula y luces
+      ctx.beginPath(); ctx.ellipse(0, S * 0.1, S * 0.9, S * 0.28, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(0, -S * 0.05, S * 0.4, S * 0.35, 0, Math.PI, 0); ctx.fill(); ctx.stroke();
+      for (let i = 0; i < 7; i++) {
+        ctx.fillStyle = Math.floor(t * 8 + i) % 2 ? col : '#fff';
+        ctx.beginPath(); ctx.arc((i - 3) * S * 0.24, S * 0.18, S * 0.05, 0, Math.PI * 2); ctx.fill();
+      }
+      eye(0, -S * 0.15, S * 0.16, S * 0.13);
+      // haz de abducción
+      ctx.fillStyle = hexA(col, 0.12);
+      ctx.beginPath();
+      ctx.moveTo(-S * 0.3, S * 0.3); ctx.lineTo(S * 0.3, S * 0.3); ctx.lineTo(S * 0.7, S * 1.4); ctx.lineTo(-S * 0.7, S * 1.4);
+      ctx.fill();
+      break;
+    }
+    default: {
+      // GUSANO DE NEÓN: cuerpo hexagonal con tentáculos
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 5 - 0.5) * 1.6;
+        ctx.beginPath();
+        ctx.moveTo(Math.sin(a) * S * 0.5, S * 0.3);
+        for (let k = 1; k <= 6; k++) {
+          ctx.lineTo(Math.sin(a) * S * (0.5 + k * 0.12) + Math.sin(t * 5 + k + i) * S * 0.08, S * (0.3 + k * 0.17));
+        }
+        ctx.stroke();
+      }
+      ctx.beginPath();
+      for (let i = 0; i < 6; i++) {
+        const a = (i / 6) * Math.PI * 2 + Math.PI / 6;
+        ctx.lineTo(Math.cos(a) * S * 0.65, Math.sin(a) * S * 0.55);
+      }
+      ctx.closePath();
+      ctx.fillStyle = body;
+      ctx.fill();
+      ctx.stroke();
+      eye(0, 0, S * 0.28, S * 0.2);
+    }
+  }
   ctx.restore();
 }
 
