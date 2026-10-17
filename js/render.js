@@ -563,6 +563,42 @@ function drawObj(o, rz, b, t) {
       }
       break;
     }
+    // ---- F6 ----
+    case 'lava': {
+      // río de lava a lo largo de un carril: rojo burbujeante (peligro), se esquiva cambiando de carril
+      const z0 = Math.max(rz, NEAR + 0.6), z1 = Math.min(rz + o.len, VIEW);
+      for (let z = z0; z < z1; z += 3) {
+        if (!quad(o.x - 0.47, o.x + 0.47, Math.min(z + 3, z1), z, 0.02)) continue;
+        const k = 0.5 + 0.5 * Math.sin(t * 6 + z * 0.4);
+        ctx.fillStyle = `rgba(255,${60 + 70 * k | 0},20,${0.75 * clamp((VIEW - z) / 25, 0, 1)})`;
+        ctx.fill();
+      }
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.strokeStyle = 'rgba(255,200,60,.6)';
+      ctx.lineWidth = 2;
+      for (const ex of [-0.47, 0.47]) {
+        polyline(o.x + ex, 0.02, z0, z1, 4);
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
+    case 'glitch': {
+      // muro que salta de carril: su fantasma parpadea en el destino antes del salto
+      if (!o.jumped && rz < runSpeed() * 1.6) {
+        ctx.globalAlpha = fog * (Math.floor(t * 16) % 2 ? 0.45 : 0.2);
+        neonBox(o.to * LANE_W, 0, WALL_DRAW_H, rz, o.w, o.depth, '#39ff14', 0.15);
+        ctx.globalAlpha = fog;
+      }
+      const jitter = o.jumped ? 0 : (Math.random() - 0.5) * 0.06;
+      const f = neonBox(o.x + jitter, 0, WALL_DRAW_H, rz, o.w, o.depth, ACT.dodge, 0.45);
+      if (f) {
+        ctx.fillStyle = 'rgba(57,255,20,.35)';
+        for (let i = 0; i < 3; i++) ctx.fillRect(f.x, f.y + Math.random() * f.h, f.w, Math.max(1, f.h * 0.04));
+      }
+      break;
+    }
     // ---- F4 ----
     case 'crusher': {
       // dos mandíbulas que se cierran sobre el carril y terminan ~0,4 s antes del impacto
@@ -1019,6 +1055,13 @@ export function render(dt) {
     ctx.translate(0, H);
     ctx.scale(1, -1);
   }
+  // AGUJERO DE GUSANO: la vista gira mientras dura el set piece
+  const sc = r && r.script;
+  if (sc && sc.spin && sc.z0 !== undefined && r.dist >= sc.z0 && (sc.z1 === undefined || r.dist <= sc.z1)) {
+    ctx.translate(W / 2, H * 0.6);
+    ctx.rotate(Math.sin(t * 0.7) * 0.32);
+    ctx.translate(-W / 2, -H * 0.6);
+  }
 
   drawSky(b, t);
   drawGround(b, dist, t);
@@ -1049,6 +1092,15 @@ export function render(dt) {
 
   fx.draw(ctx);
   ctx.restore();
+
+  // APAGÓN: solo se ve la zona cercana a la nave
+  if (r && r.event?.id === 'blackout') {
+    const g = ctx.createRadialGradient(W / 2, H * 0.78, H * 0.12, W / 2, H * 0.7, H * 0.55);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,0.94)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
   fx.drawTexts(ctx, r && r.event?.id === 'flip' ? H : 0);
 
   // post-proceso

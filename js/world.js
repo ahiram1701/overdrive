@@ -37,6 +37,9 @@ const DIM = {
   laserHigh: { w: 3, y0: 0.45, y1: TALL, depth: 0.05, all: true, need: 'slide' },
   mine: { w: 0.5, y0: 0, y1: 0.35, depth: 0.5, need: 'lane' },
   mover: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },
+  // F6: mecánicas de bioma
+  lava: { w: 0.95, y0: 0, y1: 0.3, depth: 0.05, need: 'lane' },   // río de lava a lo largo de un carril (con len)
+  glitch: { w: 0.9, y0: 0, y1: TALL, depth: 0.8, need: 'lane' },  // muro que salta de carril una vez
   shot: { w: 0.6, y0: 0, y1: 0.5, depth: 0.6, need: 'lane' },
   core: { w: 0.8, y0: 0, y1: 1.2, depth: 0.8 },
   coin: { w: 0.5, y0: 0, y1: 0.5, depth: 0 },
@@ -57,6 +60,17 @@ const TARGET_COL = '#30d158'; // verde = objetivo / impulso
 // velocidad real (con overdrive): los umbrales de reacción se miden en TIEMPO, no en metros,
 // porque la velocidad no tiene tope y una distancia fija se vuelve imposible al final
 export const runSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1);
+
+// tiempo en el aire de un salto con los stats actuales (la gravedad baja del hiperespacio lo alarga)
+export const airtime = (r) => (2 * r.stats.jumpV) / r.stats.gravity;
+
+// SET PIECES: secuencias guionizadas de patrones, anunciadas al llegar a ellas
+export const SCRIPTS = {
+  tunel: { name: 'TÚNEL', sub: 'rieles y portales', rows: ['railRun', 'portalSwap', 'over3', 'railRun', 'portalSwap'] },
+  estampida: { name: 'ESTAMPIDA', sub: '¡salta los rodillos!', rows: ['rollers', 'rollers', 'rollers', 'rollers', 'rollers'] },
+  meteoritos: { name: 'LLUVIA DE MINAS', sub: 'cambia de carril sin parar', rows: ['mines', 'mines', 'mines', 'mines', 'mines', 'mines'] },
+  gusano: { name: 'AGUJERO DE GUSANO', sub: 'el mundo gira', rows: ['coinArc', 'portalSwap', 'coinArc', 'portalSwap', 'coinArc'], spin: true },
+};
 
 export const allowedLanes = (r) => LANES.filter((l) => l !== r.blockedLane);
 // lo que no es un obstáculo: premios, objetivos y elementos de movimiento
@@ -158,6 +172,36 @@ const PATTERNS = {
     r.extraGap = len + Math.max(9, spd * 0.5);
     return 'jump';
   },
+  // ---- F6: mecánicas de bioma ----
+  // LAVA: un río de lava recorre un carril; hay que estar fuera de él mientras dura
+  lavaFlow(r, z, L, rng) {
+    if (L.length < 2) return PATTERNS.wall1(r, z, L, rng);
+    const l = rng.pick(L);
+    const spd = trackSpeed(z, r.stats.speedMult);
+    const len = Math.max(20, spd * 1.1);
+    add('lava', l, z, { len });
+    const free = L.filter((x) => x !== l);
+    coinLine(rng.pick(free), z + 3, z + len - 3);
+    r.extraGap = len + Math.max(9, spd * 0.4);
+    return 'lane';
+  },
+  // GLITCH: un muro que salta de carril una vez; su fantasma marca el destino antes
+  glitchWall(r, z, L, rng) {
+    if (L.length < 2) return PATTERNS.wall1(r, z, L, rng);
+    const from = rng.pick(L);
+    const to = rng.pick(L.filter((l) => l !== from));
+    add('glitch', from, z, { to, jumped: false });
+    return 'lane';
+  },
+  // NEÓN: cortina de láser bajo y, justo detrás, una alta (salta y luego deslízate)
+  laserDuo(r, z) {
+    const spd = trackSpeed(z, r.stats.speedMult);
+    add('laserLow', 0, z);
+    const z2 = z + spd * (airtime(r) + 0.2);
+    add('laserHigh', 0, z2);
+    r.extraGap = z2 - z + spd * 0.66;
+    return 'slide';
+  },
   droneLine(r, z, L, rng) {
     const l = rng.pick(L);
     for (let k = 0; k < 3; k++) add('drone', l, z + k * 6);
@@ -173,9 +217,9 @@ const PATTERNS = {
 
 const WEIGHTS = {
   intro: { wall1: 3, wall2: 2, barrier3: 1.5, over3: 1.5, coinArc: 1.2 },
-  neon: { wall1: 2.5, wall2: 2.5, barrier3: 2, over3: 2, mixed: 1.5, gate: 1.5, coinArc: 1, pinch: 1, rampJump: 1, railRun: 1, droneLine: 0.8 },
-  lava: { mines: 3, laserLow: 2.5, laserHigh: 2, wall1: 1.5, mixed: 1, barrier3: 1, rollers: 2, rampJump: 1, dropRow: 1 },
-  glitch: { mover: 3, wall2: 2, mixed: 2, laserHigh: 1, mines: 1, wall1: 1, portalSwap: 2, pinch: 1.5, railRun: 1, droneLine: 1 },
+  neon: { wall1: 2.5, wall2: 2.5, barrier3: 2, over3: 2, mixed: 1.5, gate: 1.5, coinArc: 1, pinch: 1, rampJump: 1, railRun: 1, droneLine: 0.8, laserDuo: 1.5 },
+  lava: { mines: 3, laserLow: 2.5, laserHigh: 2, wall1: 1.5, mixed: 1, barrier3: 1, rollers: 2, rampJump: 1, dropRow: 1, lavaFlow: 2.5 },
+  glitch: { mover: 3, wall2: 2, mixed: 2, laserHigh: 1, mines: 1, wall1: 1, portalSwap: 2, pinch: 1.5, railRun: 1, droneLine: 1, glitchWall: 3 },
   hyper: { wall2: 2, gate: 2, mixed: 2.5, laserLow: 1.5, laserHigh: 1.5, mover: 1.5, mines: 1, railRun: 1.5, portalSwap: 1.5, rollers: 1, dropRow: 1, rampJump: 1.2, droneLine: 1 },
   boss: { wall1: 3, mines: 2 },
 };
@@ -199,6 +243,12 @@ function genRow(r) {
   let pat = rng.weighted(pats).id;
   // ?debug&pattern=nombre: una de cada dos filas usa ese patrón (para testear cada uno con el bot)
   if (FORCED && PATTERNS[FORCED] && key !== 'boss' && (r.forceToggle = !r.forceToggle)) pat = FORCED;
+  // set piece en curso: su guion manda (sin tirar del RNG, así la pista sigue siendo determinista)
+  if (r.script && r.script.i < r.script.rows.length) {
+    if (r.script.i === 0) r.script.z0 = z;
+    pat = r.script.rows[r.script.i++];
+    if (r.script.i === r.script.rows.length) r.script.z1 = z + 60;
+  }
   r.extraGap = 0;
   const kind = PATTERNS[pat](r, z, L, rng);
 
@@ -209,7 +259,8 @@ function genRow(r) {
   if (r.boss) tGap *= 1.7;
   if (r.section === 0) tGap *= 1.15;
   let gap = Math.max(9, spd * tGap);
-  if (kind === 'jump' || kind === 'mixed') gap = Math.max(gap, spd * 0.78);
+  // tras un salto hay que poder aterrizar y volver a saltar: depende del tiempo de vuelo real
+  if (kind === 'jump' || kind === 'mixed') gap = Math.max(gap, spd * Math.max(0.78, airtime(r) + 0.15));
   if (kind === 'slide') gap = Math.max(gap, spd * 0.66);
   gap = Math.max(gap, r.extraGap); // patrones largos (riel, portal, rampa) reservan su espacio
 
@@ -585,7 +636,7 @@ export function updateWorld(dt) {
   const p = G.player;
   const pb = playerBox();
   const supernova = r.odTime > 0 && r.synergies.has('supernova');
-  const mag = supernova ? 4 : r.stats.magnet;
+  const mag = supernova || r.event?.id === 'magstorm' ? 4 : r.stats.magnet;
 
   for (const o of r.objects) {
     if (!o.alive) continue;
@@ -594,6 +645,20 @@ export function updateWorld(dt) {
     const rz = o.z - r.dist;
 
     // deja de cambiar de carril con ~0.45 s de margen, vaya a la velocidad que vaya
+    // GLITCH: salta de carril de golpe a ~0,9 s del impacto (su fantasma lo avisa antes)
+    if (o.type === 'glitch' && !o.jumped && rz < runSpeed(r) * 0.9) {
+      o.jumped = true;
+      const sp = screenOf(o);
+      if (sp) fx.burst(sp.x, sp.y, 14, '#39ff14', 300, 4, 0.3, 0);
+      o.lane = o.to;
+      o.x = o.to * LANE_W;
+      sfx.bump();
+    }
+    // LAVA: quema mientras estés dentro del río y en el suelo (saltar por encima vale)
+    if (o.type === 'lava' && rz <= 0 && rz + o.len > 0 && Math.abs(pb.x - o.x) < 0.5 && pb.y0 < o.y1) {
+      const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram') || isActive(r.ability, 'phase');
+      if (!powered && p.invuln <= 0 && !G.god) onHit(o);
+    }
     if (o.type === 'mover' && rz > Math.max(16, runSpeed(r) * 0.45)) {
       o.moveT -= dt;
       if (o.moveT <= 0) {

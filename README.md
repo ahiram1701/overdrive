@@ -65,6 +65,15 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
 - **El Cazador:** si pasas 3 s sin tocar nada aparece un dron que marca tu carril en rojo y dispara. Sus disparos atraviesan la invulnerabilidad. Esquiva 2 seguidos y se retira con un **¡ESCAPASTE!** y bonus. Cada vez que vuelve, tarda menos en aparecer.
 - **Velocidad:** no para de subir. Hay avisos a los 500 km/h, en MACH 1, en MACH 2…
 
+## 🌍 Biomas, set pieces y eventos
+- **Cada bioma tiene su mecánica:**
+  - **Túnel de lava:** ríos de lava que recorren un carril.
+  - **Vacío glitch:** muros que saltan de carril; un fantasma verde marca el destino antes.
+  - **Hiperespacio:** gravedad baja, con saltos más largos y flotantes.
+  - **Neón urbano:** cortinas de láser bajo y alto seguidas.
+- **Set pieces:** desde el tramo 3, a veces aparece una secuencia guionizada con aviso: **TÚNEL** (rieles y portales), **ESTAMPIDA** (oleada de rodillos), **LLUVIA DE MINAS** o **AGUJERO DE GUSANO** (el mundo gira).
+- **Eventos:** controles invertidos, mundo al revés, lluvia de monedas, solo near-miss, **apagón** (solo ves lo cercano), **tormenta magnética** (todas las monedas vienen a ti) y **combo doble**.
+
 ## 🛣️ Estructura de una partida
 1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".
 2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
