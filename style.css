@@ -264,6 +264,13 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .cos-preview .pv-name b { color: #fff; }
 .cos-preview small { color: var(--muted); font-size: 12px; }
 .cos-preview .btn { width: auto; flex: 1 1 0; margin: 0; padding: 10px 8px; font-size: 14px; animation: none; }
+.cos-style { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.cos-style .seg { display: flex; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; overflow: hidden; }
+.cos-style .seg button { padding: 6px 10px; background: transparent; color: var(--muted); border: 0; font: 800 11px var(--font); }
+.cos-style .seg button.on { background: rgba(255,230,0,.18); color: var(--yellow); }
+.cos-style .swatches { display: flex; gap: 6px; }
+.cos-style .swatches button { width: 22px; height: 22px; border-radius: 50%; border: 2px solid rgba(255,255,255,.25); padding: 0; }
+.cos-style .swatches button.on { border-color: #fff; box-shadow: 0 0 8px #fff; }
 .sc-mini { width: 48px; height: 30px; display: block; margin: 0 auto; }
 .ship-detail { width: min(440px, 100%); display: flex; flex-direction: column; gap: 8px; padding: 12px; border-radius: 14px; background: var(--panel); border: 1px solid rgba(255,255,255,.12); }
 .sd-head { --sc: #00e5ff; display: flex; gap: 12px; align-items: center; }

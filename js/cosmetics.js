@@ -13,6 +13,10 @@ export const PALETTES = [
   { id: 'chrome', name: 'Cromo', hull: '#3a3a48', edge: '#ffffff', glow: '#9ff', unlock: { gems: 200 } },
   { id: 'void', name: 'Vacío', hull: '#000000', edge: '#bf5af2', glow: '#ff2bd6', unlock: { rank: 12 } },
   { id: 'gold', name: 'Oro', hull: '#3a2a00', edge: '#ffd60a', glow: '#fff3a0', unlock: { ach: 'boss10' } },
+  // con patrón (alt = segundo color del casco)
+  { id: 'tiger', name: 'Tigre', hull: '#b35f00', alt: '#0a0500', pattern: 'stripes', edge: '#ff9500', glow: '#ffd60a', unlock: { gems: 160 } },
+  { id: 'duo', name: 'Dúo', hull: '#0a2a5e', alt: '#6a0058', pattern: 'split', edge: '#00e5ff', glow: '#ff2bd6', unlock: { gems: 160 } },
+  { id: 'aurora', name: 'Aurora', hull: '#00553f', alt: '#5a1a8a', pattern: 'fade', edge: '#7df9ff', glow: '#bf5af2', unlock: { rank: 18 } },
   // exclusivas: una por usar la nave (tramos) y otra de maestría (jefes con ella)
   { id: 'x-viper1', name: 'Veneno', hull: '#06140a', edge: '#39ff14', glow: '#b6ff00', ...X('viper', 'sections', 30) },
   { id: 'x-viper2', name: 'Cobra real', hull: '#1a1200', edge: '#ffd60a', glow: '#ff3b30', ...X('viper', 'bosses', 5) },
@@ -36,6 +40,8 @@ export const TRAILS = [
   { id: 'pixels', name: 'Píxeles', unlock: { gems: 100 } },
   { id: 'rainbow', name: 'Arcoíris', unlock: { rank: 10 } },
   { id: 'comet', name: 'Cometa', unlock: { ach: 'mach1' } },
+  { id: 'smoke', name: 'Humo', unlock: { gems: 120 } },
+  { id: 'lightning', name: 'Relámpago', unlock: { rank: 14 } },
 ];
 
 export const BOOMS = [
@@ -44,6 +50,8 @@ export const BOOMS = [
   { id: 'confetti', name: 'Confeti', unlock: { gems: 140 } },
   { id: 'supernova', name: 'Supernova', unlock: { gems: 200 } },
   { id: 'glitch', name: 'Glitch', unlock: { ach: 'syn10' } },
+  { id: 'blackhole', name: 'Agujero negro', unlock: { gems: 180 } },
+  { id: 'fireworks', name: 'Fuegos artificiales', unlock: { rank: 20 } },
 ];
 
 // Emblemas: se dibujan sobre las alas (trazos vectoriales en shipdraw.js, no emoji). 'sil' es la
@@ -61,7 +69,13 @@ export const EMBLEMS = [
 ];
 
 export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS };
-export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none' };
+export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto' };
+
+// Estilo del emblema (gratis): dónde va y de qué color ('auto' = el brillo de la pintura)
+export const EMBLEM_AT = [['alas', 'Alas'], ['ala', 'Un ala'], ['cola', 'Cola']];
+export const EMBLEM_COLORS = {
+  auto: null, white: '#ffffff', yellow: '#ffe600', cyan: '#00e5ff', magenta: '#ff2bd6', green: '#39ff14', red: '#ff2d55', black: '#05050a',
+};
 export const STAT_TEXT = { sections: 'tramos', bosses: 'jefes', runs: 'partidas' };
 
 const cos = (save) => {
@@ -121,8 +135,24 @@ export function equipped(save, ship = save.ship) {
     const it = GROUPS[group].find((i) => i.id === e[group]);
     return it && isUnlocked(it, save, ship) ? it : GROUPS[group][0];
   };
-  return { palette: pick('palette'), trail: pick('trail'), boom: pick('boom'), emblem: pick('emblem') };
+  return {
+    palette: pick('palette'), trail: pick('trail'), boom: pick('boom'), emblem: pick('emblem'),
+    emblemAt: EMBLEM_AT.some(([k]) => k === e.emblemAt) ? e.emblemAt : 'alas',
+    emblemColor: e.emblemColor in EMBLEM_COLORS ? e.emblemColor : 'auto',
+  };
 }
+
+// Cambia dónde va el emblema o su color (gratis)
+export function setEmblemStyle(save, ship, { at, color } = {}) {
+  const c = cos(save);
+  const cur = { ...DEFAULT_EQUIP, ...c.equip[ship] };
+  if (at && EMBLEM_AT.some(([k]) => k === at)) cur.emblemAt = at;
+  if (color && color in EMBLEM_COLORS) cur.emblemColor = color;
+  c.equip[ship] = cur;
+}
+
+// Opciones de drawShip para el emblema de un aspecto (lo que devuelve equipped)
+export const emblemOpts = (lk) => ({ emblem: lk.emblem.id, emblemAt: lk.emblemAt, emblemColor: EMBLEM_COLORS[lk.emblemColor] || null });
 
 // Estadística de uso de una nave. Devuelve los exclusivos que se acaban de desbloquear.
 export function addShipStat(save, ship, stat, n = 1) {

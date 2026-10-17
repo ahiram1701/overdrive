@@ -40,10 +40,37 @@ export function trailFx(sink, ctx, id, x, y, s, col, speed, t) {
     case 'comet':
       for (let i = 0; i < 2; i++) sink.spark(x + (Math.random() - 0.5) * s * 0.1, y + 0.15 * s, (Math.random() - 0.5) * 20, vy * 1.3, i ? '#ffffff' : col, s * 0.09, 0.5);
       break;
+    case 'smoke':
+      if (Math.random() < 0.6) sink.spark(x + (Math.random() - 0.5) * s * 0.2, y + 0.18 * s, (Math.random() - 0.5) * 30, vy * 0.3, 'rgba(170,170,190,.45)', s * (0.12 + Math.random() * 0.1), 0.9);
+      break;
+    case 'lightning': {
+      // un rayo en zigzag desde el motor, nuevo cada frame
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.lineJoin = 'miter';
+      for (const [w, c] of [[s * 0.07, hexA(col.length === 7 ? col : '#7df9ff', 0.35)], [s * 0.025, '#ffffff']]) {
+        ctx.strokeStyle = c;
+        ctx.lineWidth = w;
+        ctx.beginPath();
+        let px = x, py = y + 0.15 * s;
+        ctx.moveTo(px, py);
+        for (let i = 0; i < 6; i++) {
+          px = x + (Math.random() - 0.5) * s * 0.35;
+          py += s * 0.13;
+          ctx.lineTo(px, py);
+        }
+        ctx.stroke();
+      }
+      ctx.restore();
+      break;
+    }
     default: // chispas
       sink.spark(x + (Math.random() - 0.5) * s * 0.15, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, col, s * 0.05, 0.25);
   }
 }
+
+// Ejecuta fn tras ms (los efectos en varias fases); en Node no hay ventana, pero tampoco se dibuja
+const later = (ms, fn) => (typeof setTimeout !== 'undefined' ? setTimeout(fn, ms) : fn());
 
 // Explosión de la nave. edge = color de la pintura, accent = color del bioma. k escala el tamaño
 // (el hangar es más pequeño que la pantalla de juego).
@@ -62,6 +89,28 @@ export function boomFx(sink, id, x, y, edge, accent, k = 1) {
       break;
     case 'glitch':
       for (let i = 0; i < 8; i++) sink.burst(x + (Math.random() - 0.5) * 160 * k, y + (Math.random() - 0.5) * 60 * k, 14, i % 2 ? '#39ff14' : '#ff00ff', 400 * k, 10 * k, 0.9, 0);
+      break;
+    case 'blackhole': {
+      // la materia cae hacia el centro… y luego estalla
+      const R = 260 * k;
+      for (let i = 0; i < 70; i++) {
+        const a = Math.random() * Math.PI * 2, rr = R * (0.6 + Math.random() * 0.4);
+        sink.spark(x + Math.cos(a) * rr, y + Math.sin(a) * rr, -Math.cos(a) * rr * 2.6, -Math.sin(a) * rr * 2.6, i % 3 ? edge : '#bf5af2', 5 * k, 0.38);
+      }
+      later(380, () => {
+        sink.ring(x, y, '#bf5af2', 420 * k, 0.6, 26 * k);
+        sink.burst(x, y, 50, '#ffffff', 900 * k, 5 * k, 0.8, 0);
+        sink.flash('#bf5af2', 0.6);
+      });
+      break;
+    }
+    case 'fireworks':
+      // tres palmeras de colores, una tras otra
+      ['#ff2bd6', '#ffe600', '#00e5ff'].forEach((c, i) => later(i * 260, () => {
+        const ox = (i - 1) * 110 * k, oy = -60 * k * (i % 2 ? 1.6 : 1);
+        sink.burst(x + ox, y + oy, 45, c, 700 * k, 5 * k, 1.3, 260 * k);
+        sink.ring(x + ox, y + oy, c, 200 * k, 0.4, 8 * k);
+      }));
       break;
     default:
       for (const c of ['#fff', '#ff2d55', '#ffcc00', accent]) sink.burst(x, y, 40, c, 800 * k, 7 * k, 1.1, 500 * k);

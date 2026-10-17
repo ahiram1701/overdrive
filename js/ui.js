@@ -7,7 +7,7 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor } from './cosmetics.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
@@ -202,8 +202,8 @@ export const ui = {
       car.appendChild(b);
       // cada nave con SU pintura y SU emblema
       const lk = equipped(save, s.id);
-      drawShip(b.querySelector('canvas').getContext('2d'), s.id, { hull: lk.palette.hull, edge: lk.palette.edge || s.color, glow: lk.palette.glow },
-        48, 34, 34, { yaw: 0.5, pitch: -0.5 }, { line: 1.2, emblem: lk.emblem.id });
+      drawShip(b.querySelector('canvas').getContext('2d'), s.id, { ...lk.palette, edge: lk.palette.edge || s.color },
+        48, 34, 34, { yaw: 0.5, pitch: -0.5 }, { line: 1.2, ...emblemOpts(lk) });
     }
     car.querySelector('.viewing')?.scrollIntoView({ block: 'nearest', inline: 'center' });
 
@@ -289,7 +289,10 @@ export const ui = {
         const on = eq[g].id === it.id;
         const trying = pv && pv.group === g && pv.id === it.id;
         let icon = '';
-        if (g === 'palette') icon = `<i style="background:${it.edge || view.color};box-shadow:inset 0 0 0 3px ${it.hull}"></i>`;
+        if (g === 'palette') {
+          const fill = it.alt ? `linear-gradient(90deg, ${it.hull} 50%, ${it.alt} 50%)` : it.hull;
+          icon = `<i style="background:${fill};box-shadow:0 0 0 2px ${it.edge || view.color}"></i>`;
+        }
         if (g === 'emblem') {
           const d = emblemPath(it.id);
           icon = d ? `<svg viewBox="-1.1 -1.1 2.2 2.2"><path d="${d}" fill-rule="evenodd"/></svg>` : '<svg viewBox="-1 -1 2 2"><path d="M-0.6 0H0.6" stroke-width="0.2"/></svg>';
@@ -316,6 +319,21 @@ export const ui = {
       }
       row.appendChild(chips);
       cosm.appendChild(row);
+      if (g === 'emblem' && eq.emblem.id !== 'none' && owned) {
+        const style = el('div', 'cos-style');
+        style.innerHTML = `<div class="seg">${EMBLEM_AT.map(([k, name]) => `<button data-at="${k}" class="${eq.emblemAt === k ? 'on' : ''}">${name}</button>`).join('')}</div>
+          <div class="swatches">${Object.entries(EMBLEM_COLORS).map(([k, hex]) => `<button data-color="${k}" class="${eq.emblemColor === k ? 'on' : ''}" aria-label="${k}"
+            style="background:${hex || `conic-gradient(${eq.palette.glow} 0 50%, ${eq.palette.edge || view.color} 0)`}"></button>`).join('')}</div>`;
+        for (const b of style.querySelectorAll('button')) {
+          tap(b, () => {
+            setEmblemStyle(save, view.id, { at: b.dataset.at, color: b.dataset.color });
+            persist();
+            fx.vibe(15);
+            ui.showHangar();
+          });
+        }
+        cosm.appendChild(style);
+      }
     }
     // barra de prueba: comprar o cancelar
     const bar = $('cosPreview');
@@ -613,8 +631,8 @@ export const ui = {
       }
       parts.update(dt);
       if (!(boomOn && now - ui.boomAt < 1000)) {
-        drawShip(c, s.ship.id, { hull: pal.hull, edge, glow: pal.glow }, sx, sy, size,
-          { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, emblem: lk.emblem.id });
+        drawShip(c, s.ship.id, { ...pal, edge }, sx, sy, size,
+          { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, ...emblemOpts(lk) });
         // ESTELA: la de la nave (o la que estés probando), saliendo hacia abajo
         trailFx(parts, c, lk.trail.id, sx, sy + size * 0.1, size * 1.2, pal.glow, 30, now / 1000);
       }

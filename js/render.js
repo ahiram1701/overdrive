@@ -5,7 +5,7 @@ import { BIOMES, FORK_REWARDS, bossRz, HUNTER_RZ, runSpeed } from './world.js';
 import { SHIPS } from './upgrades.js';
 import { isActive } from './abilities.js';
 import { drawShip } from './shipdraw.js';
-import { equipped } from './cosmetics.js';
+import { equipped, emblemOpts } from './cosmetics.js';
 import { trailFx } from './cosfx.js';
 import { save } from './save.js';
 
@@ -1059,9 +1059,9 @@ function drawPlayer() {
   // nave 3D vista desde detrás y arriba; se inclina al cambiar de carril y se aplasta al deslizarse
   const eq = equipped(save, save.ship);
   const pal = eq.palette;
-  const drawShape = (ox, oy, alpha, c, emblem = null) => {
-    drawShip(ctx, curShip().id, { hull: pal.hull, edge: c, glow: pal.glow }, sp.x + ox, sp.y + oy - 0.08 * s, s * 0.44,
-      { pitch: -0.62, roll: -tilt * 0.55, yaw: tilt * 0.12 }, { alpha, squash: sq, line: Math.max(1.5, s * 0.022), emblem });
+  const drawShape = (ox, oy, alpha, c, withEmblem = false) => {
+    drawShip(ctx, curShip().id, { ...pal, edge: c }, sp.x + ox, sp.y + oy - 0.08 * s, s * 0.44,
+      { pitch: -0.62, roll: -tilt * 0.55, yaw: tilt * 0.12 }, { alpha, squash: sq, line: Math.max(1.5, s * 0.022), ...(withEmblem ? emblemOpts(eq) : {}) });
   };
 
   if (p && p.dash > 0) {
@@ -1084,7 +1084,7 @@ function drawPlayer() {
   const ab = r && r.ability;
   const phase = isActive(ab, 'phase');
   // FASE: nave casi transparente; ARIETE: nave al rojo con escudo frontal; SOBRECARGA: estela cian
-  if (!blink) drawShape(0, 0, phase ? 0.35 : 1, isActive(ab, 'ram') ? '#ff9f0a' : col, eq.emblem.id);
+  if (!blink) drawShape(0, 0, phase ? 0.35 : 1, isActive(ab, 'ram') ? '#ff9f0a' : col, true);
   if (ab && ab.active > 0) {
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';

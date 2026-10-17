@@ -88,8 +88,8 @@ try {
     Object.assign(save, {
       gems: 340, ships: ['viper', 'brick', 'raptor'], shipLvl: { viper: { a: 2, b: 1, c: 1 } },
       shipStats: { viper: { sections: 34, runs: 12 } },
-      cosmetics: { owned: { viper: ['skull'], brick: ['sunset', 'bolt'], raptor: ['chrome'] },
-        equip: { viper: eq('x-viper1', 'skull'), brick: eq('sunset', 'bolt'), raptor: eq('chrome', 'none') } },
+      cosmetics: { owned: { viper: ['skull'], brick: ['tiger', 'bolt'], raptor: ['chrome'] },
+        equip: { viper: { ...eq('x-viper1', 'skull'), emblemColor: 'yellow' }, brick: eq('tiger', 'bolt'), raptor: eq('chrome', 'none') } },
     });
     document.getElementById('btnHangar').click();
   });

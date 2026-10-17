@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { loadFrom, migrateCosmetics } from '../../js/save.js';
 import { MESHES, rotate, projectMesh } from '../../js/mesh3d.js';
 import { SHIPS } from '../../js/upgrades.js';
-import { PALETTES, TRAILS, BOOMS, EMBLEMS, GROUPS, isUnlocked, buyCosmetic, equip, equipped, itemsFor, addShipStat, lockText } from '../../js/cosmetics.js';
+import { PALETTES, TRAILS, BOOMS, EMBLEMS, GROUPS, isUnlocked, buyCosmetic, equip, equipped, itemsFor, addShipStat, lockText, setEmblemStyle } from '../../js/cosmetics.js';
+import { decalFrame, GLYPH_R, emblemPath, hullColor } from '../../js/shipdraw.js';
 import { xpToNext } from '../../js/progress.js';
 
 test('cada nave tiene malla y todas las caras usan vértices válidos', () => {
@@ -117,13 +118,69 @@ test('lo equipado vuelve a lo de serie si deja de estar disponible', () => {
   assert.equal(e.emblem.id, 'none');
 });
 
-test('ids únicos y cada malla tiene alas para el emblema', () => {
+test('ids únicos de todos los cosméticos', () => {
   const ids = Object.values(GROUPS).flat().map((i) => i.id);
   assert.equal(new Set(ids).size, ids.length);
   assert.ok(EMBLEMS.length >= 8);
-  for (const s of SHIPS) {
-    const m = MESHES[s.id];
-    assert.ok(m.decals.length >= 1);
-    for (const d of m.decals) for (const i of d) assert.ok(i >= 0 && i < m.v.length);
+});
+
+// distancia de un punto a la recta PQ (en 3D)
+const distToLine = (c, P, Q) => {
+  const d = Q.map((k, i) => k - P[i]), w = c.map((k, i) => k - P[i]);
+  const cr = [d[1] * w[2] - d[2] * w[1], d[2] * w[0] - d[0] * w[2], d[0] * w[1] - d[1] * w[0]];
+  return Math.hypot(...cr) / Math.hypot(...d);
+};
+
+test('el emblema CABE en su cara en todas las naves y posiciones (no se sale)', () => {
+  for (const ship of SHIPS) {
+    const m = MESHES[ship.id];
+    for (const [at, tris] of Object.entries(m.decalSets)) {
+      assert.ok(tris.length >= 1, `${ship.id}/${at}`);
+      for (const tri of tris) {
+        for (const flip of [false, true]) {
+          const { c, u, v, s, n } = decalFrame(m, tri, flip);
+          const [A, B, C] = tri.map((k) => m.v[k]);
+          const R = s * GLYPH_R;
+          assert.ok(R > 0.01, `${ship.id}/${at}: emblema visible`);
+          for (const [P, Q] of [[A, B], [B, C], [C, A]]) {
+            assert.ok(distToLine(c, P, Q) >= R * 1.2, `${ship.id}/${at}: el emblema toca un borde`);
+          }
+          // marco ortonormal dentro del plano de la cara
+          const dt = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+          assert.ok(Math.abs(dt(u, n)) < 1e-9 && Math.abs(dt(v, n)) < 1e-9 && Math.abs(dt(u, v)) < 1e-9);
+        }
+      }
+    }
   }
+});
+
+test('los trazos de los emblemas caben en su círculo', () => {
+  for (const e of EMBLEMS) {
+    const d = emblemPath(e.id);
+    if (!d || !/^[MLZ0-9.\s-]+$/.test(d)) continue; // los polígonos (estrella, corona, siluetas)
+    const nums = d.match(/-?\d*\.?\d+/g).map(Number);
+    for (let i = 0; i < nums.length; i += 2) assert.ok(Math.hypot(nums[i], nums[i + 1]) <= GLYPH_R + 1e-6, `${e.id}`);
+  }
+});
+
+test('patrones de pintura y estilo del emblema', () => {
+  const tiger = PALETTES.find((p) => p.id === 'tiger');
+  assert.notEqual(hullColor(tiger, 0, [0, 0, 0], [0, 1]), hullColor(tiger, 1, [0, 0, 0], [0, 1]), 'franjas alternas');
+  const duo = PALETTES.find((p) => p.id === 'duo');
+  assert.equal(hullColor(duo, 0, [-0.5, 0, 0], [0, 1]), duo.alt);
+  assert.equal(hullColor(duo, 0, [0.5, 0, 0], [0, 1]), duo.hull);
+  const aurora = PALETTES.find((p) => p.id === 'aurora');
+  assert.equal(hullColor(aurora, 0, [0, 0, 0], [0, 1]), aurora.hull);
+  assert.equal(hullColor(aurora, 0, [0, 0, 1], [0, 1]), aurora.alt);
+  assert.equal(hullColor(PALETTES[0], 3, [0, 0, 0], [0, 1]), PALETTES[0].hull, 'sin patrón');
+
+  const s = loadFrom(null);
+  assert.equal(equipped(s).emblemAt, 'alas');
+  assert.equal(equipped(s).emblemColor, 'auto');
+  setEmblemStyle(s, 'viper', { at: 'cola', color: 'cyan' });
+  setEmblemStyle(s, 'viper', { at: 'nope', color: 'nope' });
+  const again = loadFrom(JSON.stringify(s));
+  assert.equal(equipped(again, 'viper').emblemAt, 'cola');
+  assert.equal(equipped(again, 'viper').emblemColor, 'cyan');
+  assert.equal(equipped(again, 'brick').emblemAt, 'alas', 'por nave');
 });
