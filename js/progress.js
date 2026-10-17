@@ -72,6 +72,9 @@ export const ACHIEVEMENTS = [
   { id: 'cards50', kind: 'cards', mode: 'sum', n: 50, tier: 'bronze', name: 'Coleccionista', desc: 'Elige 50 cartas' },
   { id: 'score1m', kind: 'score', mode: 'best', n: 1e6, tier: 'silver', name: 'Millonario', desc: '1 millón de puntos en una partida' },
   { id: 'score100m', kind: 'score', mode: 'best', n: 1e8, tier: 'gold', name: 'Astronómico', desc: '100 millones de puntos en una partida' },
+  { id: 'camp1', kind: 'level', mode: 'sum', n: 1, tier: 'bronze', name: 'Recluta', desc: 'Supera tu primer nivel de campaña' },
+  { id: 'camp16', kind: 'level', mode: 'sum', n: 16, tier: 'silver', name: 'Veterano', desc: 'Supera 16 niveles de campaña' },
+  { id: 'stars48', kind: 'stars', mode: 'best', n: 48, tier: 'gold', name: 'Constelación', desc: 'Consigue las 48 estrellas de la campaña' },
 ];
 export const ACH_GEMS = T;
 

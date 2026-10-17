@@ -30,6 +30,7 @@ const ASSETS = [
   './js/cosmetics.js',
   './js/shipdraw.js',
   './js/bosses.js',
+  './js/campaign.js',
 ];
 
 self.addEventListener('install', (e) => {

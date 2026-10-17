@@ -362,3 +362,29 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 #tutorial .t-dodge { color: #ff3b6b; font-weight: 900; }
 #tutorial .t-jump { color: #ffd60a; font-weight: 900; }
 #tutorial .t-slide { color: #00e5ff; font-weight: 900; }
+
+/* ---------- Campaña ---------- */
+.btn.camp { border-color: var(--yellow); background: rgba(255,230,0,.12); box-shadow: 0 0 16px rgba(255,230,0,.35); }
+.camp-map { display: flex; flex-direction: column; gap: 12px; width: min(440px, 100%); }
+.sector { border: 1px solid var(--bc); border-radius: 12px; padding: 10px; background: rgba(0,0,0,.35); box-shadow: 0 0 14px color-mix(in srgb, var(--bc) 35%, transparent); }
+.sector.locked { opacity: .45; filter: grayscale(.7); }
+.sec-top { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px; }
+.sec-top b { font: italic 900 16px var(--font); color: var(--bc); }
+.levels { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.lvl { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 2px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(255,255,255,.05); color: #fff; font: inherit; cursor: pointer; }
+.lvl.done { border-color: var(--bc); }
+.lvl.boss { border-style: dashed; }
+.lvl.locked { opacity: .4; cursor: default; }
+.l-id { font: italic 900 18px var(--font); }
+.l-ico { font-size: 10px; opacity: .8; }
+.l-stars { color: var(--yellow); letter-spacing: 1px; font-size: 14px; }
+.lvl-sheet { position: fixed; inset: auto 0 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom)); background: rgba(11,2,33,.97); border-top: 2px solid var(--yellow); display: flex; flex-direction: column; align-items: center; gap: 10px; animation: pop .25s ease-out; z-index: 5; }
+.lvl-sheet .list, .goals { width: min(420px, 100%); }
+.goals .item { padding: 8px 10px; }
+.goals .i-icon { color: var(--yellow); }
+.won { color: var(--yellow); text-shadow: 0 0 20px var(--yellow); }
+.vstars { display: flex; gap: 10px; font-size: 56px; line-height: 1; }
+.vstars span { color: rgba(255,255,255,.15); }
+.vstars span.had { color: rgba(255,230,0,.35); }
+.vstars span.on { color: var(--yellow); text-shadow: 0 0 22px var(--yellow); animation: starIn .45s cubic-bezier(.2,1.6,.4,1) both; }
+@keyframes starIn { from { transform: scale(0) rotate(-90deg); opacity: 0; } to { transform: scale(1) rotate(0); opacity: 1; } }

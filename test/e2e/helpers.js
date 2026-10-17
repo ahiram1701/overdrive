@@ -64,9 +64,14 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     // huir de una marca (Cazador o rayo de jefe): mejor un carril sin nada; si no lo hay, uno sin
     // nada que esquivar de carril (lo que haya se salta o se desliza), como haría un jugador
     const fleeTo = (bad) => {
-      const ok = [-1, 0, 1].filter((l) => !bad(l) && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5));
+      const ok = [-1, 0, 1].filter((l) => !bad(l) && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5))
+        // cruzar dos carriles pasa por el del medio: que esté libre (con lava ahí, es meterse en ella)
+        .filter((l) => Math.abs(l - p.lane) < 2 || !blocksLane((l + p.lane) / 2, -0.05, 0.25));
       const byDist = (a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane);
-      return ok.filter((l) => !danger(l, -0.05, 0.3).length).sort(byDist)[0] ?? ok.sort(byDist)[0];
+      // como un jugador que mira la pista: mejor el carril que sigue libre más tiempo (no meterse
+      // en uno que la próxima fila va a cerrar justo mientras el Cazador apunta al de al lado)
+      const calm = ok.filter((l) => !danger(l, -0.05, 0.3).length);
+      return calm.filter((l) => !blocksLane(l, -0.05, 1.0)).sort(byDist)[0] ?? calm.sort(byDist)[0] ?? ok.sort(byDist)[0];
     };
     const h = r.hunter;
     if (h && !h.leaving && h.aimT > 0 && h.aimLane === p.lane && !(fledFrom === h && fled === h.shots)) {
