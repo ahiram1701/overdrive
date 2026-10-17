@@ -6,7 +6,7 @@ import { project } from './render.js';
 import { playerBox } from './player.js';
 import { isActive } from './abilities.js';
 import { trackSpeed } from './pacing.js';
-import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown } from './bosses.js';
+import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown, makeElite, bossHp } from './bosses.js';
 import { onNearMiss, onBreak, onHit, onCoin, onFork, onFinish, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
 
 export const BIOMES = [
@@ -93,6 +93,9 @@ function add(type, lane, z, extra = {}) {
 }
 
 // ---------- Patrones ----------
+// distancia a la que un rodillo empieza a rodar (desde ahí se le ve venir ~1,5 s)
+const ROLL_AT = 55;
+
 const PATTERNS = {
   wall1(r, z, L, rng) { add('wall', rng.pick(L), z); return 'lane'; },
   wall2(r, z, L, rng) {
@@ -128,12 +131,13 @@ const PATTERNS = {
   pinch(r, z, L, rng) { add('crusher', rng.pick(L), z); return 'lane'; },
   rollers(r, z, L, rng) {
     const lanes = rng.shuffle([...L]).slice(0, rng.int(1, L.length));
-    // rueda hacia ti más rápido que la pista, así que nace más lejos (en proporción a esa
-    // velocidad extra) para LLEGAR justo cuando llegaría una barrera fija en z: el ritmo de la
-    // pista se conserva y nunca adelanta a la fila anterior
+    // rueda hacia ti más rápido que la pista. Espera quieto y arranca a ROLL_AT metros; nace un
+    // poco más lejos (Δ = ROLL_AT·vz/(spd+vz)) para LLEGAR justo cuando llegaría una barrera fija
+    // en z. Antes se calculaba como si arrancara a VIEW metros, pero al empezar un tramo las filas
+    // nacen más cerca: el rodillo llegaba tarde, encima de la fila siguiente.
     const vz = 7, spd = trackSpeed(z, r.stats.speedMult);
-    const zr = z + (vz * VIEW) / spd;
-    for (const l of lanes) add('roller', l, zr, { vz });
+    const zr = z + (ROLL_AT * vz) / (spd + vz);
+    for (const l of lanes) add('roller', l, zr, { vz, rollAt: ROLL_AT });
     return 'jump';
   },
   dropRow(r, z, L) { for (const l of L) add('dropper', l, z); return 'slide'; },
@@ -517,8 +521,10 @@ export const BOSS_NAMES = BOSSES.map((b) => b.name);
 const FORCED_BOSS = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('boss') : null;
 
 export function spawnBoss(r) {
-  const def = BOSS_BY_ID[r.camp?.level.boss] || BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
-  const hp = 3 + Math.floor(r.section / 3);
+  const lv = r.camp?.level;
+  let def = BOSS_BY_ID[lv?.boss] || BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
+  if (lv?.elite) def = makeElite(def, lv.elite.attack);
+  const hp = bossHp(r.section, !!def.elite);
   r.boss = {
     def, id: def.id, name: def.name, hp, max: hp, phase: 0, calm: 1.5,
     x: 0, tx: 0, t: 0, coreT: 3, moveT: 1.2, escapeT: 45, flash: 0, timers: {}, beam: null,
@@ -703,7 +709,8 @@ function updateHunter(r, dt) {
   } else if ((h.fireT -= dt) <= 0) {
     // solo se apunta si tienes adónde ir: un carril vecino libre durante el aviso y el disparo
     // (si no, con lava al lado no habría salida). Si no lo hay, se espera un momento.
-    const horizon = runSpeed(r) * (HUNTER_AIM + 0.6);
+    // (con margen: el carril de escape no debe cerrarse justo después, p. ej. al empezar un riel)
+    const horizon = runSpeed(r) * (HUNTER_AIM + 1.6);
     const escape = allowedLanes(r).some((l) => Math.abs(l - p.lane) === 1 && l !== r.blockedLane && laneClear(r, l, horizon));
     if (!escape) {
       h.fireT = 0.15;
@@ -753,7 +760,7 @@ export function updateWorld(dt) {
   for (const o of r.objects) {
     if (!o.alive) continue;
     o.t += dt;
-    if (o.vz) o.z -= o.vz * dt;
+    if (o.vz && !(o.rollAt && o.z - r.dist > o.rollAt)) o.z -= o.vz * dt; // los rodillos esperan hasta ROLL_AT
     const rz = o.z - r.dist;
 
     // deja de cambiar de carril con ~0.45 s de margen, vaya a la velocidad que vaya

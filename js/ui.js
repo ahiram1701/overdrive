@@ -13,7 +13,7 @@ import { trailFx, boomFx, makeParticles } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility } from './game.js';
 import { ABILITIES, readiness } from './abilities.js';
-import { SECTORS, LEVEL_BY_ID, MAX_STARS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
+import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
@@ -184,7 +184,7 @@ export const ui = {
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `· hoy ${fmt(save.daily.best)}` : '· nueva pista hoy';
     $('mMissions').innerHTML = missionsHTML();
     $('mRank').innerHTML = rankHTML(save.xp);
-    $('mStars').textContent = `· ★ ${totalStars(save)}/${MAX_STARS}`;
+    $('mStars').textContent = `· ★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
     const sel = cleanMods(save.modsLast, rankOf(save.xp).rank);
     $('mMods').textContent = sel.length ? `${sel.map((id) => MOD_BY_ID[id].icon).join('')} · x${modScore(sel).toFixed(2)}` : '· ninguno';
     const mut = mutationOf(todayKey());
@@ -511,23 +511,30 @@ export const ui = {
     G.run = null;
     G.player = null;
     ui.showHUD(false);
-    $('campStars').textContent = `★ ${totalStars(save)} / ${MAX_STARS}`;
+    const front = frontier(save);
+    $('campStars').textContent = `★ ${totalStars(save)}${front > FIXED_SECTORS ? ` · sector ${front}` : ''}`;
     const map = $('campMap');
     map.innerHTML = '';
-    for (const sec of SECTORS) {
+    // los sectores abiertos y uno cerrado más: la campaña no se acaba nunca
+    for (const sec of visibleSectors(save)) {
       const open = isSectorOpen(save, sec.id);
       const got = sec.levels.reduce((n, l) => n + starCount(starsOf(save, l.id)), 0);
-      const box = el('div', `sector${open ? '' : ' locked'}`);
+      const box = el('div', `sector${open ? '' : ' locked'}${sec.generated ? ' gen' : ''}`);
+      box.dataset.sector = sec.num;
       box.style.setProperty('--bc', BIOMES[sec.biome].accent);
-      box.innerHTML = `<div class="sec-top"><b>${sec.name}</b><small>${open ? `★ ${got}/12` : `🔒 ${sec.need} ★ para abrir`}</small></div>`;
+      if (sec.biome2 != null) box.style.setProperty('--bc2', BIOMES[sec.biome2].accent);
+      const lockMsg = sec.generated ? `🔒 jefe del ${sec.num - 1}` : `🔒 ${sec.need} ★ para abrir`;
+      box.innerHTML = `<div class="sec-top"><b>${sec.generated ? `${sec.num} · ` : ''}${sec.name}</b><small>${open ? `★ ${got}/12` : lockMsg}</small></div>`;
       const row = el('div', 'levels');
-      for (const l of sec.levels) {
+      for (const base of sec.levels) {
+        const l = levelById(base.id);
         const st = starsOf(save, l.id);
         const can = isLevelOpen(save, l.id);
-        const b = el('button', `lvl${can ? '' : ' locked'}${st[0] ? ' done' : ''}${l.boss ? ' boss' : ''}`);
+        const b = el('button', `lvl${can ? '' : ' locked'}${st[0] ? ' done' : ''}${l.boss ? ' boss' : ''}${l.elite ? ' elite' : ''}`);
         b.dataset.level = l.id;
-        b.innerHTML = `<span class="l-id">${can ? l.id : '🔒'}</span><span class="l-ico">${l.boss ? '👾 JEFE' : `${l.sections} tramos`}</span>
-          <span class="l-stars">${st.map((x) => (x ? '★' : '☆')).join('')}</span>`;
+        const mods = (l.mods || []).map((id) => MOD_BY_ID[id].icon).join('');
+        b.innerHTML = `<span class="l-id">${can ? l.id : '🔒'}</span><span class="l-ico">${l.boss ? (l.elite ? '☠️ ÉLITE' : '👾 JEFE') : `${l.sections} tramos`}</span>
+          ${mods ? `<span class="l-mods">${mods}</span>` : ''}<span class="l-stars">${st.map((x) => (x ? '★' : '☆')).join('')}</span>`;
         if (can) tap(b, () => ui.showLevel(l.id));
         row.append(b);
       }
@@ -539,12 +546,13 @@ export const ui = {
 
   // Ficha del nivel antes de jugar: objetivos de las 3 estrellas
   showLevel(id) {
-    const l = LEVEL_BY_ID[id];
+    const l = levelById(id);
     const st = starsOf(save, id);
     document.querySelector('.lvl-sheet')?.remove();
     const sheet = el('div', 'lvl-sheet');
     sheet.innerHTML = `<h3>NIVEL ${l.id} · ${l.sectorName}</h3>
-      <div class="hint">${l.boss ? `👾 Jefe: ${BOSS_BY_ID[l.boss].name}` : `${l.sections} tramos hasta la meta · siempre la misma pista`}</div>
+      <div class="hint">${l.boss ? `${l.elite ? '☠️ Jefe ÉLITE' : '👾 Jefe'}: ${BOSS_BY_ID[l.boss].name}` : `${l.sections} tramos hasta la meta · siempre la misma pista`}</div>
+      ${(l.mods || []).length ? `<div class="lvl-mods">${l.mods.map((m) => `<span>${MOD_BY_ID[m].icon} ${MOD_BY_ID[m].name}</span>`).join('')}</div>` : ''}
       <div class="list goals">${l.stars.map((s, i) => `<div class="item${st[i] ? ' sel' : ''}"><span class="i-icon">${st[i] ? '★' : '☆'}</span><span class="i-body"><b>${s.text}</b></span></div>`).join('')}</div>
       <div class="gems">${st[0] ? 'superado' : `primera vez: +${l.gems} 💎`}</div>`;
     const go = el('button', 'btn big', '¡A CORRER!');
@@ -557,7 +565,7 @@ export const ui = {
   },
 
   showVictory(res) {
-    const l = LEVEL_BY_ID[res.level];
+    const l = levelById(res.level);
     ui.victoryNext = res.next;
     $('vTitle').textContent = res.passed ? '¡NIVEL SUPERADO!' : l.boss ? 'EL JEFE ESCAPÓ' : 'META';
     $('vLevel').textContent = `NIVEL ${l.id} · ${l.sectorName}`;
@@ -566,7 +574,7 @@ export const ui = {
     const val = { near: res.near, perfect: res.perfect, coins: res.coins, mult: `x${res.maxMult}`, noHit: hits };
     $('vGoals').innerHTML = l.stars.map((s, i) => `<div class="item${res.stars[i] ? ' sel' : ' locked'}"><span class="i-icon">${res.stars[i] ? '✔' : '✖'}</span>
       <span class="i-body"><b>${s.text}</b>${val[s.kind] != null ? `<small>${val[s.kind]}</small>` : ''}</span>${res.best[i] && !res.stars[i] ? '<span class="i-act">★ ya la tenías</span>' : ''}</div>`).join('');
-    $('vGems').innerHTML = res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}/${MAX_STARS}</small>`;
+    $('vGems').innerHTML = res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}</small>`;
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     const unl = res.unlocked ? `<div class="rank-up">🔓 ¡Nivel ${res.next} desbloqueado!</div>` : '';
     $('vXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${unl}`;

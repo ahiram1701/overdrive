@@ -83,7 +83,7 @@ test('los sectores se abren con estrellas', async ({ page }) => {
   await page.addInitScript(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [SAVE, { v: 2, campaign: { '1-1': all, '1-2': all } }]);
   await page.goto('/?debug&nosw');
   await page.locator('#btnCampaign').click();
-  await expect(page.locator('#campStars')).toHaveText('★ 6 / 48');
+  await expect(page.locator('#campStars')).toHaveText('★ 6');
   await expect(page.locator('.sector').nth(1)).not.toHaveClass(/locked/);
   await expect(page.locator('.sector').nth(2)).toHaveClass(/locked/);
   await expect(page.locator('.lvl[data-level="2-1"]')).not.toHaveClass(/locked/);
@@ -102,3 +102,45 @@ for (const id of ALL) {
     expect(res.mode).toBe('won');
   });
 }
+
+// Campaña infinita: con los 4 sectores fijos superados se abre el 5, y luego uno tras otro
+const ALL3 = [true, true, true];
+const doneUpTo = (lastSector) => {
+  const c = {};
+  for (let n = 1; n <= lastSector; n++) for (let k = 1; k <= 4; k++) c[`${n}-${k}`] = ALL3;
+  return c;
+};
+
+for (const id of ['5-1', '7-1']) {
+  test(`sector generado: el bot llega a la meta de ${id} sin golpes`, async ({ page }) => {
+    const errors = trackErrors(page);
+    const n = Number(id.split('-')[0]);
+    await openLevel(page, id, { seedSave: { v: 3, runs: 5, campaign: doneUpTo(n - 1) } });
+    const lv = await page.evaluate(() => ({ mods: [...window.G.run.mods], id: window.G.run.camp.level.id }));
+    expect(lv.id).toBe(id);
+    expect(lv.mods.length).toBeGreaterThan(0);
+    const res = await page.evaluate(botInPage, { seconds: 240 });
+    expect(res.hits, `golpes: ${JSON.stringify(res.hits)}`).toEqual([]);
+    expect(res.mode).toBe('won');
+    expect(errors).toEqual([]);
+  });
+}
+
+test('mapa: enseña los sectores abiertos y uno más; el jefe élite se puede vencer', async ({ page }) => {
+  const errors = trackErrors(page);
+  await openLevel(page, '6-4', { god: true, seedSave: { v: 3, runs: 5, campaign: { ...doneUpTo(5), '6-1': ALL3, '6-2': ALL3, '6-3': ALL3 } } });
+  const b = await page.evaluate(() => ({ elite: window.G.run.boss.def.elite, name: window.G.run.boss.name, hp: window.G.run.boss.max }));
+  expect(b.elite).toBe(true);
+  expect(b.name).toContain('ÉLITE');
+  const res = await page.evaluate(botInPage, { seconds: 200, god: true });
+  expect(res.bosses).toBe(1);
+  expect(res.mode).toBe('won');
+  expect(await page.evaluate(toVictory)).toBe('victory');
+  await expect(page.locator('#vStars span').first()).toHaveClass(/on/);
+  await expect(page.locator('#btnNext')).toHaveText('SIGUIENTE · 7-1');
+  await page.locator('#btnMap').click();
+  await expect(page.locator('.sector')).toHaveCount(8, { timeout: 5000 }); // 1..7 abiertos + el 8 cerrado
+  await expect(page.locator('.sector[data-sector="8"]')).toHaveClass(/locked/);
+  await expect(page.locator('.lvl[data-level="7-1"]')).not.toHaveClass(/locked/);
+  expect(errors).toEqual([]);
+});

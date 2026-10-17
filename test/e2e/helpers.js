@@ -99,8 +99,9 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
         // carril libre más cercano; si hay que cruzar uno intermedio, que esté libre ahora
         const target = [-1, 0, 1]
           .filter((l) => l !== p.lane && l !== r.blockedLane && !blocksLane(l, -0.05, 0.5))
-          // no meterse en un carril con CUALQUIER cosa encima (algo que saltar o deslizar sin tiempo)
-          .filter((l) => !danger(l, -0.05, 0.3).length)
+          // no meterse en un carril con algo encima sin tiempo; lo que se SALTA (un riel al que
+          // subirse, una barrera) vale si da tiempo a cambiar de carril y saltar, como haría un jugador
+          .filter((l) => !danger(l, -0.05, 0.3).some((o) => needOf(o) !== 'jump' || p.air || tti(o) < 0.14))
           .filter((l) => Math.abs(l - p.lane) === 1 || !blocksLane((l + p.lane) / 2, -0.05, 0.25))
           .sort((a, b) => Math.abs(a - p.lane) - Math.abs(b - p.lane))[0];
         if (target !== undefined) key((target < p.lane) !== inv ? 'ArrowLeft' : 'ArrowRight');

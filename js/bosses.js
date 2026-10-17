@@ -23,3 +23,16 @@ export const phaseOf = (hp, max) => (hp / max <= 0.5 ? 1 : 0);
 export function attackCooldown(attack, section, phase) {
   return ATTACK_EVERY[attack] * Math.max(0.55, 1 - section * 0.025) * (phase ? 0.8 : 1);
 }
+
+// JEFE ÉLITE: sus ataques de la fase 2 desde el principio, más uno prestado de otro jefe.
+// Las dos "fases" son iguales: ya no hay respiro a mitad de combate.
+export function makeElite(def, extraAttack) {
+  const atks = [...new Set([...def.phases[1], ...(extraAttack ? [extraAttack] : [])])];
+  return { ...def, elite: true, name: `${def.name} ÉLITE`, phases: [atks, atks] };
+}
+
+// Vida de un jefe: crece con el tramo, con tope (en la campaña infinita el tramo sube mucho)
+export const bossHp = (section, elite = false) => {
+  const hp = Math.min(elite ? 7 : 10, 3 + Math.floor(section / 3));
+  return elite ? Math.round(hp * 1.5) : hp;
+};

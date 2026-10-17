@@ -17,7 +17,7 @@ import { equipped, addShipStat } from './cosmetics.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { rankOf } from './progress.js';
 import { boomFx } from './cosfx.js';
-import { LEVEL_BY_ID, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed } from './campaign.js';
+import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
 
 const EVENTS = [
   { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
@@ -45,7 +45,7 @@ export function newRun(opts = false) {
   if (typeof opts !== 'object' || !opts) opts = { mode: opts ? 'daily' : 'endless' };
   const daily = opts.mode === 'daily';
   const mutation = opts.mode === 'mutation';
-  const level = opts.mode === 'campaign' ? LEVEL_BY_ID[opts.level] : null;
+  const level = opts.mode === 'campaign' ? levelById(opts.level) : null;
   // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   // CAMPAÑA: cada nivel tiene su semilla fija, así que su pista es siempre la misma y se puede aprender
@@ -83,7 +83,8 @@ export function newRun(opts = false) {
   // Se aplican después de nave y árbol, así sus topes mandan. ?debug&mods=a,b para los tests.
   const dbgMods = G.debug ? new URLSearchParams(location.search).get('mods') : null;
   const modIds = mutation ? mutationOf(todayKey())
-    : opts.mods ? cleanMods(opts.mods)
+    : level ? cleanMods(level.mods || [])
+      : opts.mods ? cleanMods(opts.mods)
       : opts.mode === 'endless' ? cleanMods(dbgMods ? dbgMods.split(',') : save.modsLast, dbgMods ? Infinity : rankOf(save.xp).rank)
         : [];
   r.mods = new Set(modIds);
@@ -119,7 +120,9 @@ function startSection() {
   const lv = r.camp?.level;
   // JEFAZOS: un jefe cada 2 tramos (en vez de cada 3)
   const isBoss = lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
-  r.biome = BIOMES[lv ? lv.biome : r.section % BIOMES.length];
+  // sector mezclado: los tramos alternan entre sus dos biomas
+  const mixed = lv && lv.biome2 != null && (lv.sections - r.camp.left) % 2 === 1;
+  r.biome = BIOMES[lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
   if (r.camp) r.camp.left--;
   r.risk = r.riskNext;
   r.riskNext = false;
@@ -520,6 +523,7 @@ export function bossDefeated() {
   codexAdd(save, 'bosses', r.boss.name);
   progress('boss');
   if (r.shields === 0) progress('bossNoShield');
+  if (r.boss.def.elite) progress('elite');
   r.coins += 50;
   clearBossStuff();
   addScore(5000, null);
@@ -716,6 +720,7 @@ export function onFinish() {
   save.runs++;
   progress('runs');
   if (res.stars[0] && firstPass) progress('level');
+  if (res.stars[0] && lv.num > FIXED_SECTORS) progress('sector', lv.num);
   progress('stars', totalStars(save));
   persist();
   const nx = nextLevel(lv.id);
