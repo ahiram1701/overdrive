@@ -14,6 +14,7 @@ test('hangar: comprar un nodo del árbol descuenta gemas y persiste tras recarga
   await page.goto('/?nosw');
   await page.locator('#btnHangar').click();
   await expect(page.locator('#shipCarousel .ship-chip')).toHaveCount(7);
+  await page.locator('#hTabs [data-tab="mejoras"]').click();
   await expect(page.locator('#shipTree .node')).toHaveCount(9);
 
   // BLINDAJE nivel 1 (40 💎) y luego nivel 2 (90 💎)
@@ -31,6 +32,7 @@ test('hangar: comprar un nodo del árbol descuenta gemas y persiste tras recarga
   expect(saved.gems).toBe(70);
   expect(saved.shipLvl.viper).toEqual({ a: 2, b: 0, c: 0 });
   await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="mejoras"]').click();
   await expect(page.locator('#shipTree .b-a .node.bought')).toHaveCount(2);
   expect(errors).toEqual([]);
 });
@@ -41,8 +43,10 @@ test('hangar: no se puede mejorar una nave que no tienes', async ({ page }) => {
   await page.locator('#btnHangar').click();
   await page.locator('#shipCarousel .ship-chip').nth(5).click(); // Raptor, sin comprar
   await expect(page.locator('#btnBuyShip')).toBeVisible();
+  await page.locator('#hTabs [data-tab="mejoras"]').click();
   await page.locator('#shipTree .b-a .node').nth(0).click();
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(999);
+  await page.locator('#hTabs [data-tab="nave"]').click();
   await page.locator('#btnBuyShip').click();
   await expect(page.locator('#shipCarousel .ship-chip.equipped b')).toHaveText('Raptor');
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(599);
@@ -79,6 +83,7 @@ test('personalización por nave: probar no gasta, comprar vale solo para esa nav
   }, SAVE);
   await page.goto('/?nosw');
   await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="estilo"]').click();
   await expect(page.locator('#cosTitle')).toHaveText('Personalizar · Viper');
 
   // PROBAR: tocar algo bloqueado lo pone en la vista 3D sin gastar nada
@@ -149,6 +154,7 @@ test('emblema: posición y color por nave, se guardan', async ({ page }) => {
   }, SAVE);
   await page.goto('/?nosw');
   await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="estilo"]').click();
   await expect(page.locator('.cos-style .seg button.on')).toHaveText('Alas');
   await page.locator('.cos-style [data-at="cola"]').click();
   await page.locator('.cos-style [data-color="cyan"]').click();
@@ -159,7 +165,35 @@ test('emblema: posición y color por nave, se guardan', async ({ page }) => {
   expect(eq).toMatchObject({ emblem: 'star', emblemAt: 'cola', emblemColor: 'cyan' });
   // sin emblema no hay opciones de estilo
   await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="estilo"]').click();
   await page.locator('[data-cos="emblem:none"]').click();
   await expect(page.locator('.cos-style')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('hangar por pestañas: una sección cada vez, la nave siempre a la vista y la pestaña se recuerda', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, gems: 500, ship: 'viper', ships: ['viper'] })), SAVE);
+  await page.goto('/?nosw');
+  await page.locator('#btnHangar').click();
+  // por defecto, NAVE; el resto de secciones, ocultas
+  await expect(page.locator('#shipDetail')).toBeVisible();
+  await expect(page.locator('#shipTree')).toBeHidden();
+  await expect(page.locator('#cosmetics')).toBeHidden();
+  // hay mejoras al alcance: la pestaña lo avisa
+  await expect(page.locator('#hTabs [data-tab="mejoras"]')).toHaveClass(/dot/);
+  await page.locator('#hTabs [data-tab="estilo"]').click();
+  await expect(page.locator('#cosmetics')).toBeVisible();
+  await expect(page.locator('#shipDetail')).toBeHidden();
+  // tras bajar por la lista, la nave 3D sigue en pantalla (cabecera fija)
+  await page.evaluate(() => { document.getElementById('hangar').scrollTop = 2000; });
+  const box = await page.locator('#hangarView').boundingBox();
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.y + box.height).toBeLessThanOrEqual(812);
+  // salir y volver: sigue en ESTILO
+  await page.locator('#btnHangarBack').click();
+  await page.locator('#btnHangar').click();
+  await expect(page.locator('#hTabs [data-tab="estilo"]')).toHaveClass(/\bon\b/);
+  await expect(page.locator('#cosmetics')).toBeVisible();
   expect(errors).toEqual([]);
 });

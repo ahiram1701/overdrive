@@ -82,6 +82,7 @@ test('prestigio: en el rango 30 aparece el botón, pide confirmación y renace',
   expect(s.xp).toBe(0);
   // el emblema Laurel ya se puede usar y los modificadores siguen abiertos
   await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="estilo"]').click();
   await expect(page.locator('[data-cos="emblem:laurel"]')).not.toHaveClass(/locked/);
   await page.locator('#btnHangarBack').click();
   await page.locator('#btnMods').click();

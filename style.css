@@ -240,7 +240,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ship-chip.equipped::after { content: 'EN USO'; font: 900 8px var(--font); color: var(--yellow); letter-spacing: 1px; }
 .ship-chip.locked { opacity: .55; }
 
-.hangar-view { width: 100%; height: 170px; display: block; touch-action: none; cursor: grab; border-radius: 10px; background: radial-gradient(ellipse at 50% 70%, rgba(255,255,255,.05), transparent 70%); }
+.hangar-view { width: min(440px, 100%); height: 150px; display: block; touch-action: none; cursor: grab; border-radius: 10px; background: radial-gradient(ellipse at 50% 70%, rgba(255,255,255,.05), transparent 70%); }
 .cosmetics { width: min(440px, 100%); display: flex; flex-direction: column; gap: 8px; }
 .cos-row > small { display: block; margin-bottom: 4px; font: 900 11px var(--font); letter-spacing: 1px; color: var(--muted); }
 .cos-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; touch-action: pan-x; }
@@ -438,3 +438,25 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .btn.prestige small { display: block; font-size: 10px; color: #fff; opacity: .8; }
 .btn.prestige.confirm { border-color: #ff2d55; color: #ff2d55; box-shadow: 0 0 18px rgba(255,45,85,.6); }
 .ship-chip.gold { border-color: #ffd60a; box-shadow: 0 0 10px rgba(255,214,10,.45), inset 0 0 8px rgba(255,214,10,.2); }
+
+/* ---------- Hangar: cabecera fija y pestañas ---------- */
+#hangar { padding-top: 0; gap: 10px; }
+#hangar > :first-child { margin-top: 0; }
+.hangar-top {
+  position: sticky; top: 0; z-index: 4; width: calc(100% + 32px); margin: 0 -16px;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+  background: linear-gradient(#170530 85%, rgba(23,5,48,.0)); backdrop-filter: blur(6px);
+}
+.h-bar { width: min(440px, 100%); display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.h-bar > b { font: italic 900 20px var(--font); letter-spacing: 1px; text-shadow: 0 0 12px var(--pink); }
+.h-bar .gems { margin: 0; font-size: 15px; }
+.h-back { width: auto; padding: 6px 10px; font-size: 12px; animation: none; }
+.h-tabs { width: min(440px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.06); }
+.h-tabs button { position: relative; padding: 8px 2px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: italic 900 12px var(--font); letter-spacing: .5px; }
+.h-tabs button.on { background: rgba(255,43,214,.22); color: #fff; box-shadow: 0 0 10px rgba(255,43,214,.35); }
+.h-tabs button.dot::after { content: ''; position: absolute; top: 5px; right: 8px; width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
+.tab-panel { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tab-panel.hidden { display: none; }
+.tab-panel .hint { margin: 0; }
+.cos-preview { position: static; }
