@@ -192,3 +192,63 @@ export function makeParticles() {
     },
   };
 }
+
+// AURA: halo alrededor de la nave (hangar, runner y Galaxia). r = radio en píxeles.
+export function auraFx(ctx, id, x, y, r, t) {
+  if (!id || id === 'a-none') return;
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  const pulse = 0.75 + 0.25 * Math.sin(t * 4);
+  if (id === 'a-neon' || id === 'a-rainbow') {
+    ctx.lineWidth = Math.max(2, r * 0.06);
+    ctx.strokeStyle = id === 'a-rainbow' ? `hsla(${(t * 120) % 360},100%,60%,${0.7 * pulse})` : hexA('#00e5ff', 0.7 * pulse);
+    ctx.shadowColor = ctx.strokeStyle;
+    ctx.shadowBlur = r * 0.4;
+    ctx.beginPath();
+    ctx.ellipse(x, y, r, r * 0.7, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (id === 'a-fire') {
+    const g = ctx.createRadialGradient(x, y, r * 0.3, x, y, r * 1.1);
+    g.addColorStop(0, 'rgba(255,106,0,0)');
+    g.addColorStop(0.7, `rgba(255,106,0,${0.25 * pulse})`);
+    g.addColorStop(1, 'rgba(255,214,10,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    for (let i = 0; i <= 24; i++) {
+      const a = (i / 24) * Math.PI * 2;
+      const k = r * (1 + 0.15 * Math.sin(a * 5 + t * 9) + 0.08 * Math.sin(a * 11 - t * 13));
+      ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * k, y + Math.sin(a) * k * 0.75);
+    }
+    ctx.fill();
+  } else if (id === 'a-void') {
+    ctx.globalCompositeOperation = 'source-over';
+    const g = ctx.createRadialGradient(x, y, r * 0.2, x, y, r * 1.1);
+    g.addColorStop(0, 'rgba(20,0,40,0)');
+    g.addColorStop(0.75, `rgba(60,0,110,${0.35 * pulse})`);
+    g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r * 1.2, y - r * 1.2, r * 2.4, r * 2.4);
+    ctx.strokeStyle = hexA('#bf5af2', 0.6);
+    ctx.lineWidth = Math.max(1.5, r * 0.04);
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * (0.85 + i * 0.1), r * (0.6 + i * 0.07), 0, t * (1.5 + i) + i * 2, t * (1.5 + i) + i * 2 + 1.2);
+      ctx.stroke();
+    }
+  } else if (id === 'a-electric') {
+    ctx.strokeStyle = hexA('#ffe600', 0.8);
+    ctx.lineWidth = Math.max(1.5, r * 0.035);
+    const seed = Math.floor(t * 14);
+    for (let b = 0; b < 3; b++) {
+      ctx.beginPath();
+      const a0 = ((seed * 7 + b * 13) % 24) / 24 * Math.PI * 2;
+      for (let i = 0; i <= 6; i++) {
+        const a = a0 + i * 0.18;
+        const k = r * (0.9 + (((seed + i * 31 + b * 17) % 7) / 7) * 0.25);
+        ctx[i ? 'lineTo' : 'moveTo'](x + Math.cos(a) * k, y + Math.sin(a) * k * 0.75);
+      }
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+}

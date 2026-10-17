@@ -6,7 +6,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
-import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, runSpeed, SCRIPTS } from './world.js';
+import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, hammerLane, runSpeed, SCRIPTS } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
 import { baseSpeed, trackSpeed } from './pacing.js';
 import { project } from './render.js';
@@ -356,6 +356,23 @@ export function onHit(o) {
   if (G.god) return breakObj(o, 'dash');
   r.hitsTaken++;
   if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id, hunter: !!o.hunter, boss: !!r.boss });
+  // BURBUJA (Manta): absorbe el golpe (sin gastar escudo) y estalla
+  if (isActive(r.ability, 'bubble')) {
+    const a = r.ability;
+    a.active = 0;
+    p.invuln = 0.8;
+    breakObj(o, 'shield');
+    // como un escudo gratis: salva la vida, pero el golpe cuesta overdrive y combo igual
+    r.od *= 0.5;
+    resetChain();
+    if (a.mut === 'pop') sweep(Math.max(12, runSpeed() * 0.3));
+    fx.notice('🫧 ¡BURBUJA!', '#64d2ff');
+    fx.ring(ps.x, ps.y - 20, '#64d2ff', 260, 0.4, 14);
+    fx.flash('#64d2ff', 0.3);
+    fx.vibe(40);
+    sfx.shield();
+    return;
+  }
   if (r.shields > 0) {
     // un golpe siempre CUESTA: escudo, medio overdrive y el combo. Nunca da premios.
     r.shields--;
@@ -442,7 +459,7 @@ export function useAbility() {
   const a = r.ability;
   // el Gancho necesita un carril de destino libre de bloqueos; si no, no se gasta
   const hook = a.id === 'hook' ? hookTarget() : null;
-  if (!canUse(a) || (a.id === 'hook' && hook === null)) {
+  if (!canUse(a) || (a.id === 'hook' && hook === null) || (a.id === 'blink' && r.boss)) {
     sfx.bump();
     fx.vibe(15);
     return;
@@ -509,6 +526,35 @@ export function useAbility() {
       sfx.dash();
       if (a.pow > 1) p.invuln = Math.max(p.invuln, 0.6); // nivel 2
       if (a.mut === 'trail') sweep(Math.max(10, runSpeed() * 0.25)); // mutación: arrasa lo de delante
+      break;
+    }
+    case 'bubble':
+      fx.ring(ps.x, ps.y - 20, '#64d2ff', 200, 0.4, 10);
+      sfx.slide();
+      break;
+    case 'blink': {
+      // salto hacia delante: lo que queda atrás no te toca (no "cruza"), las monedas se recogen
+      const D = 35 * a.pow;
+      for (const o of r.objects) {
+        const rz = o.z - r.dist;
+        if (!o.alive || rz <= 0 || rz > D + 0.5) continue;
+        if (o.type === 'coin') { o.alive = false; onCoin(o); } else o.rzPrev = rz - D;
+      }
+      r.dist += D;
+      p.invuln = Math.max(p.invuln, 0.5);
+      fx.flash('#ffe600', 0.35);
+      fx.burst(ps.x, ps.y, 22, '#ffe600', 500, 4, 0.4, 0);
+      fx.slowmo(0.5, 0.15);
+      if (a.mut === 'land') sweep(Math.max(10, runSpeed() * 0.25));
+      sfx.dash();
+      break;
+    }
+    case 'hammer': {
+      const n = hammerLane(60 * a.pow, a.mut === 'triple');
+      fx.shake(18);
+      fx.flash('#ff6b3d', 0.3);
+      sfx.boom();
+      if (n) fx.notice(`🔨 ${n} destruidos`, '#ff6b3d');
       break;
     }
   }

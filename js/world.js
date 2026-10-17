@@ -396,6 +396,21 @@ export function fireLaser(pierce = 1, triple = false) {
   return hits;
 }
 
+// MARTILLO: rompe todo lo de tu carril (o los 3) hasta `range`; el núcleo del jefe recibe el golpe
+export function hammerLane(range, triple = false) {
+  const r = G.run;
+  const xs = triple ? allowedLanes(r).map((l) => l * LANE_W) : [G.player.x * LANE_W];
+  let n = 0;
+  for (const o of r.objects) {
+    if (!o.alive) continue;
+    const rz = o.z - r.dist;
+    if (rz <= 0 || rz > range || !(o.all || xs.some((x) => Math.abs(o.x - x) < 0.8))) continue;
+    if (o.type === 'core' && !o.shield) { onCore(o, true); n++; } else if (isObstacle(o) || o.type === 'drone') { breakObj(o, 'sweep'); n++; }
+  }
+  r.beam = { t: 0.25, rays: xs.map((x) => ({ x, rz: range })), hammer: true };
+  return n;
+}
+
 export function quake() {
   const r = G.run, p = G.player;
   const range = Math.max(9, runSpeed(r) * 0.18) * (r.synergies.has('meteoro') ? 2 : 1);

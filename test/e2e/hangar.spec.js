@@ -13,7 +13,7 @@ test('hangar: comprar un nodo del árbol descuenta gemas y persiste tras recarga
   }, SAVE);
   await page.goto('/?nosw');
   await page.locator('#btnHangar').click();
-  await expect(page.locator('#shipCarousel .ship-chip')).toHaveCount(7);
+  await expect(page.locator('#shipCarousel .ship-chip')).toHaveCount(10);
   await page.locator('#hTabs [data-tab="mejoras"]').click();
   await expect(page.locator('#shipTree .node')).toHaveCount(9);
 

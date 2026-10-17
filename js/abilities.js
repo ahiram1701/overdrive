@@ -9,6 +9,9 @@ export const ABILITIES = {
   roar: { name: 'RUGIDO', icon: '🦖', cd: 30, dur: 0, desc: 'Limpia los 3 carriles por delante y atrae todas las monedas.' },
   laser: { name: 'LÁSER', icon: '🔫', cd: 6, dur: 0, desc: 'Dispara por tu carril y rompe el primer obstáculo (o daña al jefe).' },
   hook: { name: 'GANCHO', icon: '🪝', cd: 10, dur: 0, desc: 'Te lanza al carril del extremo opuesto al instante.' },
+  bubble: { name: 'BURBUJA', icon: '🫧', cd: 20, dur: 5, desc: '5 s dentro de una burbuja que absorbe el próximo golpe.' },
+  blink: { name: 'SALTO CORTO', icon: '⚡', cd: 12, dur: 0, desc: 'Te teletransporta 35 m adelante (no con un jefe delante).' },
+  hammer: { name: 'MARTILLO', icon: '🔨', cd: 16, dur: 0, desc: 'Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe).' },
 };
 
 export const NEAR_MISS_CD = 0.15; // segundos de recarga que quita cada near-miss

@@ -7,9 +7,9 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK, effectiveRank, prestigeOf, prestigeBonus, canPrestige, doPrestige, PRESTIGE_REWARDS } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS } from './cosmetics.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
-import { trailFx, boomFx, makeParticles } from './cosfx.js';
+import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
@@ -17,7 +17,7 @@ import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
 import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
-import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount } from './galaxyData.js';
+import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -26,7 +26,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'settings', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'settings', 'expo', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'achs', 'codex']);
@@ -219,6 +219,8 @@ export const ui = {
     });
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    screenHeader('expo', '🏛️ EXPOSICIÓN', () => ui.showHangar());
+    tap($('btnExpo'), () => ui.showExpo(ui.hangarView || save.ship));
     screenHeader('achs', '🏆 LOGROS', () => ui.showMenu());
     screenHeader('codex', '📖 COLECCIÓN', () => ui.showMenu());
     screenHeader('campaign', '🗺️ CAMPAÑA', () => ui.showMenu());
@@ -415,11 +417,20 @@ export const ui = {
     else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
     else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
     $('shipDetail').innerHTML = `
-      <div class="sd-head" style="--sc:${view.color}"><div><h3>${view.name}</h3><small>${view.desc}</small></div></div>
+      <div class="sd-head" style="--sc:${view.color}"><div><h3>${shipName(save, view.id) ? `«${shipName(save, view.id)}» <em>${view.name}</em>` : view.name}</h3><small>${view.desc}</small></div>
+        ${owned ? `<button class="name-btn" id="btnName" aria-label="Poner nombre">✏️ ${shipName(save, view.id) ? 'Renombrar' : 'Nombre'}</button>` : ''}</div>
       <div class="sd-ability"><span>${ab.icon}</span><div><b>${ab.name}</b> · recarga ${(ab.cd * (lv.c >= 1 ? 0.85 : 1)).toFixed(1)} s<br><small>${ab.desc}</small></div></div>
       <div class="stats">${bars}</div>
       ${action}`;
     $('btnEquip') && tap($('btnEquip'), () => { save.ship = view.id; persist(); fx.vibe(20); ui.showHangar(); });
+    $('btnName') && tap($('btnName'), () => {
+      const name = typeof prompt === 'function' ? prompt(`Nombre para tu ${view.name} (máx. 14)`, shipName(save, view.id)) : null;
+      if (name === null) return;
+      const got = setShipName(save, view.id, name);
+      persist();
+      toast(got ? `🚀 Ahora se llama «${got}»` : 'Nombre borrado');
+      ui.showHangar();
+    });
     $('btnBuyShip') && tap($('btnBuyShip'), () => {
       if (save.gems < view.cost) return;
       save.gems -= view.cost;
@@ -471,7 +482,7 @@ export const ui = {
     $('cosTitle').textContent = `Personalizar · ${view.name}`;
     const eq = equipped(save, view.id);
     const pv = ui.preview?.ship === view.id ? ui.preview : null;
-    const groups = [['palette', '🎨 Pintura'], ['trail', '✨ Estela'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
+    const groups = [['palette', '🎨 Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
     for (const [g, label] of groups) {
@@ -485,6 +496,10 @@ export const ui = {
         if (g === 'palette') {
           const fill = it.alt ? `linear-gradient(90deg, ${it.hull} 50%, ${it.alt} 50%)` : it.hull;
           icon = `<i style="background:${fill};box-shadow:0 0 0 2px ${it.edge || view.color}"></i>`;
+        }
+        if (g === 'engine' || g === 'shot' || g === 'aura') {
+          const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : g === 'shot' ? DEFAULT_SHOT : 'transparent');
+          icon = `<i class="sw-${g}" style="--c:${c0}"></i>`;
         }
         if (g === 'emblem') {
           const d = emblemPath(it.id);
@@ -552,6 +567,9 @@ export const ui = {
       });
     }
 
+    // GALAXIA: cómo vuela esta nave allí y las mejoras de la nave espacial (con créditos)
+    ui.renderGalTab(view);
+
     // mejoras globales (todas las naves)
     const ml = $('metaList');
     ml.innerHTML = '';
@@ -580,6 +598,7 @@ export const ui = {
       mejoras: treeBuy,
       estilo: false,
       global: META.some((m) => !save.meta[m.id] && save.gems >= m.cost),
+      galaxia: Object.keys(SP_UP).some((k) => { const c = spUpCost(k, save.galaxy.up[k] || 0); return c !== null && save.galaxy.credits >= c; }),
     };
     for (const b of $('hTabs').querySelectorAll('button')) {
       b.classList.toggle('on', b.dataset.tab === ui.hangarTab);
@@ -588,6 +607,143 @@ export const ui = {
     }
     for (const panel of $('hangar').querySelectorAll('.tab-panel')) panel.classList.toggle('hidden', panel.dataset.panel !== ui.hangarTab);
     show('hangar');
+  },
+
+  renderGalTab(view) {
+    const g = save.galaxy;
+    const st = galStats(g.up, view.id), cur = galStats(g.up, save.ship);
+    const top = {}; // máximo posible de cada stat (todas las naves, todo mejorado)
+    const full = Object.fromEntries(Object.keys(SP_UP).map((k) => [k, MAX_UP]));
+    for (const sh of SHIPS) { const m = galStats(full, sh.id); for (const [k] of GAL_KEYS) top[k] = Math.max(top[k] || 0, m[k]); }
+    const bars = GAL_KEYS.map(([k, label]) => {
+      const v = st[k] / top[k], d = (st[k] - cur[k]) / top[k];
+      const diff = view.id === save.ship || Math.abs(d) < 0.01 ? '' : `<em class="${d > 0 ? 'up' : 'down'}">${d > 0 ? '▲' : '▼'}</em>`;
+      return `<div class="stat"><span>${label}</span><div class="bar"><i style="transform:scaleX(${v.toFixed(3)})"></i></div>${diff}</div>`;
+    }).join('');
+    const box = $('galTab');
+    box.innerHTML = `<p class="hint">Así vuela <b>${view.name}</b> en la 🌌 Galaxia${view.id === save.ship ? '' : ' (comparada con la equipada)'}.</p>
+      <div class="stats">${bars}</div>
+      <h3>Nave espacial · 💰 <b id="galCredits">${fmt(g.credits)}</b></h3>
+      ${g.started ? '' : '<p class="hint">Aún no has despegado: gana créditos en 🌌 GALAXIA minando y comerciando.</p>'}
+      <div id="galUps" class="list"></div>`;
+    for (const [id, u] of Object.entries(SP_UP)) {
+      const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
+      const row = el('button', `item${c === null ? ' sel' : g.credits < c ? ' locked' : ''}`);
+      row.dataset.up = id;
+      row.innerHTML = `<span class="i-icon">${u.icon}</span><span class="i-body"><b>${u.name} · ${lvl}/${MAX_UP}</b><small>${u.desc}</small></span>
+        <span class="i-act">${c === null ? '✔ MAX' : `💰 ${fmt(c)}`}</span>`;
+      tap(row, () => {
+        if (!buyUpgrade(id)) { fx.vibe(40); return; }
+        toast(`${u.icon} ${u.name} nivel ${lvl + 1}`);
+        ui.showHangar();
+      });
+      $('galUps').append(row);
+    }
+  },
+
+  // EXPOSICIÓN: la nave a pantalla completa en una sala con focos; deslizar = otra nave
+  showExpo(shipId) {
+    G.mode = 'hangar';
+    ui._expo = { idx: Math.max(0, SHIPS.findIndex((x) => x.id === shipId)), compare: false, yaw: 0, ...(ui._expo && { compare: ui._expo.compare }) };
+    if (!ui._expoReady) {
+      ui._expoReady = true;
+      const go = (d) => { const e = ui._expo; e.idx = (e.idx + d + SHIPS.length) % SHIPS.length; sfx.ui(); ui.fillExpo(); };
+      tap($('expoPrev'), () => go(-1));
+      tap($('expoNext'), () => go(1));
+      tap($('expoCompare'), () => { ui._expo.compare = !ui._expo.compare; ui.fillExpo(); });
+      const cv = $('expoView');
+      let x0 = null;
+      cv.addEventListener('pointerdown', (e) => { x0 = e.clientX; });
+      cv.addEventListener('pointerup', (e) => { if (x0 !== null && Math.abs(e.clientX - x0) > 40) go(e.clientX < x0 ? 1 : -1); x0 = null; });
+    }
+    show('expo');
+    ui.fillExpo();
+    ui.startExpoView();
+  },
+
+  fillExpo() {
+    const e = ui._expo, sh = SHIPS[e.idx], ab = ABILITIES[sh.ability];
+    const owned = save.ships.includes(sh.id);
+    const nm = shipName(save, sh.id);
+    setText('expoName', nm ? `«${nm}»` : sh.name);
+    $('expoSub').textContent = `${nm ? `${sh.name} · ` : ''}${ab.icon} ${ab.name}${owned ? '' : ` · 🔒 💎 ${sh.cost}`}`;
+    const other = SHIPS.find((x) => x.id === save.ship);
+    const cmp = e.compare && other.id !== sh.id ? other : null;
+    $('expoCompare').classList.toggle('on', e.compare);
+    const a = shipProfile(sh.id, shipLvls(save.shipLvl, sh.id));
+    const b = cmp && shipProfile(cmp.id, shipLvls(save.shipLvl, cmp.id));
+    $('expoStats').innerHTML = (cmp ? `<div class="cmp-head"><b style="color:${sh.color}">${sh.name}</b><span>vs</span><b style="color:${cmp.color}">${cmp.name} (equipada)</b></div>` : '')
+      + PROFILE_KEYS.map((k) => `<div class="stat"><span>${k}</span><div class="bar duo"><i style="transform:scaleX(${a[k].toFixed(3)});background:${sh.color}"></i>${
+        b ? `<i class="b2" style="transform:scaleX(${b[k].toFixed(3)});background:${cmp.color}"></i>` : ''}</div></div>`).join('')
+      + (e.compare && !cmp ? '<p class="hint">Es la que llevas equipada: elige otra para comparar.</p>' : '');
+    e.cmp = cmp;
+  },
+
+  startExpoView() {
+    if (ui._expoRunning) return;
+    ui._expoRunning = true;
+    let last = performance.now();
+    const loop = (now) => {
+      const cv = $('expoView');
+      if ($('expo').classList.contains('hidden')) { ui._expoRunning = false; return; }
+      const dt = Math.min(0.05, (now - last) / 1000);
+      last = now;
+      const e = ui._expo;
+      e.yaw += dt * 0.6;
+      const dpr = Math.min(devicePixelRatio || 1, 2);
+      const W = cv.clientWidth || 360, H = cv.clientHeight || 400;
+      if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+      const c = cv.getContext('2d'), w = cv.width, h = cv.height;
+      c.setTransform(1, 0, 0, 1, 0, 0);
+      // sala: fondo, suelo con rejilla en perspectiva
+      const bg = c.createLinearGradient(0, 0, 0, h);
+      bg.addColorStop(0, '#05010d'); bg.addColorStop(0.62, '#170530'); bg.addColorStop(1, '#05010d');
+      c.fillStyle = bg;
+      c.fillRect(0, 0, w, h);
+      const hy = h * 0.62;
+      c.strokeStyle = 'rgba(255,43,214,.25)';
+      c.lineWidth = dpr;
+      for (let i = -10; i <= 10; i++) { c.beginPath(); c.moveTo(w / 2 + i * w * 0.02, hy); c.lineTo(w / 2 + i * w * 0.2, h); c.stroke(); }
+      for (let i = 1; i < 8; i++) { const y = hy + (h - hy) * ((i / 8) ** 1.8); c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+      const ships = e.cmp ? [[SHIPS[e.idx], w * 0.28], [e.cmp, w * 0.72]] : [[SHIPS[e.idx], w / 2]];
+      for (const [sh, x] of ships) {
+        const lk = ui.lookOf(sh.id), pal = lk.palette, edge = pal.edge || sh.color;
+        const size = Math.min(w, h) * (e.cmp ? 0.2 : 0.3);
+        const py = hy + size * 0.15;
+        // foco desde arriba
+        const sp = c.createLinearGradient(0, 0, 0, py);
+        sp.addColorStop(0, 'rgba(255,255,255,0)'); sp.addColorStop(1, `${sh.color}33`);
+        c.fillStyle = sp;
+        c.beginPath(); c.moveTo(x - size * 0.15, 0); c.lineTo(x + size * 0.15, 0); c.lineTo(x + size * 1.1, py); c.lineTo(x - size * 1.1, py); c.fill();
+        // plataforma giratoria
+        c.fillStyle = 'rgba(20,10,40,.9)';
+        c.strokeStyle = sh.color;
+        c.lineWidth = 2 * dpr;
+        c.beginPath(); c.ellipse(x, py, size * 1.05, size * 0.26, 0, 0, Math.PI * 2); c.fill(); c.stroke();
+        for (let i = 0; i < 12; i++) {
+          const ang = e.yaw * 1.5 + (i / 12) * Math.PI * 2;
+          c.fillStyle = i % 3 ? `${sh.color}88` : '#fff';
+          c.beginPath(); c.arc(x + Math.cos(ang) * size * 0.95, py + Math.sin(ang) * size * 0.22, 2 * dpr, 0, Math.PI * 2); c.fill();
+        }
+        const shipY = py - size * 0.95 + Math.sin(now / 700) * size * 0.05;
+        const rot = { yaw: e.yaw, pitch: -0.3, roll: 0 };
+        // reflejo aplastado en el suelo pulido (solo por debajo de la plataforma)
+        c.save();
+        c.beginPath();
+        c.rect(0, py + size * 0.2, w, h);
+        c.clip();
+        c.globalAlpha = 0.12;
+        c.translate(0, py + size * 0.2);
+        c.scale(1, -0.35);
+        c.translate(0, -(py + size * 0.2));
+        drawShip(c, sh.id, { ...pal, edge }, x, shipY, size, rot, { line: 1.5 * dpr });
+        c.restore();
+        auraFx(c, lk.aura.id, x, shipY, size * 0.85, now / 1000);
+        drawShip(c, sh.id, { ...pal, edge }, x, shipY, size, rot, { line: 1.5 * dpr, ...emblemOpts(lk) });
+      }
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   },
 
   showCards(offers, run, title, onPick, reward = '') {
@@ -813,6 +969,7 @@ export const ui = {
     const sd = GAL[s.sysId], prices = stationPrices(s.sysId);
     setText('stTitle', `🛰️ ESTACIÓN ${sd.name}`);
     setText('stCredits', fmt(g.credits));
+    setText('stShip', shipName(save, save.ship) ? `· 🚀 «${shipName(save, save.ship)}»` : '');
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
     $('stCargo').innerHTML = items.length
       ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}</span><b>${n} × ${prices[k]} = ${n * prices[k]} 💰</b></div>`).join('')
@@ -1162,7 +1319,10 @@ export const ui = {
   lookOf(shipId) {
     const lk = equipped(save, shipId);
     const pv = ui.preview;
-    if (pv && pv.ship === shipId) lk[pv.group] = GROUPS[pv.group].find((x) => x.id === pv.id) || lk[pv.group];
+    if (pv && pv.ship === shipId) {
+      lk[pv.group] = GROUPS[pv.group].find((x) => x.id === pv.id) || lk[pv.group];
+      if (pv.group === 'palette' || pv.group === 'engine') lk.palette = tintEngine(pv.group === 'palette' ? lk.palette : lk.basePalette, lk.engine);
+    }
     return lk;
   },
 
@@ -1225,6 +1385,7 @@ export const ui = {
       }
       parts.update(dt);
       if (!(boomOn && now - ui.boomAt < 1000)) {
+        auraFx(c, lk.aura.id, sx, sy, size * 0.85, now / 1000);
         drawShip(c, s.ship.id, { ...pal, edge }, sx, sy, size,
           { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, ...emblemOpts(lk) });
         // ESTELA: la de la nave (o la que estés probando), saliendo hacia abajo
