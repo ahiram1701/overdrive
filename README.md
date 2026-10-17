@@ -133,8 +133,21 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **34 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
+- **42 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
+
+## ✨ Prestigio
+- Al llegar al **rango 30** aparece **PRESTIGIO** en el menú; pide confirmación con un segundo toque.
+- Vuelves al rango 1, con **+5% de gemas para siempre** por cada nivel (hasta +50%), y los rangos se vuelven a pagar.
+- **Lo desbloqueado por rango no se pierde.**
+- **Premios exclusivos:**
+  - prestigio 1: emblema *Laurel*;
+  - prestigio 2: pintura *Arlequín*;
+  - prestigio 3: estela *Prisma*;
+  - prestigio 5: marco dorado en el hangar;
+  - prestigio 10: explosión *Singularidad*;
+  - en los demás niveles, 200 💎.
+- No tiene límite.
 
 ## 🎯 Misiones diarias
 Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una difícil (+40 💎). Son las mismas para todos y cambian a medianoche. Algunas se acumulan durante el día ("haz 60 near-miss") y otras hay que lograrlas en una sola partida ("llega a x50 de combo"). Al completar una en plena partida se celebra en el momento y las gemas se suman al instante. El progreso se ve en el menú y en la pantalla final.

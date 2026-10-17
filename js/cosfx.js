@@ -40,6 +40,13 @@ export function trailFx(sink, ctx, id, x, y, s, col, speed, t) {
     case 'comet':
       for (let i = 0; i < 2; i++) sink.spark(x + (Math.random() - 0.5) * s * 0.1, y + 0.15 * s, (Math.random() - 0.5) * 20, vy * 1.3, i ? '#ffffff' : col, s * 0.09, 0.5);
       break;
+    case 'prism':
+      // abanico de los colores del arcoíris, cada uno con su ángulo
+      for (let i = 0; i < 3; i++) {
+        const hue = (t * 300 + i * 120) % 360;
+        sink.spark(x + (i - 1) * s * 0.12, y + 0.15 * s, (i - 1) * 60, vy, `hsl(${hue},100%,65%)`, s * 0.06, 0.4);
+      }
+      break;
     case 'smoke':
       if (Math.random() < 0.6) sink.spark(x + (Math.random() - 0.5) * s * 0.2, y + 0.18 * s, (Math.random() - 0.5) * 30, vy * 0.3, 'rgba(170,170,190,.45)', s * (0.12 + Math.random() * 0.1), 0.9);
       break;
@@ -101,6 +108,16 @@ export function boomFx(sink, id, x, y, edge, accent, k = 1) {
         sink.ring(x, y, '#bf5af2', 420 * k, 0.6, 26 * k);
         sink.burst(x, y, 50, '#ffffff', 900 * k, 5 * k, 0.8, 0);
         sink.flash('#bf5af2', 0.6);
+      });
+      break;
+    }
+    case 'singularity': {
+      // todo colapsa en un punto blanco… y el universo vuelve a empezar
+      for (let i = 0; i < 4; i++) sink.ring(x, y, i % 2 ? '#ffffff' : edge, (600 - i * 120) * k, 0.25 + i * 0.08, 14 * k);
+      later(300, () => {
+        sink.flash('#ffffff', 1);
+        for (const c of ['#ffffff', '#bf5af2', '#00e5ff', '#ffe600']) sink.burst(x, y, 60, c, 1300 * k, 6 * k, 1.5, 0);
+        sink.ring(x, y, '#ffffff', 900 * k, 0.9, 36 * k);
       });
       break;
     }

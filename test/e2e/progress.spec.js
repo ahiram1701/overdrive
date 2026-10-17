@@ -32,7 +32,7 @@ test('al morir se gana XP, la colección registra las cartas y el menú muestra 
   await page.locator('#btnMenu').click();
   await expect(page.locator('#mRank')).toContainText('RANGO');
   await page.locator('#btnAch').click();
-  await expect(page.locator('#achList .item')).toHaveCount(40);
+  await expect(page.locator('#achList .item')).toHaveCount(42);
   await page.locator('#btnAchBack').click();
   await page.locator('#btnCodex').click();
   await expect(page.locator('#codexCards .cx:not(.unknown)')).not.toHaveCount(0);
@@ -53,4 +53,34 @@ test('un logro se celebra en plena partida y paga sus gemas', async ({ page }) =
   expect(res.done).toBe(true);
   expect(res.inRun).toContain('near100');
   expect(res.gems).toBeGreaterThanOrEqual(gems0 + 20);
+});
+
+test('prestigio: en el rango 30 aparece el botón, pide confirmación y renace', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => {
+    if (!sessionStorage.getItem('seeded')) {
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, xp: 9e6, gems: 10 }));
+    }
+  }, SAVE);
+  await page.goto('/?nosw');
+  await expect(page.locator('#btnPrestige')).toBeVisible();
+  await page.locator('#btnPrestige').click();
+  await expect(page.locator('#btnPrestige')).toContainText('¿SEGURO?');
+  expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).prestige || 0, SAVE)).toBe(0);
+  await page.locator('#btnPrestige').click();
+  await expect(page.locator('#btnPrestige')).toHaveCount(0);
+  await expect(page.locator('#mRank')).toContainText('✨1');
+  await expect(page.locator('#mRank')).toContainText('RANGO 1');
+  await page.reload();
+  const s = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
+  expect(s.prestige).toBe(1);
+  expect(s.xp).toBe(0);
+  // el emblema Laurel ya se puede usar y los modificadores siguen abiertos
+  await page.locator('#btnHangar').click();
+  await expect(page.locator('[data-cos="emblem:laurel"]')).not.toHaveClass(/locked/);
+  await page.locator('#btnHangarBack').click();
+  await page.locator('#btnMods').click();
+  await expect(page.locator('#modList .mod.locked')).toHaveCount(0);
+  expect(errors).toEqual([]);
 });

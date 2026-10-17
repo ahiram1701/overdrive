@@ -26,6 +26,9 @@ const GLYPHS = {
   eye: 'M-1 0Q0-0.85 1 0Q0 0.85-1 0Z M-0.32 0A0.32 0.32 0 1 0 0.32 0A0.32 0.32 0 1 0-0.32 0Z',
   crown: 'M-0.85 0.55L-0.85-0.45L-0.42 0L0-0.85L0.42 0L0.85-0.45L0.85 0.55Z',
   tribal: 'M-1 0.3Q-0.5-0.9 0-0.2Q0.5-0.9 1 0.3Q0.5-0.3 0 0.55Q-0.5-0.3-1 0.3Z',
+  // corona de laurel: dos ramas en arco y una estrella en el centro
+  laurel: 'M-0.15 0.9Q-0.95 0.55-0.85-0.35Q-0.62 0.45-0.05 0.72Z M0.15 0.9Q0.95 0.55 0.85-0.35Q0.62 0.45 0.05 0.72Z'
+    + 'M0-0.55L0.14-0.2L0.5-0.2L0.21 0.02L0.32 0.38L0-0.16L-0.32 0.38L-0.21 0.02L-0.5-0.2L-0.14-0.2Z',
 };
 
 // Silueta de la nave vista desde arriba (envolvente convexa de x/z), con el morro hacia arriba y
