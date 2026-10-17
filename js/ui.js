@@ -14,7 +14,8 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availabl
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute } from './spaceGame.js';
+import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount } from './galaxyData.js';
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
@@ -24,7 +25,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'station', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'station', 'galMap', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -132,6 +133,8 @@ export const ui = {
     tap($('btnRepair'), () => { repair(); ui.showStation(G.space); });
     tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
     tap($('spacePause'), () => ui.pause());
+    tap($('btnGalMap'), () => ui.showGalMap());
+    tap($('btnGalMapBack'), () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     // disparar: mantener pulsado; impulso: un toque
     const fire = $('btnFire');
     fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
@@ -712,6 +715,11 @@ export const ui = {
     setText('shCargo', `${n}/${st.cargo}`);
     setText('shCredits', fmt(g.credits));
     setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
+    const sd = GAL[s.sysId];
+    setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}`);
+    const heat = $('spaceHud').querySelector('.sh-bar.heat i');
+    heat.style.transform = `scaleX(${Math.min(1, s.heat).toFixed(3)})`;
+    heat.parentElement.classList.toggle('over', s.overheat);
     $('btnDock').classList.toggle('hidden', !s.canDock);
     $('btnBoost').classList.toggle('cool', s.ship.boostCd > 0);
     $('shHint').classList.toggle('hidden', s.t > 8);
@@ -721,12 +729,23 @@ export const ui = {
   showStation(s) {
     ui.showSpaceHUD(false); // atracado: solo la estación
     const g = save.galaxy, st = spaceStats();
+    const sd = GAL[s.sysId], prices = stationPrices(s.sysId);
+    setText('stTitle', `🛰️ ESTACIÓN ${sd.name}`);
     setText('stCredits', fmt(g.credits));
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
     $('stCargo').innerHTML = items.length
-      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}</span><b>${n} × ${ORES[k].price} = ${n * ORES[k].price} 💰</b></div>`).join('')
+      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}</span><b>${n} × ${prices[k]} = ${n * prices[k]} 💰</b></div>`).join('')
       : '<small>Bodega vacía. Mina asteroides y vuelve a vender.</small>';
     $('btnSell').disabled = !items.length;
+    // COMERCIO: aquí se vende barato el mineral local; en otros sistemas lo pagan más
+    const local = sd.ore, bp = buyPrice(local, s.sysId);
+    const best = GAL.filter((x) => x.id !== sd.id && g.visited.includes(x.id)).sort((a, b) => b.prices[local] - a.prices[local])[0];
+    $('stBuy').innerHTML = `<small>Comercio: ${ORES[local].icon} ${ORES[local].name} a ${bp} 💰${best ? ` · en ${best.name} lo pagan a ${best.prices[local]}` : ''}</small>`;
+    const bb = el('button', 'btn ghost', `COMPRAR 5 ${ORES[local].icon} · ${bp * 5} 💰`);
+    bb.id = 'btnBuyOre';
+    bb.disabled = g.credits < bp || cargoCount(g.cargo) >= st.cargo;
+    tap(bb, () => { buyOre(local, 5); ui.showStation(s); });
+    $('stBuy').append(bb);
     const box = $('stUpgrades');
     box.innerHTML = '';
     for (const [id, u] of Object.entries(SP_UP)) {
@@ -748,6 +767,55 @@ export const ui = {
     $('btnRepair').textContent = `REPARAR · ${rc} 💰`;
     $('btnRepair').disabled = g.credits < rc;
     show('station');
+  },
+
+  // Mapa galáctico: los sistemas conocidos (visitados y sus vecinos), rutas y peligro
+  showGalMap(sel = null) {
+    const s = G.space;
+    if (!s) return;
+    if (G.mode === 'galaxy') { G.mode = 'galaxyMap'; musicDuck(true); if (s) s.fireHeld = false; }
+    const g = save.galaxy;
+    const seen = known(GAL, g.visited);
+    const path = s.routeTo !== null ? route(GAL, s.sysId, s.routeTo) || [] : [];
+    const onPath = (a, b) => path.some((x, i) => i && ((path[i - 1] === a && x === b) || (path[i - 1] === b && x === a)));
+    const dcol = (d) => ['#30d158', '#7df9ff', '#ffe600', '#ff9f0a', '#ff6a00', '#ff2d55', '#bf5af2'][Math.min(6, d)];
+    let svg = '';
+    for (const a of GAL) {
+      if (!seen.has(a.id)) continue;
+      for (const b of a.links) if (b > a.id && seen.has(b)) svg += `<line x1="${a.x}" y1="${a.y}" x2="${GAL[b].x}" y2="${GAL[b].y}" class="${onPath(a.id, b) ? 'path' : ''}"/>`;
+    }
+    for (const a of GAL) {
+      if (!seen.has(a.id)) continue;
+      const visited = g.visited.includes(a.id);
+      const here = a.id === s.sysId, lock = !canJump(a, g.up.jump || 0);
+      svg += `<g class="gm-node${here ? ' here' : ''}${a.id === sel ? ' sel' : ''}${visited ? '' : ' unknown'}" data-sys="${a.id}">
+        <circle cx="${a.x}" cy="${a.y - 10}" r="44" fill="transparent" class="hit"/>
+        <circle cx="${a.x}" cy="${a.y}" r="${here ? 22 : 16}" fill="${visited ? dcol(a.danger) : '#333'}"/>
+        <text x="${a.x}" y="${a.y - 26}">${visited ? a.name : '???'}${lock ? ' 🔒' : ''}${a.id === (g.home ?? 0) ? ' 🏠' : ''}</text></g>`;
+    }
+    $('gmSvg').innerHTML = svg;
+    // encuadre: solo lo que conoces (con margen), para que el mapa no sea un puntito en medio
+    const xs = GAL.filter((a) => seen.has(a.id)).map((a) => a.x), ys = GAL.filter((a) => seen.has(a.id)).map((a) => a.y);
+    const pad = 90, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad;
+    const side = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 260) + pad * 2;
+    $('gmSvg').setAttribute('viewBox', `${x0} ${y0} ${side} ${side}`);
+    for (const n of $('gmSvg').querySelectorAll('.gm-node')) n.addEventListener('click', () => ui.showGalMap(Number(n.dataset.sys)));
+    const info = $('gmInfo');
+    if (sel !== null) {
+      const a = GAL[sel], visited = g.visited.includes(sel);
+      const r = route(GAL, s.sysId, sel);
+      info.innerHTML = `<b>${visited ? a.name : 'Sistema sin explorar'}</b>
+        <small>${visited ? `Peligro ${'☠'.repeat(a.danger) || 'ninguno'} · mineral ${ORES[a.ore].icon} ${ORES[a.ore].name}` : 'Se ve desde un sistema vecino'} · ${r ? r.length - 1 : '?'} saltos</small>
+        ${!canJump(a, g.up.jump || 0) ? `<small class="warn">🔒 Necesitas Salto ${jumpNeeded(a)}</small>` : ''}`;
+      if (sel !== s.sysId) {
+        const go = el('button', 'btn', '🧭 TRAZAR RUTA');
+        go.id = 'btnRoute';
+        tap(go, () => { setRoute(sel); G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
+        info.append(go);
+      }
+    } else info.innerHTML = `<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas.</small>`;
+    ui.showSpaceHUD(false);
+    show('galMap');
   },
 
   // ---------- CARRERAS ----------

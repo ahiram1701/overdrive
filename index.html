@@ -138,10 +138,13 @@
         <div class="sh-bar shield"><i></i></div>
         <div class="sh-bar hull"><i></i></div>
         <div class="sh-cargo"><span>📦</span><div class="sh-bar cargo"><i></i></div><b id="shCargo">0/20</b></div>
+        <div class="sh-cargo"><span>🌡️</span><div class="sh-bar heat"><i></i></div></div>
       </div>
       <div class="sh-cred">💰 <b id="shCredits">0</b></div>
     </div>
     <div id="shObjective" class="sh-obj"></div>
+    <div id="shSystem" class="sh-sys"></div>
+    <button id="btnGalMap" aria-label="Mapa galáctico">🗺️</button>
     <button id="spacePause" aria-label="Pausa">❚❚</button>
     <button id="btnDock" class="hidden">🛰️ ATRACAR</button>
     <button id="btnBoost" aria-label="Impulso">⏩</button>
@@ -150,12 +153,13 @@
   </div>
 
   <section id="station" class="overlay hidden">
-    <h2 class="st-title">🛰️ ESTACIÓN ORIGEN</h2>
+    <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
     <p class="gems">💰 <b id="stCredits">0</b> créditos</p>
     <div class="st-block">
       <h3>Mercado</h3>
       <div id="stCargo" class="st-cargo"></div>
       <button class="btn" id="btnSell">VENDER TODO</button>
+      <div id="stBuy" class="st-buy"></div>
     </div>
     <div class="st-block">
       <h3>Taller</h3>
@@ -167,6 +171,14 @@
     </div>
     <button class="btn big" id="btnUndock">🚀 ZARPAR</button>
     <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>
+  </section>
+
+  <section id="galMap" class="overlay hidden">
+    <h2>🗺️ MAPA GALÁCTICO</h2>
+    <p class="hint">Toca un sistema para trazar la ruta. ☠ = peligro · 🔒 = necesitas más Salto</p>
+    <div class="gm-wrap"><svg id="gmSvg" viewBox="0 0 1000 1000"></svg></div>
+    <div id="gmInfo" class="gm-info"></div>
+    <button class="btn" id="btnGalMapBack">VOLVER A VOLAR</button>
   </section>
 
   <section id="arenaUp" class="overlay hidden">
