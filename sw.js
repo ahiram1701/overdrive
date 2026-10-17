@@ -39,6 +39,10 @@ const ASSETS = [
   './js/arenaRender.js',
   './js/expedition.js',
   './js/race.js',
+  './js/space3d.js',
+  './js/galaxyData.js',
+  './js/spaceGame.js',
+  './js/spaceRender.js',
 ];
 
 self.addEventListener('install', (e) => {

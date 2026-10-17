@@ -51,6 +51,7 @@
     </div>
     <div id="mRank" class="rank"></div>
     <div id="mMissions" class="missions"></div>
+    <button class="btn galaxy" id="btnGalaxy">🌌 GALAXIA <small id="mGalaxy">nuevo</small></button>
     <button class="btn big" id="btnPlay">JUGAR</button>
     <button class="btn ghost mods-btn" id="btnMods">⚙️ MODIFICADORES <small id="mMods"></small></button>
     <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
@@ -130,6 +131,43 @@
     <button id="arenaAbility" aria-label="Habilidad"><span id="arenaAbilityIcon">⚡</span></button>
     <div id="ahHint" class="ah-hint">Arrastra para moverte · doble toque = DASH</div>
   </div>
+
+  <div id="spaceHud" class="hidden">
+    <div class="sh-top">
+      <div class="sh-bars">
+        <div class="sh-bar shield"><i></i></div>
+        <div class="sh-bar hull"><i></i></div>
+        <div class="sh-cargo"><span>📦</span><div class="sh-bar cargo"><i></i></div><b id="shCargo">0/20</b></div>
+      </div>
+      <div class="sh-cred">💰 <b id="shCredits">0</b></div>
+    </div>
+    <div id="shObjective" class="sh-obj"></div>
+    <button id="spacePause" aria-label="Pausa">❚❚</button>
+    <button id="btnDock" class="hidden">🛰️ ATRACAR</button>
+    <button id="btnBoost" aria-label="Impulso">⏩</button>
+    <button id="btnFire" aria-label="Disparar">🔫</button>
+    <div id="shHint" class="sh-hint">Arrastra para virar · mantén 🔫 para disparar</div>
+  </div>
+
+  <section id="station" class="overlay hidden">
+    <h2 class="st-title">🛰️ ESTACIÓN ORIGEN</h2>
+    <p class="gems">💰 <b id="stCredits">0</b> créditos</p>
+    <div class="st-block">
+      <h3>Mercado</h3>
+      <div id="stCargo" class="st-cargo"></div>
+      <button class="btn" id="btnSell">VENDER TODO</button>
+    </div>
+    <div class="st-block">
+      <h3>Taller</h3>
+      <div id="stUpgrades" class="st-ups"></div>
+    </div>
+    <div class="st-block" id="stRepairBox">
+      <h3>Reparar</h3>
+      <button class="btn" id="btnRepair">REPARAR</button>
+    </div>
+    <button class="btn big" id="btnUndock">🚀 ZARPAR</button>
+    <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>
+  </section>
 
   <section id="arenaUp" class="overlay hidden">
     <h2 id="auTitle">¡NIVEL 2!</h2>

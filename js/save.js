@@ -31,6 +31,8 @@ const DEFAULTS = {
   campaign: {},     // { '1-1': 3 }
   arena: { best: 0, kills: 0, wins: 0 },
   expedition: { best: 0, wins: 0 },
+  // GALAXIA: créditos, mejoras de la nave espacial, carga y progreso
+  galaxy: { credits: 0, up: { engine: 0, laser: 0, shield: 0, cargo: 0 }, cargo: { iron: 0, crystal: 0, plasma: 0, dark: 0 }, hull: 100, sold: false, started: false, earned: 0 },
   raceCups: {},     // { c1: 0 } mejor medalla de cada copa (0 oro, 1 plata, 2 bronce)
   raceBest: {},     // { 'c1-1': 48.2 } mejor tiempo de cada pista
   ghosts: {},       // { 'c1-1': { t, d: [[dist, x, y]…] } } tu mejor carrera, para correr contra ella // mejor progreso (acto*10 + fila) y expediciones completadas // mejor tiempo (s), más bajas y victorias en la ARENA

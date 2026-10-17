@@ -147,6 +147,19 @@ try {
   console.log(`✔ ${OUT}/race.png`);
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
 
+  // Galaxia: recién salido de la estación, con asteroides delante
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnGalaxy').click(); });
+  await page.evaluate(() => {
+    const s = window.G.space;
+    s.botInput = { x: 0.15, y: 0 };
+    s.botFire = true;
+    for (let i = 0; i < 70; i++) window.D.step(1 / 30, false);
+    window.D.step(1 / 60, true);
+  });
+  await page.screenshot({ path: `${OUT}/galaxy.png` });
+  console.log(`✔ ${OUT}/galaxy.png`);
+  await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
+
   // Modificadores con algunos activos
   await page.evaluate(async () => {
     const { save } = await import('/js/save.js');
