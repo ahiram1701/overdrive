@@ -123,6 +123,9 @@ export const ACHIEVEMENTS = [
   { id: 'gal1', kind: 'asteroid', mode: 'sum', n: 50, tier: 'bronze', name: 'Minero', desc: 'Rompe 50 asteroides en la GALAXIA' },
   { id: 'gal2', kind: 'galaxyCredits', mode: 'sum', n: 5000, tier: 'silver', name: 'Magnate', desc: 'Gana 5.000 créditos en la GALAXIA' },
   { id: 'gal3', kind: 'galaxyUpgrade', mode: 'sum', n: 10, tier: 'silver', name: 'Mecánico', desc: 'Compra 10 mejoras para tu nave espacial' },
+  { id: 'gal4', kind: 'gmission', mode: 'sum', n: 10, tier: 'silver', name: 'Mercenario', desc: 'Cumple 10 misiones en la GALAXIA' },
+  { id: 'gal5', kind: 'discover', mode: 'sum', n: 15, tier: 'gold', name: 'Cartógrafo', desc: 'Descubre 15 puntos de interés del ATLAS' },
+  { id: 'gal6', kind: 'pirateBoss', mode: 'sum', n: 1, tier: 'silver', name: 'Cazapiratas', desc: 'Derrota a un jefe pirata' },
 ];
 export const ACH_GEMS = T;
 

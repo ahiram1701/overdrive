@@ -165,7 +165,7 @@ canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: b
 .mission small { color: var(--muted); font-size: 11px; }
 .missions.compact .mission { padding: 5px 8px; }
 .missions.compact .m-top { font-size: 12px; }
-#hangar, #achs, #codex, #station, #galMap, #expMap, #expEvent, #expRest, #expEnd { background: radial-gradient(ellipse at top, #1d0838, var(--bg) 70%); }
+#hangar, #achs, #codex, #station, #galMap, #atlas, #expMap, #expEvent, #expRest, #expEnd { background: radial-gradient(ellipse at top, #1d0838, var(--bg) 70%); }
 #emTitle { font-size: 22px; text-align: center; }
 #death, #pause, #shop, #cards { background: radial-gradient(ellipse at center, rgba(20,4,40,.82), rgba(5,0,12,.95)); }
 @keyframes fadein { from { opacity: 0; } }
@@ -614,3 +614,16 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .gm-info { width: min(420px, 100%); display: flex; flex-direction: column; gap: 6px; align-items: center; text-align: center; min-height: 60px; }
 .gm-info small { color: var(--muted); }
 .gm-info .warn { color: #ff9f0a; }
+.st-missions { display: flex; flex-direction: column; gap: 8px; }
+.st-missions > small { color: var(--muted); }
+.st-mis { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.12); }
+.st-mis > span { font-size: 22px; }
+.st-mis > div { flex: 1; display: flex; flex-direction: column; }
+.st-mis b { font-size: 13px; }
+.st-mis small { color: var(--yellow); font-size: 11px; }
+.st-mis .btn { width: auto; padding: 8px 10px; font-size: 12px; animation: none; }
+.st-mis.active { border-color: #30d158; background: rgba(48,209,88,.08); }
+.at-perks { display: flex; flex-direction: column; gap: 6px; width: min(420px, 100%); }
+.at-perks div { padding: 8px 10px; border-radius: 10px; background: var(--panel); opacity: .55; }
+.at-perks div.on { opacity: 1; border: 1px solid var(--yellow); box-shadow: 0 0 10px rgba(255,230,0,.3); }
+.at-perks small { display: block; color: var(--muted); font-size: 11px; }

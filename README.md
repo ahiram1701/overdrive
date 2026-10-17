@@ -99,6 +99,14 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **Piratas:** atacan en pasadas, esquivan y huyen con poca vida. Llevan corchetes rojos para verlos siempre, y sueltan 💰. En los sistemas más peligrosos hay **jefes piratas**. Tu láser se **sobrecalienta** si no paras.
 - **Comercio:** cada estación paga distinto. Compra barato el mineral local y véndelo donde lo paguen más.
 - **Zona segura:** junto a las estaciones los piratas no entran.
+- **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos y 💎):
+  - 🎯 caza: elimina N piratas en un sistema;
+  - 📦 entrega: lleva un paquete a otra estación;
+  - 📡 exploración: escanea un punto de interés;
+  - 🛡️ escolta: protege un carguero hasta una puerta mientras lo atacan incursores.
+
+  La brújula te lleva de un objetivo al siguiente.
+- **Descubrimientos y ATLAS:** cada sistema esconde anomalías, pecios, señales y planetas raros. Vuela cerca unos segundos para **escanearlos**: pagan, cuentan su historia y llenan el **ATLAS**. Con 3, 8 y 15 descubrimientos ganas mejoras únicas (Motor de curvatura, Blindaje alienígena, Ojo del oráculo).
 - **Relajado:** si te destruyen, te remolcan a la última estación donde atracaste. Pierdes la carga, nunca los créditos ni las mejoras.
 - Arriba siempre está el **siguiente paso** ("Vuelve a la estación a vender") y una flecha que te lleva hasta él.
 - Un motor 3D propio sobre Canvas 2D, sin librerías: ~2 ms por fotograma en el móvil.
@@ -199,7 +207,7 @@ El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivi
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **56 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
+- **59 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
 
 ## ✨ Prestigio

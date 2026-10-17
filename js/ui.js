@@ -14,7 +14,8 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availabl
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount } from './spaceGame.js';
+import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount } from './galaxyData.js';
 import { ABILITIES, readiness } from './abilities.js';
@@ -25,7 +26,7 @@ import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.j
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'station', 'galMap', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -134,6 +135,8 @@ export const ui = {
     tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
     tap($('spacePause'), () => ui.pause());
     tap($('btnGalMap'), () => ui.showGalMap());
+    tap($('btnAtlas'), () => ui.showAtlas());
+    tap($('btnAtlasBack'), () => ui.showStation(G.space));
     tap($('btnGalMapBack'), () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     // disparar: mantener pulsado; impulso: un toque
     const fire = $('btnFire');
@@ -762,11 +765,45 @@ export const ui = {
       });
       box.append(b);
     }
+    // TABLÓN: misiones activas (con su progreso) y ofertas de esta estación
+    const mBox = $('stMissions');
+    mBox.innerHTML = '';
+    for (const m of g.missions) {
+      const row = el('div', 'st-mis active', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>${m.n > 1 ? `${m.progress}/${m.n} · ` : ''}+${m.reward} 💰 · +${m.gems} 💎</small></div>`);
+      const x = el('button', 'btn ghost', '✕');
+      x.title = 'Abandonar';
+      tap(x, () => { abandonMission(m.id); ui.showStation(s); });
+      row.append(x);
+      mBox.append(row);
+    }
+    for (const m of boardNow(s)) {
+      const row = el('div', 'st-mis', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>+${m.reward} 💰 · +${m.gems} 💎</small></div>`);
+      const ok = el('button', 'btn', 'ACEPTAR');
+      ok.disabled = g.missions.length >= MAX_ACTIVE;
+      ok.dataset.mission = m.kind;
+      tap(ok, () => { acceptMission(m); ui.showStation(s); });
+      row.append(ok);
+      mBox.append(row);
+    }
+    if (!mBox.children.length) mBox.innerHTML = '<small>No hay encargos ahora mismo. Vuelve más tarde.</small>';
     const rc = repairCost(s.ship.hull, st.hull);
     $('stRepairBox').classList.toggle('hidden', !rc);
     $('btnRepair').textContent = `REPARAR · ${rc} 💰`;
     $('btnRepair').disabled = g.credits < rc;
     show('station');
+  },
+
+  // ATLAS: lo descubierto, con su historia, y las mejoras únicas que da explorar
+  showAtlas() {
+    const pois = allPois(GAL);
+    const n = atlasCount();
+    setText('atCount', `📖 ${n} / ${pois.length} descubiertos`);
+    $('atPerks').innerHTML = ATLAS_PERKS.map((pk) => `<div class="${n >= pk.n ? 'on' : ''}"><b>${n >= pk.n ? '✨' : '🔒'} ${pk.name}</b><small>${pk.desc} · ${pk.n} descubrimientos</small></div>`).join('');
+    const found = pois.filter((p) => save.galaxyAtlas[p.id]);
+    $('atList').innerHTML = found.length
+      ? found.map((p) => `<div class="item"><span class="i-icon">${POI_KINDS[p.kind].icon}</span><span class="i-body"><b>${POI_KINDS[p.kind].name} · ${GAL[p.sys].name}</b><small>${p.lore}</small></span></div>`).join('')
+      : '<small>Aún no has descubierto nada. Busca los marcadores en cada sistema y vuela cerca para escanearlos.</small>';
+    show('atlas');
   },
 
   // Mapa galáctico: los sistemas conocidos (visitados y sus vecinos), rutas y peligro
