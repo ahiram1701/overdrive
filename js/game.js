@@ -15,6 +15,7 @@ import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeBonus } from './progress.js';
 import { equipped, addShipStat } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
+import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
 import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
@@ -45,6 +46,7 @@ export function newRun(opts = false) {
   if (typeof opts !== 'object' || !opts) opts = { mode: opts ? 'daily' : 'endless' };
   const daily = opts.mode === 'daily';
   const mutation = opts.mode === 'mutation';
+  const expedition = opts.mode === 'expedition';
   const level = opts.mode === 'campaign' ? levelById(opts.level) : null;
   // en modo debug, ?seed=N fija la pista (los tests E2E lo usan para ser reproducibles)
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
@@ -70,6 +72,11 @@ export function newRun(opts = false) {
     player: null, result: null,
   };
   G.run = r;
+  if (expedition) {
+    // EXPEDICIÓN: mapa del acto 1; se empieza en su salida (un tramo)
+    const map = genAct(seed, 0);
+    r.exp = { seed, act: 0, map, at: startOf(map).id, path: [startOf(map).id], acts: 0, events: 0 };
+  }
   G.player = newPlayer();
   r.player = G.player;
   const ship = SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
@@ -119,14 +126,21 @@ function startSection() {
   const r = run();
   r.section++;
   const lv = r.camp?.level;
+  const node = r.exp ? nodeById(r.exp.map, r.exp.at) : null;
   // JEFAZOS: un jefe cada 2 tramos (en vez de cada 3)
-  const isBoss = lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
+  const isBoss = node ? node.type === 'boss' : lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
   // sector mezclado: los tramos alternan entre sus dos biomas
   const mixed = lv && lv.biome2 != null && (lv.sections - r.camp.left) % 2 === 1;
-  r.biome = BIOMES[lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
+  r.biome = BIOMES[node ? (r.exp.act * 2 + node.row) % BIOMES.length : lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
   if (r.camp) r.camp.left--;
-  r.risk = r.riskNext;
+  r.risk = r.riskNext || node?.type === 'elite'; // ÉLITE: x2 puntos y filas más juntas
   r.riskNext = false;
+  // modificador de un evento: solo dura este tramo
+  for (const id of r.tempMods || []) r.mods.delete(id);
+  r.tempMods = [];
+  if (r.nextMod && !r.mods.has(r.nextMod)) { r.mods.add(r.nextMod); r.tempMods.push(r.nextMod); }
+  r.nextMod = null;
+  if (r.odNext) { r.od = 0.999; r.odNext = false; }
   r.forkPlaced = false;
   r.genHold = false;
   r.genZ = Math.max(r.genZ, r.dist + 45);
@@ -155,7 +169,8 @@ function startSection() {
     r.script = sid ? { id: sid, ...SCRIPTS[sid], i: 0, announced: false } : null;
     const forcedEvent = EVENTS.find((e) => e.id === DBG?.get('event'));
     if (forcedEvent) { r.pendingEvent = forcedEvent; r.nextEventAt = r.time + 2; }
-    const title = lv ? `NIVEL ${lv.id} · ${lv.sections - r.camp.left}/${lv.sections}` : `TRAMO ${r.section + 1}`;
+    const title = node ? `ACTO ${r.exp.act + 1} · ${NODE[node.type].icon} ${NODE[node.type].name.toUpperCase()}`
+      : lv ? `NIVEL ${lv.id} · ${lv.sections - r.camp.left}/${lv.sections}` : `TRAMO ${r.section + 1}`;
     fx.banner(title, r.biome.name + (r.risk ? '  ·  ☠ RIESGO x2' : ''), r.biome.accent);
   }
   // HIPERESPACIO: gravedad baja (saltos más largos y flotantes); se deshace al salir del bioma
@@ -624,11 +639,12 @@ function rollChest(r) {
   return { kind: k, icon: '🃏', label: 'CARTA ÉPICA' };
 }
 
-function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, reward = '' } = {}) {
+function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, reward = '', after = null } = {}) {
   const r = run();
   let offers = offerCards(r, 3, minRarity);
   if (!offers.length) offers = offerCards(r, 3);
   const finish = () => {
+    if (after) return after();
     if (next) startSection();
     resume();
   };
@@ -671,6 +687,140 @@ export function resume() {
   fx.slowmo(0.45, 0.35);
 }
 
+// ---------- Expedición ----------
+// Se cruza la meta de un nodo (tramo, élite o jefe): premio y, después, el mapa
+function expNodeDone() {
+  const r = run(), e = r.exp, node = nodeById(e.map, e.at);
+  G.mode = 'cards';
+  const ps = playerScreen();
+  for (const c of ['#ffe600', '#fff', '#30d158']) fx.burst(ps.x, ps.y - 60, 30, c, 600, 5, 1, 400);
+  sfx.milestone();
+  if (node.type === 'boss') {
+    e.acts++;
+    progress('expAct', e.acts);
+    const gems = 25 * e.acts;
+    save.gems += gems;
+    persist();
+    if (e.act >= ACTS.length - 1) return expWin(gems);
+    e.act++;
+    e.map = genAct(e.seed, e.act);
+    e.at = startOf(e.map).id;
+    e.path = [e.at];
+    fx.banner(`ACTO ${e.act} SUPERADO`, `+${gems} 💎 · siguiente: ${ACTS[e.act].name}`, '#ffe600', true);
+    return openCards({ minRarity: 'rare', title: `¡ACTO ${e.act} SUPERADO!`, next: false, after: expStartNode });
+  }
+  const elite = node.type === 'elite';
+  openCards({ minRarity: elite ? 'rare' : null, title: elite ? '☠ ÉLITE SUPERADO' : 'ELIGE UNA CARTA', next: false, after: expShowMap });
+}
+
+function expShowMap() {
+  G.mode = 'map';
+  musicDuck(true);
+  ui.showHUD(false);
+  ui.showExpMap(run().exp);
+}
+
+function expStartNode() {
+  startSection();
+  resume();
+}
+
+// Elegir un nodo del mapa (solo los conectados al actual)
+export function expChoose(id) {
+  const r = run(), e = r?.exp;
+  if (!e || G.mode !== 'map') return;
+  const cur = nodeById(e.map, e.at);
+  if (!cur.next.includes(id)) return;
+  e.at = id;
+  e.path.push(id);
+  const node = nodeById(e.map, id);
+  switch (node.type) {
+    case 'tramo': case 'elite': case 'boss':
+      return expStartNode();
+    case 'shop':
+      G.mode = 'shop';
+      return ui.showShop(r, expShowMap);
+    case 'treasure': {
+      G.mode = 'chest';
+      const res = rollChest(r);
+      return ui.showChest(res, () => {
+        let got = `${res.icon} ${res.label}`;
+        if (res.kind === 'coins') r.coins += res.amount;
+        if (res.kind === 'shield') got = gainShield(res.amount, '+1 🛡️ ESCUDO');
+        if (res.kind === 'od') { r.odNext = true; got = '🔥 OVERDRIVE lleno en el próximo tramo'; }
+        openCards({ ...(res.kind === 'epic' ? { minRarity: 'epic', title: '¡CARTA ÉPICA!' } : { reward: got }), next: false, after: expShowMap });
+      });
+    }
+    case 'event':
+      G.mode = 'event';
+      return ui.showExpEvent(eventFor(e.seed, id), r);
+    case 'rest':
+      G.mode = 'rest';
+      return ui.showExpRest(r);
+  }
+}
+
+// Aplica la opción elegida de un evento
+export function expEventChoice(ev, i) {
+  const r = run(), e = r.exp;
+  if (G.mode !== 'event') return;
+  const eff = resolveEffect(ev.choices[i].eff, r.lootRng);
+  e.events++;
+  progress('expEvent');
+  const notes = [];
+  if (eff.coins) { r.coins = Math.max(0, r.coins + eff.coins); notes.push(`${eff.coins > 0 ? '+' : ''}${eff.coins} 🪙`); }
+  if (eff.shields > 0) notes.push(gainShield(eff.shields, `+${eff.shields} 🛡️`));
+  if (eff.shields < 0) { r.shields = Math.max(0, r.shields + eff.shields); notes.push(`${eff.shields} 🛡️`); }
+  if (eff.gems) { save.gems += eff.gems; persist(); notes.push(`+${eff.gems} 💎`); }
+  if (eff.risk) { r.riskNext = true; notes.push('☠ próximo tramo RIESGO x2'); }
+  if (eff.mod) { r.nextMod = eff.mod; notes.push(`próximo tramo: ${eff.mod}`); }
+  if (eff.od) { r.odNext = true; notes.push('🔥 OVERDRIVE lleno al empezar'); }
+  if ('lucky' in eff) notes.unshift(eff.lucky ? '¡SUERTE!' : 'Mala suerte…');
+  const reward = notes.join(' · ');
+  const n = eff.card ? 1 : eff.cards || 0;
+  if (!n) {
+    if (reward) fx.notice(reward, '#ffe600');
+    return expShowMap();
+  }
+  const more = (left) => openCards({ minRarity: eff.card && eff.card !== 'common' ? eff.card : null, title: eff.card === 'epic' ? '¡CARTA ÉPICA!' : 'ELIGE UNA CARTA', next: false, reward, after: left > 1 ? () => more(left - 1) : expShowMap });
+  more(n);
+}
+
+// Descanso: +1 escudo, o mejorar (repetir) una carta que ya tienes
+export function expRest(kind) {
+  const r = run();
+  if (G.mode !== 'rest') return;
+  if (kind === 'shield') {
+    gainShield(1, '🔥 +1 🛡️');
+    return expShowMap();
+  }
+  const owned = Object.keys(r.cards).filter((id) => r.cards[id] < CARD_BY_ID[id].max);
+  if (owned.length) {
+    const id = r.lootRng.pick(owned);
+    pickCard(id);
+    fx.notice(`🔥 ${CARD_BY_ID[id].icon} ${CARD_BY_ID[id].name} sube de nivel`, '#ff9f0a');
+    return expShowMap();
+  }
+  openCards({ next: false, after: expShowMap });
+}
+
+// Expedición completada (los 3 jefes)
+function expWin(gems) {
+  const r = run();
+  G.mode = 'expEnd';
+  musicStop();
+  save.expedition.wins++;
+  save.expedition.best = Math.max(save.expedition.best, progressOf(ACTS.length, 0));
+  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400;
+  const xpBefore = save.xp;
+  const rankUps = addXp(save, xp);
+  save.runs++;
+  progress('runs');
+  persist();
+  ui.showHUD(false);
+  ui.showExpEnd({ gems, xp, xpBefore, rankUps, score: r.score, cards: r.cards, synergies: [...r.synergies], sections: r.section + 1 });
+}
+
 // ---------- Muerte ----------
 // Explosión de la nave según el cosmético equipado
 function die() {
@@ -693,6 +843,11 @@ function die() {
   // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
   if (r.daily) gems = Math.ceil(gems * 1.5);
+  if (r.exp) {
+    gems += r.exp.acts * 15;
+    const pr = progressOf(r.exp.act, nodeById(r.exp.map, r.exp.at).row);
+    save.expedition.best = Math.max(save.expedition.best, pr);
+  }
   gems = Math.ceil(gems * modGems([...r.mods]) * (1 + prestigeBonus(save)));
   // MUTACIÓN DEL DÍA: el primer intento de cada día paga x1,5
   let mutationBonus = false;
@@ -724,7 +879,7 @@ function die() {
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   persist();
-  r.result = { opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Campaña: meta ----------
@@ -737,6 +892,7 @@ const campStats = (r, finished) => ({
 // Cruzar la línea de meta de un nivel de campaña
 export function onFinish() {
   const r = run();
+  if (G.mode === 'play' && r.exp) return expNodeDone();
   if (G.mode !== 'play' || !r.camp) return;
   G.mode = 'won';
   G.timeWarp = 1;

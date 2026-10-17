@@ -743,7 +743,7 @@ function hunterDodged() {
 export function updateWorld(dt) {
   const r = G.run;
   while (!r.genHold && r.genZ < r.dist + VIEW + 10) {
-    if (r.genZ >= r.sectionEnd) (r.camp && r.camp.left <= 0 ? placeFinish : placeFork)(r);
+    if (r.genZ >= r.sectionEnd) ((r.camp && r.camp.left <= 0) || r.exp ? placeFinish : placeFork)(r);
     else genRow(r);
   }
 

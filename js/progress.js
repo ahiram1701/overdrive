@@ -114,6 +114,9 @@ export const ACHIEVEMENTS = [
   { id: 'arena10', kind: 'arenaTime', mode: 'best', n: 600, tier: 'gold', name: 'Gladiador', desc: 'Sobrevive 10 minutos en la ARENA' },
   { id: 'arenaK', kind: 'arenaKills', mode: 'sum', n: 1000, tier: 'silver', name: 'Exterminio', desc: 'Elimina 1.000 enemigos en la ARENA' },
   { id: 'evolve1', kind: 'evolve', mode: 'sum', n: 1, tier: 'bronze', name: 'Evolución', desc: 'Evoluciona un arma en la ARENA' },
+  { id: 'exp1', kind: 'expAct', mode: 'best', n: 1, tier: 'bronze', name: 'Explorador', desc: 'Supera el primer acto de una EXPEDICIÓN' },
+  { id: 'exp3', kind: 'expAct', mode: 'best', n: 3, tier: 'gold', name: 'Leyenda del mapa', desc: 'Completa una EXPEDICIÓN entera' },
+  { id: 'expEv', kind: 'expEvent', mode: 'sum', n: 15, tier: 'bronze', name: 'Curioso', desc: 'Resuelve 15 eventos de EXPEDICIÓN' },
 ];
 export const ACH_GEMS = T;
 
