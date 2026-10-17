@@ -42,39 +42,64 @@
     <button id="abilityBtn" aria-label="Habilidad"><span id="abilityIcon">⚡</span></button>
   </div>
 
-  <section id="menu" class="overlay">
-    <h1 class="logo">OVER<span>DRIVE</span></h1>
-    <p class="tag">dopamina a lo bruto</p>
-    <div class="stats-row">
-      <div><b id="mBest">0</b><small>récord</small></div>
+  <section id="menu" class="overlay hub">
+    <header class="hub-top">
+      <button class="hub-badge" id="btnRankBadge" aria-label="Rango y logros"><span id="mRankNum">1</span><small>RANGO</small></button>
+      <h1 class="logo small">OVER<span>DRIVE</span></h1>
+      <button class="icon-btn" id="btnSettings" aria-label="Ajustes">⚙️</button>
+    </header>
+    <div class="hub-stats">
       <div><b id="mGems">0</b><small>💎 gemas</small></div>
+      <div><b id="mBest">0</b><small>🏁 récord</small></div>
     </div>
     <div id="mRank" class="rank"></div>
-    <div id="mMissions" class="missions"></div>
-    <button class="btn galaxy" id="btnGalaxy">🌌 GALAXIA <small id="mGalaxy">nuevo</small></button>
-    <button class="btn big" id="btnPlay">JUGAR</button>
-    <button class="btn ghost mods-btn" id="btnMods">⚙️ MODIFICADORES <small id="mMods"></small></button>
-    <button class="btn camp" id="btnCampaign">CAMPAÑA <small id="mStars"></small></button>
-    <div class="modes">
-      <button class="btn mode" id="btnArena">⚔️ ARENA <small id="mArena"></small></button>
-      <button class="btn mode exp" id="btnExpedition">🗺️ EXPEDICIÓN <small id="mExp"></small></button>
-      <button class="btn mode race" id="btnRaces">🏁 CARRERAS <small id="mRace"></small></button>
+
+    <div class="hub-hero">
+      <button class="hero-card galaxy" id="btnGalaxy"><span class="hc-icon">🌌</span><span class="hc-text"><b>GALAXIA</b><small id="mGalaxy">nuevo</small></span></button>
+      <div class="hero-card runner">
+        <button class="hc-main" id="btnPlay"><span class="hc-icon">🏁</span><span class="hc-text"><b>RUNNER</b><small>esquiva a toda velocidad</small></span></button>
+        <button class="hc-mods" id="btnMods" aria-label="Modificadores">⚙️<small id="mMods"></small></button>
+      </div>
     </div>
-    <button class="btn" id="btnDaily">RETO DIARIO <small id="mDaily"></small></button>
-    <button class="btn mut" id="btnMutation">🧬 MUTACIÓN <small id="mMut"></small></button>
-    <button class="btn ghost" id="btnHangar">HANGAR</button>
-    <div class="row">
-      <button class="btn ghost" id="btnAch">🏆 LOGROS</button>
-      <button class="btn ghost" id="btnCodex">📖 COLECCIÓN</button>
+
+    <button class="mission-chip" id="btnMissions">🎯 Misiones de hoy <b id="mMisCount">0/3</b><span class="chev">▾</span></button>
+    <div id="mMissions" class="missions collapsed"></div>
+
+    <h3 class="hub-h">MODOS</h3>
+    <div class="mode-grid">
+      <button class="mode-tile t-camp" id="btnCampaign"><span>🗺️</span><b>Campaña</b><small id="mStars"></small></button>
+      <button class="mode-tile t-arena" id="btnArena"><span>⚔️</span><b>Arena</b><small id="mArena"></small></button>
+      <button class="mode-tile t-exp" id="btnExpedition"><span>🧭</span><b>Expedición</b><small id="mExp"></small></button>
+      <button class="mode-tile t-race" id="btnRaces"><span>🏆</span><b>Carreras</b><small id="mRace"></small></button>
+      <button class="mode-tile t-daily" id="btnDaily"><span>📅</span><b>Reto diario</b><small id="mDaily"></small></button>
+      <button class="mode-tile t-mut" id="btnMutation"><span>🧬</span><b>Mutación</b><small id="mMut"></small></button>
     </div>
-    <div class="toggles">
-      <button class="tg" id="tgSound" aria-label="Sonido">🔊</button>
-      <button class="tg" id="tgVibe" aria-label="Vibración">📳</button>
-      <button class="tg" id="tgFx" aria-label="Efectos intensos">✨</button>
-      <button class="tg" id="tgText" aria-label="Textos en pantalla" title="Textos: normal / mínimo">Aa</button>
-    </div>
-    <p class="hint">Desliza ← → ↑ ↓ · doble toque = DASH</p>
+    <div class="hub-space"></div>
   </section>
+
+  <section id="settings" class="overlay hidden">
+    <h2>AJUSTES</h2>
+    <div class="set-list">
+      <button class="set-row" id="tgSound"><span>🔊</span><b>Sonido</b><i class="sw"></i></button>
+      <button class="set-row" id="tgVibe"><span>📳</span><b>Vibración</b><i class="sw"></i></button>
+      <button class="set-row" id="tgFx"><span>✨</span><b>Efectos intensos</b><i class="sw"></i></button>
+      <button class="set-row" id="tgText"><span>Aa</span><b>Textos en pantalla</b><i class="sw"></i></button>
+      <h3>Galaxia</h3>
+      <label class="set-row"><span>🎚️</span><b>Sensibilidad</b><input type="range" id="setSens" min="0.5" max="1.6" step="0.1"></label>
+      <button class="set-row" id="tgInvert"><span>↕️</span><b>Invertir eje vertical</b><i class="sw"></i></button>
+      <button class="set-row" id="tgLevel"><span>🧭</span><b>Nivelar la nave sola</b><i class="sw"></i></button>
+    </div>
+    <p class="hint">Runner: desliza ← → ↑ ↓ · doble toque = DASH</p>
+  </section>
+
+  <nav id="bottomNav" class="bottom-nav hidden">
+    <button data-nav="menu"><span>🏠</span><small>Inicio</small></button>
+    <button data-nav="hangar" id="btnHangar"><span>🚀</span><small>Hangar</small></button>
+    <button data-nav="achs" id="btnAch"><span>🏆</span><small>Logros</small></button>
+    <button data-nav="codex" id="btnCodex"><span>📖</span><small>Colección</small></button>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
 
   <section id="hangar" class="overlay hidden">
     <!-- cabecera fija: la nave se ve siempre mientras mejoras o personalizas -->
@@ -104,7 +129,6 @@
     <h2>LOGROS</h2>
     <p class="gems" id="achCount"></p>
     <div id="achList" class="list"></div>
-    <button class="btn" id="btnAchBack">VOLVER</button>
   </section>
 
   <section id="codex" class="overlay hidden">
@@ -116,7 +140,6 @@
     <div id="codexSyn" class="codex-grid"></div>
     <h3>Jefes</h3>
     <div id="codexBosses" class="codex-grid"></div>
-    <button class="btn" id="btnCodexBack">VOLVER</button>
   </section>
 
   <div id="arenaHud" class="hidden">
@@ -183,7 +206,6 @@
     <p class="gems" id="atCount"></p>
     <div id="atPerks" class="at-perks"></div>
     <div id="atList" class="list"></div>
-    <button class="btn" id="btnAtlasBack">VOLVER</button>
   </section>
 
   <section id="galMap" class="overlay hidden">
@@ -191,7 +213,6 @@
     <p class="hint">Toca un sistema para trazar la ruta. ☠ = peligro · 🔒 = necesitas más Salto</p>
     <div class="gm-wrap"><svg id="gmSvg" viewBox="0 0 1000 1000"></svg></div>
     <div id="gmInfo" class="gm-info"></div>
-    <button class="btn" id="btnGalMapBack">VOLVER A VOLAR</button>
   </section>
 
   <section id="arenaUp" class="overlay hidden">
@@ -251,7 +272,6 @@
     <h2>CARRERAS</h2>
     <p class="hint">3 rivales, 3 pistas por copa y tu fantasma. Chocar frena, no mata.</p>
     <div id="rcList" class="rc-list"></div>
-    <button class="btn ghost" id="btnRacesBack">VOLVER</button>
   </section>
 
   <section id="racePodium" class="overlay hidden">
@@ -274,15 +294,13 @@
     <p class="hint">Más difícil = más puntos y gemas. Se guardan para la próxima.</p>
     <div id="modTotal" class="mod-total"></div>
     <div id="modList" class="mod-grid"></div>
-    <button class="btn big" id="btnModsPlay">JUGAR</button>
-    <button class="btn ghost" id="btnModsBack">VOLVER</button>
+    <button class="btn big" id="btnModsPlay">🏁 RUNNER</button>
   </section>
 
   <section id="campaign" class="overlay hidden">
     <h2>CAMPAÑA</h2>
     <p class="gems" id="campStars"></p>
     <div id="campMap" class="camp-map"></div>
-    <button class="btn" id="btnCampBack">VOLVER</button>
   </section>
 
   <section id="victory" class="overlay hidden">

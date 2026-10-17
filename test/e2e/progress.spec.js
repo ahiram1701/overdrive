@@ -37,7 +37,7 @@ test('al morir se gana XP, la colección registra las cartas y el menú muestra 
   await expect(page.locator('#mRank')).toContainText('RANGO');
   await page.locator('#btnAch').click();
   await expect(page.locator('#achList .item')).toHaveCount(59);
-  await page.locator('#btnAchBack').click();
+  await page.locator('#achs .scr-back').click();
   await page.locator('#btnCodex').click();
   await expect(page.locator('#codexCards .cx:not(.unknown)')).not.toHaveCount(0);
   expect(errors).toEqual([]);

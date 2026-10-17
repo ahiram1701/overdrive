@@ -149,7 +149,7 @@ El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu
 - **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:
   - Turbo, Caos, Campo minado, Cristal, Jefazos, Cazador voraz;
   - Avaricia, Ingravidez, Frágil, Sin DASH, Niebla y Al revés.
-- Se activan en **⚙️ MODIFICADORES**, bajo JUGAR, y se recuerdan para la próxima partida.
+- Se activan con el ⚙️ de la tarjeta **RUNNER**, y se recuerdan para la próxima partida.
 - El bonus se multiplica: Turbo + Cristal = x2,08 puntos. Las gemas suben la mitad, con tope x3.
 - Se **desbloquean con el rango**, uno cada pocos rangos: siempre hay uno nuevo a la vista.
 - **🧬 Mutación del día:** cada día, 2 modificadores y la misma pista para todos. El primer intento paga **x1,5 gemas**.
