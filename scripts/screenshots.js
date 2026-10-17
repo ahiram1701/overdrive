@@ -110,6 +110,23 @@ try {
   console.log(`✔ ${OUT}/campaign.png`);
   await page.evaluate(() => document.getElementById('btnCampBack').click());
 
+  // Arena en plena partida (simulada, con algunas mejoras)
+  await page.evaluate(() => { window.G.manual = true; });
+  await page.evaluate(() => document.getElementById('btnArena').click());
+  await page.evaluate(() => {
+    const G = window.G;
+    for (let i = 0; i < 70 * 20; i++) {
+      if (G.mode === 'arenaUp') document.querySelector('#auOptions .au-opt').click();
+      G.arena.botInput = { x: Math.cos(i / 30), y: Math.sin(i / 30) };
+      window.D.step(1 / 20, false);
+      if (G.mode !== 'arena' && G.mode !== 'arenaUp') break;
+    }
+    window.D.step(1 / 60, true);
+  });
+  await page.screenshot({ path: `${OUT}/arena.png` });
+  console.log(`✔ ${OUT}/arena.png`);
+  await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
+
   // Modificadores con algunos activos
   await page.evaluate(async () => {
     const { save } = await import('/js/save.js');

@@ -15,10 +15,12 @@ import { newRun, pickCard, resume, effSpeed, useAbility, progress } from './game
 import { ABILITIES, readiness } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
+import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
+import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -100,6 +102,13 @@ function rankHTML(xp, from = null) {
     <div class="rank-bar"><i style="transform:scaleX(${k.toFixed(3)})"></i>${gained}</div>`;
 }
 
+// Armas y pasivas de la arena, con su nivel (✨ si ha evolucionado)
+function arenaBuild(a) {
+  const w = Object.entries(a.weapons).map(([id, n]) => `<span title="${WEAPONS[id].name}">${a.evolved[id] ? EVOLUTIONS[id].icon : WEAPONS[id].icon}<sub>${a.evolved[id] ? '✨' : n}</sub></span>`);
+  const p = Object.entries(a.passives || {}).map(([id, n]) => `<span title="${PASSIVES[id].name}">${PASSIVES[id].icon}<sub>${n}</sub></span>`);
+  return w.join('') + p.join('');
+}
+
 function buildSummary(run) {
   const items = Object.entries(run.cards).map(([id, n]) => `<span title="${CARD_BY_ID[id].name}">${CARD_BY_ID[id].icon}${n > 1 ? `<sub>${n}</sub>` : ''}</span>`);
   const syn = [...run.synergies].map((id) => `<span class="syn">${SYNERGIES.find((s) => s.id === id).name}</span>`);
@@ -111,6 +120,16 @@ export const ui = {
     tap($('btnPlay'), () => newRun(false));
     tap($('btnDaily'), () => newRun(true));
     tap($('btnMods'), () => ui.showMods());
+    tap($('btnArena'), () => newArena());
+    tap($('btnArenaRetry'), () => newArena());
+    tap($('btnArenaMenu'), () => ui.showMenu());
+    tap($('arenaPause'), () => ui.pause());
+    $('arenaAbility').addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      unlockAudio();
+      useArenaAbility();
+    });
     tap($('btnModsBack'), () => ui.showMenu());
     tap($('btnModsPlay'), () => newRun({ mode: 'endless' }));
     tap($('btnMutation'), () => newRun({ mode: 'mutation' }));
@@ -125,8 +144,10 @@ export const ui = {
     tap($('btnCodex'), () => ui.showCodex());
     tap($('btnAchBack'), () => ui.showMenu());
     tap($('btnCodexBack'), () => ui.showMenu());
-    tap($('btnResume'), () => resume());
-    tap($('btnQuit'), () => { musicStop(); ui.showMenu(); });
+    tap($('btnResume'), () => {
+      if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); } else resume();
+    });
+    tap($('btnQuit'), () => { musicStop(); G.arena = null; ui.showArenaHUD(false); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
     // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
     $('abilityBtn').addEventListener('pointerdown', (e) => {
@@ -178,6 +199,8 @@ export const ui = {
   showMenu() {
     G.mode = 'menu';
     G.run = null;
+    G.arena = null;
+    ui.showArenaHUD(false);
     G.player = null;
     ui.showHUD(false);
     $('mBest').textContent = fmt(save.best);
@@ -209,6 +232,7 @@ export const ui = {
       });
       $('mRank').append(b);
     }
+    $('mArena').textContent = save.arena.best ? `· récord ${fmtTime(save.arena.best)}` : '· nuevo';
     $('mStars').textContent = `· ★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
     const sel = cleanMods(save.modsLast, effectiveRank(save));
     $('mMods').textContent = sel.length ? `${sel.map((id) => MOD_BY_ID[id].icon).join('')} · x${modScore(sel).toFixed(2)}` : '· ninguno';
@@ -636,6 +660,58 @@ export const ui = {
     show('victory');
   },
 
+  // ---------- ARENA ----------
+  showArenaHUD(on) {
+    $('arenaHud').classList.toggle('hidden', !on);
+    if (on) $('hud').classList.add('hidden');
+  },
+
+  updateArenaHUD() {
+    const a = G.arena;
+    if (!a || $('arenaHud').classList.contains('hidden')) return;
+    setText('ahTime', fmtTime(a.time));
+    setText('ahGoal', a.time < ARENA_TIME ? `sobrevive ${fmtTime(ARENA_TIME)}` : '¡JEFE FINAL!');
+    setText('ahLvl', String(a.level));
+    setText('ahKills', fmt(a.kills));
+    $('arenaHud').querySelector('.ah-xp i').style.transform = `scaleX(${Math.min(1, a.xp / Math.max(1, xpNeed(a.level))).toFixed(3)})`;
+    setHTML('ahWeapons', arenaBuild(a));
+    const ab = $('arenaAbility');
+    ab.style.setProperty('--f', readiness(a.ability).toFixed(3));
+    setText('arenaAbilityIcon', ABILITIES[a.ability.id].icon);
+    ab.classList.toggle('ready', a.ability.cdLeft <= 0 && a.ability.active <= 0);
+    $('ahHint').classList.toggle('hidden', a.time > 6);
+  },
+
+  showArenaUp(a) {
+    setText('auTitle', `¡NIVEL ${a.level}!`);
+    const box = $('auOptions');
+    box.innerHTML = '';
+    a.offers.forEach((up, i) => {
+      const info = up.kind === 'weapon' ? WEAPONS[up.id] : up.kind === 'passive' ? PASSIVES[up.id] : up.kind === 'evolve' ? EVOLUTIONS[up.id] : { name: 'Reparación', icon: '❤️', desc: 'Recuperas toda la vida.' };
+      const tag = up.kind === 'evolve' ? '✨ EVOLUCIÓN' : up.kind === 'weapon' ? (up.lvl === 1 ? 'ARMA NUEVA' : `ARMA · NIV ${up.lvl}`) : up.kind === 'passive' ? (up.lvl === 1 ? 'PASIVA NUEVA' : `PASIVA · NIV ${up.lvl}`) : 'CURA';
+      const b = el('button', `au-opt k-${up.kind}`, `<span class="au-icon">${info.icon}</span><span class="au-body"><small>${tag}</small><b>${info.name}</b><em>${info.desc}</em></span>`);
+      b.dataset.i = i;
+      tap(b, () => pickArenaUpgrade(i));
+      box.append(b);
+    });
+    show('arenaUp');
+  },
+
+  showArenaEnd(res) {
+    ui.deathAt = performance.now();
+    setText('aeTitle', res.won ? '¡ARENA SUPERADA!' : 'DESTRUIDO');
+    $('aeTitle').className = res.won ? 'won' : 'dead';
+    $('aeNew').classList.toggle('hidden', !res.isBest);
+    setText('aeTime', fmtTime(res.time));
+    const cells = [['Bajas', fmt(res.kills)], ['Nivel', res.level], ['Jefes', res.bosses], ['Récord', fmtTime(res.best)]];
+    $('aeGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
+    $('aeBuild').innerHTML = arenaBuild({ weapons: res.weapons, passives: {}, evolved: res.evolved });
+    $('aeGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+    const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+    $('aeXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
+    show('arenaEnd');
+  },
+
   // Panel de modificadores: lo desbloqueado se activa y desactiva; lo bloqueado dice su rango
   showMods() {
     G.mode = 'hangar'; // pantalla estática
@@ -666,6 +742,14 @@ export const ui = {
   },
 
   pause() {
+    if (G.mode === 'arena') {
+      G.mode = 'arenaPaused';
+      musicDuck(true);
+      const a = G.arena;
+      $('pBuild').innerHTML = arenaBuild(a);
+      show('pause');
+      return;
+    }
     if (G.mode !== 'play') return;
     G.mode = 'paused';
     musicDuck(true);

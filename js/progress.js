@@ -110,6 +110,10 @@ export const ACHIEVEMENTS = [
   { id: 'prest1', kind: 'prestige', mode: 'best', n: 1, tier: 'silver', name: 'Renacido', desc: 'Haz tu primer prestigio' },
   { id: 'prest5', kind: 'prestige', mode: 'best', n: 5, tier: 'gold', name: 'Leyenda', desc: 'Llega al prestigio 5' },
   { id: 'jump10', kind: 'jumpOver', mode: 'sum', n: 10, tier: 'bronze', name: 'Canguro', desc: 'Salta 10 muros con el salto doble' },
+  { id: 'arena5', kind: 'arenaTime', mode: 'best', n: 300, tier: 'silver', name: 'Superviviente', desc: 'Sobrevive 5 minutos en la ARENA' },
+  { id: 'arena10', kind: 'arenaTime', mode: 'best', n: 600, tier: 'gold', name: 'Gladiador', desc: 'Sobrevive 10 minutos en la ARENA' },
+  { id: 'arenaK', kind: 'arenaKills', mode: 'sum', n: 1000, tier: 'silver', name: 'Exterminio', desc: 'Elimina 1.000 enemigos en la ARENA' },
+  { id: 'evolve1', kind: 'evolve', mode: 'sum', n: 1, tier: 'bronze', name: 'Evolución', desc: 'Evoluciona un arma en la ARENA' },
 ];
 export const ACH_GEMS = T;
 

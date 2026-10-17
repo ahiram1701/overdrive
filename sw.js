@@ -34,6 +34,9 @@ const ASSETS = [
   './js/cosfx.js',
   './js/modifiers.js',
   './js/balance.js',
+  './js/arenaData.js',
+  './js/arena.js',
+  './js/arenaRender.js',
 ];
 
 self.addEventListener('install', (e) => {
