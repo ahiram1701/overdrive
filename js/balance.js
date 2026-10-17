@@ -2,7 +2,7 @@
 // Medido con el bot (test/e2e/balance.spec.js): ninguna build debe vivir invulnerable.
 
 // Topes de las stats de una partida, vengan de la nave, el árbol, las cartas o las sinergias
-export const CAPS = { odRate: 1.6, odDur: 8, dashMax: 3, dashRechargeMin: 2.4 };
+export const CAPS = { odRate: 1.5, odDur: 7, dashMax: 3, dashRechargeMin: 2.4 };
 
 // Ritmo del OVERDRIVE: lo que carga cada acción se multiplica por OD_GAIN; al acabar, la barra
 // se "recalienta" OD_COOL segundos y no carga (corta el encadenar overdrive tras overdrive)

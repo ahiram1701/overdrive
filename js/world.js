@@ -7,7 +7,7 @@ import { playerBox } from './player.js';
 import { isActive } from './abilities.js';
 import { trackSpeed } from './pacing.js';
 import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown, makeElite, bossHp } from './bosses.js';
-import { onNearMiss, onBreak, onHit, onCoin, onFork, onFinish, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
+import { onNearMiss, onBreak, onHit, onCoin, onFork, onFinish, onJumpOver, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
 
 export const BIOMES = [
   { id: 'neon', name: 'NEÓN URBANO', sky: ['#0b0221', '#6a1182'], ground: '#0d0221', road: ['#1c0638', '#12042a'], line: '#ff2bd6', edge: '#00e5ff', obs: '#ff2bd6', obs2: '#00e5ff', accent: '#ffe600', music: 0 },
@@ -26,6 +26,8 @@ export const FORK_REWARDS = {
 };
 
 const TALL = 99;
+// altura a la que el salto doble pasa por encima de un muro
+export const JUMP_OVER = 1.9;
 export const RAMP_BOOST = 1.6; // multiplicador del salto al pasar por una rampa
 const FORCED = G.debug && typeof location !== 'undefined' ? new URLSearchParams(location.search).get('pattern') : null;
 const DIM = {
@@ -346,7 +348,7 @@ export function breakObj(o, cause = 'dash') {
   // un golpe que absorbe el escudo es solo visual: ni puntos, ni combo, ni overdrive, ni cadena
   if (cause === 'shield') return;
   onBreak(o, cause, sp);
-  if (r.stats.explosive && cause !== 'chain') {
+  if (r.stats.explosive && cause !== 'chain' && cause !== 'sweep') {
     if (sp) fx.ring(sp.x, sp.y, '#ff9f0a', 420, 0.5, 18);
     for (const o2 of r.objects) {
       if (o2.alive && isObstacle(o2) && Math.abs(o2.z - o.z) < 9 && o2 !== o) breakObj(o2, 'chain');
@@ -362,7 +364,7 @@ export function sweep(rzMax) {
     if (!o.alive || !isObstacle(o)) continue;
     const rz = o.z - r.dist;
     if (rz > 0 && rz < rzMax) {
-      breakObj(o, 'chain');
+      breakObj(o, 'sweep');
       n++;
     }
   }
@@ -490,10 +492,14 @@ function resolve(o) {
   // ARIETE: rompe todo lo que toca, como el dash
   const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram');
 
+  // NÚCLEO: tocarlo SIEMPRE daña al jefe (con DASH, overdrive o Ariete, doble). El blindado del
+  // Censor solo cede a una embestida. Margen generoso: se pasa "por" el núcleo, no hay que clavarlo.
   if (o.type === 'core') {
-    if (hx && powered) onCore(o);
+    if (Math.abs(pb.x - o.x) < o.w / 2 + pb.hw + 0.15) onCore(o, powered);
     return;
   }
+  // SALTO DOBLE: en el segundo salto, por encima de 1,9 m, se pasa por encima de muros y móviles
+  if (hx && hy && p.jumps >= 2 && pb.y0 > JUMP_OVER && (o.type === 'wall' || o.type === 'mover')) return onJumpOver(o);
   if (hx && hy) {
     if (powered) return breakObj(o, 'dash');
     // FASE: intangible; atravesar algo cuenta como PERFECTO. Los disparos del Cazador sí te dan.
@@ -638,10 +644,10 @@ function updateBoss(r, dt) {
   if (b.escapeT <= 0) bossEscaped();
 }
 
-export function hurtBoss() {
+export function hurtBoss(dmg = 1) {
   const r = G.run, b = r.boss;
   if (!b || b.dying) return;
-  b.hp--;
+  b.hp = Math.max(0, b.hp - dmg);
   b.flash = 1;
   const sp = project(b.x, 3.4, bossRz());
   if (sp) {
@@ -778,12 +784,16 @@ export function updateWorld(dt) {
       const powered = p.dash > 0 || r.odTime > 0 || isActive(r.ability, 'ram') || isActive(r.ability, 'phase');
       if (!powered && p.invuln <= 0 && !G.god) onHit(o);
     }
-    if (o.type === 'mover' && rz > Math.max(16, runSpeed(r) * 0.45)) {
-      o.moveT -= dt;
-      if (o.moveT <= 0) {
-        o.moveT = 0.55;
-        const opts = allowedLanes(r).filter((l) => l !== o.target);
-        o.target = r.aiRng.pick(opts);
+    if (o.type === 'mover') {
+      // lejos cambia de carril; cerca deja de elegir, pero TERMINA el movimiento que llevaba
+      // (antes se congelaba a medio camino y tapaba dos carriles a la vez)
+      if (rz > Math.max(16, runSpeed(r) * 0.45)) {
+        o.moveT -= dt;
+        if (o.moveT <= 0) {
+          o.moveT = 0.55;
+          const opts = allowedLanes(r).filter((l) => l !== o.target);
+          o.target = r.aiRng.pick(opts);
+        }
       }
       o.x += (o.target * LANE_W - o.x) * Math.min(1, dt * 10);
       o.lane = o.target;

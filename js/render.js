@@ -505,7 +505,7 @@ function drawObj(o, rz, b, t) {
       break;
     }
     case 'core': {
-      // objetivo del DASH: verde = "ve a por él"
+      // objetivo: verde = "ve a por él" (tocarlo daña; con DASH, doble)
       const p = project(o.x, 0.6, rz);
       if (!p) break;
       const R = 0.42 * p.s * (1 + 0.12 * Math.sin(t * 14));
@@ -526,7 +526,7 @@ function drawObj(o, rz, b, t) {
       ctx.fillStyle = '#fff';
       ctx.font = `italic 900 ${Math.max(10, Math.round(R * 0.9))}px system-ui`;
       ctx.textAlign = 'center';
-      ctx.fillText(o.shield ? 'SOLO DASH' : 'DASH!', p.x, p.y - R * 2.2);
+      ctx.fillText(o.shield ? 'SOLO DASH' : '¡TÓCALO!', p.x, p.y - R * 2.2);
       if (o.shield) {
         // núcleo blindado (EL CENSOR): el láser rebota, hay que embestirlo
         ctx.strokeStyle = '#5ac8fa';

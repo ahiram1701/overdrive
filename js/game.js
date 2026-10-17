@@ -319,7 +319,8 @@ export function onBreak(o, cause, sp) {
   if (isActive(r.ability, 'ram') && r.ability.mut === 'recharge') r.ability.cdLeft = Math.max(0, r.ability.cdLeft - 1);
   const s = sp || playerScreen();
   addScore(cause === 'chain' ? 40 : 80, cause === 'chain' ? 'CADENA' : '¡CRASH!', s.x, s.y - 30, '#ff9f0a');
-  addOD(0.05);
+  // lo que arrasa una habilidad (ESTALLIDO, RUGIDO) no recarga el overdrive: si no, se alimenta sola
+  if (cause !== 'sweep') addOD(0.05);
 }
 
 export function onHit(o) {
@@ -501,12 +502,38 @@ export function onCoin(o) {
   if (sp) fx.burst(sp.x, sp.y, 6, '#ffcc00', 220, 3, 0.35, 300);
 }
 
-export function onCore(o) {
-  o.alive = false;
+// powered: con DASH, overdrive o Ariete (golpe crítico: doble daño)
+export function onCore(o, powered = false) {
   const ps = playerScreen();
+  // blindado (EL CENSOR): sin embestida rebota y avisa; el núcleo sigue ahí
+  if (o.shield && !powered) {
+    if (!o.warned) {
+      o.warned = true;
+      fx.notice('🛡️ ¡BLINDADO! Atraviésalo con DASH', '#5ac8fa');
+      sfx.bump();
+    }
+    return;
+  }
+  o.alive = false;
   addChain(3);
-  addScore(1000, '¡GOLPE AL JEFE!', ps.x, ps.y - 60, '#ff2d55');
-  hurtBoss();
+  if (powered) {
+    addScore(2000, '¡GOLPE CRÍTICO! x2', ps.x, ps.y - 60, '#ffe600');
+    fx.flash('#ffe600', 0.4);
+  } else addScore(1000, '¡GOLPE AL JEFE!', ps.x, ps.y - 60, '#ff2d55');
+  hurtBoss(powered ? 2 : 1);
+}
+
+// SALTO DOBLE por encima de un muro: cuenta como esquive de lujo
+export function onJumpOver(o) {
+  if (o.jumped) return;
+  o.jumped = true;
+  const ps = playerScreen();
+  addChain(2);
+  addScore(300, '🦘 ¡POR ENCIMA!', ps.x, ps.y - 50, '#7df9ff');
+  addOD(0.1);
+  fx.ring(ps.x, ps.y, '#7df9ff', 140, 0.35, 8);
+  sfx.near(true, run().mult);
+  progress('jumpOver');
 }
 
 function clearBossStuff() {
