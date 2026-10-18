@@ -21,6 +21,7 @@ import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
+import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
@@ -1787,59 +1788,202 @@ export const ui = {
   },
 
   // Mapa galáctico: los sistemas conocidos (visitados y sus vecinos), rutas y peligro
+  // MAPA GALÁCTICO: color = peligro, anillo = facción, insignias alrededor de cada sistema, ruta con
+  // flechas, zoom (pellizcar, rueda o ＋ －) y capas que se pueden ocultar
   showGalMap(sel = null) {
     const s = G.space;
     if (!s) return;
-    if (G.mode === 'galaxy') { G.mode = 'galaxyMap'; musicDuck(true); if (s) s.fireHeld = false; }
+    if (G.mode === 'galaxy') { G.mode = 'galaxyMap'; musicDuck(true); if (s) s.fireHeld = false; ui.gmView = null; }
+    ui.gmSel = sel;
+    // primero se muestra: el recuadro tiene que tener su tamaño real para encuadrar bien
+    ui.showSpaceHUD(false);
+    show('galMap');
     const g = save.galaxy;
+    const L = (save.settings.mapLayers ||= { obj: true, fac: true, evt: true, dng: true });
     const seen = known(GAL, g.visited);
     for (const id of radarSystems(save, GAL)) seen.add(id); // RADAR de tus puestos
     const path = s.routeTo !== null ? route(GAL, s.sysId, s.routeTo) || [] : [];
-    const onPath = (a, b) => path.some((x, i) => i && ((path[i - 1] === a && x === b) || (path[i - 1] === b && x === a)));
-    const dcol = (d) => ['#30d158', '#7df9ff', '#ffe600', '#ff9f0a', '#ff6a00', '#ff2d55', '#bf5af2'][Math.min(6, d)];
-    let svg = '';
-    for (const a of GAL) {
-      if (!seen.has(a.id)) continue;
-      for (const b of a.links) if (b > a.id && seen.has(b)) svg += `<line x1="${a.x}" y1="${a.y}" x2="${GAL[b].x}" y2="${GAL[b].y}" class="${onPath(a.id, b) ? 'path' : ''}"/>`;
+    const onPath = (a, b2) => path.some((x, i) => i && ((path[i - 1] === a && x === b2) || (path[i - 1] === b2 && x === a)));
+    // vista: por defecto, todo lo que conoces; el zoom y el arrastre la cambian
+    const wrap = $('gmWrap'), W = wrap.clientWidth || 360, H = wrap.clientHeight || 420;
+    const known_ = GAL.filter((a) => seen.has(a.id));
+    const xs = known_.map((a) => a.x), ys = known_.map((a) => a.y), pad = 70;
+    const fit = { cx: (Math.min(...xs) + Math.max(...xs)) / 2, cy: (Math.min(...ys) + Math.max(...ys)) / 2,
+      w: Math.max(Math.max(...xs) - Math.min(...xs), (Math.max(...ys) - Math.min(...ys)) * (W / H), 260) + pad * 2 };
+    ui.gmFit = fit;
+    const v = (ui.gmView ||= { ...fit });
+    const u = v.w / W; // unidades del mapa por píxel: los símbolos miden lo mismo en pantalla con cualquier zoom
+    // qué hay en cada sistema (para las insignias y la ficha)
+    const ch = storyChapter(), w = world(save);
+    const ctx = {
+      story: ch?.goal?.sys ?? null,
+      missions: g.missions.filter((m) => m.progress < m.n).map((m) => m.sys),
+      bounty: save.bounties.active?.sys ?? null,
+      war: w.war?.sys ?? null,
+      swarm: w.swarm?.systems || [],
+      pirates: new Set(known_.filter((a) => g.visited.includes(a.id) && sysOwner(a.id) === 'pir').map((a) => a.id)),
+      outposts: new Set(Object.keys(save.outposts || {}).map(Number)),
+      home: g.home ?? 0,
+    };
+    const R = 9 * u;
+    let svg = `<defs><marker id="gmArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffe600"/></marker></defs>`;
+    for (const a of known_) {
+      for (const b2 of a.links) {
+        if (b2 <= a.id || !seen.has(b2)) continue;
+        const on = onPath(a.id, b2);
+        svg += `<line x1="${a.x}" y1="${a.y}" x2="${GAL[b2].x}" y2="${GAL[b2].y}" class="${on ? 'path' : ''}" stroke-width="${(on ? 4 : 2) * u}"/>`;
+      }
     }
-    for (const a of GAL) {
-      if (!seen.has(a.id)) continue;
-      const visited = g.visited.includes(a.id);
-      const here = a.id === s.sysId, lock = !canJump(a, g.up.jump || 0);
+    // RUTA: flechas en el sentido del viaje (a mitad de cada tramo)
+    for (let i = 1; i < path.length; i++) {
+      const p0 = GAL[path[i - 1]], p1 = GAL[path[i]];
+      svg += `<line x1="${p0.x}" y1="${p0.y}" x2="${(p0.x + p1.x) / 2}" y2="${(p0.y + p1.y) / 2}" class="gm-arrow" stroke-width="${4 * u}" marker-end="url(#gmArrow)"/>`;
+    }
+    const nodes = [];
+    for (const a of known_) {
+      const visited = g.visited.includes(a.id), here = a.id === s.sysId, lock = !canJump(a, g.up.jump || 0);
+      const owner = visited ? sysOwner(a.id) : null;
+      const fill = !visited ? '#2a2a3a' : L.dng ? dangerColor(a.danger) : '#8a93a6';
       svg += `<g class="gm-node${here ? ' here' : ''}${a.id === sel ? ' sel' : ''}${visited ? '' : ' unknown'}" data-sys="${a.id}">
-        <circle cx="${a.x}" cy="${a.y - 10}" r="44" fill="transparent" class="hit"/>
-        ${visited ? `<circle cx="${a.x}" cy="${a.y}" r="${here ? 31 : 25}" class="fac" style="fill:none;stroke:${FACTIONS[sysOwner(a.id)].color};stroke-width:5"/>` : ''}
-        <circle cx="${a.x}" cy="${a.y}" r="${here ? 22 : 16}" fill="${visited ? dcol(a.danger) : '#333'}"/>
-        ${save.bounties.active?.sys === a.id ? `<text x="${a.x + 24}" y="${a.y + 6}" class="gm-bounty">🎯</text>` : ''}
-        ${outpostAt(save, a.id) ? `<text x="${a.x - 34}" y="${a.y + 6}" class="gm-bounty">🏗️</text>` : ''}
-        ${world(save).war?.sys === a.id ? `<text x="${a.x - 8}" y="${a.y - 30}" class="gm-bounty">⚔️</text>` : ''}
-        ${world(save).swarm?.systems.includes(a.id) ? `<text x="${a.x + 12}" y="${a.y - 28}" class="gm-bounty">🐝</text>` : ''}
-        <text x="${a.x}" y="${a.y - 26}">${visited ? a.name : '???'}${lock ? ' 🔒' : ''}${a.id === (g.home ?? 0) ? ' 🏠' : ''}</text></g>`;
+        <circle cx="${a.x}" cy="${a.y}" r="${24 * u}" fill="transparent" class="hit"/>
+        ${here ? `<circle cx="${a.x}" cy="${a.y}" r="${R * 2.3}" class="gm-here" stroke-width="${2.5 * u}"/>` : ''}
+        ${a.id === sel ? `<circle cx="${a.x}" cy="${a.y}" r="${R * 2}" class="gm-sel" stroke-width="${2.5 * u}"/>` : ''}
+        ${visited && L.fac ? `<circle cx="${a.x}" cy="${a.y}" r="${R * 1.55}" class="fac" style="fill:none;stroke:${FACTIONS[owner].color};stroke-width:${2.8 * u}${owner === 'pir' ? `;stroke-dasharray:${4 * u} ${3 * u}` : ''}"/>` : ''}
+        <circle cx="${a.x}" cy="${a.y}" r="${R}" fill="${fill}" class="core" stroke-width="${1.5 * u}"${visited ? '' : ` stroke-dasharray="${3 * u} ${3 * u}"`}/>`;
+      // INSIGNIAS en 4 huecos fijos alrededor (NE, NO, SE, SO): nunca tapan el nombre
+      const { shown, more } = badgesFor(a.id, ctx, L);
+      const slots = [[1, -1], [-1, -1], [1, 1], [-1, 1]];
+      shown.forEach((k, i) => {
+        const [sx, sy] = slots[i], bx = a.x + sx * R * 2.05, by = a.y + sy * R * 1.8;
+        svg += `<g class="gm-badge" data-badge="${k}"><circle cx="${bx}" cy="${by}" r="${10 * u}" stroke-width="${1.2 * u}"/><text x="${bx}" y="${by}" font-size="${12.5 * u}">${BADGES[k].icon}</text></g>`;
+      });
+      if (more) svg += `<text x="${a.x + R * 3.2}" y="${a.y}" class="gm-more" font-size="${9 * u}">+${more}</text>`;
+      svg += '</g>';
+      nodes.push({ id: a.id, x: a.x, y: a.y, name: `${visited ? a.name : '???'}${lock ? ' 🔒' : ''}`, keep: here || a.id === sel });
+    }
+    // NOMBRES: debajo; si pisan a otro, encima; si no caben, ocultos (salvo donde estás y el elegido)
+    // ancho real de cada nombre con la fuente del mapa (cambia según el sistema: no se estima)
+    const mctx = (ui._gmMeasure ||= document.createElement('canvas').getContext('2d'));
+    mctx.font = '900 11px system-ui';
+    for (const lb of placeLabels(nodes, u, 11, (t) => mctx.measureText(t).width)) {
+      if (lb.hidden) continue;
+      const n = nodes.find((x) => x.id === lb.id);
+      svg += `<text x="${lb.x}" y="${lb.y}" class="gm-label" font-size="${11 * u}" stroke-width="${3 * u}" data-label="${lb.id}">${n.name}</text>`;
     }
     $('gmSvg').innerHTML = svg;
-    // encuadre: solo lo que conoces (con margen), para que el mapa no sea un puntito en medio
-    const xs = GAL.filter((a) => seen.has(a.id)).map((a) => a.x), ys = GAL.filter((a) => seen.has(a.id)).map((a) => a.y);
-    const pad = 90, x0 = Math.min(...xs) - pad, y0 = Math.min(...ys) - pad;
-    const side = Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys), 260) + pad * 2;
-    $('gmSvg').setAttribute('viewBox', `${x0} ${y0} ${side} ${side}`);
-    for (const n of $('gmSvg').querySelectorAll('.gm-node')) n.addEventListener('click', () => ui.showGalMap(Number(n.dataset.sys)));
+    ui.gmApplyView();
+    for (const n of $('gmSvg').querySelectorAll('.gm-node')) n.addEventListener('click', () => { if (!ui._gmDragged) ui.showGalMap(Number(n.dataset.sys)); });
+    ui.gmInitOnce();
+    // CAPAS
+    $('gmLayers').innerHTML = '';
+    for (const [k, label] of Object.entries(LAYERS)) {
+      const b2 = el('button', `gm-layer${L[k] ? ' on' : ''}`, label);
+      b2.dataset.layer = k;
+      tap(b2, () => { L[k] = !L[k]; persist(); ui.showGalMap(ui.gmSel); });
+      $('gmLayers').append(b2);
+    }
+    // FICHA del sistema elegido (o resumen)
     const info = $('gmInfo');
+    const jumpLvl = g.up.jump || 0;
     if (sel !== null) {
       const a = GAL[sel], visited = g.visited.includes(sel);
       const r = route(GAL, s.sysId, sel);
-      info.innerHTML = `<b>${visited ? a.name : 'Sistema sin explorar'}</b>
-        <small>${visited ? `${FACTIONS[sysOwner(sel)].icon} ${FACTIONS[sysOwner(sel)].name} · peligro ${'☠'.repeat(a.danger) || 'ninguno'} · mineral ${ORES[a.ore].icon} ${ORES[a.ore].name}` : 'Se ve desde un sistema vecino'} · ${r ? r.length - 1 : '?'} saltos</small>
-        ${!canJump(a, g.up.jump || 0) ? `<small class="warn">🔒 Necesitas Salto ${jumpNeeded(a)}</small>` : ''}`;
+      const own = visited ? sysOwner(sel) : null;
+      const rows = [];
+      if (visited) {
+        rows.push(`${FACTIONS[own].icon} ${FACTIONS[own].name} · peligro ${'☠'.repeat(a.danger) || 'ninguno'}${a.danger && threatTier(threat()) ? ` · amenaza ${'▲'.repeat(threatTier(threat()))}` : ''}`);
+        rows.push(`mineral ${ORES[a.ore].icon} ${ORES[a.ore].name} · ${own === 'pir' ? '🚫 su estación no te deja atracar' : '🛰️ estación abierta'}`);
+      } else rows.push('Sin explorar: se ve desde un sistema vecino');
+      // lo que tienes allí
+      if (ctx.story === sel) rows.push(`📖 ${ch.goal.text}`);
+      for (const m of g.missions.filter((x) => x.sys === sel && x.progress < x.n)) rows.push(`📋 ${m.text}`);
+      if (ctx.bounty === sel) rows.push(`🎯 ${save.bounties.active.name} (recompensa)`);
+      if (ctx.war === sel) rows.push(`⚔️ Ofensiva pirata: cae en ${Math.max(0, w.war.until - g.jumps)} saltos`);
+      if (ctx.swarm.includes(sel)) rows.push('🐝 Infectado: destruye su nido');
+      if (ctx.outposts.has(sel)) rows.push(`🏗️ Tu puesto: ${save.outposts[sel].name}`);
+      if (r && sel !== s.sysId) rows.push(`🧭 ${r.length - 1} salto${r.length === 2 ? '' : 's'} · peaje ~${fmt(routeToll(GAL, r, jumpLvl))} 💰`);
+      info.innerHTML = `<b>${visited ? a.name : 'Sistema sin explorar'}</b>${rows.map((x) => `<small>${x}</small>`).join('')}
+        ${!canJump(a, jumpLvl) ? `<small class="warn">🔒 Necesitas Salto ${jumpNeeded(a)}</small>` : ''}`;
       if (sel !== s.sysId) {
         const go = el('button', 'btn', '🧭 TRAZAR RUTA');
         go.id = 'btnRoute';
         tap(go, () => { setRoute(sel); G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
         info.append(go);
       }
-    } else info.innerHTML = `<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas · 🏳️ liberados ${liberatedCount(save.territory)}/${pirateSystemsTotal(GAL)}</small>
-      <small class="gm-legend">${Object.values(FACTIONS).map((f) => `<i style="border-color:${f.color}"></i>${f.name}`).join(' ')}</small>`;
-    ui.showSpaceHUD(false);
-    show('galMap');
+    } else {
+      const rt = path.length > 1 ? `<small class="gm-route">🧭 Ruta a <b>${GAL[s.routeTo].name}</b>: ${path.length - 1} saltos · peaje ~${fmt(routeToll(GAL, path, jumpLvl))} 💰</small>` : '';
+      info.innerHTML = `${rt}<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas · 🏳️ liberados ${liberatedCount(save.territory)}/${pirateSystemsTotal(GAL)}</small>
+        <small>Toca un sistema para ver qué hay y trazar la ruta · pellizca o usa ＋ － para acercar</small>`;
+    }
+    // LEYENDA
+    $('gmLegendBody').innerHTML = `
+      <div class="gl-row"><b>Color = peligro</b>${DANGER_COLORS.map((c, i) => `<span><i style="background:${c}"></i>${i}</span>`).join('')}</div>
+      <div class="gl-row"><b>Anillo = facción</b>${Object.entries(FACTIONS).map(([k, f]) => `<span><i class="ring${k === 'pir' ? ' dash' : ''}" style="border-color:${f.color}"></i>${f.name}</span>`).join('')}</div>
+      <div class="gl-icons">${Object.values(BADGES).map((x) => `<span>${x.icon} ${x.name}</span>`).join('')}<span>🔒 Necesitas más Salto</span><span><i class="ring here"></i> Estás aquí</span><span><i class="line"></i> Tu ruta (las flechas, hacia dónde)</span></div>`;
+  },
+  // aplica la vista (centro y ancho) al viewBox, con el alto que toca por la forma del recuadro
+  gmApplyView() {
+    const v = ui.gmView, wrap = $('gmWrap');
+    if (!v) return;
+    const W = wrap.clientWidth || 360, H = wrap.clientHeight || 420, h = (v.w * H) / W;
+    $('gmSvg').setAttribute('viewBox', `${v.cx - v.w / 2} ${v.cy - h / 2} ${v.w} ${h}`);
+  },
+  gmZoom(f) {
+    const v = ui.gmView, fit = ui.gmFit;
+    if (!v || !fit) return;
+    v.w = Math.max(220, Math.min(fit.w * 1.6, v.w * f));
+    ui.showGalMap(ui.gmSel);
+  },
+  // gestos del mapa (una vez): arrastrar = mover, pellizcar o rueda = zoom, doble toque = centrar en ti
+  gmInitOnce() {
+    if (ui._gmReady) return;
+    ui._gmReady = true;
+    const svg = $('gmSvg'), pts = new Map();
+    let start = null, lastTap = 0;
+    tap($('gmIn'), () => ui.gmZoom(0.7));
+    tap($('gmOut'), () => ui.gmZoom(1 / 0.7));
+    tap($('gmFit'), () => { ui.gmView = { ...ui.gmFit }; ui.showGalMap(ui.gmSel); });
+    svg.addEventListener('pointerdown', (e) => {
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const v = ui.gmView;
+      if (!v) return;
+      const [a, b2] = [...pts.values()];
+      start = { v: { ...v }, a: { ...a }, d: b2 ? Math.hypot(a.x - b2.x, a.y - b2.y) : 0, moved: false };
+      const now = performance.now();
+      if (pts.size === 1 && now - lastTap < 300) {
+        const here = GAL[G.space?.sysId ?? 0];
+        ui.gmView = { ...ui.gmView, cx: here.x, cy: here.y };
+        ui.gmApplyView();
+      }
+      lastTap = now;
+    });
+    svg.addEventListener('pointermove', (e) => {
+      if (!pts.has(e.pointerId) || !start || !ui.gmView) return;
+      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      const W = $('gmWrap').clientWidth || 360, list = [...pts.values()];
+      if (list.length >= 2 && start.d) {
+        const d = Math.hypot(list[0].x - list[1].x, list[0].y - list[1].y);
+        ui.gmView.w = Math.max(220, Math.min(ui.gmFit.w * 1.6, start.v.w * (start.d / Math.max(20, d))));
+        start.moved = true;
+        ui.showGalMap(ui.gmSel); // el tamaño de los símbolos depende del zoom
+        return;
+      }
+      const dx = list[0].x - start.a.x, dy = list[0].y - start.a.y;
+      if (!start.moved && Math.hypot(dx, dy) < 8) return;
+      start.moved = true;
+      const u = start.v.w / W;
+      ui.gmView.cx = start.v.cx - dx * u;
+      ui.gmView.cy = start.v.cy - dy * u;
+      ui.gmApplyView();
+    });
+    const end = (e) => {
+      pts.delete(e.pointerId);
+      if (start?.moved) { ui._gmDragged = true; setTimeout(() => { ui._gmDragged = false; }, 0); }
+      if (!pts.size) start = null;
+    };
+    svg.addEventListener('pointerup', end);
+    svg.addEventListener('pointercancel', end);
+    svg.addEventListener('wheel', (e) => { e.preventDefault(); ui.gmZoom(e.deltaY > 0 ? 1.15 : 1 / 1.15); }, { passive: false });
   },
 
   // ---------- CARRERAS ----------
