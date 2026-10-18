@@ -10,8 +10,28 @@ export const UPGRADES = {
   jump: { name: 'Salto', icon: '🌀', desc: 'Llegas a sistemas más lejanos (y peligrosos).', cost: [150, 350, 650, 1000, 1500] },
   missile: { name: 'Misiles', icon: '🚀', desc: 'Misiles teledirigidos: fija un blanco y dispara. Más munición y daño.', cost: [200, 380, 620, 950, 1400] },
 };
-export const MAX_UP = 5;
-export const upgradeCost = (id, lvl) => (lvl >= MAX_UP ? null : UPGRADES[id].cost[lvl]);
+// Niveles 1-5 normales; Mk 6-10 sin techo práctico: cada uno x1,7 de caro y pide materiales
+export const BASE_UP = 5;
+export const MAX_UP = 10;
+export const upgradeCost = (id, lvl) => {
+  if (lvl >= MAX_UP) return null;
+  const c = UPGRADES[id].cost;
+  return lvl < BASE_UP ? c[lvl] : Math.round(c[BASE_UP - 1] * Math.pow(1.7, lvl - BASE_UP + 1) / 10) * 10;
+};
+// materiales de cada Mk (desde el 6): chatarra, circuitos y, desde el 8, núcleos
+export const upgradeMats = (lvl) => (lvl < BASE_UP ? {} : { chatarra: 6 * (lvl - 4), circuitos: 2 * (lvl - 4), ...(lvl >= 7 ? { nucleos: lvl - 6 } : {}) });
+// los Mk rinden la mitad que los niveles normales (rendimientos decrecientes)
+export const effLvl = (l) => (l <= BASE_UP ? l : BASE_UP + (l - BASE_UP) * 0.5);
+
+// ---------- CHASIS espaciales (Astillero) ----------
+// mult: multiplica los stats; slots: huecos de arma (w) y módulo (m); scale: tamaño en pantalla
+export const CHASSIS = {
+  explorer: { name: 'Explorador', icon: '🛸', cost: 0, desc: 'Equilibrado: el de siempre.', mult: {}, slots: { w: 2, m: 2 }, scale: 1 },
+  hauler: { name: 'Carguero', icon: '🚛', cost: 15000, desc: 'Bodega enorme y casco duro, pero lento.', mult: { cargo: 2.2, hull: 1.3, speed: 0.8, turn: 0.8 }, slots: { w: 1, m: 3 }, scale: 1.25 },
+  interceptor: { name: 'Interceptor', icon: '🛩️', cost: 22000, desc: 'Rapidísimo y ágil, pero frágil.', mult: { speed: 1.3, turn: 1.3, hull: 0.7, shield: 0.85, cargo: 0.7 }, slots: { w: 3, m: 1 }, scale: 0.85 },
+  warship: { name: 'Acorazado', icon: '🛡️', cost: 40000, desc: 'Un muro: casco y escudo enormes, lento.', mult: { hull: 1.7, shield: 1.7, dmg: 1.15, speed: 0.75, turn: 0.75 }, slots: { w: 3, m: 3 }, scale: 1.35 },
+  corsair: { name: 'Corsario', icon: '🏴', cost: 60000, desc: '+4 misiles, fija antes y el impulso recarga mucho más rápido.', mult: { speed: 1.1, dmg: 1.1 }, slots: { w: 2, m: 3 }, scale: 1, missiles: 4, lockMul: 1.6, boostCd: 0.6 },
+};
 
 // Cada nave del hangar vuela distinto en la Galaxia (multiplicadores sobre las mejoras)
 export const GAL_PROFILE = {
@@ -32,9 +52,10 @@ export const GAL_PROFILE = {
 export const GAL_KEYS = [['speed', 'VELOCIDAD'], ['turn', 'GIRO'], ['dmg', 'DAÑO'], ['shield', 'ESCUDO'], ['hull', 'CASCO'], ['cargo', 'BODEGA']];
 
 // Stats de vuelo según los niveles (y la nave)
-export function shipStats(up, shipId = 'viper') {
-  const l = (k) => up[k] || 0;
-  const m = (k) => GAL_PROFILE[shipId]?.[k] ?? 1;
+export function shipStats(up, shipId = 'viper', chassisId = 'explorer') {
+  const l = (k) => effLvl(up[k] || 0);
+  const ch = CHASSIS[chassisId] || CHASSIS.explorer;
+  const m = (k) => (GAL_PROFILE[shipId]?.[k] ?? 1) * (ch.mult[k] ?? 1);
   return {
     speed: (90 + l('engine') * 16) * m('speed'),
     boost: 2.3,

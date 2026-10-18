@@ -7,7 +7,7 @@ import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
-import { snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
+import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
 import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS } from './galaxyMissions.js';
 import { addXp } from './progress.js';
@@ -15,7 +15,7 @@ import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
-import { MATS, addMat, dropsOf, hasGear } from './crafting.js';
+import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
@@ -34,12 +34,12 @@ const gal = () => save.galaxy;
 export const atlasCount = () => Object.keys(save.galaxyAtlas).length;
 const perks = () => perksFor(atlasCount());
 const stats = () => {
-  const st = shipStats(gal().up, save.ship);
+  const st = shipStats(gal().up, save.ship, gal().chassis);
   // TALENTOS de la galaxia
   if (hasTalent(save, 'g1')) st.cargo += 10;
   if (hasTalent(save, 'g5')) st.shield += 20;
-  if (hasGear(save, 'hold')) st.cargo += 15;
-  if (hasGear(save, 'reactive')) st.regen *= 1.6;
+  if (hasGear(save, 'hold')) st.cargo += Math.round(15 * gearBoost(save, 'hold'));
+  if (hasGear(save, 'reactive')) st.regen *= 1.6 * gearBoost(save, 'reactive');
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };
@@ -819,7 +819,7 @@ export function spaceBoost() {
   const s = S();
   if (!s || G.mode !== 'galaxy' || s.ship.boostCd > 0) return;
   s.ship.boostT = 1.6;
-  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 : 1);
+  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 / gearBoost(save, 'warpdrv') : 1) * (CHASSIS[gal().chassis]?.boostCd ?? 1);
   sfx.dash();
   fx.vibe(20);
 }
@@ -904,8 +904,32 @@ export function buyOre(ore, n = 1) {
   return k;
 }
 
+// ASTILLERO: comprar y cambiar de chasis (en cualquier estación)
+export function buyChassis(id) {
+  const g = gal(), c = CHASSIS[id];
+  if (!c || g.hulls.includes(id) || g.credits < c.cost) return false;
+  g.credits -= c.cost;
+  g.hulls = [...g.hulls, id];
+  progress('chassis', g.hulls.length);
+  useChassis(id);
+  return true;
+}
+export function useChassis(id) {
+  const g = gal(), s = S();
+  if (!g.hulls.includes(id)) return false;
+  g.chassis = id;
+  fitSlots(save);
+  const st = stats();
+  if (s) { s.ship.hull = Math.min(s.ship.hull, st.hull); s.ship.shield = Math.min(s.ship.shield, st.shield); g.hull = s.ship.hull; }
+  g.missiles = Math.min(g.missiles || 0, missileMax());
+  sfx.chest();
+  persist();
+  return true;
+}
+export { CHASSIS };
+
 // MISILES: capacidad y recarga de pago (más barata en estaciones amigas)
-export const missileMax = () => missileAmmo(gal().up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? 2 : 0);
+export const missileMax = () => missileAmmo(Math.round(effLvl(gal().up.missile || 0))) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? Math.round(2 * gearBoost(save, 'rapid')) : 0) + (CHASSIS[gal().chassis]?.missiles ?? 0);
 export const missileRefillCost = () => Math.max(0, missileMax() - (gal().missiles || 0)) * Math.round(MISSILE_PRICE * repBonus(S()?.sysId ?? 0).disc);
 export function refillMissiles() {
   const g = gal(), c = missileRefillCost();
@@ -929,11 +953,14 @@ export function buyUpgrade(id) {
   const g = gal();
   const lvl = g.up[id] || 0;
   const c = stationUpCost(id, lvl);
-  if (c === null || g.credits < c) return false;
+  const mats = upgradeMats(lvl);
+  if (c === null || g.credits < c || Object.entries(mats).some(([k, n]) => matOf(save, k) < n)) return false;
   g.credits -= c;
+  for (const [k, n] of Object.entries(mats)) save.galaxyMats[k] -= n;
   g.up[id] = lvl + 1;
   if (id === 'missile' && lvl === 0) g.missiles = missileMax(); // la primera carga, de regalo
   progress('galaxyUpgrade');
+  if (g.up[id] >= 10) progress('mk10');
   sfx.milestone();
   persist();
   return true;
@@ -1219,9 +1246,9 @@ export function updateSpace(dt) {
     const from = add(add(sh.pos, scale(b.r, sh.side * 2.2)), scale(b.f, 4));
     s.bolts.push({ pos: from, vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
     // EQUIPO fabricado: láser doble, metralla y plasma
-    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
-    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), 950), scale(b.f, speed)), life: 0.6, dmg: st.dmg * 0.6 });
-    if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: st.dmg * 3, plasma: true });
+    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg * gearBoost(save, 'laser2') });
+    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), 950), scale(b.f, speed)), life: 0.6, dmg: st.dmg * 0.6 * gearBoost(save, 'flak') });
+    if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: st.dmg * 3 * gearBoost(save, 'plasma'), plasma: true });
     sfx.swish();
   }
 
@@ -1230,7 +1257,7 @@ export function updateSpace(dt) {
     s.turretT = (s.turretT || 0) - dt;
     const tgt = s.turretT <= 0 && s.pirates.filter((p) => p.alive && dist(p.pos, sh.pos) < 450).sort((x, y) => dist(x.pos, sh.pos) - dist(y.pos, sh.pos))[0];
     if (tgt) {
-      s.turretT = 0.8;
+      s.turretT = 0.8 / gearBoost(save, 'turret');
       const from = add(sh.pos, scale(sh.u, 3));
       s.bolts.push({ pos: from, vel: scale(norm(sub(tgt.pos, from)), 900), life: 0.7, dmg: st.dmg * 0.7 });
     }
@@ -1306,7 +1333,7 @@ export function updateSpace(dt) {
       if (s.devourer.phase > 1) cands.push({ ref: s.devourer, pos: s.devourer.pos });
     }
     const was = s.lock.locked;
-    s.lock = lockStep(s.lock, cands, sh.pos, sh.f, dt);
+    s.lock = lockStep(s.lock, cands, sh.pos, sh.f, dt * (CHASSIS[g.chassis]?.lockMul ?? 1));
     if (s.lock.locked && !was) sfx.ui();
   }
 
@@ -1364,7 +1391,7 @@ export function updateSpace(dt) {
     o.pos = add(o.pos, scale(o.vel, dt));
     o.vel = scale(o.vel, 1 - Math.min(1, dt * 1.5));
     const d = dist(o.pos, sh.pos);
-    if (d < MAGNET_R * (hasGear(save, 'bigmag') ? 2 : 1) && cargoCount(g.cargo) < cap) o.vel = add(o.vel, scale(norm(sub(sh.pos, o.pos)), 900 * dt));
+    if (d < MAGNET_R * (hasGear(save, 'bigmag') ? 2 * gearBoost(save, 'bigmag') : 1) && cargoCount(g.cargo) < cap) o.vel = add(o.vel, scale(norm(sub(sh.pos, o.pos)), 900 * dt));
     if (d < 9) {
       if (cargoCount(g.cargo) < cap) {
         g.cargo[o.ore] = (g.cargo[o.ore] || 0) + 1;
@@ -1421,7 +1448,7 @@ export function updateSpace(dt) {
     s.jumpT = 1.1;
     s.jumpTo = gt.to;
     // PEAJE de la puerta (si no te llega, te lo perdonan: nunca te quedas atrapado)
-    const toll = tollFor(to.danger);
+    const toll = Math.round(tollFor(to.danger) * Math.max(0.25, 1 - 0.15 * Math.max(0, (g.up.jump || 0) - 5)));
     if (g.credits >= toll) { g.credits -= toll; fx.notice(`🌀 Peaje −${toll} 💰`, '#b8c2cc'); } else fx.notice('🌀 Peaje perdonado (no te llegaba)', '#ff9f0a');
     fx.flash('#ffffff', 0.8);
     fx.banner('🌀 SALTO', `rumbo a ${to.name}`, '#7df9ff', true);

@@ -150,6 +150,14 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **peaje** en cada puerta de salto (25 + 15 × el peligro del destino; si no te llega, te lo perdonan);
   - **recargar misiles** cuesta 40 💰 cada uno, en los Suministros de las estaciones;
   - reparar cuesta más.
+- **🚀 Astillero** (en cualquier estación): **chasis espaciales** que se compran con créditos y se cambian cuando quieras. Tu nave del hangar conserva su aspecto; el chasis cambia stats, huecos y tamaño.
+  - **Explorador** (el tuyo);
+  - **Carguero** (15K): bodega ×2,2, lento;
+  - **Interceptor** (22K): +30% velocidad y giro, frágil, 3 armas;
+  - **Acorazado** (40K): casco y escudo ×1,7, 3 + 3 huecos;
+  - **Corsario** (60K): +4 misiles, fija antes, impulso rapidísimo.
+- **Mejoras sin techo:** cada mejora de la nave sigue del nivel 5 al **Mk 10** (◆ naranja). Cada Mk es más caro y pide materiales, y rinde la mitad que un nivel normal. El **Salto** Mk 6+ abarata los peajes.
+- **Equipo con niveles:** cada pieza fabricada sube de nivel 1 a 5 con créditos y materiales (+12% por nivel: más daño, más cadencia, más alcance…).
 - **🛒 Suministros** (en las estaciones, hasta 5 de cada uno). En vuelo, con el botón **🧰** o las teclas **1–5**:
   - 🧰 kit de reparación (+40% de casco);
   - 🔋 escudo de emergencia;
