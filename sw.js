@@ -48,6 +48,7 @@ const ASSETS = [
   './js/factions.js',
   './js/crafting.js',
   './js/story.js',
+  './js/market.js',
   './js/spaceGame.js',
   './js/spaceRender.js',
 ];

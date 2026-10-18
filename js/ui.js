@@ -14,9 +14,10 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, SLOTS, matOf, owns, canCraft, craft, equipGear, gear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
 import { FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
@@ -203,6 +204,7 @@ export const ui = {
     // al soltar, la palanca se coloca donde manda (en la muesca si está parada)
     $('throttle').addEventListener('change', () => { if (G.space) $('throttle').value = Math.round(G.space.ship.throttle * 100); });
     tap($('btnInv'), () => ui.showGalInv());
+    tap($('btnItems'), () => { $('itemBar').classList.toggle('hidden'); ui.renderItemBar(); });
     for (const b of $('giTabs').querySelectorAll('button')) tap(b, () => ui.showGalInv(b.dataset.tab));
     tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
@@ -1275,13 +1277,15 @@ export const ui = {
   showStation(s) {
     ui.showSpaceHUD(false); // atracado: solo la estación
     const g = save.galaxy, st = spaceStats();
-    const sd = GAL[s.sysId], prices = stationPrices(s.sysId);
+    const sd = GAL[s.sysId];
     setText('stTitle', `🛰️ ESTACIÓN ${sd.name}`);
     setText('stCredits', fmt(g.credits));
     setText('stShip', shipName(save, save.ship) ? `· 🚀 «${shipName(save, save.ship)}»` : '');
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
+    const drop = (k) => Math.round((1 - priceFactor(saturation(save, s.sysId, k))) * 100);
     $('stCargo').innerHTML = items.length
-      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}</span><b>${n} × ${prices[k]} = ${n * prices[k]} 💰</b></div>`).join('')
+      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}${drop(k) ? ` <em class="sat">📉 −${drop(k)}%</em>` : ''}</span><b>${n} × ~${marketPrice(k, s.sysId)} = ${fmt(marketValue(k, n, s.sysId))} 💰</b></div>`).join('')
+        + '<small class="hint">Cuanto más vendes de lo mismo aquí, menos lo pagan; se recupera mientras vuelas. Comerciar entre sistemas paga más.</small>'
       : '<small>Bodega vacía. Mina asteroides y vuelve a vender.</small>';
     $('btnSell').disabled = !items.length;
     // COMERCIO: aquí se vende barato el mineral local; en otros sistemas lo pagan más
@@ -1310,6 +1314,25 @@ export const ui = {
       box.append(b);
     }
     ui.renderCraft(() => ui.showStation(s));
+    // SUMINISTROS: recargar misiles (de pago) y consumibles de vuelo
+    const sup = $('stSupplies');
+    sup.innerHTML = '';
+    if (g.up.missile) {
+      const mc = missileRefillCost();
+      const b = el('button', `st-up${mc && g.credits >= mc ? ' afford' : ''}`, `<span class="su-icon">🚀</span><span class="su-body"><b>Recargar misiles</b><small>${g.missiles || 0}/${missileMax()} a bordo</small></span><span class="su-cost">${mc ? `${fmt(mc)} 💰` : 'LLENO'}</span>`);
+      b.id = 'btnRefill';
+      b.disabled = !mc;
+      tap(b, () => { if (refillMissiles()) ui.showStation(s); });
+      sup.append(b);
+    }
+    for (const id of ITEM_KEYS) {
+      const it = ITEMS[id], n = itemCount(save, id), c = Math.round(it.cost * itemDisc());
+      const b = el('button', `st-up${n < ITEM_MAX && g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">${it.icon}</span><span class="su-body"><b>${it.name} <em>×${n}/${ITEM_MAX}</em></b><small>${it.desc}</small></span><span class="su-cost">${n >= ITEM_MAX ? 'MÁX' : `${fmt(c)} 💰`}</span>`);
+      b.dataset.item = id;
+      b.disabled = n >= ITEM_MAX;
+      tap(b, () => { if (buyItem(save, id, itemDisc())) { persist(); sfx.coin(3); ui.showStation(s); } else fx.vibe(40); });
+      sup.append(b);
+    }
     // TALENTOS DE LA GALAXIA (con créditos)
     const tb = $('stTalents');
     tb.innerHTML = '';
@@ -1475,6 +1498,22 @@ export const ui = {
     show('atlas');
   },
 
+  // 🧰 barra de consumibles (en vuelo): toca para usar; teclas 1-5
+  renderItemBar() {
+    const bar = $('itemBar');
+    if (bar.classList.contains('hidden')) return;
+    bar.innerHTML = '';
+    ITEM_KEYS.forEach((id, i) => {
+      const n = itemCount(save, id);
+      const b = el('button', `ib${n ? '' : ' empty'}`, `<span>${ITEMS[id].icon}</span><b>${n}</b><small>${i + 1}</small>`);
+      b.dataset.use = id;
+      b.title = ITEMS[id].name;
+      b.disabled = !n;
+      b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); if (useItem(id)) ui.renderItemBar(); });
+      bar.append(b);
+    });
+  },
+
   // 🎒 PANEL de vuelo: inventario y misiones activas (la partida se pausa mientras está abierto)
   showGalInv(tab = ui.giTab || 'inv') {
     const s = G.space;
@@ -1488,16 +1527,17 @@ export const ui = {
     const where = (to) => (to === s.sysId ? 'aquí' : `${GAL[to].name} · ${jumps(to)}`);
     body.innerHTML = '';
     if (tab === 'inv') {
-      const n = cargoCount(g.cargo), prices = stationPrices(s.sysId);
+      const n = cargoCount(g.cargo);
       const ores = Object.entries(g.cargo).filter(([, k]) => k > 0);
-      const value = ores.reduce((a, [k, q]) => a + q * prices[k], 0);
+      const value = ores.reduce((a, [k, q]) => a + marketValue(k, q, s.sysId), 0);
       body.innerHTML = `
         <div class="gi-block"><h3>💰 ${fmt(g.credits)} créditos</h3></div>
         <div class="gi-block"><h3>📦 Bodega · ${n}/${st.cargo}</h3><div class="m-bar"><i style="transform:scaleX(${Math.min(1, n / st.cargo).toFixed(3)})"></i></div>
-          ${ores.length ? ores.map(([k, q]) => `<div class="gi-row"><span>${ORES[k].icon} ${ORES[k].name}</span><b>×${q}</b><small>${prices[k]} 💰/u aquí</small></div>`).join('')
+          ${ores.length ? ores.map(([k, q]) => `<div class="gi-row"><span>${ORES[k].icon} ${ORES[k].name}</span><b>×${q}</b><small>~${marketPrice(k, s.sysId)} 💰/u aquí</small></div>`).join('')
             + `<div class="gi-row total"><span>Valor en ${GAL[s.sysId].name}</span><b>${fmt(value)} 💰</b></div>` : '<small>Vacía. Dispara a los asteroides para minar.</small>'}</div>
         <div class="gi-block"><h3>🔧 Materiales</h3><div class="gi-mats">${Object.entries(MATS).map(([k, m]) => `<span>${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('')}</div></div>
-        ${g.up.missile ? `<div class="gi-block"><h3>🚀 Misiles · ${g.missiles || 0}</h3><small>Se recargan al atracar.</small></div>` : ''}
+        ${g.up.missile ? `<div class="gi-block"><h3>🚀 Misiles · ${g.missiles || 0}/${missileMax()}</h3><small>Se recargan (pagando) en los Suministros de las estaciones.</small></div>` : ''}
+        <div class="gi-block"><h3>🧰 Consumibles</h3><div class="gi-mats">${ITEM_KEYS.map((id) => `<span>${ITEMS[id].icon} <b>${itemCount(save, id)}</b> <small>${ITEMS[id].name}</small></span>`).join('')}</div></div>
         <div class="gi-block"><h3>🛠️ Equipo montado</h3>${['w', 'm'].map((sl) => Array.from({ length: SLOTS[sl] }, (_, i) => {
           const id = gear(save)[sl][i];
           return id ? `<div class="gi-row"><span>${GEAR[id].icon} ${GEAR[id].name}</span><small>${GEAR[id].desc}</small></div>` : `<div class="gi-row empty"><span>${sl === 'w' ? '🔫 arma' : '⚙️ módulo'} libre</span><small>se fabrica en el taller de las estaciones</small></div>`;
