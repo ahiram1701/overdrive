@@ -77,8 +77,9 @@ test('cada nave tiene su personalización: lo comprado en una no vale en otra', 
 test('exclusivos: solo en su nave, se ganan usándola y no se compran', () => {
   const s = loadFrom(null);
   s.gems = 9999;
-  const viperOnly = itemsFor('palette', 'viper').filter((i) => i.ship);
+  const viperOnly = itemsFor('palette', 'viper').filter((i) => i.ship && !i.unlock.mastery);
   assert.equal(viperOnly.length, 2);
+  assert.ok(itemsFor('palette', 'viper').some((i) => i.unlock?.mastery === 'viper'), 'pintura de maestro');
   assert.ok(itemsFor('palette', 'brick').every((i) => i.ship !== 'viper'), 'no aparecen en otras naves');
   for (const g of ['palette', 'emblem']) {
     for (const ship of SHIPS) assert.ok(itemsFor(g, ship.id).some((i) => i.ship === ship.id), `${ship.id}: exclusivo de ${g}`);

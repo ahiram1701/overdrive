@@ -15,22 +15,30 @@ test('hangar: comprar un nodo del árbol descuenta gemas y persiste tras recarga
   await page.locator('#btnHangar').click();
   await expect(page.locator('#shipCarousel .ship-chip')).toHaveCount(10);
   await page.locator('#hTabs [data-tab="mejoras"]').click();
-  await expect(page.locator('#shipTree .node')).toHaveCount(9);
+  await expect(page.locator('#shipTree .node')).toHaveCount(16); // 3 ramas x 5 + maestría
 
-  // BLINDAJE nivel 1 (40 💎) y luego nivel 2 (90 💎)
-  await page.locator('#shipTree .b-a .node').nth(0).click();
-  await page.locator('#shipTree .b-a .node').nth(1).click();
+  // BLINDAJE nivel 1 (40 💎) y luego nivel 2 (90 💎): tocar abre la ficha con el antes/después
+  const buy = async (i) => {
+    await page.locator('#shipTree .b-a .node').nth(i).click();
+    await expect(page.locator('#treeSheet')).toBeVisible();
+    await page.locator('#btnTreeBuy').click();
+    await expect(page.locator('#treeSheet')).toBeHidden();
+  };
+  await buy(0);
+  await buy(1);
   await expect(page.locator('#hGems')).toHaveText('70');
   await expect(page.locator('#shipTree .b-a .node.bought')).toHaveCount(2);
 
-  // nivel 3 cuesta 180: no hay gemas, no se compra
+  // nivel 3 cuesta 180: no hay gemas, el botón está desactivado
   await page.locator('#shipTree .b-a .node').nth(2).click();
+  await expect(page.locator('#btnTreeBuy')).toBeDisabled();
+  await page.locator('#btnTreeClose').click();
   await expect(page.locator('#shipTree .b-a .node.bought')).toHaveCount(2);
 
   await page.reload();
   const saved = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
   expect(saved.gems).toBe(70);
-  expect(saved.shipLvl.viper).toEqual({ a: 2, b: 0, c: 0 });
+  expect(saved.shipLvl.viper).toEqual({ a: 2, b: 0, c: 0, m: 0 });
   await page.locator('#btnHangar').click();
   await page.locator('#hTabs [data-tab="mejoras"]').click();
   await expect(page.locator('#shipTree .b-a .node.bought')).toHaveCount(2);
@@ -45,6 +53,8 @@ test('hangar: no se puede mejorar una nave que no tienes', async ({ page }) => {
   await expect(page.locator('#btnBuyShip')).toBeVisible();
   await page.locator('#hTabs [data-tab="mejoras"]').click();
   await page.locator('#shipTree .b-a .node').nth(0).click();
+  await expect(page.locator('#treeSheet .ts-act button').first()).toHaveText('Compra la nave primero');
+  await page.locator('#btnTreeClose').click();
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(999);
   await page.locator('#hTabs [data-tab="nave"]').click();
   await page.locator('#btnBuyShip').click();
@@ -196,4 +206,30 @@ test('hangar por pestañas: una sección cada vez, la nave siempre a la vista y 
   await expect(page.locator('#hTabs [data-tab="estilo"]')).toHaveClass(/\bon\b/);
   await expect(page.locator('#cosmetics')).toBeVisible();
   expect(errors).toEqual([]);
+});
+
+test('árbol: maestría con las 3 ramas completas y reinicio que devuelve las gemas', async ({ page }) => {
+  await page.addInitScript((k) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(k, JSON.stringify({ v: 4, runs: 3, gems: 900, ship: 'viper', ships: ['viper'], shipLvl: { viper: { a: 5, b: 5, c: 5, m: 0 } } }));
+  }, SAVE);
+  await page.goto('/?nosw');
+  await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="mejoras"]').click();
+  await page.locator('#shipTree .mastery').click();
+  await expect(page.locator('#treeSheet .bar u.gain')).not.toHaveCount(0); // la ficha enseña lo que gana
+  await page.locator('#btnTreeBuy').click();
+  await expect(page.locator('#shipTree .mastery')).toHaveClass(/bought/);
+  await expect(page.locator('#shipTree .tree-head b')).toHaveText('★ 16/16');
+  // la pintura de maestro ya se puede usar
+  await page.locator('#hTabs [data-tab="estilo"]').click();
+  await expect(page.locator('[data-cos="palette:m-viper"]')).not.toHaveClass(/locked/);
+  // reiniciar: dos toques, gratis la primera vez, devuelve todo
+  await page.locator('#hTabs [data-tab="mejoras"]').click();
+  const spent = await page.evaluate(async () => (await import('/js/upgrades.js')).treeSpent({ a: 5, b: 5, c: 5, m: 1 }));
+  await page.locator('#btnTreeReset').click();
+  await page.locator('#btnTreeReset').click();
+  await expect(page.locator('#shipTree .node.bought')).toHaveCount(0);
+  expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(100 + spent);
 });

@@ -5,14 +5,14 @@ import { MAX_SHIELDS } from '../../js/state.js';
 import { ABILITIES, newAbility } from '../../js/abilities.js';
 import {
   SHIPS, baseStats, applyShipTree, abilityMods, treeCost, treeOf, shipProfile,
-  shipLvls, PROFILE_KEYS, ABILITY_TREE, TREE_COSTS,
+  shipLvls, PROFILE_KEYS, ABILITY_TREE, TREE_COSTS, TREE_LEVELS, MASTERY_COST, canMaster, treeSpent, treeStars,
 } from '../../js/upgrades.js';
 
 const fakeRun = () => ({
   rng: makeRng(1), stats: baseStats(), cards: {}, synergies: new Set(),
   shields: 0, dashCharges: 1, blockedLane: null, luck: 1, player: { lane: 0 }, lastStand: false,
 });
-const MAX = { a: 3, b: 3, c: 3 };
+const MAX = { a: 5, b: 5, c: 5, m: 1 };
 
 test('cada nave con el árbol al máximo respeta las invariantes del juego', () => {
   for (const s of SHIPS) {
@@ -21,19 +21,37 @@ test('cada nave con el árbol al máximo respeta las invariantes del juego', () 
     applyShipTree(r, MAX);
     assert.ok(r.shields <= MAX_SHIELDS, `${s.id}: ${r.shields} escudos`);
     assert.ok(r.stats.dashRecharge > 0 && r.stats.laneTime > 0 && r.stats.odRate > 0, s.id);
-    assert.equal(r.lastStand, true);
+    assert.ok(r.lastStand, 'ÚLTIMO ALIENTO');
     const a = newAbility(s.ability, abilityMods(s, MAX));
     assert.ok(a.cd > 0 && a.cd < ABILITIES[s.ability].cd, `${s.id}: la recarga baja`);
     assert.equal(a.mut, ABILITY_TREE[s.ability].mut);
   }
 });
 
-test('los niveles se compran en orden y el nivel 3 es el último', () => {
+test('los niveles se compran en orden, hasta el 5, y cada uno cuesta más', () => {
+  assert.equal(TREE_LEVELS, 5);
   for (const b of ['a', 'b', 'c']) {
-    for (let lvl = 0; lvl < 3; lvl++) assert.equal(treeCost(b, lvl), TREE_COSTS[b][lvl]);
-    assert.equal(treeCost(b, 3), null);
-    assert.ok(TREE_COSTS[b][0] < TREE_COSTS[b][1] && TREE_COSTS[b][1] < TREE_COSTS[b][2]);
+    for (let lvl = 0; lvl < TREE_LEVELS; lvl++) assert.equal(treeCost(b, lvl), TREE_COSTS[b][lvl]);
+    assert.equal(treeCost(b, TREE_LEVELS), null);
+    for (let i = 1; i < TREE_LEVELS; i++) assert.ok(TREE_COSTS[b][i] > TREE_COSTS[b][i - 1]);
   }
+});
+
+test('maestría: solo con las 3 ramas completas; el reinicio devuelve todo lo gastado', () => {
+  assert.equal(canMaster({ a: 5, b: 5, c: 4, m: 0 }), false);
+  assert.equal(canMaster({ a: 5, b: 5, c: 5, m: 0 }), true);
+  assert.equal(canMaster(MAX), false, 'ya comprada');
+  const all = ['a', 'b', 'c'].reduce((n, k) => n + TREE_COSTS[k].reduce((x, y) => x + y, 0), 0);
+  assert.equal(treeSpent(MAX), all + MASTERY_COST);
+  assert.equal(treeSpent({ a: 2, b: 0, c: 0 }), TREE_COSTS.a[0] + TREE_COSTS.a[1]);
+  assert.equal(treeStars(MAX), 16);
+  // la maestría mejora puntos y habilidad
+  const s = SHIPS[0];
+  const r1 = fakeRun(), r2 = fakeRun();
+  applyShipTree(r1, { a: 5, b: 5, c: 5, m: 0 });
+  applyShipTree(r2, MAX);
+  assert.ok(r2.stats.scoreMult > r1.stats.scoreMult);
+  assert.ok(abilityMods(s, MAX).pow > abilityMods(s, { a: 5, b: 5, c: 5, m: 0 }).pow);
 });
 
 test('cada habilidad tiene rama propia con nivel 2 y mutación', () => {
@@ -42,7 +60,7 @@ test('cada habilidad tiene rama propia con nivel 2 y mutación', () => {
     assert.ok(t && t.lvl2 && t.lvl3 && t.mut, s.id);
     const tree = treeOf(s, ABILITIES[s.ability].name, ABILITIES[s.ability].icon);
     assert.deepEqual(tree.map((b) => b.key), ['a', 'b', 'c']);
-    assert.ok(tree.every((b) => b.nodes.length === 3));
+    assert.ok(tree.every((b) => b.nodes.length === TREE_LEVELS));
   }
 });
 
@@ -62,7 +80,7 @@ test('shipProfile: 6 barras en [0,1] y mejorar nunca baja una barra', () => {
 });
 
 test('shipLvls rellena los niveles que falten', () => {
-  assert.deepEqual(shipLvls({}, 'viper'), { a: 0, b: 0, c: 0 });
-  assert.deepEqual(shipLvls({ viper: { a: 2 } }, 'viper'), { a: 2, b: 0, c: 0 });
-  assert.deepEqual(shipLvls(undefined, 'x'), { a: 0, b: 0, c: 0 });
+  assert.deepEqual(shipLvls({}, 'viper'), { a: 0, b: 0, c: 0, m: 0 });
+  assert.deepEqual(shipLvls({ viper: { a: 2 } }, 'viper'), { a: 2, b: 0, c: 0, m: 0 });
+  assert.deepEqual(shipLvls(undefined, 'x'), { a: 0, b: 0, c: 0, m: 0 });
 });

@@ -10,7 +10,7 @@ import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
-import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
@@ -18,7 +18,7 @@ import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveS
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
-import { ABILITIES, readiness } from './abilities.js';
+import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
 import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
@@ -390,6 +390,7 @@ export const ui = {
   showHangar(viewId = ui.hangarView || save.ship) {
     ui.hangarView = viewId;
     G.mode = 'hangar';
+    $('treeSheet').classList.add('hidden');
     if (!['nave', 'mejoras', 'estilo', 'galaxia'].includes(ui.hangarTab)) ui.hangarTab = 'nave';
     if (!ui._tabsReady) {
       ui._tabsReady = true;
@@ -413,10 +414,10 @@ export const ui = {
     for (const s of SHIPS) {
       const has = save.ships.includes(s.id);
       const lv = shipLvls(save.shipLvl, s.id);
-      const stars = lv.a + lv.b + lv.c;
+      const stars = treeStars(lv);
       const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}${prestigeOf(save) >= 5 ? ' gold' : ''}`);
       b.style.setProperty('--sc', s.color);
-      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/9` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
+      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
       tap(b, () => { ui.preview = null; ui.showHangar(s.id); });
       car.appendChild(b);
       // cada nave con SU pintura y SU emblema
@@ -466,36 +467,47 @@ export const ui = {
       ui.showHangar();
     });
 
-    // árbol de mejoras: 3 ramas x 3 niveles, en orden
+    // árbol de mejoras: 3 ramas x 5 niveles + MAESTRÍA. Tocar un nodo abre su ficha (antes → después)
     const tree = $('shipTree');
     tree.innerHTML = '';
     tree.classList.toggle('locked', !owned);
+    const spent = treeSpent(lv);
+    tree.append(el('div', 'tree-head', `<b>★ ${treeStars(lv)}/16</b><small>💎 ${fmt(spent)} invertidas en ${view.name}</small>`));
+    const cols = el('div', 'tree-cols');
     for (const br of treeOf(view, ab.name, ab.icon)) {
       const col = el('div', `branch b-${br.key}`);
       col.innerHTML = `<h4>${br.icon} ${br.name}</h4>`;
       br.nodes.forEach((n, i) => {
-        const bought = lv[br.key] > i;
-        const next = lv[br.key] === i;
+        const bought = lv[br.key] > i, next = lv[br.key] === i;
         const afford = owned && next && save.gems >= n.cost;
         const node = el('button', `node${bought ? ' bought' : ''}${next ? ' next' : ''}${afford ? ' afford' : ''}${i === 2 ? ' mut' : ''}`);
-        node.innerHTML = `<small>${i === 2 ? '★ NIVEL 3' : `NIVEL ${i + 1}`}</small><span>${n.desc}</span><b>${bought ? '✔' : `💎 ${n.cost}`}</b>`;
-        tap(node, () => {
-          if (!afford) {
-            if (next && owned) { node.classList.add('shake'); fx.vibe(50); setTimeout(() => node.classList.remove('shake'), 300); }
-            return;
-          }
-          save.gems -= n.cost;
-          save.shipLvl[view.id] = { ...lv, [br.key]: i + 1 };
-          persist();
-          sfx.chest();
-          fx.vibe([20, 30, 60]);
-          if (ui._hv) { ui._hv.flash = 1; ui._hv.boost = Math.PI * 2; } // la nave lo celebra arriba
-          ui.showHangar();
-          tree.querySelector(`.b-${br.key} .node:nth-of-type(${i + 1})`)?.classList.add('just');
-        });
-        col.appendChild(node);
+        node.innerHTML = `<small>${i === 2 ? '★ MUTA' : `NIV ${i + 1}`}</small><span>${n.desc}</span><b>${bought ? '✔' : `💎 ${n.cost}`}</b>`;
+        tap(node, () => ui.showTreeSheet(view, { branch: br.key, i, name: `${br.icon} ${br.name} · nivel ${i + 1}`, desc: n.desc, cost: n.cost, bought, next, owned }));
+        col.append(node);
       });
-      tree.appendChild(col);
+      cols.append(col);
+    }
+    tree.append(cols);
+    const mOpen = canMaster(lv);
+    const mast = el('button', `node mastery${lv.m ? ' bought' : ''}${mOpen ? ' next' : ''}${mOpen && save.gems >= MASTERY_COST ? ' afford' : ''}`,
+      `<small>${MASTERY.icon} ${MASTERY.name}</small><span>${lv.m || mOpen ? MASTERY.desc : 'Completa las 3 ramas para abrirla'}</span><b>${lv.m ? '✔' : `💎 ${MASTERY_COST}`}</b>`);
+    tap(mast, () => ui.showTreeSheet(view, { branch: 'm', i: 0, name: `${MASTERY.icon} ${MASTERY.name}`, desc: MASTERY.desc, cost: MASTERY_COST, bought: !!lv.m, next: mOpen, owned }));
+    tree.append(mast);
+    if (owned && spent) {
+      const cost = save.treeResets ? RESET_COST : 0;
+      const rb = el('button', 'btn ghost tree-reset', `↺ REINICIAR ÁRBOL · ${cost ? `💎 ${cost}` : 'gratis'} <small>(devuelve 💎 ${fmt(spent)})</small>`);
+      rb.id = 'btnTreeReset';
+      tap(rb, () => {
+        if (!rb.dataset.sure) { rb.dataset.sure = '1'; rb.innerHTML = '¿SEGURO? Toca otra vez para reiniciar'; return; }
+        if (save.gems + spent < cost) return;
+        save.gems += spent - cost;
+        save.treeResets = (save.treeResets || 0) + 1;
+        save.shipLvl[view.id] = { a: 0, b: 0, c: 0, m: 0 };
+        persist();
+        toast(`↺ Árbol reiniciado · +${fmt(spent - cost)} 💎`);
+        ui.showHangar();
+      });
+      tree.append(rb);
     }
     if (!owned) tree.insertAdjacentHTML('beforeend', '<p class="tree-lock">Compra la nave para mejorarla</p>');
 
@@ -596,7 +608,7 @@ export const ui = {
 
     // pestañas: solo se ve la activa; un puntito avisa de que hay algo que ya puedes comprar
     const lvNow = shipLvls(save.shipLvl, view.id);
-    const treeBuy = owned && ['a', 'b', 'c'].some((k) => lvNow[k] < 3 && save.gems >= TREE_COSTS[k][lvNow[k]]);
+    const treeBuy = owned && (['a', 'b', 'c'].some((k) => lvNow[k] < TREE_LEVELS && save.gems >= TREE_COSTS[k][lvNow[k]]) || (canMaster(lvNow) && save.gems >= MASTERY_COST));
     const dots = {
       nave: !owned && save.gems >= view.cost,
       mejoras: treeBuy,
@@ -747,6 +759,51 @@ export const ui = {
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
+  },
+
+  // Ficha de un nodo del árbol: qué hace y cómo cambian las barras y la habilidad antes de pagar
+  showTreeSheet(view, nd) {
+    const lv = shipLvls(save.shipLvl, view.id);
+    const after = nd.branch === 'm' ? { ...lv, m: 1 } : { ...lv, [nd.branch]: Math.max(lv[nd.branch], nd.i + 1) };
+    const p0 = shipProfile(view.id, lv), p1 = shipProfile(view.id, after);
+    const A = ABILITIES[view.ability];
+    const a0 = newAbility(view.ability, abilityMods(view, lv)), a1 = newAbility(view.ability, abilityMods(view, after));
+    const bars = PROFILE_KEYS.map((k) => {
+      const d = p1[k] - p0[k];
+      return `<div class="stat"><span>${k}</span><div class="bar duo"><i style="transform:scaleX(${p0[k].toFixed(3)})"></i>${
+        d > 0.004 ? `<u class="gain" style="left:${(p0[k] * 100).toFixed(1)}%;width:${(d * 100).toFixed(1)}%"></u>` : ''}</div>${d > 0.004 ? '<em class="up">▲</em>' : ''}</div>`;
+    }).join('');
+    // solo lo que cambia de la habilidad
+    const parts = [];
+    if (a1.cd < a0.cd - 0.01) parts.push(`recarga ${a0.cd.toFixed(1)} → <b>${a1.cd.toFixed(1)} s</b>`);
+    if (a1.dur > a0.dur + 0.01) parts.push(`dura ${a0.dur.toFixed(1)} → <b>${a1.dur.toFixed(1)} s</b>`);
+    if (a1.pow > a0.pow + 0.001) parts.push(`potencia ×${a0.pow.toFixed(2)} → <b>×${a1.pow.toFixed(2)}</b>`);
+    if (a1.mut && !a0.mut) parts.push('<b>¡MUTA!</b>');
+    const abLine = parts.length ? `<p class="ts-ab">${A.icon} ${A.name}: ${parts.join(' · ')}</p>` : '';
+    let act;
+    if (nd.bought) act = '<button class="btn ghost" disabled>✔ YA LO TIENES</button>';
+    else if (!nd.owned) act = '<button class="btn ghost" disabled>Compra la nave primero</button>';
+    else if (!nd.next) act = `<button class="btn ghost" disabled>${nd.branch === 'm' ? 'Completa las 3 ramas' : 'Primero el nivel anterior'}</button>`;
+    else act = `<button class="btn" id="btnTreeBuy" ${save.gems >= nd.cost ? '' : 'disabled'}>MEJORAR · 💎 ${nd.cost}</button>`;
+    const sh = $('treeSheet');
+    sh.innerHTML = `<div class="ts-card"><b class="ts-title">${nd.name}</b><p>${nd.desc}</p><div class="stats">${bars}</div>${abLine}
+      <div class="ts-act">${act}<button class="btn ghost" id="btnTreeClose">CERRAR</button></div></div>`;
+    sh.classList.remove('hidden');
+    tap($('btnTreeClose'), () => sh.classList.add('hidden'));
+    sh.onclick = (e) => { if (e.target === sh) sh.classList.add('hidden'); }; // tocar fuera cierra
+    $('btnTreeBuy') && tap($('btnTreeBuy'), () => {
+      if (save.gems < nd.cost) return;
+      save.gems -= nd.cost;
+      save.shipLvl[view.id] = after;
+      persist();
+      sfx.chest();
+      fx.vibe([20, 30, 60]);
+      if (ui._hv) { ui._hv.flash = 1; ui._hv.boost = Math.PI * 2; }
+      sh.classList.add('hidden');
+      if (nd.branch === 'm') toast(`★ ¡MAESTRÍA de ${view.name}! Pintura de maestro desbloqueada`);
+      ui.showHangar();
+      $('shipTree').querySelector(nd.branch === 'm' ? '.mastery' : `.b-${nd.branch} .node:nth-of-type(${nd.i + 1})`)?.classList.add('just');
+    });
   },
 
   showCards(offers, run, title, onPick, reward = '') {

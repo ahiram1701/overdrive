@@ -418,7 +418,7 @@ export function onHit(o) {
   }
   // ÚLTIMO ALIENTO (árbol, BLINDAJE nivel 3): una vez por partida, un golpe sin escudos no mata
   if (r.lastStand) {
-    r.lastStand = false;
+    r.lastStand = r.lastStand === 2 ? 1 : false; // nivel 5 de BLINDAJE: dos veces
     p.invuln = 1.2;
     breakObj(o, 'shield');
     resetChain();
@@ -545,7 +545,7 @@ export function useAbility() {
       break;
     case 'blink': {
       // salto hacia delante: lo que queda atrás no te toca (no "cruza"), las monedas se recogen
-      const D = 35 * a.pow;
+      const D = 35 * Math.min(a.pow, 1.3); // la distancia solo sube en el nivel 2: saltar más se salta media pista
       for (const o of r.objects) {
         const rz = o.z - r.dist;
         if (!o.alive || rz <= 0 || rz > D + 0.5) continue;

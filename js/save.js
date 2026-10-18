@@ -18,6 +18,7 @@ const DEFAULTS = {
   boosts: {},       // potenciadores que tienes { life: 2 }
   boostSel: [],     // los elegidos para la próxima partida (máx. 2)
   talents: {},      // talentos comprados { r1: true }
+  treeResets: 0,    // reinicios del árbol hechos (el primero es gratis)
   crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
   settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: true },
   runs: 0,

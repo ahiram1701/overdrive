@@ -102,6 +102,7 @@ export function applyCard(run, id) {
 export function availableCards(run, minRarity = null) {
   return CARDS.filter((c) => (run.cards[c.id] || 0) < c.max)
     .filter((c) => !(c.id === 'cristal' && run.blockedLane !== null))
+    .filter((c) => !(c.id === 'seguro' && run.stats.insurance)) // ya lo da el árbol
     .filter((c) => !(c.id === 'escudo' && run.shields >= shieldCap(run))) // con escudos llenos sería una carta muerta
     .filter((c) => !(run.noDash && ['carga', 'ancho', 'recarga'].includes(c.id))) // sin DASH, sus cartas no sirven
     .filter((c) => !minRarity || (minRarity === 'rare' ? c.rarity !== 'common' : c.rarity === 'epic'));
@@ -133,12 +134,19 @@ export const SHIPS = [
 ];
 
 // ---------- Árbol de mejoras por nave (hangar) ----------
-// 3 ramas x 3 niveles. Se compran en orden con gemas. A y B son comunes a todas las naves;
-// C mejora la habilidad propia de cada nave y su nivel 3 la MUTA.
-export const TREE_COSTS = { a: [40, 90, 180], b: [40, 90, 180], c: [60, 130, 260] };
+// 3 ramas x 5 niveles. Se compran en orden con gemas. A y B son comunes a todas las naves;
+// C mejora la habilidad propia de cada nave y su nivel 3 la MUTA. Con las 3 ramas completas se
+// abre la MAESTRÍA (lvls.m = 1).
+export const TREE_LEVELS = 5;
+export const TREE_COSTS = { a: [40, 90, 180, 300, 450], b: [40, 90, 180, 300, 450], c: [60, 130, 260, 400, 600] };
+export const MASTERY_COST = 800;
+export const RESET_COST = 50; // el primer reinicio es gratis
 
-const TREE_A = { name: 'BLINDAJE', icon: '🛡️', nodes: ['+1 escudo al empezar', '+50% de invulnerabilidad tras perder un escudo', 'ÚLTIMO ALIENTO: sobrevives una vez a un golpe sin escudos'] };
-const TREE_B = { name: 'MOTOR', icon: '⚙️', nodes: ['Cambias de carril un 10% más rápido', '+1 carga de DASH', 'OVERDRIVE: +20% de carga y +1 s'] };
+const TREE_A = { name: 'BLINDAJE', icon: '🛡️', nodes: ['+1 escudo al empezar', '+50% de invulnerabilidad tras perder un escudo', 'ÚLTIMO ALIENTO: sobrevives una vez a un golpe sin escudos',
+  'SEGURO: perder un escudo no reinicia tu combo', 'ÚLTIMO ALIENTO dos veces por partida'] };
+const TREE_B = { name: 'MOTOR', icon: '⚙️', nodes: ['Cambias de carril un 10% más rápido', '+1 carga de DASH', 'OVERDRIVE: +20% de carga y +1 s',
+  'El DASH recarga un 10% antes', 'Cambias de carril otro 5% más rápido'] };
+export const MASTERY = { name: 'MAESTRÍA', icon: '★', desc: '+10% de puntos, la habilidad un 10% más fuerte y la pintura de maestro de la nave' };
 
 // nivel 2 y mutación (nivel 3) de la rama de cada habilidad
 export const ABILITY_TREE = {
@@ -154,7 +162,7 @@ export const ABILITY_TREE = {
   hammer: { lvl2: '+30% de alcance', mut: 'triple', lvl3: 'El MARTILLO golpea los 3 carriles' },
 };
 
-export const emptyLvls = () => ({ a: 0, b: 0, c: 0 });
+export const emptyLvls = () => ({ a: 0, b: 0, c: 0, m: 0 });
 export const shipLvls = (map, shipId) => ({ ...emptyLvls(), ...(map && map[shipId]) });
 
 // Descripción completa del árbol de una nave (para el hangar)
@@ -164,12 +172,23 @@ export function treeOf(ship, abilityName, abilityIcon) {
   return [
     branch('a', TREE_A),
     branch('b', TREE_B),
-    branch('c', { name: abilityName, icon: abilityIcon, nodes: ['Recarga −15%', t.lvl2, t.lvl3] }),
+    branch('c', { name: abilityName, icon: abilityIcon, nodes: ['Recarga −15%', t.lvl2, t.lvl3, '+10% de potencia (alcance, daño)', 'Otro +15% de potencia'] }),
   ];
 }
 
+// ¿Se puede comprar la maestría? (las 3 ramas al máximo)
+export const canMaster = (lvls) => ['a', 'b', 'c'].every((k) => lvls[k] >= TREE_LEVELS) && !lvls.m;
+// Gemas gastadas en el árbol de una nave (lo que devuelve el reinicio)
+export function treeSpent(lvls) {
+  let n = 0;
+  for (const k of ['a', 'b', 'c']) for (let i = 0; i < (lvls[k] || 0); i++) n += TREE_COSTS[k][i];
+  return n + (lvls.m ? MASTERY_COST : 0);
+}
+// Nodos comprados (de 16)
+export const treeStars = (lvls) => (lvls.a || 0) + (lvls.b || 0) + (lvls.c || 0) + (lvls.m ? 1 : 0);
+
 // Precio del siguiente nivel de una rama (null si está al máximo)
-export const treeCost = (branch, lvl) => (lvl >= 3 ? null : TREE_COSTS[branch][lvl]);
+export const treeCost = (branch, lvl) => (lvl >= TREE_LEVELS ? null : TREE_COSTS[branch][lvl]);
 
 // Aplica las ramas A y B a una partida (la C se aplica a la habilidad con abilityMods)
 export function applyShipTree(r, lvls) {
@@ -179,13 +198,20 @@ export function applyShipTree(r, lvls) {
   if (lvls.b >= 1) r.stats.laneTime *= 0.9;
   if (lvls.b >= 2) r.stats.dashMax += 1;
   if (lvls.b >= 3) { r.stats.odRate += 0.2; r.stats.odDur += 1; }
+  if (lvls.a >= 4) r.stats.insurance = true;
+  if (lvls.a >= 5) r.lastStand = 2;
+  if (lvls.b >= 4) r.stats.dashRecharge *= 0.9;
+  if (lvls.b >= 5) r.stats.laneTime *= 0.95;
+  if (lvls.m) r.stats.scoreMult *= 1.1;
 }
 
 export function abilityMods(ship, lvls) {
   return {
+    // duración y recarga solo cambian en los niveles 1-2: más uso dejaría las habilidades de
+    // invulnerabilidad (Ariete, Fase) activas demasiado tiempo. Los niveles altos dan POTENCIA.
     cd: lvls.c >= 1 ? 0.85 : 1,
     dur: lvls.c >= 2 ? 1.3 : 1,
-    pow: lvls.c >= 2 ? 1.3 : 1,
+    pow: (lvls.c >= 2 ? 1.3 : 1) * (lvls.c >= 4 ? 1.1 : 1) * (lvls.c >= 5 ? 1.15 : 1) * (lvls.m ? 1.1 : 1),
     mut: lvls.c >= 3 ? ABILITY_TREE[ship.ability].mut : null,
   };
 }
