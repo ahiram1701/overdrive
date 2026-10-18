@@ -508,6 +508,79 @@ export function renderSpace(dt) {
     }
   }
 
+  // BALIZA de la historia
+  if (s.storyMarker) {
+    const p = project(cam, s.storyMarker, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const t = G.realTime, R = Math.max(8, p.s * 14);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.7 + i / 3) % 1;
+        ctx.strokeStyle = `rgba(191,90,242,${1 - k})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R * (0.5 + k * 2), 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.fillStyle = '#e8d0ff';
+      ctx.beginPath(); ctx.arc(p.x, p.y, R * 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+      ctx.fillStyle = '#bf5af2';
+      ctx.font = 'italic 900 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`📡 BALIZA${s.markerT > 0 ? ` ${Math.round((s.markerT / 2) * 100)}%` : ''}`, p.x, p.y - R * 2.6);
+    } });
+  }
+  // EL DEVORADOR DE ESTRELLAS
+  if (s.devourer) {
+    const d = s.devourer, p = project(cam, d.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const R = d.r * p.s, t = G.realTime;
+      ctx.save();
+      // púas
+      ctx.fillStyle = d.flash > 0 ? '#ffffff' : '#2a0a3a';
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const a = (i / 24) * Math.PI * 2 + d.spin;
+        const k = i % 2 ? 1.0 : 1.35 + 0.08 * Math.sin(t * 3 + i);
+        ctx[i ? 'lineTo' : 'moveTo'](p.x + Math.cos(a) * R * k, p.y + Math.sin(a) * R * k);
+      }
+      ctx.fill();
+      const g = ctx.createRadialGradient(p.x - R * 0.3, p.y - R * 0.3, R * 0.1, p.x, p.y, R);
+      g.addColorStop(0, d.phase > 1 ? '#ff9f0a' : '#5a1a7a');
+      g.addColorStop(0.6, '#1a0428');
+      g.addColorStop(1, '#05010d');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(p.x, p.y, R, 0, Math.PI * 2); ctx.fill();
+      // núcleo al descubierto
+      if (d.phase > 1) {
+        ctx.globalCompositeOperation = 'lighter';
+        const c = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, R * 0.55);
+        c.addColorStop(0, `rgba(255,230,0,${0.7 + 0.3 * Math.sin(t * 8)})`);
+        c.addColorStop(1, 'rgba(255,45,85,0)');
+        ctx.fillStyle = c;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R * 0.55, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.restore();
+    } });
+    for (const e of d.eyes) {
+      if (!e.alive) continue;
+      const q = project(cam, e.pos, 1);
+      if (q) draws.push({ z: q.z - 1, fn: () => {
+        const R = Math.max(5, 12 * q.s);
+        ctx.fillStyle = e.flash > 0 ? '#fff' : '#ff2d55';
+        ctx.shadowColor = '#ff2d55';
+        ctx.shadowBlur = 16;
+        ctx.beginPath(); ctx.ellipse(q.x, q.y, R, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = '#000';
+        ctx.beginPath(); ctx.arc(q.x, q.y, R * 0.3, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(0,0,0,.6)';
+        ctx.fillRect(q.x - R, q.y + R, R * 2, 3);
+        ctx.fillStyle = '#ff2d55';
+        ctx.fillRect(q.x - R, q.y + R, R * 2 * (e.hp / e.max), 3);
+      } });
+    }
+  }
   // BASE PIRATA: anillo con torretas y vida
   if (s.base) {
     const b = s.base, p = project(cam, b.pos, 1);
@@ -642,6 +715,14 @@ export function renderSpace(dt) {
     const p = project(cam, bo.pos, 1), q = project(cam, sub(bo.pos, scale(norm(bo.vel), 14)), 1);
     if (!p || !q) continue;
     draws.push({ z: p.z, fn: () => {
+      if (bo.plasma) {
+        ctx.fillStyle = '#bf5af2';
+        ctx.shadowColor = '#bf5af2';
+        ctx.shadowBlur = 14;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(4, p.s * 4), 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+        return;
+      }
       ctx.strokeStyle = shotCol;
       ctx.lineWidth = Math.max(1.5, p.s * 0.8);
       ctx.lineCap = 'round';
@@ -754,6 +835,19 @@ export function renderSpace(dt) {
       ctx.restore();
       ctx.fillText(`${dd} m`, ax, ay - 16);
     }
+  }
+
+  // vida del DEVORADOR arriba, como en un jefe de verdad
+  if (s.devourer) {
+    const d = s.devourer, w = Math.min(320, W - 40), x = (W - w) / 2, y = 108;
+    ctx.fillStyle = 'rgba(0,0,0,.6)';
+    ctx.fillRect(x, y, w, 10);
+    ctx.fillStyle = d.phase === 1 ? '#7a5cff' : d.phase === 2 ? '#ff9f0a' : '#ff2d55';
+    ctx.fillRect(x, y, w * Math.max(0, d.hp / d.max), 10);
+    ctx.fillStyle = '#fff';
+    ctx.font = 'italic 900 12px system-ui';
+    ctx.textAlign = 'center';
+    ctx.fillText(`🌑 EL DEVORADOR DE ESTRELLAS · ${d.phase === 1 ? `ojos ${d.eyes.filter((e) => e.alive).length}/3` : d.phase === 2 ? 'NÚCLEO' : 'FURIA'}`, W / 2, y - 6);
   }
 
   // VISOR DE MISIL: rombo que se cierra sobre el blanco; rojo = FIJADO

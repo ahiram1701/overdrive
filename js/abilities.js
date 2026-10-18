@@ -12,6 +12,7 @@ export const ABILITIES = {
   bubble: { name: 'BURBUJA', icon: '🫧', cd: 20, dur: 5, desc: '5 s dentro de una burbuja que absorbe el próximo golpe.' },
   blink: { name: 'SALTO CORTO', icon: '⚡', cd: 12, dur: 0, desc: 'Te teletransporta 35 m adelante (no con un jefe delante).' },
   barrier: { name: 'ESCUDO DE ENERGÍA', icon: '🔰', cd: 32, dur: 0, desc: '+1 escudo (si ya estás al máximo, 20 🪙).' },
+  singularity: { name: 'SINGULARIDAD', icon: '🕳️', cd: 28, dur: 0, desc: 'Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas.' },
   chaos: { name: 'CAOS', icon: '🌀', cd: 22, dur: 0, desc: 'Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙.' },
   hammer: { name: 'MARTILLO', icon: '🔨', cd: 16, dur: 0, desc: 'Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe).' },
 };

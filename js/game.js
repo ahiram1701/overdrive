@@ -590,6 +590,17 @@ export function useAbility() {
       sfx.shield();
       break;
     }
+    case 'singularity': {
+      const n = sweep(50 * a.pow);
+      for (const o of r.objects) if (o.alive && o.type === 'coin') o.mag = true;
+      if (a.mut === 'shield') gainShield(1, '🕳️ +1 🛡️');
+      fx.ring(ps.x, ps.y - 60, '#c58cff', 700, 0.7, 28);
+      fx.flash('#2a0050', 0.5);
+      fx.shake(22);
+      sfx.boom();
+      if (n) fx.notice(`🕳️ ${n} destruidos`, '#c58cff');
+      break;
+    }
     case 'chaos': {
       const n = sweep(40 * a.pow);
       r.coins += n * 5;

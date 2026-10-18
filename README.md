@@ -115,6 +115,20 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **🎯 SE BUSCA:** en cada estación hay carteles con **piratas con nombre** ("Vex el Rojo"), con nivel, un rasgo (escurridizo, blindado, enjambre o artillero) y recompensa.
   - Acepta una caza y la brújula te lleva hasta él. **Se mueve** de sistema cada pocos saltos.
   - Si te destruye, **sube de nivel** y su recompensa también.
+- **🔧 Fabricación:** los piratas, bases, jefes y descubrimientos sueltan **materiales**:
+  - 🔩 chatarra, 🔌 circuitos, ⚛️ núcleos y 🗿 artefactos.
+
+  En el taller de cada estación, con **créditos y materiales**, se fabrican y se montan en **2 huecos de arma y 2 de módulo** (también desde la pestaña GALAXIA del hangar):
+  - **armas:** láser doble, metralla, cañón de plasma y torreta automática;
+  - **módulos:** escudo reactivo, imán grande, motor de curvatura, bodega extra y lanzamisiles rápido.
+- **📖 Historia LA SEÑAL:** 8 capítulos con diálogos (la Dra. Ilen, el capataz Brak, la propia Señal…) que te llevan de ORIGEN al sistema más lejano.
+  - Por el camino: balizas, una entrega, una **elección de facción**, una emboscada, **el Heraldo** y una base pirata.
+  - Al final, el jefe **🌑 El Devorador de Estrellas**, en 3 fases:
+    1. sus tres ojos lo hacen invulnerable;
+    2. destruidos los ojos, el núcleo queda al descubierto, con drones y misiles;
+    3. FURIA, con anillos de balas.
+  - El premio: la nave **Errante**, para todos los modos.
+  - Los capítulos se ven en el ATLAS.
 - **🪐 ORBITAR planetas:** al acercarte a uno aparece ORBITAR. Cada planeta tiene nombre, tipo e historia; el primer sobrevuelo paga y cada uno compra un mineral a ×1,5.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:
@@ -348,6 +362,7 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
 | **Halcón** | 💎 1300 | Ligera: el DASH recarga un 10% antes, pero x0.95 puntos. | 🔰 **ESCUDO DE ENERGÍA** (32 s): +1 escudo (si ya estás al máximo, 20 🪙). | Al activarla, una onda rompe lo cercano |
 | **Quimera** | 💎 1500 | Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento. | 🌀 **CAOS** (22 s): Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙. | CAOS atrae todas las monedas de la pista |
+| **Errante** | gratis | La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos). | 🕳️ **SINGULARIDAD** (28 s): Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas. | La SINGULARIDAD te da 1 escudo |
 <!-- CARDS:END -->
 
 ### Ajustes del menú

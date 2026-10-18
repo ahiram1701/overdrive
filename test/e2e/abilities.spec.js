@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { trackErrors, botInPage } from './helpers.js';
 
-const SHIPS = ['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera'];
+const SHIPS = ['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer'];
 
 async function startWithShip(page, ship, seed) {
   await page.addInitScript((s) => {
     localStorage.setItem('overdrive-save-v1', JSON.stringify({
-      runs: 1, ship: s, ships: ['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera'],
+      runs: 1, ship: s, ships: ['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer'],
     }));
   }, ship);
   await page.goto(`/?debug&nosw&seed=${seed}`);

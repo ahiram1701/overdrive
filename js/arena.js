@@ -271,6 +271,13 @@ export function useArenaAbility() {
       a.iframes = 1;
       a.rings.push({ x: a.x, y: a.y, r: 90, t: 0.4, max: 0.4, color: '#7dffb0' });
       break;
+    case 'singularity': // atrae a todos hacia un punto delante y los aplasta
+      for (const e of near(a.x, a.y, 340 * a.ability.pow)) {
+        if (!e.boss) { e.x += (a.x - e.x) * 0.5; e.y += (a.y - e.y) * 0.5; }
+        hurtEnemy(a, e, 45);
+      }
+      a.rings.push({ x: a.x, y: a.y, r: 340 * a.ability.pow, t: 0.5, max: 0.5, color: '#c58cff' });
+      break;
     case 'chaos':
       for (const e of near(a.x, a.y, 260 * a.ability.pow)) hurtEnemy(a, e, 60);
       a.rings.push({ x: a.x, y: a.y, r: 260 * a.ability.pow, t: 0.45, max: 0.45, color: '#ff4fd8' });

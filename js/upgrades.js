@@ -148,6 +148,7 @@ export const SHIPS = [
   { id: 'titan', name: 'Titán', cost: 1100, color: '#ff6b3d', ability: 'hammer', desc: 'Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.4; r.stats.scoreMult *= 0.85; } },
   { id: 'falcon', name: 'Halcón', cost: 1300, color: '#7dffb0', ability: 'barrier', desc: 'Ligera: el DASH recarga un 10% antes, pero x0.95 puntos.', apply: (r) => { r.stats.dashRecharge *= 0.9; r.stats.scoreMult *= 0.95; } },
   { id: 'chimera', name: 'Quimera', cost: 1500, color: '#ff4fd8', ability: 'chaos', desc: 'Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento.', apply: (r) => { r.stats.scoreMult *= 1.2; r.stats.dashRecharge *= 1.15; } },
+  { id: 'wanderer', name: 'Errante', cost: 0, story: true, color: '#c58cff', ability: 'singularity', desc: 'La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos).', apply: (r) => { r.stats.laneTime *= 0.92; r.stats.odDur += 0.5; r.stats.scoreMult *= 1.1; } },
 ];
 
 // ---------- Árbol de mejoras por nave (hangar) ----------
@@ -179,6 +180,7 @@ export const ABILITY_TREE = {
   hammer: { lvl2: '+30% de alcance', mut: 'triple', lvl3: 'El MARTILLO golpea los 3 carriles' },
   barrier: { lvl2: 'Al activarla, 1 s invulnerable', mut: 'wave', lvl3: 'Al activarla, una onda rompe lo cercano' },
   chaos: { lvl2: '+30% de alcance', mut: 'magnet', lvl3: 'CAOS atrae todas las monedas de la pista' },
+  singularity: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'La SINGULARIDAD te da 1 escudo' },
 };
 
 export const emptyLvls = () => ({ a: 0, b: 0, c: 0, m: 0 });

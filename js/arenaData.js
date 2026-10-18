@@ -26,7 +26,7 @@ export const WEAPONS = {
 };
 
 // Arma inicial de cada nave
-export const SHIP_WEAPON = { viper: 'blaster', brick: 'shotgun', ghost: 'beam', nova: 'pulse', kaiju: 'flame', raptor: 'missile', comet: 'orbs', manta: 'pulse', spectra: 'beam', titan: 'shotgun', falcon: 'twin', chimera: 'storm' };
+export const SHIP_WEAPON = { viper: 'blaster', brick: 'shotgun', ghost: 'beam', nova: 'pulse', kaiju: 'flame', raptor: 'missile', comet: 'orbs', manta: 'pulse', spectra: 'beam', titan: 'shotgun', falcon: 'twin', chimera: 'storm', wanderer: 'boomer' };
 
 // Lo que cada nave cambia en la arena (vida, velocidad)
 export const SHIP_ARENA = {
@@ -42,6 +42,7 @@ export const SHIP_ARENA = {
   titan: { hp: 170, speed: 0.8 },
   falcon: { hp: 95, speed: 1.12 },
   chimera: { hp: 110, speed: 1 },
+  wanderer: { hp: 115, speed: 1.1 },
 };
 
 // ---------- Pasivas ----------
