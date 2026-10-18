@@ -4,7 +4,7 @@ import { loadFrom, migrateCosmetics } from '../../js/save.js';
 import { MESHES, rotate, projectMesh } from '../../js/mesh3d.js';
 import { SHIPS } from '../../js/upgrades.js';
 import { PALETTES, TRAILS, BOOMS, EMBLEMS, GROUPS, isUnlocked, buyCosmetic, equip, equipped, itemsFor, addShipStat, lockText, setEmblemStyle } from '../../js/cosmetics.js';
-import { decalFrame, GLYPH_R, emblemPath, hullColor } from '../../js/shipdraw.js';
+import { decalFrame, GLYPH_R, emblemPath, hullColor, KEEP_OUT, SPINE_EDGES } from '../../js/shipdraw.js';
 import { xpToNext } from '../../js/progress.js';
 
 test('cada nave tiene malla y todas las caras usan vértices válidos', () => {
@@ -153,6 +153,30 @@ test('el emblema CABE en su cara en todas las naves y posiciones (no se sale)', 
       }
     }
   }
+});
+
+test('con cabina o rayas, el emblema se aparta del lomo y sigue cabiendo en su cara', () => {
+  for (const ship of SHIPS) {
+    const m = MESHES[ship.id];
+    for (const [at, tris] of Object.entries(m.decalSets)) {
+      for (const tri of tris) {
+        const spine = SPINE_EDGES.find(([p, q]) => tri.includes(p) && tri.includes(q));
+        if (!spine) continue;
+        for (const flip of [false, true]) {
+          const { c, s } = decalFrame(m, tri, flip, true);
+          const R = s * GLYPH_R;
+          const [A, B, C] = tri.map((k) => m.v[k]);
+          assert.ok(R > 0.01, `${ship.id}/${at}: sigue viéndose`);
+          for (const [P, Q] of [[A, B], [B, C], [C, A]]) assert.ok(distToLine(c, P, Q) >= R * 1.2, `${ship.id}/${at}: se sale de la cara`);
+          // la franja del lomo (rayas hasta el 38%, cabina hasta ~28%) queda libre
+          const side = m.v[tri.find((k) => !spine.includes(k))];
+          const h = distToLine(side, m.v[spine[0]], m.v[spine[1]]);
+          assert.ok(distToLine(c, m.v[spine[0]], m.v[spine[1]]) - R >= 0.38 * h, `${ship.id}/${at}: pisa la cabina o las rayas`);
+        }
+      }
+    }
+  }
+  assert.ok(KEEP_OUT > 0.38);
 });
 
 test('los trazos de los emblemas caben en su círculo', () => {

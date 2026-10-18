@@ -234,3 +234,63 @@ test('árbol: maestría con las 3 ramas completas y reinicio que devuelve las ge
   // + 20 del logro MAESTRO (oro)
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(100 + spent + 20);
 });
+
+// ESTILO: arrastrar en vertical sobre las filas de estilos desplaza la página (antes, solo de lado)
+// Arrastre con el dedo de verdad (eventos táctiles del navegador, como en el móvil)
+async function swipe(page, cdp, x, y, dx, dy) {
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+  for (let i = 1; i <= 12; i++) {
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + (dx / 12) * i, y: y + (dy / 12) * i }] });
+    await page.waitForTimeout(16);
+  }
+  await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+  await page.waitForTimeout(150);
+}
+
+test.describe('pantalla táctil', () => {
+  test.use({ hasTouch: true, isMobile: true });
+  test('estilo: deslizar hacia arriba SOBRE las filas de estilos baja la lista; de lado mueve la fila', async ({ page }) => {
+    await page.goto('/?nosw');
+    await page.locator('#btnHangar').click();
+    await page.locator('#hTabs [data-tab="estilo"]').click();
+    const cdp = await page.context().newCDPSession(page);
+    const chip = await page.locator('.cos').first().boundingBox();
+    await swipe(page, cdp, chip.x + 30, chip.y + chip.height / 2, 0, -300);
+    expect(await page.evaluate(() => document.getElementById('hangar').scrollTop)).toBeGreaterThan(100);
+    await expect(page.locator('.hangar-top')).toHaveClass(/compact/);
+    // de lado: se mueve la fila, no la página
+    const top0 = await page.evaluate(() => document.getElementById('hangar').scrollTop);
+    const row = page.locator('.cos-chips[data-group="palette"]');
+    await row.evaluate((r) => r.scrollIntoView({ block: 'center' }));
+    await page.waitForTimeout(400); // la cabecera termina de compactarse
+    const top1 = await page.evaluate(() => document.getElementById('hangar').scrollTop);
+    const b = await row.boundingBox();
+    await swipe(page, cdp, b.x + b.width - 30, b.y + b.height / 2, -220, 0);
+    expect(await row.evaluate((r) => r.scrollLeft)).toBeGreaterThan(50);
+    expect(Math.abs(await page.evaluate(() => document.getElementById('hangar').scrollTop) - top1)).toBeLessThan(5);
+    expect(top0).toBeGreaterThan(0);
+  });
+});
+
+test('estilo: elegir algo no te devuelve al principio (ni la página ni su fila)', async ({ page }) => {
+  await page.addInitScript((k) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(k, JSON.stringify({ v: 6, runs: 3, gems: 0, ship: 'viper', ships: ['viper'] }));
+  }, SAVE);
+  await page.goto('/?nosw');
+  await page.locator('#btnHangar').click();
+  await page.locator('#hTabs [data-tab="estilo"]').click();
+  const row = page.locator('.cos-chips[data-group="emblem"]');
+  await row.evaluate((r) => { r.scrollIntoView({ block: 'center' }); r.scrollLeft = 260; });
+  await page.waitForTimeout(400); // la cabecera termina de compactarse (cambia el alto de la página)
+  const before = await page.evaluate(() => ({ top: document.getElementById('hangar').scrollTop, left: document.querySelector('.cos-chips[data-group="emblem"]').scrollLeft }));
+  expect(before.top).toBeGreaterThan(100);
+  // tocar un emblema visible de esa fila (se PRUEBA: repinta el hangar)
+  const id = await row.evaluate((r) => [...r.querySelectorAll('.cos')].find((c) => c.offsetLeft >= r.scrollLeft && c.offsetLeft + c.offsetWidth <= r.scrollLeft + r.clientWidth).dataset.cos);
+  await page.locator(`[data-cos="${id}"]`).dispatchEvent('click'); // un toque (sin que Playwright desplace la página)
+  await expect(page.locator(`[data-cos="${id}"]`)).toHaveClass(/trying|on/);
+  const after = await page.evaluate(() => ({ top: document.getElementById('hangar').scrollTop, left: document.querySelector('.cos-chips[data-group="emblem"]').scrollLeft }));
+  expect(Math.abs(after.top - before.top)).toBeLessThan(3);
+  expect(Math.abs(after.left - before.left)).toBeLessThan(3);
+});

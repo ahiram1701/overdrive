@@ -418,6 +418,11 @@ export const ui = {
 
   // Hangar: carrusel de naves, ficha con stats comparadas con la equipada y árbol de mejoras.
   showHangar(viewId = ui.hangarView || save.ship) {
+    // dónde estabas: al repintar (elegir un estilo, comprar…) no se vuelve al principio
+    const sameView = ui.hangarView === viewId && !$('hangar').classList.contains('hidden');
+    const keepTop = sameView ? $('hangar').scrollTop : 0;
+    const keepRows = {};
+    if (sameView) for (const r of $('cosmetics').querySelectorAll('.cos-chips')) keepRows[r.dataset.group] = r.scrollLeft;
     ui.hangarView = viewId;
     G.mode = 'hangar';
     $('treeSheet').classList.add('hidden');
@@ -455,7 +460,9 @@ export const ui = {
       drawShip(b.querySelector('canvas').getContext('2d'), s.id, { ...lk.palette, edge: lk.palette.edge || s.color },
         48, 34, 34, { yaw: 0.5, pitch: -0.5 }, { line: 1.2, ...emblemOpts(lk) });
     }
-    car.querySelector('.viewing')?.scrollIntoView({ block: 'nearest', inline: 'center' });
+    // centrar la nave vista SOLO de lado (scrollIntoView también movía la página hacia arriba)
+    const vw = car.querySelector('.viewing');
+    if (vw) car.scrollLeft = vw.offsetLeft - (car.clientWidth - vw.offsetWidth) / 2;
 
     // ficha: barras de esta nave comparadas con la equipada (verde = mejor, rojo = peor)
     const lv = shipLvls(save.shipLvl, view.id);
@@ -555,6 +562,7 @@ export const ui = {
     for (const [g, label] of groups) {
       const row = el('div', 'cos-row', `<small>${label}</small>`);
       const chips = el('div', 'cos-chips');
+      chips.dataset.group = g;
       for (const it of itemsFor(g, view.id)) {
         const open = isUnlocked(it, save, view.id);
         const on = eq[g].id === it.id;
@@ -580,6 +588,7 @@ export const ui = {
         c.dataset.cos = `${g}:${it.id}`;
         if (it.ship) c.style.setProperty('--sc', view.color);
         tap(c, () => {
+          ui._lastGroup = g; // su fila mantiene a la vista lo que acabas de tocar
           // lo que ya puedes usar en tu nave se equipa al momento; lo demás se PRUEBA
           if (open && owned) {
             equip(g, it.id, save, view.id);
@@ -655,6 +664,30 @@ export const ui = {
     }
     for (const panel of $('hangar').querySelectorAll('.tab-panel')) panel.classList.toggle('hidden', panel.dataset.panel !== ui.hangarTab);
     show('hangar');
+    // volver a dejarlo todo donde estaba
+    if (sameView) {
+      $('hangar').scrollTop = keepTop;
+      for (const r of $('cosmetics').querySelectorAll('.cos-chips')) {
+        if (keepRows[r.dataset.group] !== undefined) r.scrollLeft = keepRows[r.dataset.group];
+        // la fila que tocaste: que se vea lo elegido, moviendo solo la fila
+        if (r.dataset.group === ui._lastGroup) {
+          const sel = r.querySelector('.cos.trying') || r.querySelector('.cos.on');
+          if (sel && (sel.offsetLeft < r.scrollLeft || sel.offsetLeft + sel.offsetWidth > r.scrollLeft + r.clientWidth)) {
+            r.scrollLeft = sel.offsetLeft - (r.clientWidth - sel.offsetWidth) / 2;
+          }
+        }
+      }
+    }
+    ui._lastGroup = null;
+    // cabecera compacta al bajar (con margen para que no parpadee en el límite)
+    if (!$('hangar').dataset.scrollReady) {
+      $('hangar').dataset.scrollReady = '1';
+      $('hangar').addEventListener('scroll', () => {
+        const top = $('hangar').scrollTop, hd = $('hangar').querySelector('.hangar-top');
+        if (top > 60) hd.classList.add('compact');
+        else if (top < 10) hd.classList.remove('compact');
+      }, { passive: true });
+    }
   },
 
   renderGalTab(view) {
@@ -1798,13 +1831,24 @@ export const ui = {
     ui._hv = { yaw: 0.6, drag: null, spin: 0.7, flash: 0, boost: 0, ...ui._hv, ship };
     if (!cv.dataset.ready) {
       cv.dataset.ready = '1';
-      cv.addEventListener('pointerdown', (e) => { ui._hv.drag = e.clientX; cv.setPointerCapture(e.pointerId); });
+      // solo se gira arrastrando DE LADO; arriba/abajo lo coge el navegador para desplazar la página
+      let start = null;
+      cv.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
       cv.addEventListener('pointermove', (e) => {
+        if (start && ui._hv.drag === null) {
+          const dx = e.clientX - start.x, dy = e.clientY - start.y;
+          if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
+            ui._hv.drag = e.clientX;
+            try { cv.setPointerCapture(start.id); } catch { /* ya no está */ }
+          } else return;
+        }
         if (ui._hv.drag === null) return;
         ui._hv.yaw += (e.clientX - ui._hv.drag) * 0.012;
         ui._hv.drag = e.clientX;
       });
-      cv.addEventListener('pointerup', () => { ui._hv.drag = null; });
+      const end = () => { ui._hv.drag = null; start = null; };
+      cv.addEventListener('pointerup', end);
+      cv.addEventListener('pointercancel', end);
     }
     if (ui._hvRunning) return;
     ui._hvRunning = true;
@@ -1822,6 +1866,8 @@ export const ui = {
         s.boost -= d;
       }
       s.flash = Math.max(0, s.flash - dt * 1.8);
+      const ch = Math.round((view.clientHeight || 150) * dpr);
+      if (view.height !== ch) view.height = ch; // cabecera compacta: menos alto, sin estirar el dibujo
       const c = view.getContext('2d');
       const w = view.width, h = view.height;
       c.setTransform(1, 0, 0, 1, 0, 0);

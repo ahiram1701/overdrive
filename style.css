@@ -228,7 +228,8 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 /* hangar: carrusel, ficha y árbol */
 .carousel {
   display: flex; gap: 8px; width: min(440px, 100%); overflow-x: auto; padding: 4px 2px 8px;
-  scroll-snap-type: x mandatory; touch-action: pan-x;
+  scroll-snap-type: x mandatory; touch-action: pan-x pan-y; position: relative;
+  max-height: 130px; transition: max-height .2s ease, padding .2s ease, opacity .2s ease;
 }
 .ship-chip {
   --sc: #00e5ff;
@@ -242,10 +243,11 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ship-chip.equipped::after { content: 'EN USO'; font: 900 11px var(--font); color: var(--yellow); letter-spacing: 1px; }
 .ship-chip.locked { opacity: .55; }
 
-.hangar-view { width: min(440px, 100%); height: 150px; display: block; touch-action: none; cursor: grab; border-radius: 10px; background: radial-gradient(ellipse at 50% 70%, rgba(255,255,255,.05), transparent 70%); }
+.hangar-view { width: min(440px, 100%); height: 150px; display: block; touch-action: pan-y; transition: height .2s ease; cursor: grab; border-radius: 10px; background: radial-gradient(ellipse at 50% 70%, rgba(255,255,255,.05), transparent 70%); }
 .cosmetics { width: min(440px, 100%); display: flex; flex-direction: column; gap: 8px; }
 .cos-row > small { display: block; margin-bottom: 4px; font: 900 11px var(--font); letter-spacing: 1px; color: var(--muted); }
-.cos-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; touch-action: pan-x; }
+/* pan-x pan-y: de lado mueve la fila, arriba/abajo mueve la página (con solo pan-x no había forma de bajar) */
+.cos-chips { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; touch-action: pan-x pan-y; }
 .cos {
   flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 3px; min-width: 74px; padding: 7px 8px;
   border-radius: 10px; border: 1px solid rgba(255,255,255,.15); background: var(--panel); color: #fff; font-family: var(--font);
@@ -443,7 +445,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ship-chip.gold { border-color: #ffd60a; box-shadow: 0 0 10px rgba(255,214,10,.45), inset 0 0 8px rgba(255,214,10,.2); }
 
 /* ---------- Hangar: cabecera fija y pestañas ---------- */
-#hangar { padding-top: 0; gap: 10px; }
+#hangar { padding-top: 0; gap: 10px; overflow-anchor: none; } /* el sitio lo restaura showHangar: sin "anclaje" del navegador que lo mueva */
 #hangar > :first-child { margin-top: 0; }
 .hangar-top {
   position: sticky; top: 0; z-index: 4; width: calc(100% + 32px); margin: 0 -16px;
@@ -968,3 +970,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .gi-x { padding: 6px 10px; font-size: 12px; white-space: nowrap; }
 .gi-block .m-bar { height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); overflow: hidden; }
 .gi-block .m-bar i { display: block; height: 100%; background: linear-gradient(90deg, var(--cyan), var(--pink)); transform-origin: left; }
+
+/* cabecera del hangar compacta al bajar: la nave sigue a la vista pero deja sitio a la lista */
+.hangar-top.compact .carousel { max-height: 0; padding-top: 0; padding-bottom: 0; opacity: 0; overflow: hidden; pointer-events: none; }
+.hangar-top.compact .hangar-view { height: 90px; }
