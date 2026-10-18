@@ -1048,3 +1048,6 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .gi-news { display: flex; flex-direction: column; gap: 6px; }
 .gi-news div { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
 .gi-news small { color: var(--muted); white-space: nowrap; }
+
+/* ---------- Galaxia: amenaza y búsqueda ---------- */
+.sh-wanted { font-size: 13px; letter-spacing: -1px; text-align: right; text-shadow: 0 0 8px #ff2d55; min-height: 0; }

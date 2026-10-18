@@ -9,7 +9,7 @@ import { update, useAbility } from './game.js';
 import { ui, dialogPaused } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility, debugArenaBoss } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem, debugPirate } from './spaceGame.js';
 import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
@@ -160,6 +160,7 @@ if (G.debug) {
   window.__forceEvent = forceEvent;
   window.__devourer = () => spawnDevourer();
   window.__arenaBoss = (id) => debugArenaBoss(id);
+  window.__pirate = (kind, trait, ahead) => debugPirate(kind, trait, ahead);
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }

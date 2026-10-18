@@ -72,6 +72,9 @@ export const ENEMY_KINDS = {
   interceptor: { name: 'Interceptor', hpK: 0.6, speedK: 1.6, turnK: 1.5, size: 5, mesh: 'spectra' },
   bomber: { name: 'Bombardero', hpK: 2.2, speedK: 0.65, turnK: 0.6, size: 9, mesh: 'titan', missiles: true },
   drone: { name: 'Dron', hpK: 0.35, speedK: 1.25, turnK: 1.8, size: 3.5, mesh: 'manta' },
+  // con amenaza alta (o lejos de ORIGEN)
+  corvette: { name: 'Corbeta', hpK: 3.2, speedK: 0.55, turnK: 0.5, size: 12, mesh: 'titan', link: true },  // protege a los cercanos
+  minelayer: { name: 'Minador', hpK: 1.3, speedK: 0.8, turnK: 0.9, size: 8, mesh: 'brick', layer: true }, // siembra minas
 };
 
 // Mezcla según el peligro: lo nuevo aparece al alejarse de ORIGEN

@@ -14,12 +14,13 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
+import { threatTier } from './galaxyThreat.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
@@ -767,7 +768,7 @@ export const ui = {
       return `<div class="stat"><span>${label}</span><div class="bar"><i style="transform:scaleX(${v.toFixed(3)})"></i></div>${diff}</div>`;
     }).join('');
     const box = $('galTab');
-    box.innerHTML = `<p class="hint">Así vuela <b>${view.name}</b> en la 🌌 Galaxia${view.id === save.ship ? '' : ' (comparada con la equipada)'}.</p>
+    box.innerHTML = `<p class="hint">Así vuela <b>${view.name}</b> en la 🌌 Galaxia${view.id === save.ship ? '' : ' (comparada con la equipada)'}. ⚡ Poder ${shipPower().toFixed(1)}: cuanto más fuerte tu nave, más fuertes los piratas.</p>
       <div class="stats">${bars}</div>
       <h3>Nave espacial · 💰 <b id="galCredits">${fmt(g.credits)}</b></h3>
       ${g.started ? '' : '<p class="hint">Aún no has despegado: gana créditos en 🌌 GALAXIA minando y comerciando.</p>'}
@@ -1348,7 +1349,10 @@ export const ui = {
     if (s.act) setText('btnAct', s.act.label);
     setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
     const sd = GAL[s.sysId];
-    setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}`);
+    const tt = sd.pirates || s.owner === 'pir' ? threatTier(threat()) : 0;
+    setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}${tt ? ` ${'▲'.repeat(tt)}` : ''}`);
+    const ws = wantedStars(g);
+    setText('shWanted', ws ? '⭐'.repeat(ws) : '');
     setTf(bars.heat, `scaleX(${Math.min(1, s.heat).toFixed(3)})`);
     tgl(bars.heat.parentElement, 'over', !!s.overheat);
     tgl($h('btnDock'), 'hidden', !s.canDock);
@@ -1434,6 +1438,14 @@ export const ui = {
       b.dataset.item = id;
       b.disabled = n >= ITEM_MAX;
       tap(b, () => { if (buyItem(save, id, itemDisc())) { persist(); sfx.coin(3); ui.showStation(s); } else fx.vibe(40); });
+      sup.append(b);
+    }
+    // SOBORNO: −1 ⭐ de búsqueda
+    if (wantedStars(g)) {
+      const c = bribeCost(g, threat());
+      const b = el('button', `st-up${g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">🚨</span><span class="su-body"><b>Sobornar <em>${'⭐'.repeat(wantedStars(g))}</em></b><small>Te buscan: con ⭐⭐ o más te esperan cazadores. Esto quita una estrella.</small></span><span class="su-cost">${fmt(c)} 💰</span>`);
+      b.id = 'btnBribe';
+      tap(b, () => { if (bribeWanted()) { toast('🚨 Una estrella menos'); sfx.coin(2); ui.showStation(s); } else fx.vibe(40); });
       sup.append(b);
     }
     // TALENTOS DE LA GALAXIA (con créditos)
@@ -1725,7 +1737,7 @@ export const ui = {
       const ores = Object.entries(g.cargo).filter(([, k]) => k > 0);
       const value = ores.reduce((a, [k, q]) => a + marketValue(k, q, s.sysId), 0);
       body.innerHTML = `
-        <div class="gi-block"><h3>💰 ${fmt(g.credits)} créditos</h3></div>
+        <div class="gi-block"><h3>💰 ${fmt(g.credits)} créditos</h3><small>⚡ Poder de tu nave ${shipPower().toFixed(1)} · los piratas se refuerzan x${threat().toFixed(2)}${wantedStars(g) ? ` · 🚨 ${'⭐'.repeat(wantedStars(g))} te buscan` : ''}</small></div>
         <div class="gi-block"><h3>📦 Bodega · ${n}/${st.cargo}</h3><div class="m-bar"><i style="transform:scaleX(${Math.min(1, n / st.cargo).toFixed(3)})"></i></div>
           ${ores.length ? ores.map(([k, q]) => `<div class="gi-row"><span>${ORES[k].icon} ${ORES[k].name}</span><b>×${q}</b><small>~${marketPrice(k, s.sysId)} 💰/u aquí</small></div>`).join('')
             + `<div class="gi-row total"><span>Valor en ${GAL[s.sysId].name}</span><b>${fmt(value)} 💰</b></div>` : '<small>Vacía. Dispara a los asteroides para minar.</small>'}</div>
