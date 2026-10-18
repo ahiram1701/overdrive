@@ -700,6 +700,7 @@ export function bossDefeated() {
   progress('boss');
   if (r.shields === 0) progress('bossNoShield');
   if (r.boss.def.elite) progress('elite');
+  if (r.boss.id === 'leviatan') progress('leviatan');
   r.coins += 50;
   clearBossStuff();
   addScore(5000, null);

@@ -84,7 +84,8 @@ const genCache = new Map();
 function genSector(n) {
   const rng = makeRng(hashString('sector-' + n));
   const name = nameOf(rng);
-  const biome = rng.int(0, 3);
+  const biome = n % 5 === 0 ? 4 : rng.int(0, 3); // cada 5.º sector, el GLACIAR (se tira igual del rng: los demás no cambian)
+  if (n % 5 === 0) rng.int(0, 3);
   // la mitad de los sectores mezclan dos biomas, alternando por tramo
   const biome2 = rng.chance(0.5) ? (biome + 1 + rng.int(0, 2)) % 4 : null;
   const base = 11 + (n - 4) * 1.5;

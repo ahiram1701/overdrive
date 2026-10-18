@@ -17,13 +17,17 @@ async function start(page, query) {
 // Mecánica propia de cada bioma, forzada con ?pattern (start elige el bioma)
 const BIOME_CASES = [
   { name: 'lava: ríos de lava', q: 'seed=8&start=2&pattern=lavaFlow', type: 'lava' },
-  { name: 'glitch: muros que saltan de carril', q: 'seed=8&start=7&pattern=glitchWall', type: 'glitch' },
-  { name: 'neón: cortina de láser alto y bajo', q: 'seed=8&start=5&pattern=laserDuo', type: 'laserHigh' },
+  { name: 'glitch: muros que saltan de carril', q: 'seed=8&start=3&pattern=glitchWall', type: 'glitch', biome: 'glitch' },
+  { name: 'neón: cortina de láser alto y bajo', q: 'seed=8&start=11&pattern=laserDuo', type: 'laserHigh', biome: 'neon' },
+  { name: 'glaciar: carámbanos que caen', q: 'seed=8&start=5&pattern=icicleRain', type: 'icicle', biome: 'ice' },
+  { name: 'glaciar: crestas de hielo', q: 'seed=8&start=5&pattern=iceRidge', type: 'iceRidge', biome: 'ice' },
+  { name: 'glaciar: el bioma tal cual', q: 'seed=11&start=5', type: 'icicle', biome: 'ice' },
 ];
 for (const c of BIOME_CASES) {
   test(`${c.name}: el bot sobrevive`, async ({ page }) => {
     const errors = trackErrors(page);
     await start(page, c.q);
+    if (c.biome) expect(await page.evaluate(() => window.G.run.biome.id)).toBe(c.biome);
     const res = await page.evaluate(botInPage, { seconds: 40 });
     expect(await page.evaluate(() => [...window.__seen])).toContain(c.type);
     expect(res.hits, `golpes: ${JSON.stringify(res.hits)}`).toEqual([]);

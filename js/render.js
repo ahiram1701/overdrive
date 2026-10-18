@@ -98,6 +98,28 @@ function drawSky(b, t) {
       ctx.ellipse(W / 2, horizon, W * 0.5, H * 0.05, 0, 0, Math.PI * 2);
       ctx.fill();
     }
+  } else if (b.id === 'ice') {
+    // GLACIAR: aurora que ondula y estrellas frías
+    ctx.fillStyle = '#dff8ff';
+    for (const s of skyStars) {
+      ctx.globalAlpha = 0.3 + 0.5 * Math.abs(Math.sin(t * 1.5 + s.x * 20));
+      ctx.fillRect(s.x * W, s.y * horizon * 0.8, s.s, s.s);
+    }
+    ctx.globalAlpha = 1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let k = 0; k < 3; k++) {
+      ctx.strokeStyle = k === 1 ? 'rgba(191,90,242,.18)' : 'rgba(80,255,190,.2)';
+      ctx.lineWidth = horizon * (0.08 - k * 0.015);
+      ctx.beginPath();
+      for (let i = 0; i <= 24; i++) {
+        const x = (i / 24) * W;
+        const y = horizon * (0.28 + k * 0.1) + Math.sin(i * 0.5 + t * 0.6 + k) * horizon * 0.06;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+      }
+      ctx.stroke();
+    }
+    ctx.restore();
   } else if (b.id === 'lava') {
     const lg = ctx.createRadialGradient(W / 2, horizon, 0, W / 2, horizon, W * 0.7);
     lg.addColorStop(0, 'rgba(255,180,0,.55)');
@@ -676,6 +698,44 @@ function drawObj(o, rz, b, t) {
       }
       break;
     }
+    case 'icicle': {
+      // CARÁMBANO: su sombra marca el carril antes; cae y se clava ~0,3 s antes de llegar
+      const down = clamp(1 - (rz / runSpeed() - 0.3) / 0.7, 0, 1);
+      if (down < 1 && quad(o.x - 0.4, o.x + 0.4, rz + 0.6, rz - 0.2, 0.02)) {
+        ctx.fillStyle = `rgba(10,30,60,${0.25 + 0.4 * down})`;
+        ctx.fill();
+      }
+      const y0 = (1 - down) * 2.6;
+      const f = neonBox(o.x, y0, y0 + 1.7, rz, 0.62, o.depth, ACT.dodge, 0.35);
+      if (f) {
+        ctx.fillStyle = 'rgba(220,250,255,.55)';
+        ctx.beginPath();
+        ctx.moveTo(f.x + f.w * 0.5, f.y + f.h);
+        ctx.lineTo(f.x + f.w * 0.15, f.y);
+        ctx.lineTo(f.x + f.w * 0.85, f.y);
+        ctx.closePath();
+        ctx.fill();
+      }
+      break;
+    }
+    case 'iceRidge': {
+      // CRESTA DE HIELO: de lado a lado; amarillo = salta
+      const f = neonBox(0, 0, o.y1, rz, o.w, o.depth, ACT.jump, 0.45);
+      if (f) {
+        ctx.fillStyle = 'rgba(200,245,255,.5)';
+        for (let i = 0; i < 9; i++) {
+          const x = f.x + (i / 8) * f.w;
+          ctx.beginPath();
+          ctx.moveTo(x - f.w * 0.05, f.y + f.h);
+          ctx.lineTo(x, f.y - f.h * 0.35);
+          ctx.lineTo(x + f.w * 0.05, f.y + f.h);
+          ctx.fill();
+        }
+        const c = project(0, 0.95, rz);
+        if (c) chevrons(c.x, c.y, 0.3 * c.s, -1, ACT.jump, t, 3);
+      }
+      break;
+    }
     case 'dropper': {
       // barra que baja del techo justo antes de llegar: cian, deslízate
       const down = clamp(1 - (rz / runSpeed() - 0.3) / 0.6, 0, 1);
@@ -979,6 +1039,26 @@ function drawBoss(b, t) {
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('CENSURADO', 0, 0);
+      break;
+    }
+    case 'serpent': {
+      // LEVIATÁN DE HIELO: serpiente de cristal que ondula, con cresta de carámbanos
+      const seg = 7;
+      for (let i = seg - 1; i >= 0; i--) {
+        const k = i / (seg - 1);
+        const x = (k - 0.5) * S * 1.6, y = Math.sin(t * 3 + i * 0.9) * S * 0.16 + k * S * 0.1;
+        const R = S * (0.28 - k * 0.12);
+        ctx.fillStyle = body;
+        ctx.beginPath(); ctx.arc(x, y, R, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = hexA(col, 0.6);
+        ctx.beginPath();
+        ctx.moveTo(x - R * 0.4, y - R * 0.8); ctx.lineTo(x, y - R * 1.6); ctx.lineTo(x + R * 0.4, y - R * 0.8);
+        ctx.fill();
+      }
+      // cabeza (el primer segmento) con dos ojos
+      const hx = -S * 0.8, hy = Math.sin(t * 3) * S * 0.16;
+      eye(hx - S * 0.08, hy - S * 0.06, S * 0.07, S * 0.06);
+      eye(hx + S * 0.1, hy - S * 0.06, S * 0.07, S * 0.06);
       break;
     }
     case 'ufo': {

@@ -145,6 +145,7 @@ const BIOME_MUSIC = [
   { root: 73.4, bass: [0, 0, null, 3, null, 0, 5, null, 0, 0, null, 3, 6, 5, 3, null] },        // Lava
   { root: 49.0, bass: [0, null, 1, null, 0, null, 6, 7, 0, null, 1, null, 12, 11, 6, null] },   // Glitch
   { root: 82.4, bass: [0, 12, 0, 12, 7, 19, 7, 19, 5, 17, 5, 17, 3, 15, 2, 14] },             // Hiper
+  { root: 61.7, bass: [0, null, null, 7, null, 12, null, 7, 0, null, 3, null, 10, null, 7, null] }, // Glaciar
 ];
 const LEAD = [0, 7, 12, 15, 19, 15, 12, 7];
 
