@@ -43,15 +43,17 @@ export function routeToll(gal, path, jumpLvl = 0) {
 }
 
 // Coloca los nombres: debajo del nodo; si pisa a otro, encima; si tampoco cabe, se oculta (salvo
-// los importantes: donde estás y el elegido). nodes = [{ id, x, y, name, keep }], u = unidades por px
-export function placeLabels(nodes, u, font = 11) {
+// los importantes: donde estás y el elegido). nodes = [{ id, x, y, name, keep }], u = unidades por px.
+// measure(texto) = ancho real en px con la fuente del mapa (cada sistema operativo la dibuja distinta);
+// sin él, una estimación generosa.
+export function placeLabels(nodes, u, font = 11, measure = null) {
   const fs = font * u, out = [], boxes = [];
   const box = (x, y, w) => ({ x0: x - w / 2, x1: x + w / 2, y0: y - fs, y1: y + fs * 0.25 });
   const hits = (b) => boxes.some((o) => b.x0 < o.x1 && b.x1 > o.x0 && b.y0 < o.y1 && b.y1 > o.y0);
   // primero los importantes, para que nunca se oculten
   const order = [...nodes].sort((a, b) => (b.keep ? 1 : 0) - (a.keep ? 1 : 0));
   for (const n of order) {
-    const w = n.name.length * fs * 0.6 + fs * 0.4;
+    const w = (measure ? measure(n.name) : n.name.length * font * 0.72) * u + fs * 0.5;
     const below = { x: n.x, y: n.y + 26 * u };
     const above = { x: n.x, y: n.y - 18 * u };
     let pos = null;

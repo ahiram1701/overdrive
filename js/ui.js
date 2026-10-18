@@ -1862,7 +1862,10 @@ export const ui = {
       nodes.push({ id: a.id, x: a.x, y: a.y, name: `${visited ? a.name : '???'}${lock ? ' 🔒' : ''}`, keep: here || a.id === sel });
     }
     // NOMBRES: debajo; si pisan a otro, encima; si no caben, ocultos (salvo donde estás y el elegido)
-    for (const lb of placeLabels(nodes, u)) {
+    // ancho real de cada nombre con la fuente del mapa (cambia según el sistema: no se estima)
+    const mctx = (ui._gmMeasure ||= document.createElement('canvas').getContext('2d'));
+    mctx.font = '900 11px system-ui';
+    for (const lb of placeLabels(nodes, u, 11, (t) => mctx.measureText(t).width)) {
       if (lb.hidden) continue;
       const n = nodes.find((x) => x.id === lb.id);
       svg += `<text x="${lb.x}" y="${lb.y}" class="gm-label" font-size="${11 * u}" stroke-width="${3 * u}" data-label="${lb.id}">${n.name}</text>`;
