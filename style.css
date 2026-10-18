@@ -872,3 +872,12 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ach-prize { display: flex !important; align-items: center; gap: 6px; color: var(--yellow) !important; font-weight: 800; }
 .ach-sw { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); flex-shrink: 0; }
 .ach-item .ach-eq { padding: 6px 8px; font-size: 11px; white-space: nowrap; }
+
+/* ---------- Facciones y caza (E3) ---------- */
+#stFaction small { display: block; color: var(--muted); font-size: 12px; margin: 4px 0; }
+#stFaction .rep { display: flex; align-items: center; gap: var(--sp-2); margin: 6px 0; }
+#stFaction .rep .m-bar { flex: 1; }
+#stFaction .rep b { font-size: 13px; white-space: nowrap; }
+.gm-bounty { font-size: 22px; }
+.gm-legend { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 4px; }
+.gm-legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; border: 3px solid; margin-right: 3px; vertical-align: -2px; }

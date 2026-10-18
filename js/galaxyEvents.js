@@ -9,6 +9,7 @@ export const EVENTS = {
   convoy: { icon: '🚚', name: 'CONVOY MERCANTE', desc: 'acércate: compran tu carga a +40%' },
   wormhole: { icon: '🌀', name: 'AGUJERO DE GUSANO', desc: 'un atajo a un sistema al azar' },
   assault: { icon: '🏴‍☠️', name: 'BASE PIRATA', desc: 'destrúyela: sus torretas disparan' },
+  siege: { icon: '⚔️', name: 'ASEDIO', desc: 'los piratas quieren recuperar el sistema: defiéndelo' },
 };
 
 // ¿Qué pasa al llegar? Determinista por sistema y número de salto. ORIGEN siempre está tranquilo.

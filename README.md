@@ -107,6 +107,14 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - 🚚 **convoy mercante**: alcánzalo y te compra la carga a +40%;
   - 🌀 **agujero de gusano**: un atajo a un sistema al azar;
   - 🏴‍☠️ **asalto a una base pirata**.
+- **🏳️ Facciones y territorio:** cada sistema tiene dueño (el anillo de color en el mapa):
+  - **⛏️ Liga Minera**, **☀️ Coalición Solar** o **☠️ Piratas del Vacío** (lo más lejano);
+  - en los sistemas **piratas** su estación no te deja atracar y hay una **base pirata**. **Libéralos** destruyendo la base y 4 piratas: pasan a la facción con la que te llevas mejor y el mapa cambia de color ("liberados x/12");
+  - a veces los piratas contraatacan: **⚔️ ASEDIO**, defiende la estación;
+  - **reputación** con cada facción (sus misiones, cazar piratas, liberar). Como **Amigo** o **Aliado** te pagan más el mineral, el taller y la reparación salen más baratos, y su **tienda de facción** vende pinturas y motores exclusivos con créditos.
+- **🎯 SE BUSCA:** en cada estación hay carteles con **piratas con nombre** ("Vex el Rojo"), con nivel, un rasgo (escurridizo, blindado, enjambre o artillero) y recompensa.
+  - Acepta una caza y la brújula te lleva hasta él. **Se mueve** de sistema cada pocos saltos.
+  - Si te destruye, **sube de nivel** y su recompensa también.
 - **🪐 ORBITAR planetas:** al acercarte a uno aparece ORBITAR. Cada planeta tiene nombre, tipo e historia; el primer sobrevuelo paga y cada uno compra un mineral a ×1,5.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:

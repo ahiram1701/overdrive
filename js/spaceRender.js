@@ -361,11 +361,11 @@ export function renderSpace(dt) {
         ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw, 4);
         ctx.fillStyle = '#ff2d55';
         ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw * Math.max(0, pr.hp / pr.max), 4);
-        if (pr.boss) {
-          ctx.fillStyle = '#ffe600';
+        if (pr.boss || pr.name) {
+          ctx.fillStyle = pr.name ? '#ff9f0a' : '#ffe600';
           ctx.font = 'italic 900 11px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText('☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+          ctx.fillText(pr.name ? `🎯 ${pr.name}` : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
         }
       }
     } });
