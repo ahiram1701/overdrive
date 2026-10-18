@@ -201,6 +201,9 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - hasta 4 armas (Blásteres, Escopeta, Lanza, Pulso, Lanzallamas, Misiles, Orbes);
   - hasta 4 pasivas, cada una de 5 niveles;
   - un arma al máximo con su pasiva **evoluciona**: Tormenta, Supernova, Infierno…
+  - armas nuevas: 🔌 **Arco** (salta de enemigo en enemigo), 🎯 **Mortero** (cae donde hay más), y en el arsenal 🪚 **Sierras** (rebotan en los bordes y trituran) y 🛸 **Dron** (te siguen y disparan solos);
+  - pasivas nuevas: 🗡️ **Crítico** (daño doble a veces), ➕ **Cantidad** (más proyectiles), ⏳ **Duración** y 🍀 **Suerte** (a veces 4 ofertas y cofres dobles);
+  - y sus evoluciones: Red eléctrica, Bombardeo, Trituradora y Escuadrón;
 - **Cada nave empieza con su arma**, y su habilidad ⚡ funciona en la arena: tiempo bala, embestida, fase, onda, empuje, rayo, salto. Doble toque = DASH.
 - **4 mapas** (la tarjeta ARENA abre la elección; cada uno con récord y victorias):
   - ▦ **Rejilla**: abierta, la de siempre;

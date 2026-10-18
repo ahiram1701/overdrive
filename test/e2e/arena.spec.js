@@ -65,7 +65,7 @@ test('arena: el bot sobrevive 90 s, sube de nivel a menudo y elige mejoras', asy
   expect(res.mode).toBe('arena');
   expect(res.level).toBeGreaterThanOrEqual(6);
   expect(res.kills).toBeGreaterThan(100);
-  expect(res.ups).toBe(res.level - 1);
+  expect(res.ups).toBeGreaterThanOrEqual(res.level - 1); // los cofres (y la Suerte) dan mejoras extra
   expect(errors).toEqual([]);
 });
 
@@ -307,4 +307,51 @@ test('taller de la arena: se compra con 🪙 en la tienda y da cambios y vetos a
   expect(after.banned[banned]).toBe(true);
   expect(after.offers).not.toContain(banned);
   expect(errors).toEqual([]);
+});
+
+test('armas nuevas: Arco, Mortero, Sierras y Dron (y sus evoluciones) hacen daño', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startArena(page);
+  for (const id of ['arc', 'mortar', 'saw', 'drone']) {
+    for (const evo of [false, true]) {
+      const r = await page.evaluate(([w, ev]) => {
+        const a = window.G.arena;
+        window.G.god = true;
+        a.weapons = { [w]: 5 }; a.evolved = ev ? { [w]: true } : {}; a.cds = {}; a.bullets = []; a.shells = []; a.arcs = [];
+        a.enemies = []; a.time = 30; a.spawnAcc = -9999; a.nextElite = 9999;
+        for (let i = 0; i < 12; i++) {
+          const ang = (i / 12) * Math.PI * 2;
+          a.enemies.push({ id: 'tank', def: { color: '#fff', shape: 'hex' }, x: a.x + Math.cos(ang) * 150, y: a.y + Math.sin(ang) * 150, hp: 5000, max: 5000, r: 20, speed: 0, dmg: 0, xp: 1, alive: true, flash: 0, state: 'go', st: 0, cd: 9, phase: 0, vx: 0, vy: 0, orbT: 0 });
+        }
+        for (let i = 0; i < 180; i++) window.D.step(1 / 60, false);
+        const lost = a.enemies.reduce((t, e) => t + (5000 - e.hp), 0);
+        return { lost, drones: a.drones?.length || 0 };
+      }, [id, evo]);
+      expect(r.lost, `${id}${evo ? ' evolucionada' : ''}`).toBeGreaterThan(0);
+      if (id === 'drone') expect(r.drones).toBe(evo ? 4 : 2);
+    }
+  }
+  expect(errors).toEqual([]);
+});
+
+test('arena: rendimiento con 300 enemigos y las armas nuevas', async ({ page }) => {
+  await startArena(page);
+  const ms = await page.evaluate(() => {
+    const a = window.G.arena;
+    window.G.god = true;
+    a.weapons = { arc: 5, mortar: 5, saw: 5, drone: 5 };
+    a.evolved = { arc: true, saw: true };
+    a.passives = { amount: 5, duration: 5 };
+    a.enemies = [];
+    for (let i = 0; i < 300; i++) {
+      const ang = Math.random() * Math.PI * 2, d = 120 + Math.random() * 400;
+      a.enemies.push({ id: 'chaser', def: { color: '#f0f', shape: 'tri' }, x: a.x + Math.cos(ang) * d, y: a.y + Math.sin(ang) * d, hp: 1e6, max: 1e6, r: 13, speed: 60, dmg: 0, xp: 1, alive: true, flash: 0, state: 'go', st: 0, cd: 9, phase: 0, vx: 0, vy: 0, orbT: 0 });
+    }
+    a.spawnAcc = -1e9;
+    const t0 = performance.now();
+    for (let i = 0; i < 120; i++) window.D.step(1 / 120, false);
+    return (performance.now() - t0) / 120;
+  });
+  console.log(`ARENA armas nuevas, paso medio con 300 enemigos: ${ms.toFixed(2)} ms`);
+  expect(ms).toBeLessThan(8);
 });

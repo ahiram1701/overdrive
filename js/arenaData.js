@@ -23,6 +23,10 @@ export const WEAPONS = {
   storm: { name: 'Relámpago', icon: '🌩️', locked: true, cost: 300, desc: 'Rayos del cielo sobre enemigos al azar.', cd: 1.0, dmg: 18, lvl: (n) => ({ strikes: 1 + Math.floor(n / 2), dmg: 18 + n * 5 }) },
   mines: { name: 'Minas', icon: '💣', locked: true, cost: 250, desc: 'Sueltas minas que estallan al tocarlas.', cd: 1.5, dmg: 30, lvl: (n) => ({ dmg: 30 + n * 8, n: 1 + Math.floor(n / 3) }) },
   boomer: { name: 'Bumerán', icon: '🪃', locked: true, cost: 300, desc: 'Va, atraviesa todo y vuelve.', cd: 1.3, dmg: 14, lvl: (n) => ({ dmg: 14 + n * 4, n: 1 + Math.floor(n / 3) }) },
+  arc: { name: 'Arco', icon: '🔌', desc: 'Un rayo que salta de enemigo en enemigo.', cd: 1.1, dmg: 14, lvl: (n) => ({ chains: 2 + n, dmg: 14 + n * 4 }) },
+  mortar: { name: 'Mortero', icon: '🎯', desc: 'Proyectiles que caen donde hay más enemigos.', cd: 1.8, dmg: 34, lvl: (n) => ({ shells: 1 + Math.floor(n / 2), dmg: 34 + n * 9, radius: 70 + n * 6 }) },
+  saw: { name: 'Sierras', icon: '🪚', locked: true, cost: 300, desc: 'Sierras que rebotan en los bordes y trituran.', cd: 2.2, dmg: 10, lvl: (n) => ({ n: 1 + Math.floor(n / 2), dmg: 10 + n * 3 }) },
+  drone: { name: 'Dron', icon: '🛸', locked: true, cost: 300, desc: 'Drones que te siguen y disparan solos.', cd: 0.7, dmg: 8, lvl: (n) => ({ count: 1 + Math.floor(n / 3), dmg: 8 + n * 3, cd: 0.7 - n * 0.06 }) },
 };
 
 // Arma inicial de cada nave
@@ -55,6 +59,10 @@ export const PASSIVES = {
   area: { name: 'Amplitud', icon: '🌀', desc: '+12% de tamaño de las armas.' },
   armor: { name: 'Coraza', icon: '🛡️', desc: 'Recibes 1 de daño menos por golpe.' },
   regen: { name: 'Regeneración', icon: '✚', desc: 'Recuperas 0,5 de vida por segundo.' },
+  crit: { name: 'Crítico', icon: '🗡️', desc: '+8% de probabilidad de hacer daño doble.' },
+  amount: { name: 'Cantidad', icon: '➕', desc: 'Más proyectiles por disparo (1 cada 2 niveles).' },
+  duration: { name: 'Duración', icon: '⏳', desc: 'Minas, sierras, bumeranes y misiles duran un 15% más.' },
+  luck: { name: 'Suerte', icon: '🍀', desc: 'A veces hay una 4.ª oferta y los cofres dan dos mejoras.' },
 };
 
 // Bonus de las pasivas según su nivel
@@ -69,6 +77,10 @@ export function passiveStats(passives) {
     area: 1 + 0.12 * n('area'),
     armor: n('armor'),
     regen: 0.5 * n('regen'),
+    crit: 0.08 * n('crit'),
+    amount: Math.floor((n('amount') + 1) / 2),
+    duration: 1 + 0.15 * n('duration'),
+    luck: n('luck'),
   };
 }
 
@@ -85,6 +97,10 @@ export const EVOLUTIONS = {
   storm: { needs: 'area', name: 'Tempestad', icon: '⛈️', desc: 'El doble de rayos y con onda.' },
   mines: { needs: 'armor', name: 'Campo minado', icon: '🧨', desc: 'Tres minas enormes cada vez.' },
   boomer: { needs: 'speed', name: 'Huracán', icon: '🌀', desc: 'Tres bumeranes en abanico.' },
+  arc: { needs: 'duration', name: 'Red eléctrica', icon: '🕸️', desc: 'El doble de saltos, más rápido, y aturde.' },
+  mortar: { needs: 'amount', name: 'Bombardeo', icon: '🌋', desc: 'Lluvia de proyectiles con explosiones enormes.' },
+  saw: { needs: 'crit', name: 'Trituradora', icon: '⚙️', desc: 'Sierras gigantes que duran el doble.' },
+  drone: { needs: 'luck', name: 'Escuadrón', icon: '🛰️', desc: 'Cuatro drones que disparan ráfagas.' },
 };
 
 export const canEvolve = (st, id) => (st.weapons[id] || 0) >= MAX_LVL && !st.evolved[id] && (st.passives[EVOLUTIONS[id].needs] || 0) >= 1;
@@ -92,7 +108,7 @@ export const canEvolve = (st, id) => (st.weapons[id] || 0) >= MAX_LVL && !st.evo
 // ---------- Ofertas al subir de nivel ----------
 // st = { weapons: {id: lvl}, passives: {id: lvl}, evolved: {id: true} }. Devuelve hasta 3 opciones
 // { kind: 'weapon'|'passive'|'evolve'|'heal', id, lvl }. La evolución, si se puede, siempre sale.
-export function offerUpgrades(st, rng, n = 3) {
+export function offerUpgrades(st, rng, n = 3 + (rng.chance(0.12 * (st.passives?.luck || 0)) ? 1 : 0)) {
   const pool = [];
   for (const id of Object.keys(WEAPONS)) {
     const l = st.weapons[id] || 0;

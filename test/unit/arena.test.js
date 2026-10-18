@@ -129,3 +129,25 @@ test('taller de la arena: 5 niveles con 🪙, coste creciente; cambiar y vetar',
     for (const o of offerUpgrades(st, makeRng(i))) assert.ok(!(o.id === 'speed' && o.kind === 'passive') && !(o.id === 'blaster' && o.kind === 'weapon'));
   }
 });
+
+test('arsenal nuevo: Arco, Mortero, Sierras y Dron con su evolución; pasivas nuevas', () => {
+  for (const id of ['arc', 'mortar', 'saw', 'drone']) {
+    assert.ok(WEAPONS[id] && EVOLUTIONS[id], id);
+    assert.ok(PASSIVES[EVOLUTIONS[id].needs], `${id} evoluciona con una pasiva que existe`);
+    const l1 = WEAPONS[id].lvl(1), l5 = WEAPONS[id].lvl(5);
+    assert.ok(l5.dmg > l1.dmg, `${id} sube de daño`);
+  }
+  assert.ok(WEAPONS.saw.locked && WEAPONS.drone.locked, 'Sierras y Dron, del arsenal');
+  assert.ok(!WEAPONS.arc.locked && !WEAPONS.mortar.locked);
+  const p0 = passiveStats({}), p5 = passiveStats({ crit: 5, amount: 5, duration: 5, luck: 5 });
+  assert.equal(p0.crit, 0);
+  assert.equal(p0.amount, 0);
+  assert.ok(Math.abs(p5.crit - 0.4) < 1e-9);
+  assert.equal(p5.amount, 3);
+  assert.equal(p5.duration, 1.75);
+  // la suerte trae a veces una 4.ª oferta
+  let four = 0;
+  for (let i = 0; i < 200; i++) if (offerUpgrades({ weapons: { blaster: 1 }, passives: { luck: 5 }, evolved: {} }, makeRng(i)).length === 4) four++;
+  assert.ok(four > 50 && four < 200, `con suerte 5, unas 60% de veces 4 ofertas (${four})`);
+  for (let i = 0; i < 50; i++) assert.equal(offerUpgrades({ weapons: { blaster: 1 }, passives: {}, evolved: {} }, makeRng(i)).length, 3, 'sin suerte, 3');
+});
