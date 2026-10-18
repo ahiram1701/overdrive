@@ -327,8 +327,19 @@
 
   <section id="arenaUp" class="overlay hidden">
     <h2 id="auTitle">¡NIVEL 2!</h2>
-    <p class="hint">Elige una mejora</p>
+    <p class="hint" id="auHint">Elige una mejora</p>
     <div id="auOptions" class="au-options"></div>
+    <div class="au-tools">
+      <button class="btn ghost" id="btnAuReroll">🎲 CAMBIAR <b id="auRerolls">0</b></button>
+      <button class="btn ghost" id="btnAuBanish">🚫 VETAR <b id="auBanishes">0</b></button>
+    </div>
+  </section>
+
+  <section id="arenaChoice" class="overlay hidden">
+    <h2 class="won">¡ARENA SUPERADA!</h2>
+    <p class="hint">Has vencido al jefe final. ¿Sigues? En el modo <b>SIN FIN</b> llega otro jefe cada 3:00, cada vez más fuerte, y todo lo que aguantes cuenta.</p>
+    <button class="btn big" id="btnEndless">♾️ SEGUIR · SIN FIN</button>
+    <button class="btn ghost" id="btnArenaStop">TERMINAR Y COBRAR</button>
   </section>
 
   <section id="arenaEnd" class="overlay hidden">

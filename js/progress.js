@@ -155,6 +155,8 @@ export const ACHIEVEMENTS = [
   { id: 'act2', kind: 'act2', mode: 'sum', n: 1, tier: 'gold', name: 'La Reina caída', desc: 'Termina el Acto II: derrota a la Reina del Enjambre' },
   { id: 'act3', kind: 'act3', mode: 'sum', n: 1, tier: 'gold', name: 'Origen', desc: 'Termina el Acto III: derrota al Devorador Primordial' },
   { id: 'chron10', kind: 'chronicle', mode: 'sum', n: 10, tier: 'gold', name: 'Cronista', desc: 'Completa 10 capítulos de la Crónica' },
+  { id: 'arenaEndless', kind: 'arenaTime', mode: 'best', n: 900, tier: 'gold', name: 'Sin fin', desc: 'Aguanta 15:00 en la ARENA (modo sin fin)' },
+  { id: 'arenaMaps', kind: 'arenaMapsWon', mode: 'best', n: 4, tier: 'gold', name: 'Conquistador', desc: 'Gana la ARENA en los 4 mapas' },
 ];
 export const ACH_GEMS = T;
 

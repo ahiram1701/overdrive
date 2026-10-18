@@ -236,3 +236,75 @@ test('jefes: cada uno con sus ataques y su fase 2; la Colmena es inmune con sus 
   }
   expect(errors).toEqual([]);
 });
+
+test('ganar ofrece SEGUIR: el sin fin trae un jefe más fuerte cada 3:00 y al caer cuenta como victoria', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startArena(page);
+  // vence al jefe final
+  await page.evaluate(() => {
+    const a = window.G.arena;
+    window.G.god = true;
+    a.enemies = []; a.time = 600; a.bossIdx = 1;
+    window.D.step(1 / 30, false);
+    const b = a.enemies.find((e) => e.boss);
+    a.bullets.push({ x: b.x, y: b.y, vx: 0, vy: 0, r: 40, dmg: 1e9, life: 0.5, pierce: 1 });
+    window.D.step(1 / 60, false);
+  });
+  await expect(page.locator('#arenaChoice')).toBeVisible();
+  await page.locator('#btnEndless').click();
+  const r = await page.evaluate(() => {
+    const a = window.G.arena;
+    a.enemies = [];
+    a.time = 600 + 180;
+    window.D.step(1 / 30, false);
+    const b = a.enemies.find((e) => e.boss);
+    return { mode: window.G.mode, endless: a.endless, boss: !!b, hp: b?.max };
+  });
+  expect(r).toMatchObject({ mode: 'arena', endless: true, boss: true });
+  expect(r.hp).toBeGreaterThan(2400);
+  await expect(page.locator('#ahGoal')).toContainText('♾️');
+  // caer en el sin fin: victoria, con 🪙 en la pantalla final
+  await page.evaluate(() => { const a = window.G.arena; window.G.god = false; a.iframes = 0; a.hp = 1; a.phoenix = 0; a.ebullets.push({ x: a.x, y: a.y, vx: 0, vy: 0, r: 20, dmg: 50, life: 1 }); for (let i = 0; i < 120; i++) window.D.step(1 / 30, false); });
+  await expect(page.locator('#arenaEnd')).toBeVisible();
+  await expect(page.locator('#aeTitle')).toContainText('SIN FIN');
+  await expect(page.locator('#aeGems')).toContainText('🪙');
+  expect(await page.evaluate(() => window.__save.arena.wins)).toBe(1);
+  expect(errors).toEqual([]);
+});
+
+test('taller de la arena: se compra con 🪙 en la tienda y da cambios y vetos al subir de nivel', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => { if (sessionStorage.getItem('s')) return; sessionStorage.setItem('s', 1); localStorage.setItem(k, JSON.stringify({ v: 6, runs: 5, coins: 5000 })); }, SAVE);
+  await page.goto('/?debug&nosw&seed=11');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { document.querySelector('[data-nav="store"]')?.click(); });
+  await page.locator('#stTabs [data-tab="talents"]').click();
+  await page.locator('[data-arena-up="reroll"]').dispatchEvent('click');
+  await page.locator('[data-arena-up="banish"]').dispatchEvent('click');
+  await page.locator('[data-arena-up="hp"]').dispatchEvent('click');
+  const sv = await page.evaluate(() => ({ up: window.__save.arenaUp, coins: window.__save.coins }));
+  expect(sv.up).toEqual({ reroll: 1, banish: 1, hp: 1 });
+  expect(sv.coins).toBe(5000 - 800 - 900 - 400);
+  await page.evaluate(() => { window.G.manual = true; });
+  await page.locator('[data-nav="menu"]').click();
+  await page.locator('#btnArena').click();
+  await page.locator('#arenaMaps [data-map="grid"]').click();
+  await page.waitForFunction(() => window.G.mode === 'arena');
+  expect(await page.evaluate(() => window.G.arena.maxHpBase)).toBeGreaterThanOrEqual(110);
+  await page.evaluate(() => { const a = window.G.arena; a.xp = 999; window.D.step(1 / 30, false); });
+  await expect(page.locator('#arenaUp')).toBeVisible();
+  const before = await page.evaluate(() => window.G.arena.offers.map((o) => `${o.kind}:${o.id}`).join());
+  await page.locator('#btnAuReroll').click();
+  expect(await page.evaluate(() => window.G.arena.rerolls)).toBe(0);
+  await expect(page.locator('#btnAuReroll')).toBeHidden();
+  void before;
+  // vetar: la elegida no vuelve a salir
+  await page.locator('#btnAuBanish').click();
+  const idx = await page.evaluate(() => window.G.arena.offers.findIndex((o) => o.kind === 'weapon' || o.kind === 'passive'));
+  const banned = await page.evaluate((i) => { const o = window.G.arena.offers[i]; return `${o.kind}:${o.id}`; }, idx);
+  await page.locator(`#auOptions .au-opt[data-i="${idx}"]`).click();
+  const after = await page.evaluate(() => ({ banned: window.G.arena.banned, offers: window.G.arena.offers.map((o) => `${o.kind}:${o.id}`), hp: window.G.arena.maxHpBase }));
+  expect(after.banned[banned]).toBe(true);
+  expect(after.offers).not.toContain(banned);
+  expect(errors).toEqual([]);
+});
