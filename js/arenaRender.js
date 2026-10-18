@@ -249,7 +249,7 @@ export function renderArena(dt) {
     ctx.drawImage(sp.cv, -d / 2, -d / 2, d, d);
     ctx.restore();
     if (e.flash > 0) {
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      ctx.fillStyle = e.crit > 0 ? 'rgba(255,230,0,0.85)' : 'rgba(255,255,255,0.7)';
       ctx.beginPath();
       ctx.arc(x, y, R * 0.8, 0, Math.PI * 2);
       ctx.fill();
@@ -298,8 +298,23 @@ export function renderArena(dt) {
   const shotCol = equipped(save, save.ship).shot.color || DEFAULT_SHOT;
   for (const b of a.bullets) {
     if (!onScreen(b.x, b.y, 12)) continue;
-    const col = b.kind === 'missile' || b.kind === 'mine' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : b.kind === 'boomer' ? '#7dffb0' : shotCol;
+    const col = b.kind === 'missile' || b.kind === 'mine' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : b.kind === 'boomer' ? '#7dffb0' : b.kind === 'saw' ? '#c8d6e5' : b.kind === 'drone' ? '#64d2ff' : shotCol;
     ctx.fillStyle = col;
+    if (b.kind === 'saw') {
+      // sierra: rueda dentada que gira
+      ctx.save();
+      ctx.translate(sx(b.x), sy(b.y));
+      ctx.rotate(b.spin);
+      ctx.beginPath();
+      for (let i = 0; i < 16; i++) {
+        const ang = (i / 16) * Math.PI * 2, k = i % 2 ? 0.7 : 1;
+        ctx.lineTo(Math.cos(ang) * b.r * z * k, Math.sin(ang) * b.r * z * k);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      continue;
+    }
     ctx.beginPath();
     ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2);
     ctx.fill();
@@ -331,6 +346,43 @@ export function renderArena(dt) {
       ctx.moveTo(sx(a.x), sy(a.y));
       ctx.arc(sx(a.x), sy(a.y), a.flames.range * z, d - 0.45, d + 0.45);
       ctx.closePath();
+      ctx.fill();
+    }
+  }
+  // ARCO: rayos quebrados entre enemigos
+  if (a.arcs.length) {
+    ctx.strokeStyle = 'rgba(180,240,255,.95)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for (const r of a.arcs) {
+      const x1 = sx(r.x1), y1 = sy(r.y1), x2 = sx(r.x2), y2 = sy(r.y2);
+      ctx.moveTo(x1, y1);
+      for (let k = 1; k < 4; k++) ctx.lineTo(x1 + (x2 - x1) * (k / 4) + (Math.random() - 0.5) * 14, y1 + (y2 - y1) * (k / 4) + (Math.random() - 0.5) * 14);
+      ctx.lineTo(x2, y2);
+    }
+    ctx.stroke();
+  }
+  // MORTERO: el proyectil en el aire y la diana donde caerá
+  for (const sh of a.shells) {
+    const k = sh.t / sh.max, x = sx(sh.x0 + (sh.x - sh.x0) * k), y = sy(sh.y0 + (sh.y - sh.y0) * k) - Math.sin(k * Math.PI) * 90 * z;
+    ctx.strokeStyle = 'rgba(255,159,10,.5)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(sx(sh.x), sy(sh.y), sh.r * z * (1 - k * 0.3), 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.fillStyle = '#ff9f0a';
+    ctx.beginPath();
+    ctx.arc(x, y, 7 * z, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  // DRONES
+  if (a.drones) {
+    ctx.fillStyle = '#64d2ff';
+    for (const d of a.drones) {
+      ctx.beginPath();
+      ctx.moveTo(sx(d.x), sy(d.y) - 8 * z);
+      ctx.lineTo(sx(d.x) + 7 * z, sy(d.y) + 6 * z);
+      ctx.lineTo(sx(d.x) - 7 * z, sy(d.y) + 6 * z);
       ctx.fill();
     }
   }

@@ -114,7 +114,7 @@ test('arsenal de la arena: las armas nuevas solo se ofrecen desbloqueadas', asyn
   const { WEAPONS, offerUpgrades } = await import('../../js/arenaData.js');
   const { makeRng } = await import('../../js/rng.js');
   const locked = Object.keys(WEAPONS).filter((id) => WEAPONS[id].locked);
-  assert.equal(locked.length, 4);
+  assert.equal(locked.length, 6);
   const st = (unlocked) => ({ weapons: { blaster: 1 }, passives: {}, evolved: {}, unlocked });
   const seen = (unlocked) => {
     const ids = new Set();

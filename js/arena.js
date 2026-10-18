@@ -40,7 +40,7 @@ export function newArena(opts = {}) {
     x: 0, y: 0, face: -Math.PI / 2, input: { x: 0, y: 0 },
     hp: base.hp, maxHpBase: base.hp, speedMul: base.speed, iframes: 0, dashT: 0, dashCd: 0, dashDir: { x: 0, y: -1 },
     weapons: { [SHIP_WEAPON[ship.id]]: 1 }, passives: {}, evolved: {}, cds: {},
-    enemies: [], bullets: [], ebullets: [], gems: [], chests: [], beams: [], rings: [],
+    enemies: [], bullets: [], ebullets: [], gems: [], chests: [], beams: [], rings: [], shells: [], arcs: [], drones: null,
     xp: 0, level: 1, kills: 0, bosses: 0, pendingUps: 0, offers: null,
     spawnAcc: 0, nextElite: ELITE_EVERY, bossIdx: 0, orbAngle: 0, flameT: 0,
     ability: newAbility(ship.ability, abilityMods(ship, lvls)), slowT: 0, phaseT: 0, ramT: 0,
@@ -179,7 +179,10 @@ export const zoomOf = () => Math.max(0.75, Math.min(1.3, Math.min(G.W || 375, G.
 export function hurtEnemy(a, e, dmg) {
   if (!e.alive) return;
   if (e.shield) { e.flash = 0.03; return; } // LA COLMENA: con sus crías alrededor no le entra nada
-  e.hp -= dmg * stats(a).might * (a.dmgMul || 1);
+  const st = stats(a);
+  const crit = st.crit > 0 && a.rng.next() < st.crit;
+  e.hp -= dmg * st.might * (a.dmgMul || 1) * (crit ? 2 : 1);
+  if (crit) e.crit = 0.15;
   e.flash = 0.08;
   if (e.boss && !e.p2 && e.hp > 0 && e.hp < e.max / 2) {
     e.p2 = true;
@@ -353,7 +356,7 @@ function fireWeapons(a, dt) {
     const ang = target ? Math.atan2(target.y - a.y, target.x - a.x) : a.face;
     switch (id) {
       case 'blaster': {
-        const shots = L.shots + (evo ? 2 : 0);
+        const shots = L.shots + (evo ? 2 : 0) + st.amount;
         for (let i = 0; i < shots; i++) {
           const sa = ang + (i - (shots - 1) / 2) * 0.12;
           a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 640, vy: Math.sin(sa) * 640, r: 5 * st.area, dmg: L.dmg, pierce: evo ? 99 : 1, life: 1.1, kind: 'blaster', hit: null });
@@ -421,29 +424,83 @@ function fireWeapons(a, dt) {
         break;
       }
       case 'mines': {
-        const n = evo ? 3 : L.n;
+        const n = (evo ? 3 : L.n) + st.amount;
         for (let i = 0; i < n; i++) {
           const ox = i ? a.rng.range(-50, 50) : 0, oy = i ? a.rng.range(-50, 50) : 0;
-          a.bullets.push({ x: a.x + ox, y: a.y + oy, vx: 0, vy: 0, r: (evo ? 16 : 10) * st.area, dmg: L.dmg * (evo ? 1.5 : 1), pierce: 1, life: 6, kind: 'mine', hit: null });
+          a.bullets.push({ x: a.x + ox, y: a.y + oy, vx: 0, vy: 0, r: (evo ? 16 : 10) * st.area, dmg: L.dmg * (evo ? 1.5 : 1), pierce: 1, life: 6 * st.duration, kind: 'mine', hit: null });
         }
         break;
       }
       case 'boomer': {
-        const n = evo ? 3 : L.n;
+        const n = (evo ? 3 : L.n) + st.amount;
         for (let i = 0; i < n; i++) {
           const sa = ang + (i - (n - 1) / 2) * 0.35;
-          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 520, vy: Math.sin(sa) * 520, r: 9 * st.area, dmg: L.dmg, pierce: 99, life: 1.6, t: 0, kind: 'boomer', hit: null });
+          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 520, vy: Math.sin(sa) * 520, r: 9 * st.area, dmg: L.dmg, pierce: 99, life: 1.6 * st.duration, t: 0, kind: 'boomer', hit: null });
         }
         sfx.swish?.();
         break;
       }
+      case 'arc': {
+        // ARCO: salta de enemigo en enemigo (la Red eléctrica, el doble y aturdiendo)
+        if (!target || Math.hypot(target.x - a.x, target.y - a.y) > 380) { a.cds[id] = 0.2; continue; }
+        const hops = (L.chains + st.amount) * (evo ? 2 : 1), hit = new Set();
+        let from = { x: a.x, y: a.y }, cur = target;
+        for (let i = 0; i < hops && cur; i++) {
+          hurtEnemy(a, cur, L.dmg);
+          if (evo) cur.stun = 0.4 * st.duration;
+          hit.add(cur);
+          a.arcs.push({ x1: from.x, y1: from.y, x2: cur.x, y2: cur.y, t: 0.18 });
+          from = cur;
+          cur = nearest(a, cur.x, cur.y, 170 * st.area, hit);
+        }
+        if (evo) cd *= 0.7;
+        sfx.near(true, 2);
+        break;
+      }
+      case 'mortar': {
+        // MORTERO: cae donde más enemigos hay juntos
+        if (!target) { a.cds[id] = 0.3; continue; }
+        const n = L.shells + st.amount + (evo ? 3 : 0);
+        for (let i = 0; i < n; i++) {
+          const t = densest(a) || target;
+          const tx = t.x + (i ? a.rng.range(-70, 70) : 0), ty = t.y + (i ? a.rng.range(-70, 70) : 0);
+          a.shells.push({ x0: a.x, y0: a.y, x: tx, y: ty, t: 0, max: 0.7, dmg: L.dmg, r: L.radius * st.area * (evo ? 1.3 : 1) });
+        }
+        sfx.dash();
+        break;
+      }
+      case 'saw': {
+        // SIERRAS: rebotan en los bordes de la pantalla y trituran (golpean cada 0,25 s)
+        const n = L.n + st.amount + (evo ? 2 : 0);
+        for (let i = 0; i < n; i++) {
+          const sa = ang + (i / n) * Math.PI * 2;
+          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 380, vy: Math.sin(sa) * 380, r: (evo ? 22 : 12) * st.area, dmg: L.dmg, pierce: 999, life: 3.5 * st.duration * (evo ? 2 : 1), kind: 'saw', hit: null, hitT: 0, spin: 0 });
+        }
+        sfx.swish?.();
+        break;
+      }
+      case 'drone': {
+        // DRONES: cada uno dispara al enemigo más cercano a él
+        cd = Math.max(0.25, L.cd) * st.haste * (evo ? 0.7 : 1);
+        for (const d of a.drones || []) {
+          const t = nearest(a, d.x, d.y, 420);
+          if (!t) continue;
+          const da = Math.atan2(t.y - d.y, t.x - d.x);
+          const shots = evo ? 3 : 1;
+          for (let k = 0; k < shots; k++) {
+            const sa = da + (k - (shots - 1) / 2) * 0.1;
+            a.bullets.push({ x: d.x, y: d.y, vx: Math.cos(sa) * 600, vy: Math.sin(sa) * 600, r: 4 * st.area, dmg: L.dmg, pierce: 1, life: 0.9, kind: 'drone', hit: null });
+          }
+        }
+        break;
+      }
       case 'missile': {
         const used = new Set();
-        for (let i = 0; i < L.shots; i++) {
+        for (let i = 0; i < L.shots + st.amount; i++) {
           const t = nearest(a, a.x, a.y, 700, used) || target;
           if (t) used.add(t);
           const sa = ang + (i - (L.shots - 1) / 2) * 0.5;
-          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 260, vy: Math.sin(sa) * 260, r: 7, dmg: L.dmg, pierce: 1, life: 2.5, kind: 'missile', target: t, hit: null });
+          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 260, vy: Math.sin(sa) * 260, r: 7, dmg: L.dmg, pierce: 1, life: 2.5 * st.duration, kind: 'missile', target: t, hit: null });
         }
         if (evo) cd *= 0.4;
         sfx.dash();
@@ -452,6 +509,40 @@ function fireWeapons(a, dt) {
     }
     a.cds[id] = cd;
   }
+}
+
+// el enemigo con más vecinos (de una muestra): donde más daño hace el mortero
+function densest(a) {
+  let best = null, bn = -1;
+  const sample = a.enemies.length > 14 ? 14 : a.enemies.length;
+  for (let i = 0; i < sample; i++) {
+    const e = a.enemies[Math.floor(a.rng.next() * a.enemies.length)];
+    if (!e?.alive || Math.hypot(e.x - a.x, e.y - a.y) > 520) continue;
+    const n = near(e.x, e.y, 90).length;
+    if (n > bn) { bn = n; best = e; }
+  }
+  return best;
+}
+function updateDrones(a, dt) {
+  const lv = a.weapons.drone;
+  if (!lv) { a.drones = null; return; }
+  const count = a.evolved.drone ? 4 : WEAPONS.drone.lvl(lv).count;
+  a.droneAng = (a.droneAng || 0) + dt * 1.4;
+  a.drones = Array.from({ length: count }, (_, i) => {
+    const ang = a.droneAng + (i / count) * Math.PI * 2;
+    return { x: a.x + Math.cos(ang) * 46, y: a.y + Math.sin(ang) * 46 };
+  });
+}
+function updateShells(a, dt) {
+  for (const sh of a.shells) {
+    sh.t += dt;
+    if (sh.t < sh.max) continue;
+    for (const e of near(sh.x, sh.y, sh.r)) hurtEnemy(a, e, sh.dmg);
+    a.rings.push({ x: sh.x, y: sh.y, r: sh.r, t: 0.3, max: 0.3, color: '#ff9f0a' });
+  }
+  a.shells = a.shells.filter((sh) => sh.t < sh.max);
+  for (const r of a.arcs) r.t -= dt;
+  a.arcs = a.arcs.filter((r) => r.t > 0);
 }
 
 function updateOrbs(a, dt) {
@@ -491,6 +582,14 @@ function updateBullets(a, dt) {
         b.vy = Math.sin(na) * sp;
       }
     }
+    if (b.kind === 'saw') {
+      b.spin += dt * 14;
+      b.hitT -= dt;
+      if (b.hitT <= 0) { b.hitT = 0.25; b.hit = null; }
+      const hw = (G.W || 375) / 2 / zoomOf() - b.r, hh = (G.H || 812) / 2 / zoomOf() - b.r;
+      if (Math.abs(b.x + b.vx * dt - a.x) > hw) b.vx = -b.vx;
+      if (Math.abs(b.y + b.vy * dt - a.y) > hh) b.vy = -b.vy;
+    }
     if (b.kind === 'boomer') {
       // a mitad de vuelo da la vuelta hacia ti (y puede volver a dar a los mismos)
       b.t += dt;
@@ -504,7 +603,7 @@ function updateBullets(a, dt) {
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
-    if (inRock(a, b.x, b.y)) { b.life = 0; continue; } // las rocas paran tus balas
+    if (inRock(a, b.x, b.y)) { if (b.kind === 'saw') { b.vx = -b.vx; b.vy = -b.vy; } else { b.life = 0; continue; } } // las rocas paran tus balas (las sierras rebotan)
     for (const e of near(b.x, b.y, b.r)) {
       if (b.hit && b.hit.has(e)) continue;
       if (b.kind === 'mine') {
@@ -535,6 +634,7 @@ function updateEnemies(a, dt) {
   for (const e of a.enemies) {
     if (!e.alive) continue;
     e.flash = Math.max(0, e.flash - dt);
+    if (e.crit) e.crit = Math.max(0, e.crit - dt);
     e.orbT = Math.max(0, e.orbT - dt);
     if (e.stun > 0) { e.stun -= dt; continue; }
     const dx = a.x - e.x, dy = a.y - e.y;
@@ -632,7 +732,7 @@ function updatePickups(a, dt) {
   for (const c of a.chests) {
     if (c.alive && Math.hypot(c.x - a.x, c.y - a.y) < PLAYER_R + 18) {
       c.alive = false;
-      a.pendingUps++;
+      a.pendingUps += 1 + (a.rng.chance(0.1 * st.luck) ? 1 : 0); // SUERTE: a veces, dos mejoras
       a.hp = Math.min(maxHp(a), a.hp + 25);
       fx.banner('🎁 COFRE', 'mejora gratis', '#ffe600', true);
       sfx.chest();
@@ -737,8 +837,10 @@ export function updateArena(dt) {
   if (a.time >= nextBossTime(a.bossIdx, a.endless)) spawnBoss(a);
 
   buildGrid(a);
+  updateDrones(a, dt);
   fireWeapons(a, dt);
   updateOrbs(a, dt);
+  updateShells(a, dt);
   updateBullets(a, dt);
   updateEnemies(a, dt);
   for (const r of a.rings) r.t -= dt;
