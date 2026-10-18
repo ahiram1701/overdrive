@@ -3,6 +3,35 @@
 // gemas 💎 = lo permanente.
 import { makeRng, hashString } from './rng.js';
 import { GROUPS, isUnlocked, grantCosmetic } from './cosmetics.js';
+import { CARDS, CARD_BY_ID, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
+import { WEAPONS } from './arenaData.js';
+
+// ---------- Mazo: cartas nuevas y su maestría ----------
+export const cardLvl = (save, id) => save.cardLvl?.[id] || 0;
+export const cardOwned = (save, c) => !c.locked || !!save.cardsOwned?.[c.id];
+export function buyCard(save, id) {
+  const c = CARD_BY_ID[id];
+  if (!c?.locked || save.cardsOwned[id] || save.gems < c.cost) return false;
+  save.gems -= c.cost;
+  save.cardsOwned[id] = true;
+  return true;
+}
+export function upgradeCard(save, id) {
+  const c = CARD_BY_ID[id], l = cardLvl(save, id);
+  if (!c || !cardOwned(save, c) || l >= MAX_CARD_LVL || save.gems < CARD_LVL_COST[l]) return false;
+  save.gems -= CARD_LVL_COST[l];
+  save.cardLvl[id] = l + 1;
+  return true;
+}
+
+// ---------- Arsenal de la Arena ----------
+export function buyWeapon(save, id) {
+  const w = WEAPONS[id];
+  if (!w?.locked || save.arenaWeapons[id] || save.gems < w.cost) return false;
+  save.gems -= w.cost;
+  save.arenaWeapons[id] = true;
+  return true;
+}
 
 // ---------- Potenciadores (consumibles, se compran con 💎) ----------
 export const BOOSTS = {
@@ -124,8 +153,8 @@ function rollRarity(rng, odds) {
 
 const FILLER = {
   common: [{ kind: 'credits', n: 400 }, { kind: 'boost', n: 1 }],
-  rare: [{ kind: 'credits', n: 900 }, { kind: 'gems', n: 25 }, { kind: 'boost', n: 2 }],
-  epic: [{ kind: 'gems', n: 60 }, { kind: 'credits', n: 2500 }],
+  rare: [{ kind: 'credits', n: 900 }, { kind: 'gems', n: 25 }, { kind: 'boost', n: 2 }, { kind: 'card', n: 1 }],
+  epic: [{ kind: 'gems', n: 60 }, { kind: 'credits', n: 2500 }, { kind: 'card', n: 1 }],
   legendary: [{ kind: 'gems', n: 150 }],
 };
 
@@ -151,7 +180,18 @@ export function rollCrate(save, kind, ship = save.ship) {
       grantCosmetic(s.it, save, ship);
       out.push({ rarity, kind: 'style', group: s.group, id: s.it.id, name: s.it.name });
     } else {
-      const f = rng.pick(FILLER[rarity]);
+      let f = rng.pick(FILLER[rarity]);
+      // maestría de carta: +1 nivel a una de tus cartas (si no queda ninguna por subir, créditos)
+      if (f.kind === 'card') {
+        const cs = CARDS.filter((cd) => cardOwned(save, cd) && cardLvl(save, cd.id) < MAX_CARD_LVL);
+        if (cs.length) {
+          const card = rng.pick(cs);
+          save.cardLvl[card.id] = cardLvl(save, card.id) + 1;
+          out.push({ rarity, kind: 'card', id: card.id, name: `${card.icon} ${card.name} · maestría ${save.cardLvl[card.id]}` });
+          continue;
+        }
+        f = { kind: 'credits', n: 900 };
+      }
       if (f.kind === 'credits') save.galaxy.credits += f.n;
       else if (f.kind === 'gems') save.gems += f.n;
       else {

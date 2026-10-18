@@ -243,6 +243,9 @@ En la **🛒 TIENDA** (barra inferior):
   - **Galaxia:** bodega, misiles, mejor precio de venta, reparación a mitad y escudo.
 
   Las antiguas "mejoras globales" del hangar son ahora los dos primeros talentos del Runner (si ya las tenías, se conservan).
+- **🔱 Arsenal de la Arena** (en Talentos): 4 armas nuevas que, una vez compradas, pueden salir al subir de nivel: Rayo gemelo, Relámpago, Minas y Bumerán, cada una con su evolución.
+- **🃏 Mazo** (en Colección): **8 cartas nuevas** que se desbloquean con gemas (Turbo, Chatarrero, Fortuna, Aerodinámica, Trofeo, Mecánico, Parachoques y Tesoro) y **maestría** de 3 niveles para cada carta: cuanto más alta, más a menudo te sale. Los cofres también suben maestrías.
+- **Más estilo:** grupos nuevos **🏁 Rayas** (de carreras, sobre el lomo) y **🪟 Cabina**, y más pinturas, motores y disparos.
 
 ## ⚖️ Balance
 El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:
@@ -298,6 +301,14 @@ Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una 
 | 🧷 | **Seguro de combo** | común | Perder un escudo no reinicia tu combo. | 1 |
 | ⏱️ | **Recarga rápida** | común | El DASH recarga un 20% más rápido. | 3 |
 | 🪶 | **Ágil** | común | Cambias de carril y saltas más rápido. | 2 |
+| 🏎️ | **Turbo** | común | +10% de velocidad y +10% de puntos. | 2 |
+| 🔩 | **Chatarrero** | común | +15 🪙 al empezar cada tramo. Se acumula. | 2 |
+| 🍀 | **Fortuna** | común | Más cartas raras y épicas en las elecciones. | 2 |
+| 🪁 | **Aerodinámica** | común | Saltas más alto y caes más despacio. | 2 |
+| 🎯 | **Trofeo** | rara | Escapar del Cazador te da 1 escudo. | 1 |
+| 🔧 | **Mecánico** | rara | Cada 3 tramos sin perder escudos, ganas 1. | 1 |
+| 🧱 | **Parachoques** | épica | El primer golpe de cada tramo no te quita escudo (sí combo y overdrive). | 1 |
+| 💰 | **Tesoro** | épica | x1,5 gemas al acabar la partida. | 1 |
 
 ### Sinergias
 Si tienes las dos cartas de una sinergia, se activa un efecto extra.
@@ -324,6 +335,8 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
 | **Spectra** | 💎 950 | Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento. | ⚡ **SALTO CORTO** (12 s): Te teletransporta 35 m adelante (no con un jefe delante). | Al aparecer, rompes lo que tienes delante |
 | **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
+| **Halcón** | 💎 1300 | Ligera: el DASH recarga un 10% antes, pero x0.95 puntos. | 🔰 **ESCUDO DE ENERGÍA** (32 s): +1 escudo (si ya estás al máximo, 20 🪙). | Al activarla, una onda rompe lo cercano |
+| **Quimera** | 💎 1500 | Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento. | 🌀 **CAOS** (22 s): Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙. | CAOS atrae todas las monedas de la pista |
 <!-- CARDS:END -->
 
 ### Ajustes del menú

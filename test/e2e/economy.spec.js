@@ -87,3 +87,24 @@ test('talentos: se compran en orden y el hangar ya no tiene la pestaña GLOBAL',
   await expect(page.locator('#stGems')).toHaveText('320');
   expect(errors).toEqual([]);
 });
+
+test('mazo y arsenal: desbloquear una carta, subir su maestría y comprar un arma de la Arena', async ({ page }) => {
+  const errors = trackErrors(page);
+  await seed(page, { v: 4, runs: 3, gems: 600 });
+  await page.goto('/?nosw');
+  await page.locator('#btnCodex').click();
+  await page.locator('[data-card="turbo"] .dk-buy').click();
+  await expect(page.locator('[data-card="turbo"] .dk-up')).toBeVisible();
+  await page.locator('[data-card="iman"] .dk-up').click();
+  await expect(page.locator('[data-card="iman"] .dk-body i')).toHaveText('★☆☆');
+  await page.locator('#btnStore').click();
+  await page.locator('#stTabs [data-tab="talents"]').click();
+  await page.locator('[data-weapon="mines"]').click();
+  await expect(page.locator('[data-weapon="mines"]')).toHaveClass(/bought/);
+  const sv = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
+  expect(sv.cardsOwned.turbo).toBe(true);
+  expect(sv.cardLvl.iman).toBe(1);
+  expect(sv.arenaWeapons.mines).toBe(true);
+  expect(sv.gems).toBe(600 - 60 - 40 - 250);
+  expect(errors).toEqual([]);
+});

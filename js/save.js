@@ -19,6 +19,9 @@ const DEFAULTS = {
   boostSel: [],     // los elegidos para la próxima partida (máx. 2)
   talents: {},      // talentos comprados { r1: true }
   treeResets: 0,    // reinicios del árbol hechos (el primero es gratis)
+  cardsOwned: {},   // cartas del mazo desbloqueadas { turbo: true }
+  cardLvl: {},      // maestría de cada carta (0-3) { iman: 2 }
+  arenaWeapons: {}, // armas del arsenal desbloqueadas { twin: true }
   crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
   settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: true },
   runs: 0,
@@ -50,7 +53,7 @@ const DEFAULTS = {
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);

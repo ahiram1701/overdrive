@@ -157,6 +157,47 @@ function zrOf(mesh) {
 
 // pal = { hull, edge, glow, pattern?, alt? } (colores hex). opts: alpha, line (grosor), squash
 // (aplastar en vertical), emblem (id), emblemAt ('alas' | 'ala' | 'cola'), emblemColor
+// Índices del casco paramétrico (mesh3d.hull): 0 punta, 1 lomo, 3/4 alas, 5/6 trasera, 8 trasera alta
+const SPINE = { '0,3,1': [0, 1, 3], '0,1,4': [0, 1, 4], '1,5,8': [1, 8, 5], '1,8,6': [1, 8, 6] };
+const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+const BANDS = { single: [[0, 0.1]], double: [[0.14, 0.22], [0.3, 0.38]], wide: [[0, 0.3]] };
+function paintSpine(ctx, vi, pts, opts) {
+  const sp = SPINE[vi.join(',')];
+  if (!sp) return;
+  const P = (v) => pts[vi.indexOf(v)];
+  const A = P(sp[0]), B = P(sp[1]), S = P(sp[2]);
+  ctx.save();
+  if (opts.stripe) {
+    ctx.fillStyle = opts.stripe.color;
+    ctx.globalAlpha *= 0.9;
+    for (const [t0, t1] of BANDS[opts.stripe.style] || BANDS.single) {
+      ctx.beginPath();
+      const q = [lerp2(A, S, t0), lerp2(A, S, t1), lerp2(B, S, t1), lerp2(B, S, t0)];
+      q.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.fill();
+    }
+  }
+  // cabina: solo en la parte delantera (punta -> lomo)
+  if (opts.cockpit && sp[0] === 0) {
+    const mid = lerp2(B, A, 0.33);
+    ctx.fillStyle = opts.cockpit;
+    ctx.globalAlpha = 0.92;
+    ctx.beginPath();
+    const c = [lerp2(B, A, 0.1), lerp2(B, A, 0.55), lerp2(mid, S, 0.28)];
+    c.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+    ctx.closePath();
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.7)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(...lerp2(c[0], c[2], 0.3));
+    ctx.lineTo(...lerp2(c[1], c[2], 0.3));
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
 export function drawShip(ctx, meshId, pal, x, y, size, rot, opts = {}) {
   const mesh = MESHES[meshId] || MESHES.viper;
   const faces = projectMesh(mesh, rot, x, y, size);
@@ -187,6 +228,8 @@ export function drawShip(ctx, meshId, pal, x, y, size, rot, opts = {}) {
     ctx.fill();
     ctx.strokeStyle = `rgba(${er},${eg},${eb},${0.55 + 0.45 * k})`;
     ctx.stroke();
+    // RAYAS y CABINA sobre el lomo (caras punta-ala-lomo y lomo-trasera): dentro de su cara siempre
+    if (opts.stripe || opts.cockpit) paintSpine(ctx, f.vi, pts, opts);
     // el emblema justo después de su cara: así lo que esté delante lo tapa (orden del pintor)
     const d = decals.find((dd) => same(dd, f.vi));
     if (d) {

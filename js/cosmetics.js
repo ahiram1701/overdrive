@@ -18,6 +18,12 @@ export const PALETTES = [
   { id: 'duo', name: 'Dúo', hull: '#0a2a5e', alt: '#6a0058', pattern: 'split', edge: '#00e5ff', glow: '#ff2bd6', unlock: { gems: 160 } },
   { id: 'harlequin', name: 'Arlequín', hull: '#5a0a5a', alt: '#0a4a5a', pattern: 'stripes', edge: '#ffffff', glow: '#ff2bd6', unlock: { prestige: 2 } },
   { id: 'aurora', name: 'Aurora', hull: '#00553f', alt: '#5a1a8a', pattern: 'fade', edge: '#7df9ff', glow: '#bf5af2', unlock: { rank: 18 } },
+  { id: 'mint', name: 'Menta helada', hull: '#062018', edge: '#7dffb0', glow: '#e0fff0', unlock: { gems: 110 } },
+  { id: 'lava2', name: 'Volcán', hull: '#1a0400', alt: '#3a1000', pattern: 'stripes', edge: '#ff5a00', glow: '#ffd60a', unlock: { gems: 170 } },
+  { id: 'police', name: 'Patrulla', hull: '#05051a', alt: '#e8e8f0', pattern: 'split', edge: '#2d6bff', glow: '#ff2d55', unlock: { gems: 150 } },
+  { id: 'sakura', name: 'Sakura', hull: '#2a0a1a', edge: '#ffb7d5', glow: '#ffffff', unlock: { rank: 9 } },
+  { id: 'jungle', name: 'Selva', hull: '#0a1a04', alt: '#1f3a08', pattern: 'stripes', edge: '#a6ff00', glow: '#ffe600', unlock: { gems: 140 } },
+  { id: 'royal', name: 'Real', hull: '#0a0628', alt: '#2a0640', pattern: 'fade', edge: '#ffd60a', glow: '#bf5af2', unlock: { rank: 22 } },
   // exclusivas: una por usar la nave (tramos) y otra de maestría (jefes con ella)
   { id: 'x-viper1', name: 'Veneno', hull: '#06140a', edge: '#39ff14', glow: '#b6ff00', ...X('viper', 'sections', 30) },
   { id: 'x-viper2', name: 'Cobra real', hull: '#1a1200', edge: '#ffd60a', glow: '#ff3b30', ...X('viper', 'bosses', 5) },
@@ -35,7 +41,7 @@ export const PALETTES = [
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
   // MAESTRÍA: una por nave, al completar su árbol entero
   ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#30d158'], ['raptor', '#ff9f0a'],
-    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d']].map(([ship, c]) => (
+    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d'], ['falcon', '#7dffb0'], ['chimera', '#ff4fd8']].map(([ship, c]) => (
     { id: `m-${ship}`, name: 'Maestro', hull: '#0a0a0a', alt: '#2a2000', pattern: 'fade', edge: c, glow: '#ffd60a', ship, unlock: { mastery: ship } })),
   // exclusivos de COFRE (solo salen al abrir cofres de suministros)
   { id: 'c-nebula', name: 'Nebulosa', hull: '#12002a', alt: '#002a3a', pattern: 'fade', edge: '#ff2bd6', glow: '#7df9ff', unlock: { crate: 'legendary' } },
@@ -47,6 +53,10 @@ export const PALETTES = [
   { id: 'x-spectra2', name: 'Prisma roto', hull: '#140020', edge: '#7df9ff', glow: '#ff2bd6', ...X('spectra', 'bosses', 5) },
   { id: 'x-titan1', name: 'Forja', hull: '#1a0c04', edge: '#ff8c3d', glow: '#ffd60a', ...X('titan', 'sections', 30) },
   { id: 'x-titan2', name: 'Obsidiana', hull: '#050505', edge: '#9a9aa8', glow: '#ff3b30', ...X('titan', 'bosses', 5) },
+  { id: 'x-falcon1', name: 'Plumaje', hull: '#0a1a10', edge: '#7dffb0', glow: '#ffffff', ...X('falcon', 'sections', 30) },
+  { id: 'x-falcon2', name: 'Peregrino', hull: '#1a1406', edge: '#ffcf6b', glow: '#7dffb0', ...X('falcon', 'bosses', 5) },
+  { id: 'x-chimera1', name: 'Escamas', hull: '#1a0618', edge: '#ff4fd8', glow: '#ffe600', ...X('chimera', 'sections', 30) },
+  { id: 'x-chimera2', name: 'Tres cabezas', hull: '#060a1a', edge: '#ff9f0a', glow: '#ff4fd8', ...X('chimera', 'bosses', 5) },
 ];
 
 export const TRAILS = [
@@ -83,7 +93,7 @@ export const EMBLEMS = [
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
   { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
-  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
+  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
 ];
 
 // Color del motor (llama y estela). null = el brillo de la pintura
@@ -95,6 +105,9 @@ export const ENGINES = [
   { id: 'e-white', name: 'Blanco solar', color: '#ffffff', unlock: { gems: 90 } },
   { id: 'e-violet', name: 'Violeta', color: '#bf5af2', unlock: { rank: 9 } },
   { id: 'e-red', name: 'Infierno', color: '#ff2d55', unlock: { ach: 'boss10' } },
+  { id: 'e-orange', name: 'Naranja', color: '#ff9f0a', unlock: { gems: 60 } },
+  { id: 'e-lime', name: 'Lima', color: '#a6ff00', unlock: { gems: 70 } },
+  { id: 'e-ice', name: 'Hielo azul', color: '#bff6ff', unlock: { rank: 13 } },
   { id: 'c-e-gold', name: 'Oro fundido', color: '#ffd60a', unlock: { crate: 'epic' } },
   { id: 'c-e-mint', name: 'Menta', color: '#7dffb0', unlock: { crate: 'rare' } },
   { id: 'c-e-void', name: 'Antimateria', color: '#7a5cff', unlock: { crate: 'legendary' } },
@@ -118,12 +131,34 @@ export const SHOTS = [
   { id: 's-gold', name: 'Oro', color: '#ffd60a', unlock: { rank: 6 } },
   { id: 's-red', name: 'Rojo', color: '#ff2d55', unlock: { gems: 80 } },
   { id: 's-white', name: 'Blanco', color: '#ffffff', unlock: { rank: 12 } },
+  { id: 's-cyan', name: 'Cian puro', color: '#00e5ff', unlock: { gems: 50 } },
+  { id: 's-orange', name: 'Naranja', color: '#ff9f0a', unlock: { gems: 60 } },
+  { id: 's-lime', name: 'Lima', color: '#a6ff00', unlock: { rank: 15 } },
   { id: 'c-s-violet', name: 'Violeta', color: '#bf5af2', unlock: { crate: 'rare' } },
   { id: 'c-s-plasma', name: 'Plasma', color: '#ff9f0a', unlock: { crate: 'epic' } },
 ];
 
-export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS, engine: ENGINES, aura: AURAS, shot: SHOTS };
-export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto', engine: 'e-stock', aura: 'a-none', shot: 's-stock' };
+// RAYAS de carreras a lo largo del lomo y color de la CABINA (shipdraw los pinta en el casco)
+export const STRIPES = [
+  { id: 'st-none', name: 'Sin rayas', style: 'none' },
+  { id: 'st-single-w', name: 'Raya blanca', style: 'single', color: '#ffffff', unlock: { gems: 60 } },
+  { id: 'st-double-r', name: 'Doble roja', style: 'double', color: '#ff2d55', unlock: { gems: 90 } },
+  { id: 'st-double-y', name: 'Doble amarilla', style: 'double', color: '#ffe600', unlock: { gems: 90 } },
+  { id: 'st-wide-c', name: 'Ancha cian', style: 'wide', color: '#00e5ff', unlock: { gems: 130 } },
+  { id: 'st-wide-k', name: 'Ancha negra', style: 'wide', color: '#050508', unlock: { rank: 11 } },
+  { id: 'st-gold', name: 'Filete de oro', style: 'double', color: '#ffd60a', unlock: { crate: 'epic' } },
+];
+export const COCKPITS = [
+  { id: 'ck-stock', name: 'De serie', color: null },
+  { id: 'ck-amber', name: 'Ámbar', color: '#ffb340', unlock: { gems: 50 } },
+  { id: 'ck-ice', name: 'Hielo', color: '#bff6ff', unlock: { gems: 50 } },
+  { id: 'ck-rose', name: 'Rosa', color: '#ff8ad8', unlock: { gems: 70 } },
+  { id: 'ck-black', name: 'Tintada', color: '#101018', unlock: { rank: 7 } },
+  { id: 'ck-gold', name: 'Dorada', color: '#ffd60a', unlock: { crate: 'rare' } },
+];
+
+export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS, engine: ENGINES, aura: AURAS, shot: SHOTS, stripe: STRIPES, cockpit: COCKPITS };
+export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto', engine: 'e-stock', aura: 'a-none', shot: 's-stock', stripe: 'st-none', cockpit: 'ck-stock' };
 
 // La pintura con el brillo del motor elegido (la llama y la estela salen de pal.glow)
 export const tintEngine = (pal, engine) => (engine?.color ? { ...pal, glow: engine.color } : pal);
@@ -211,7 +246,7 @@ export function equipped(save, ship = save.ship) {
   };
   const engine = pick('engine');
   return {
-    palette: tintEngine(pick('palette'), engine), basePalette: pick('palette'), engine, aura: pick('aura'), shot: pick('shot'),
+    palette: tintEngine(pick('palette'), engine), basePalette: pick('palette'), engine, aura: pick('aura'), shot: pick('shot'), stripe: pick('stripe'), cockpit: pick('cockpit'),
     trail: pick('trail'), boom: pick('boom'), emblem: pick('emblem'),
     emblemAt: EMBLEM_AT.some(([k]) => k === e.emblemAt) ? e.emblemAt : 'alas',
     emblemColor: e.emblemColor in EMBLEM_COLORS ? e.emblemColor : 'auto',
@@ -228,7 +263,8 @@ export function setEmblemStyle(save, ship, { at, color } = {}) {
 }
 
 // Opciones de drawShip para el emblema de un aspecto (lo que devuelve equipped)
-export const emblemOpts = (lk) => ({ emblem: lk.emblem.id, emblemAt: lk.emblemAt, emblemColor: EMBLEM_COLORS[lk.emblemColor] || null });
+export const emblemOpts = (lk) => ({ emblem: lk.emblem.id, emblemAt: lk.emblemAt, emblemColor: EMBLEM_COLORS[lk.emblemColor] || null,
+  stripe: lk.stripe && lk.stripe.style !== 'none' ? lk.stripe : null, cockpit: lk.cockpit?.color || null });
 
 // Estadística de uso de una nave. Devuelve los exclusivos que se acaban de desbloquear.
 export function addShipStat(save, ship, stat, n = 1) {

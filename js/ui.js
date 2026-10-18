@@ -10,7 +10,7 @@ import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
-import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods } from './upgrades.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
@@ -23,7 +23,7 @@ import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount,
 import { BOSS_BY_ID } from './bosses.js';
 import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
 import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.js';
-import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles } from './economy.js';
+import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
@@ -518,7 +518,7 @@ export const ui = {
     $('cosTitle').textContent = `Personalizar · ${view.name}`;
     const eq = equipped(save, view.id);
     const pv = ui.preview?.ship === view.id ? ui.preview : null;
-    const groups = [['palette', '🎨 Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
+    const groups = [['palette', '🎨 Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['stripe', '🏁 Rayas'], ['cockpit', '🪟 Cabina'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
     for (const [g, label] of groups) {
@@ -533,6 +533,8 @@ export const ui = {
           const fill = it.alt ? `linear-gradient(90deg, ${it.hull} 50%, ${it.alt} 50%)` : it.hull;
           icon = `<i style="background:${fill};box-shadow:0 0 0 2px ${it.edge || view.color}"></i>`;
         }
+        if (g === 'stripe') icon = it.style === 'none' ? '<i class="sw-stripe none"></i>' : `<i class="sw-stripe s-${it.style}" style="--c:${it.color}"></i>`;
+        if (g === 'cockpit') icon = `<i class="sw-cockpit" style="--c:${it.color || '#7df9ff'}"></i>`;
         if (g === 'engine' || g === 'shot' || g === 'aura') {
           const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : g === 'shot' ? DEFAULT_SHOT : 'transparent');
           icon = `<i class="sw-${g}" style="--c:${c0}"></i>`;
@@ -1001,6 +1003,28 @@ export const ui = {
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
   },
 
+  renderDeck() {
+    const box = $('deckList');
+    box.innerHTML = '';
+    // primero las nuevas que aún no tienes, luego las tuyas
+    const order = [...CARDS].sort((x, y) => (cardOwned(save, x) ? 1 : 0) - (cardOwned(save, y) ? 1 : 0));
+    for (const c of order) {
+      const own = cardOwned(save, c), lv = cardLvl(save, c.id);
+      const stars = '★'.repeat(lv) + '☆'.repeat(MAX_CARD_LVL - lv);
+      let act;
+      if (!own) act = `<button class="btn dk-buy" ${save.gems >= c.cost ? '' : 'disabled'}>DESBLOQUEAR · 💎 ${c.cost}</button>`;
+      else if (lv < MAX_CARD_LVL) act = `<button class="btn ghost dk-up" ${save.gems >= CARD_LVL_COST[lv] ? '' : 'disabled'}>MAESTRÍA · 💎 ${CARD_LVL_COST[lv]}</button>`;
+      else act = '<span class="dk-max">MÁX</span>';
+      const row = el('div', `deck-row r-${c.rarity}${own ? '' : ' locked'}`, `<span class="dk-icon">${c.icon}</span>
+        <span class="dk-body"><b>${c.name}${c.locked ? ' <em>NUEVA</em>' : ''}</b><small>${c.desc}</small><i>${own ? stars : '🔒'}</i></span>${act}`);
+      row.dataset.card = c.id;
+      const buy = row.querySelector('.dk-buy'), up = row.querySelector('.dk-up');
+      buy && tap(buy, () => { if (buyCard(save, c.id)) { persist(); sfx.chest(); toast(`🃏 ${c.name} ya está en tu mazo`); ui.renderDeck(); } });
+      up && tap(up, () => { if (upgradeCard(save, c.id)) { persist(); sfx.coin(4); ui.renderDeck(); } });
+      box.append(row);
+    }
+  },
+
   // TIENDA: cofres, potenciadores y talentos
   showStore() {
     G.mode = 'hangar';
@@ -1063,6 +1087,25 @@ export const ui = {
         });
         body.append(col);
       }
+      // ARSENAL: armas de la Arena que se desbloquean para que te salgan al subir de nivel
+      const ars = el('div', 'tal-tree', '<h3>🔱 ARSENAL DE LA ARENA</h3>');
+      for (const [id, W] of Object.entries(WEAPONS)) {
+        if (!W.locked) continue;
+        const has = !!save.arenaWeapons[id];
+        const node = el('button', `tal-node${has ? ' bought' : ' next'}${!has && save.gems >= W.cost ? ' afford' : ''}`,
+          `<small>${W.icon}</small><b>${W.name}</b><span>${W.desc} · evoluciona en ${EVOLUTIONS[id].name}</span><em>${has ? '✔' : `💎 ${W.cost}`}</em>`);
+        node.dataset.weapon = id;
+        tap(node, () => {
+          if (has) return;
+          if (!buyWeapon(save, id)) { fx.vibe(50); return; }
+          persist();
+          sfx.chest();
+          toast(`${W.icon} ${W.name} ya puede salir en la Arena`);
+          ui.showStore();
+        });
+        ars.append(node);
+      }
+      body.append(ars);
     }
     show('store');
   },
@@ -1073,7 +1116,7 @@ export const ui = {
     box.innerHTML = '';
     items.forEach((it, i) => {
       const R = RARITIES[it.rarity];
-      const icon = it.kind === 'style' ? { palette: '🎨', engine: '🔥', trail: '✨', aura: '🌟', shot: '🔫', boom: '💥', emblem: '🛡️' }[it.group] : it.kind === 'gems' ? '💎' : it.kind === 'credits' ? '💰' : '⚡';
+      const icon = it.kind === 'style' ? { palette: '🎨', engine: '🔥', trail: '✨', aura: '🌟', shot: '🔫', boom: '💥', emblem: '🛡️', stripe: '🏁', cockpit: '🪟' }[it.group] : it.kind === 'gems' ? '💎' : it.kind === 'credits' ? '💰' : it.kind === 'card' ? '🃏' : '⚡';
       const c = el('div', `co-item r-${it.rarity}`, `<span>${icon}</span><b>${it.name}</b><small style="color:${R.color}">${R.name}${it.kind === 'style' ? ' · ¡nuevo estilo!' : ''}</small>`);
       c.style.setProperty('--rc', R.color);
       c.style.animationDelay = `${0.15 + i * 0.35}s`;
@@ -1606,6 +1649,7 @@ export const ui = {
   // Colección: lo descubierto con su icono; lo que falta, en silueta
   showCodex() {
     G.mode = 'hangar';
+    ui.renderDeck();
     const cards = save.codex.cards || {}, syn = save.codex.syn || {}, bosses = save.codex.bosses || {};
     const cell = (found, icon, name, n) => `<div class="cx${found ? '' : ' unknown'}"><span>${found ? icon : '❔'}</span><small>${found ? name : '???'}</small>${found && n ? `<em>x${n}</em>` : ''}</div>`;
     $('codexCards').innerHTML = CARDS.map((c) => cell(cards[c.id], c.icon, c.name, cards[c.id])).join('');

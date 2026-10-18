@@ -843,3 +843,27 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ts-act { display: flex; gap: var(--sp-2); margin-top: var(--sp-3); }
 .ts-act .btn { flex: 1; padding: 12px 8px; font-size: 16px; white-space: nowrap; }
 .stat .bar u.gain { position: absolute; top: 0; bottom: 0; background: var(--yellow); box-shadow: 0 0 8px var(--yellow); }
+
+/* ---------- Mazo, arsenal y estilos nuevos (E1c) ---------- */
+.deck-list { width: min(440px, 100%); display: flex; flex-direction: column; gap: 6px; }
+.deck-row { display: grid; grid-template-columns: 34px 1fr auto; align-items: center; gap: var(--sp-2); padding: 8px 10px; border-radius: var(--r-1);
+  background: var(--panel); border: 1px solid rgba(255,255,255,.12); text-align: left; }
+.deck-row.r-rare { border-color: rgba(191,90,242,.45); }
+.deck-row.r-epic { border-color: rgba(255,159,10,.5); }
+.deck-row.locked { opacity: .75; }
+.dk-icon { font-size: 24px; text-align: center; }
+.dk-body { display: flex; flex-direction: column; min-width: 0; }
+.dk-body b { font-size: 14px; }
+.dk-body b em { font-style: normal; font-size: 11px; color: var(--yellow); }
+.dk-body small { color: var(--muted); font-size: 12px; }
+.dk-body i { font-style: normal; color: var(--yellow); font-size: 12px; letter-spacing: 2px; }
+.deck-row .btn { padding: 8px 10px; font-size: 11px; white-space: nowrap; }
+.dk-max { color: #30d158; font-weight: 900; font-size: 12px; }
+.cos i.sw-stripe { display: block; width: 30px; height: 26px; margin: 0 auto 2px; border-radius: 6px; background: #1a1a2a; position: relative; overflow: hidden; }
+.cos i.sw-stripe::before, .cos i.sw-stripe::after { content: ''; position: absolute; top: 0; bottom: 0; background: var(--c); }
+.cos i.sw-stripe.s-single::before { left: 13px; width: 4px; }
+.cos i.sw-stripe.s-double::before { left: 9px; width: 3px; }
+.cos i.sw-stripe.s-double::after { left: 18px; width: 3px; }
+.cos i.sw-stripe.s-wide::before { left: 8px; width: 14px; }
+.cos i.sw-stripe.none::before { left: 4px; right: 4px; top: 12px; bottom: 12px; background: rgba(255,255,255,.4); }
+.cos i.sw-cockpit { display: block; width: 28px; height: 18px; margin: 4px auto 6px; border-radius: 50% 50% 30% 30%; background: linear-gradient(160deg, #fff 0 15%, var(--c) 40%); box-shadow: 0 0 8px var(--c); }

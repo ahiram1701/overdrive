@@ -51,6 +51,7 @@ export function newArena() {
   a.magMul = hasTalent(save, 'a3') ? 1.4 : 1;
   if (hasTalent(save, 'a4')) a.weapons[SHIP_WEAPON[ship.id]] = 2;
   a.phoenix = hasTalent(save, 'a5') ? 1 : 0;
+  a.unlocked = { ...save.arenaWeapons };
   a.hp = a.maxHpBase;
   G.arena = a;
   G.run = null;
@@ -265,6 +266,15 @@ export function useArenaAbility() {
       a.rings.push({ x: a.x, y: a.y, r: 130, t: 0.35, max: 0.35, color: '#ffe600' });
       break;
     }
+    case 'barrier': // cura y protege
+      a.hp = Math.min(maxHp(a), a.hp + maxHp(a) * 0.3 * a.ability.pow);
+      a.iframes = 1;
+      a.rings.push({ x: a.x, y: a.y, r: 90, t: 0.4, max: 0.4, color: '#7dffb0' });
+      break;
+    case 'chaos':
+      for (const e of near(a.x, a.y, 260 * a.ability.pow)) hurtEnemy(a, e, 60);
+      a.rings.push({ x: a.x, y: a.y, r: 260 * a.ability.pow, t: 0.45, max: 0.45, color: '#ff4fd8' });
+      break;
     case 'hammer': { // onda en línea, ancha
       const t = nearest(a, a.x, a.y);
       beamHit(a, t ? Math.atan2(t.y - a.y, t.x - a.x) : a.face, 520, 60, 120 * a.ability.pow);
@@ -351,6 +361,42 @@ function fireWeapons(a, dt) {
         }
         break;
       }
+      case 'twin': {
+        if (!target) { a.cds[id] = 0.2; continue; }
+        const angs = evo ? [ang - 0.3, ang, ang + 0.3] : [ang - 0.18, ang + 0.18];
+        for (const b of angs) beamHit(a, b, 520 * st.area, L.width * st.area * (evo ? 2 : 1), L.dmg);
+        sfx.near(true, 1);
+        break;
+      }
+      case 'storm': {
+        const pool = near(a.x, a.y, 430 * st.area);
+        const n = L.strikes * (evo ? 2 : 1);
+        for (let i = 0; i < n && pool.length; i++) {
+          const e = pool.splice(Math.floor(a.rng.next() * pool.length), 1)[0];
+          hurtEnemy(a, e, L.dmg);
+          a.rings.push({ x: e.x, y: e.y, r: evo ? 60 : 26, t: 0.2, max: 0.2, color: '#ffe600' });
+          if (evo) for (const e2 of near(e.x, e.y, 60)) if (e2 !== e) hurtEnemy(a, e2, L.dmg * 0.5);
+        }
+        if (n && pool) sfx.dash();
+        break;
+      }
+      case 'mines': {
+        const n = evo ? 3 : L.n;
+        for (let i = 0; i < n; i++) {
+          const ox = i ? a.rng.range(-50, 50) : 0, oy = i ? a.rng.range(-50, 50) : 0;
+          a.bullets.push({ x: a.x + ox, y: a.y + oy, vx: 0, vy: 0, r: (evo ? 16 : 10) * st.area, dmg: L.dmg * (evo ? 1.5 : 1), pierce: 1, life: 6, kind: 'mine', hit: null });
+        }
+        break;
+      }
+      case 'boomer': {
+        const n = evo ? 3 : L.n;
+        for (let i = 0; i < n; i++) {
+          const sa = ang + (i - (n - 1) / 2) * 0.35;
+          a.bullets.push({ x: a.x, y: a.y, vx: Math.cos(sa) * 520, vy: Math.sin(sa) * 520, r: 9 * st.area, dmg: L.dmg, pierce: 99, life: 1.6, t: 0, kind: 'boomer', hit: null });
+        }
+        sfx.swish?.();
+        break;
+      }
       case 'missile': {
         const used = new Set();
         for (let i = 0; i < L.shots; i++) {
@@ -405,10 +451,27 @@ function updateBullets(a, dt) {
         b.vy = Math.sin(na) * sp;
       }
     }
+    if (b.kind === 'boomer') {
+      // a mitad de vuelo da la vuelta hacia ti (y puede volver a dar a los mismos)
+      b.t += dt;
+      if (b.t > 0.7) {
+        if (!b.back) { b.back = true; b.hit = null; }
+        const d = Math.hypot(a.x - b.x, a.y - b.y) || 1;
+        b.vx = ((a.x - b.x) / d) * 560;
+        b.vy = ((a.y - b.y) / d) * 560;
+        if (d < 20) b.life = 0;
+      }
+    }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
     for (const e of near(b.x, b.y, b.r)) {
       if (b.hit && b.hit.has(e)) continue;
+      if (b.kind === 'mine') {
+        for (const e2 of near(b.x, b.y, 70 * stats(a).area)) hurtEnemy(a, e2, b.dmg);
+        a.rings.push({ x: b.x, y: b.y, r: 70 * stats(a).area, t: 0.3, max: 0.3, color: '#ff9f0a' });
+        b.life = 0;
+        break;
+      }
       if (b.kind === 'missile') {
         // explota: daño en área
         for (const e2 of near(b.x, b.y, 55 * stats(a).area)) hurtEnemy(a, e2, b.dmg);

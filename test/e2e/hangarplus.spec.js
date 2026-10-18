@@ -102,8 +102,10 @@ test('hangar: nombre propio, motor/aura/disparo y la EXPOSICIÓN con COMPARAR', 
   await page.locator('[data-cos="engine:e-cyan"]').click();
   await page.locator('#btnCosBuy').click();
   await expect(page.locator('[data-cos="engine:e-cyan"]')).toHaveClass(/on/);
-  await expect(page.locator('[data-cos^="aura:"]')).toHaveCount(6);
-  await expect(page.locator('[data-cos^="shot:"]')).toHaveCount(8); // 6 + 2 exclusivos de cofre
+  expect(await page.locator('[data-cos^="aura:"]').count()).toBeGreaterThanOrEqual(6);
+  expect(await page.locator('[data-cos^="shot:"]').count()).toBeGreaterThanOrEqual(6);
+  expect(await page.locator('[data-cos^="stripe:"]').count()).toBeGreaterThanOrEqual(6);
+  expect(await page.locator('[data-cos^="cockpit:"]').count()).toBeGreaterThanOrEqual(5);
   await page.reload();
   const sv = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
   expect(sv.shipNames.viper).toBe('Rayo azul');

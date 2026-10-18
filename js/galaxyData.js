@@ -25,6 +25,8 @@ export const GAL_PROFILE = {
   manta: { speed: 0.95, shield: 1.35, regen: 1.3 },
   spectra: { speed: 1.2, turn: 1.1, hull: 0.85 },
   titan: { speed: 0.85, turn: 0.85, hull: 1.5, dmg: 1.1 },
+  falcon: { speed: 1.05, turn: 1.1, shield: 1.25, regen: 1.2 },
+  chimera: { speed: 1.05, dmg: 1.2, hull: 0.9 },
 };
 export const GAL_KEYS = [['speed', 'VELOCIDAD'], ['turn', 'GIRO'], ['dmg', 'DAÑO'], ['shield', 'ESCUDO'], ['hull', 'CASCO'], ['cargo', 'BODEGA']];
 
