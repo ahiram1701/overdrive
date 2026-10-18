@@ -58,3 +58,23 @@ test('el progreso de logros y la colección sobreviven a guardar y cargar', () =
   assert.equal(again.ach.boss1.done, true);
   assert.equal(again.codex.cards.iman, 2);
 });
+
+test('cada logro da un estilo exclusivo, único, válido y para todas las naves', async () => {
+  const { ACH_STYLES, achStyle, GROUPS, isUnlocked, equip, equipped } = await import('../../js/cosmetics.js');
+  const { loadFrom } = await import('../../js/save.js');
+  assert.equal(ACH_STYLES.length, ACHIEVEMENTS.length);
+  assert.equal(new Set(ACH_STYLES.map((x) => x.id)).size, ACH_STYLES.length);
+  for (const a of ACHIEVEMENTS) {
+    const it = achStyle(a.id);
+    assert.ok(it && GROUPS[it.group].includes(it), a.id);
+    assert.ok(!it.ship, 'para todas las naves');
+    for (const c of [it.color, it.edge, it.glow, it.hull].filter(Boolean)) assert.match(c, /^#[0-9a-f]{6}$/, `${a.id}: ${c}`);
+  }
+  const s = loadFrom(null);
+  const it = achStyle('boss1');
+  assert.equal(isUnlocked(it, s, 'viper'), false);
+  trackAch(s, 'boss', 1);
+  assert.ok(isUnlocked(it, s, 'viper') && isUnlocked(it, s, 'titan'));
+  assert.ok(equip(it.group, it.id, s, 'titan'));
+  assert.equal(equipped(s, 'titan')[it.group].id, it.id);
+});

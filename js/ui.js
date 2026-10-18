@@ -7,7 +7,7 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK, effectiveRank, prestigeOf, prestigeBonus, canPrestige, doPrestige, PRESTIGE_REWARDS } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT } from './cosmetics.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
@@ -802,7 +802,7 @@ export const ui = {
       fx.vibe([20, 30, 60]);
       if (ui._hv) { ui._hv.flash = 1; ui._hv.boost = Math.PI * 2; }
       sh.classList.add('hidden');
-      if (nd.branch === 'm') toast(`★ ¡MAESTRÍA de ${view.name}! Pintura de maestro desbloqueada`);
+      if (nd.branch === 'm') { toast(`★ ¡MAESTRÍA de ${view.name}! Pintura de maestro desbloqueada`); progress('mastery'); }
       ui.showHangar();
       $('shipTree').querySelector(nd.branch === 'm' ? '.mastery' : `.b-${nd.branch} .node:nth-of-type(${nd.i + 1})`)?.classList.add('just');
     });
@@ -1019,7 +1019,7 @@ export const ui = {
         <span class="dk-body"><b>${c.name}${c.locked ? ' <em>NUEVA</em>' : ''}</b><small>${c.desc}</small><i>${own ? stars : '🔒'}</i></span>${act}`);
       row.dataset.card = c.id;
       const buy = row.querySelector('.dk-buy'), up = row.querySelector('.dk-up');
-      buy && tap(buy, () => { if (buyCard(save, c.id)) { persist(); sfx.chest(); toast(`🃏 ${c.name} ya está en tu mazo`); ui.renderDeck(); } });
+      buy && tap(buy, () => { if (buyCard(save, c.id)) { progress('deckCard'); persist(); sfx.chest(); toast(`🃏 ${c.name} ya está en tu mazo`); ui.renderDeck(); } });
       up && tap(up, () => { if (upgradeCard(save, c.id)) { persist(); sfx.coin(4); ui.renderDeck(); } });
       box.append(row);
     }
@@ -1046,6 +1046,7 @@ export const ui = {
         tap(card.querySelector('button'), () => {
           const got = openCrate(save, k);
           if (!got) return;
+          progress('crate');
           persist();
           sfx.chest();
           fx.vibe([30, 40, 80]);
@@ -1078,6 +1079,7 @@ export const ui = {
           tap(node, () => {
             if (!next) return;
             if (!buyTalent(save, n.id)) { fx.vibe(50); return; }
+            progress('talent');
             persist();
             sfx.chest();
             toast(`🌟 ${n.name}`);
@@ -1634,15 +1636,34 @@ export const ui = {
   showAchievements() {
     G.mode = 'hangar'; // pantalla estática: el mundo no se dibuja
     $('achCount').textContent = `🏆 ${achCount(save)} / ${ACHIEVEMENTS.length}`;
-    $('achList').innerHTML = ACHIEVEMENTS.map((a) => {
+    const swatch = (it) => it.group === 'palette' ? `<i class="ach-sw" style="background:linear-gradient(135deg, ${it.hull} 40%, ${it.edge} 40% 60%, ${it.glow} 60%)"></i>`
+      : `<i class="ach-sw" style="background:${it.color};box-shadow:0 0 8px ${it.color}"></i>`;
+    const ICON = { palette: '🎨', stripe: '🏁', engine: '🔥', shot: '🔫', cockpit: '🪟' };
+    const box = $('achList');
+    box.innerHTML = '';
+    // los conseguidos, arriba (con su EQUIPAR)
+    const list = [...ACHIEVEMENTS].sort((x, y) => (save.ach[y.id]?.done ? 1 : 0) - (save.ach[x.id]?.done ? 1 : 0));
+    for (const a of list) {
       const st = save.ach[a.id] || { p: 0, done: false };
       const k = Math.min(1, st.p / a.n);
-      return `<div class="item ach-item t-${a.tier}${st.done ? ' sel' : ' locked'}">
+      const it = achStyle(a.id);
+      const on = st.done && equipped(save, save.ship)[it.group]?.id === it.id;
+      const row = el('div', `item ach-item t-${a.tier}${st.done ? ' sel' : ' locked'}`, `
         <span class="i-icon">${st.done ? '🏆' : '🔒'}</span>
         <span class="i-body"><b>${a.name}</b><small>${a.desc}</small>
+          <small class="ach-prize">${swatch(it)} ${ICON[it.group]} ${it.name} · +${ACH_GEMS[a.tier]} 💎</small>
           ${st.done ? '' : `<div class="m-bar"><i style="transform:scaleX(${k.toFixed(3)})"></i></div><small>${fmt(st.p)} / ${fmt(a.n)}${a.mode === 'best' ? ' (en una partida)' : ''}</small>`}</span>
-        <span class="i-act">${st.done ? '✔' : `💎 ${ACH_GEMS[a.tier]}`}</span></div>`;
-    }).join('');
+        <span class="i-act">${st.done ? `<button class="btn ghost ach-eq" ${on ? 'disabled' : ''}>${on ? 'PUESTO' : 'EQUIPAR'}</button>` : ''}</span>`);
+      row.dataset.ach = a.id;
+      const eq = row.querySelector('.ach-eq');
+      eq && tap(eq, () => {
+        equip(it.group, it.id, save, save.ship);
+        persist();
+        toast(`🎨 ${it.name} en tu ${SHIPS.find((x) => x.id === save.ship).name}`);
+        ui.showAchievements();
+      });
+      box.append(row);
+    }
     show('achs');
   },
 

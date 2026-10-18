@@ -260,7 +260,10 @@ El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivi
 
 ## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **59 logros** de bronce, plata y oro (20/40/80 💎): de "100 near-miss" a "100 millones de puntos en una partida". Al desbloquear uno en plena partida se celebra en el momento.
+- **69 logros** de bronce, plata y oro: de "100 near-miss" a "100 millones de puntos en una partida", pasando por cofres, talentos, maestrías y la Galaxia.
+  - **Cada logro desbloquea un estilo exclusivo** con su nombre ("Pintura Leyenda", "Motor Cazajefes"…), que vale para **todas las naves**: los de oro dan pinturas con patrón; los de plata, rayas, motores o pinturas; y los de bronce, disparos, cabinas o motores. Además dan unas gemas (5/10/20 💎).
+  - En **🏆 Logros** cada uno enseña su premio, y los conseguidos tienen **EQUIPAR** para ponértelo al momento.
+  - Al desbloquear uno en plena partida se celebra en el momento, con el estilo que acabas de ganar.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
 
 ## ✨ Prestigio

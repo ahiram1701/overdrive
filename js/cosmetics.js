@@ -1,7 +1,7 @@
 // Personalización POR NAVE: pintura, estela, explosión y emblema. Módulo puro (recibe el guardado).
 // Lo que se compra con gemas vale solo para la nave en la que lo compras; lo que da el rango o un
 // logro vale para todas; y cada nave tiene pinturas y un emblema EXCLUSIVOS que se ganan usándola.
-import { effectiveRank, prestigeOf } from './progress.js';
+import { effectiveRank, prestigeOf, ACHIEVEMENTS } from './progress.js';
 
 const X = (ship, stat, n) => ({ ship, unlock: { stat, n } });
 
@@ -157,6 +157,37 @@ export const COCKPITS = [
   { id: 'ck-gold', name: 'Dorada', color: '#ffd60a', unlock: { crate: 'rare' } },
 ];
 
+// ---------- ESTILOS DE LOGRO: cada logro desbloquea uno propio (para todas las naves) ----------
+// El color sale del id del logro (determinista); el tipo, de su rareza: los de oro dan pinturas con
+// patrón, los de plata rayas, motores o pinturas, y los de bronce disparos, cabinas o motores.
+function hsl2hex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
+  const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, '0');
+  return `#${f(0)}${f(8)}${f(4)}`;
+}
+const hueOf = (id) => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; };
+const ACH_KIND = { bronze: ['shot', 'cockpit', 'engine'], silver: ['stripe', 'engine', 'palette'], gold: ['palette'] };
+const KIND_NAME = { palette: 'Pintura', stripe: 'Rayas', engine: 'Motor', shot: 'Disparo', cockpit: 'Cabina' };
+export const ACH_STYLES = ACHIEVEMENTS.map((a, i) => {
+  const group = ACH_KIND[a.tier][i % ACH_KIND[a.tier].length];
+  const h = hueOf(a.id), c = hsl2hex(h, 100, 60), c2 = hsl2hex((h + 50) % 360, 100, 70);
+  const base = { id: `ach-${a.id}`, name: `${KIND_NAME[group]} ${a.name}`, group, achId: a.id, unlock: { ach: a.id } };
+  if (group === 'palette') {
+    const gold = a.tier === 'gold';
+    return { ...base, hull: hsl2hex(h, 60, 9), ...(gold ? { alt: hsl2hex((h + 180) % 360, 55, 14), pattern: ['fade', 'split', 'stripes'][i % 3] } : {}), edge: c, glow: c2 };
+  }
+  if (group === 'stripe') return { ...base, style: ['double', 'wide', 'single'][i % 3], color: c };
+  return { ...base, color: c };
+});
+export const achStyle = (achId) => ACH_STYLES.find((x) => x.achId === achId);
+const byGroup = (g) => ACH_STYLES.filter((x) => x.group === g);
+PALETTES.push(...byGroup('palette'));
+ENGINES.push(...byGroup('engine'));
+SHOTS.push(...byGroup('shot'));
+STRIPES.push(...byGroup('stripe'));
+COCKPITS.push(...byGroup('cockpit'));
+
 export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS, engine: ENGINES, aura: AURAS, shot: SHOTS, stripe: STRIPES, cockpit: COCKPITS };
 export const DEFAULT_EQUIP = { palette: 'stock', trail: 'sparks', boom: 'classic', emblem: 'none', emblemAt: 'alas', emblemColor: 'auto', engine: 'e-stock', aura: 'a-none', shot: 's-stock', stripe: 'st-none', cockpit: 'ck-stock' };
 
@@ -202,7 +233,7 @@ export function lockText(item, save = null, ship = null) {
   const u = item.unlock || {};
   if (u.gems) return `💎 ${u.gems}`;
   if (u.rank) return `RANGO ${u.rank}`;
-  if (u.ach) return '🏆 logro';
+  if (u.ach) return `🏆 ${ACHIEVEMENTS.find((a) => a.id === u.ach)?.name || 'logro'}`;
   if (u.prestige) return `✨ PRESTIGIO ${u.prestige}`;
   if (u.stat) return save ? `${Math.min(u.n, shipStat(save, ship, u.stat))}/${u.n} ${STAT_TEXT[u.stat]}` : `${u.n} ${STAT_TEXT[u.stat]}`;
   if (u.crate) return '🎁 cofre';

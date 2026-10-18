@@ -14,7 +14,7 @@ import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeBonus } from './progress.js';
 import { takeBoosts, hasTalent, bankCoins } from './economy.js';
-import { equipped, addShipStat } from './cosmetics.js';
+import { equipped, addShipStat, achStyle } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
 import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
 import { TRACK_BY_ID, CUP_BY_ID, CUPS, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal } from './race.js';
@@ -141,7 +141,7 @@ export function newRun(opts = false) {
   if (save.runs === 0) ui.tutorial();
   if (daily) progress('daily');
   if (r.boosts.includes('start') && r.section < 1 && !level && !track) r.section = 1; // 🚀 ARRANQUE: tramo 3
-  if (r.boosts.length) persist();
+  if (r.boosts.length) { progress('boost', r.boosts.length); persist(); }
   if (r.boosts.includes('luck')) openCards({ title: '🍀 CARTA RARA', next: false, minRarity: 'rare' });
   else if (hasTalent(save, 'r2')) openCards({ title: 'CARTA INICIAL', next: false });
 }
@@ -267,7 +267,8 @@ export function progress(kind, value = 1) {
     persist();
   }
   for (const a of trackAch(save, kind, value)) {
-    fx.banner(`🏆 ${a.name.toUpperCase()}`, `${a.desc}  ·  +${ACH_GEMS[a.tier]} 💎`, '#ffd60a', true);
+    const st = achStyle(a.id);
+    fx.banner(`🏆 ${a.name.toUpperCase()}`, st ? `🎨 Nuevo: ${st.name} · equípalo en Logros` : `${a.desc}  ·  +${ACH_GEMS[a.tier]} 💎`, '#ffd60a', true);
     fx.flash('#ffd60a', 0.35);
     sfx.milestone();
     fx.vibe([20, 30, 60]);

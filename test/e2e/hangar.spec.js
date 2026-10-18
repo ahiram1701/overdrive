@@ -231,5 +231,6 @@ test('árbol: maestría con las 3 ramas completas y reinicio que devuelve las ge
   await page.locator('#btnTreeReset').click();
   await page.locator('#btnTreeReset').click();
   await expect(page.locator('#shipTree .node.bought')).toHaveCount(0);
-  expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(100 + spent);
+  // + 20 del logro MAESTRO (oro)
+  expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).gems, SAVE)).toBe(100 + spent + 20);
 });
