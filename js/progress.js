@@ -162,6 +162,8 @@ export const ACHIEVEMENTS = [
   { id: 'exp4', kind: 'exp4', mode: 'sum', n: 1, tier: 'gold', name: 'Del abismo', desc: 'Completa una EXPEDICIÓN de 4 actos' },
   { id: 'defender', kind: 'defend', mode: 'best', n: 5, tier: 'gold', name: 'Defensor', desc: 'Rechaza 5 ofensivas piratas en la GALAXIA' },
   { id: 'exterminio', kind: 'exterminio', mode: 'sum', n: 1, tier: 'gold', name: 'Exterminador', desc: 'Acaba con una invasión del enjambre' },
+  { id: 'wanted5', kind: 'wanted5', mode: 'sum', n: 1, tier: 'gold', name: 'Enemigo público', desc: 'Llega a 5 ⭐ de búsqueda y que te salgan a cazar' },
+  { id: 'elite25', kind: 'eliteKill', mode: 'sum', n: 25, tier: 'gold', name: 'Matagigantes', desc: 'Abate 25 piratas ÉLITE en la GALAXIA' },
 ];
 export const ACH_GEMS = T;
 

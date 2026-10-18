@@ -16,6 +16,7 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
+import { power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
@@ -58,6 +59,9 @@ const calcStats = () => {
 
 // ---------- Facciones ----------
 const fmtK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
+// AMENAZA: los piratas se refuerzan con el PODER de tu nave (ver galaxyThreat.js)
+export const shipPower = () => power(stats());
+export const threat = () => threatOf(shipPower());
 export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], worldTerritory(save)); // con lo perdido en las ofensivas
 const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
 const B = () => { save.bounties.done ||= {}; return save.bounties; };
@@ -108,6 +112,8 @@ export function newSpace() {
 // Construye el sistema `id`. Si vienes de `fromId`, apareces junto a la puerta que lleva de vuelta.
 function enterSystem(s, id, fromId) {
   const def = GAL[id];
+  const killedThere = s.sysKills || 0; // abatidos en el sistema del que vienes (para el nivel de búsqueda)
+  s.sysKills = 0;
   const gates = def.links.map((to) => ({ to, name: GAL[to].name, ang: Math.atan2(GAL[to].y - def.y, GAL[to].x - def.x) }));
   s.sysId = id;
   s.sys = makeSystem(id + 1, { name: def.name, sunColor: def.star.color, planets: def.planets, ore: def.ore, gates, danger: def.danger, asteroids: id === 0 ? 80 : 70 });
@@ -120,7 +126,7 @@ function enterSystem(s, id, fromId) {
   s.pois = poisOf(GAL, id);
   s.scanT = 0;
   s.freighter = null;
-  s.missiles = []; s.emissiles = []; s.blasts = []; s.sparks = []; s.trail = []; s.mines = []; s.decoy = null;
+  s.missiles = []; s.emissiles = []; s.blasts = []; s.sparks = []; s.trail = []; s.mines = []; s.emines = []; s.decoy = null;
   s.base = null; s.event = null; s.act = null;
   s.lock = { ref: null, t: 0, locked: false };
   const g = gal();
@@ -132,7 +138,8 @@ function enterSystem(s, id, fromId) {
   } else if (fromId !== null) fx.banner(`🌌 ${def.name}`, `peligro ${'☠'.repeat(def.danger) || 'ninguno'}`, def.star.color);
   music.biome = Math.min(3, def.danger);
   // piratas: los que tocan al llegar (ORIGEN es seguro)
-  for (let i = 0; i < def.pirates; i++) spawnPirate(s, false);
+  const extra = def.pirates ? extraPirates(threat()) : 0;
+  for (let i = 0; i < def.pirates + extra; i++) spawnPirate(s, false);
   if (def.boss && !save.galaxyBoss[id]) spawnPirate(s, true);
   if (fromId !== null) {
     // por la puerta del sistema de origen; si no hay (agujero de gusano a un sistema lejano), por la primera
@@ -168,6 +175,10 @@ function enterSystem(s, id, fromId) {
   placeOutpost(s);
   storyBase(s);
   worldArrive(s);
+  // NIVEL DE BÚSQUEDA: con ⭐⭐ o más, a veces te esperan CAZADORES (no en ORIGEN)
+  if (fromId !== null && id !== 0 && makeRng(hashString(`hunt-${id}-${g.jumps}`)).next() < hunterChance(g.wanted || 0)) spawnHunters(s);
+  // …y después, si en el sistema anterior no abatiste a nadie, se van olvidando de ti
+  if (fromId !== null) jumpWanted(g, killedThere);
   s.devourer = null;
   s.markerT = 0;
   spawnStoryBoss(s);
@@ -224,7 +235,7 @@ function spawnStoryBoss(s) {
   if (ch.goal.boss === 'herald' && !s.pirates.some((p) => p.story === 'herald')) {
     spawnPirate(s, true);
     const h = s.pirates[s.pirates.length - 1];
-    const hp = Math.round(1500 * (ch.goal.hpMul || 1));
+    const hp = Math.round(1500 * (ch.goal.hpMul || 1) * threat());
     Object.assign(h, { story: 'herald', name: ch.goal.hpMul ? 'EL HERALDO RENACIDO' : 'EL HERALDO', hp, max: hp, mesh: 'wanderer', size: 15, speed: 95, dmg: 14 * Math.min(2, ch.goal.hpMul || 1) });
     fx.banner('👁️ EL HERALDO', 'te estaba esperando', '#ff2d55', true);
   }
@@ -233,7 +244,7 @@ function spawnStoryBoss(s) {
   if (ch.goal.boss === 'queen' && !s.pirates.some((p) => p.alive && p.story === 'queen')) {
     spawnPirate(s, true);
     const q = s.pirates[s.pirates.length - 1];
-    const qhp = Math.round(2600 * (ch.goal.hpMul || 1));
+    const qhp = Math.round(2600 * (ch.goal.hpMul || 1) * threat());
     Object.assign(q, { story: 'queen', name: ch.goal.hpMul ? 'ECO DE LA REINA' : 'LA REINA DEL ENJAMBRE', hp: qhp, max: qhp, mesh: 'kaiju', size: 18, speed: 80, dmg: 12, broodT: 2,
       pal: { hull: '#2a2000', edge: '#ffd60a', glow: '#ff9f0a' } });
     fx.banner('🐝 LA REINA DEL ENJAMBRE', 'sus drones la protegen', '#ffd60a', true);
@@ -271,7 +282,8 @@ const PRIMORDIAL = { boss: 'primordial', name: 'EL DEVORADOR PRIMORDIAL', eyes: 
 export function spawnDevourer(s = S(), o = {}) {
   const st = s.sys.station.pos;
   const pos = add(st, { x: 700, y: 160, z: 700 });
-  const ne = o.eyes || 3, hp = o.hp || 4200, eh = o.eyeHp || 450;
+  const t = threat();
+  const ne = o.eyes || 3, hp = Math.round((o.hp || 4200) * t), eh = Math.round((o.eyeHp || 450) * t);
   s.devourer = { pos, r: o.eyes ? 70 : 60, hp, max: hp, phase: 1, spin: 0, flash: 0, waveT: 6, volleyT: 4, ringT: 3, eyeT: 2,
     boss: o.boss || 'devourer', name: o.name || 'EL DEVORADOR DE ESTRELLAS', rings: o.rings || 1, color: o.color || null,
     eyes: Array.from({ length: ne }, (_, i) => ({ ang: (i / ne) * Math.PI * 2, hp: eh, max: eh, alive: true, eye: true, pos: { ...pos }, flash: 0 })) };
@@ -371,6 +383,114 @@ function updateStoryMarker(s, dt) {
   } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
 }
 
+// ---------- Amenaza: daño a piratas, rasgos de élite, corbetas, minadores y cazadores ----------
+// Todo el daño a un pirata pasa por aquí: escudo de élite y protección de una corbeta cercana
+function damagePirate(s, p, dmg) {
+  if (!p.alive) return;
+  if (p.kind !== 'corvette' && s.pirates.some((c) => c.alive && c.kind === 'corvette' && c !== p && dist(c.pos, p.pos) < 260)) dmg *= 0.5;
+  p.hitT = 0;
+  if (p.state === 'patrol') p.state = 'attack';
+  if (p.eShield > 0) {
+    p.eShield = Math.max(0, p.eShield - dmg);
+    p.flash = 0.05;
+    if (!p.eShield) fx.notice('🛡️ ¡Escudo de élite roto!', '#7df9ff');
+    return;
+  }
+  p.hp -= dmg;
+  p.flash = 0.08;
+  if (p.hp <= 0) killPirate(s, p);
+}
+function pirateTraits(s, p, d, dt) {
+  p.hitT = (p.hitT || 0) + dt;
+  const sh = s.ship;
+  // BLINDADO: el escudo vuelve si dejas de darle; REGENERADOR: la vida
+  if (p.eShieldMax && p.hitT > 3) p.eShield = Math.min(p.eShieldMax, p.eShield + p.eShieldMax * 0.25 * dt);
+  if (p.elite === 'regen' && p.hitT > 2) p.hp = Math.min(p.max, p.hp + p.max * 0.08 * dt);
+  // KAMIKAZE: se lanza a por ti y estalla al tocarte
+  if (p.elite === 'kamikaze') {
+    p.state = 'attack';
+    if (d < 16) {
+      p.alive = false;
+      blast(s, p.pos, 70, '#ff2d55', 0.8);
+      sfx.boom();
+      if (dist(sh.pos, s.sys.station.pos) >= SAFE_R) hurt(s, 28 + GAL[s.sysId].danger * 4);
+    }
+  }
+  // FRANCOTIRADOR: se queda lejos, apunta (avisa con una línea) y dispara un tiro fuerte
+  if (p.elite === 'sniper' && p.state !== 'flee') {
+    if (d < 520) p.pos = add(p.pos, scale(norm(sub(p.pos, sh.pos)), p.speed * 0.9 * dt));
+    p.snipeCd = (p.snipeCd ?? 2.5) - dt;
+    if (p.snipeCd <= 0 && d < 1150 && !p.aimT) { p.aimT = 0.9; p.aimAt = { ...sh.pos }; }
+    if (p.aimT) {
+      p.aimT -= dt;
+      if (p.aimT <= 0) {
+        p.aimT = 0;
+        p.snipeCd = 3.2;
+        s.ebolts.push({ pos: { ...p.pos }, vel: scale(norm(sub(p.aimAt, p.pos)), 900), life: 1.6, dmg: p.dmg * 2.6, big: true });
+        sfx.dash();
+      }
+    }
+  }
+  // MINADOR: siembra minas por donde pasa
+  if (p.kind === 'minelayer' && s.emines.length < 14) {
+    p.layT -= dt;
+    if (p.layT <= 0) { p.layT = 4; s.emines.push({ pos: { ...p.pos }, life: 22, arm: 1 }); }
+  }
+}
+function updateEMines(s, dt) {
+  const sh = s.ship;
+  for (const m of s.emines) {
+    m.life -= dt;
+    m.arm -= dt;
+    if (m.arm <= 0 && dist(m.pos, sh.pos) < 16) {
+      m.life = 0;
+      blast(s, m.pos, 55, '#ff2d55', 0.6);
+      sfx.boom();
+      if (dist(sh.pos, s.sys.station.pos) >= SAFE_R) hurt(s, 22 + GAL[s.sysId].danger * 3);
+    }
+    // tus disparos las revientan
+    for (const b of s.bolts) if (b.life > 0 && dist(b.pos, m.pos) < 8) { b.life = 0; m.life = 0; blast(s, m.pos, 40, '#ff9f0a', 0.4); }
+  }
+  s.emines = s.emines.filter((m) => m.life > 0);
+}
+// CAZADORES: élites que vienen a por ti (y, con 4 ⭐ o más, su comandante)
+function spawnHunters(s) {
+  const g = gal(), n = hunterCount(g.wanted || 0);
+  const at = add(s.ship.pos, scale(norm({ x: s.rng.range(-1, 1), y: 0, z: s.rng.range(-1, 1) }), 650));
+  const n0 = s.pirates.length;
+  for (let i = 0; i < n; i++) spawnPirate(s, false, 'interceptor', add(at, { x: i * 40, y: 0, z: i * 30 }));
+  for (const p of s.pirates.slice(n0)) {
+    const tr = s.rng.pick(TRAIT_KEYS);
+    Object.assign(p, { elite: tr, name: `🚨 CAZADOR`, hp: p.hp * 2.2, max: p.max * 2.2, state: 'attack', hunter: true,
+      eShield: tr === 'shielded' ? p.max : 0, eShieldMax: tr === 'shielded' ? p.max : 0 });
+  }
+  if (stars(g) >= 4) {
+    spawnPirate(s, true, null, add(at, { x: 0, y: 30, z: -60 }));
+    s.pirates[s.pirates.length - 1].name = '🚨 JEFE DE CAZA';
+  }
+  fx.banner('🚨 TE BUSCAN', `${'⭐'.repeat(stars(g))} · ${n} cazadores vienen a por ti`, '#ff2d55', true);
+  sfx.alarm?.();
+  if (stars(g) >= 5) progress('wanted5');
+}
+// (debug y tests) un pirata de un tipo y rasgo concretos, delante de ti
+export function debugPirate(kind = null, trait = null, ahead = 220) {
+  const s = S(), n0 = s.pirates.length;
+  spawnPirate(s, false, kind, add(s.ship.pos, scale(basis(s.ship.yaw, s.ship.pitch).f, ahead)));
+  const out = s.pirates.slice(n0);
+  for (const p of out) {
+    if (trait) Object.assign(p, { elite: trait, name: `${ELITE_TRAITS[trait].icon} ÉLITE`, eShield: trait === 'shielded' ? p.max : 0, eShieldMax: trait === 'shielded' ? p.max : 0 });
+    else Object.assign(p, { elite: null, eShield: 0, eShieldMax: 0 });
+  }
+  return out.length;
+}
+// SOBORNO en la estación: −1 ⭐
+export function bribeWanted() {
+  const c = bribe(gal(), threat());
+  if (c) persist();
+  return c;
+}
+export { bribeCost, stars as wantedStars };
+
 // ---------- Sucesos de la galaxia: ofensivas y enjambre ----------
 function worldArrive(s) {
   const war = warHere(save, s.sysId);
@@ -450,6 +570,7 @@ export function abandonBounty() {
 function bountyKilled(s, p) {
   const b = B().active;
   if (!b || b.id !== p.bounty) return;
+  addWanted(gal(), 'bounty');
   const g = gal();
   g.credits += b.reward;
   B().done[b.id] = true;
@@ -506,15 +627,22 @@ function spawnPirate(s, boss, kind = null, at = null) {
   const a = s.rng.range(0, Math.PI * 2), R = s.rng.range(700, 1300);
   const pos = at ? { ...at } : { x: Math.cos(a) * R, y: s.rng.range(-120, 120), z: Math.sin(a) * R };
   if (!at && dist(pos, s.sys.station.pos) < SAFE_R + 200) pos.x += 600;
-  const k = boss ? 'fighter' : kind || enemyKind(d, s.rng.next());
+  const t = threat();
+  let k = boss ? 'fighter' : kind || enemyKind(d, s.rng.next());
+  // CORBETAS y MINADORES: lejos de ORIGEN o con amenaza alta
+  if (!boss && !kind && (d >= 3 || t >= 1.8)) { const r2 = s.rng.next(); if (r2 < 0.08) k = 'corvette'; else if (r2 < 0.16) k = 'minelayer'; }
   const K = ENEMY_KINDS[k];
-  const hp = boss ? 400 + d * 120 : Math.round((30 + d * 14) * K.hpK);
+  const hp = Math.round((boss ? 400 + d * 120 : (30 + d * 14) * K.hpK) * t);
   const n = k === 'drone' ? 4 : 1;
+  // ÉLITE con un rasgo (más probable cuanto más amenaza y peligro)
+  const elite = !boss && k !== 'drone' && s.rng.next() < eliteChance(t, d) ? s.rng.pick(TRAIT_KEYS) : null;
+  const php = elite ? Math.round(hp * 2.2) : hp;
   for (let i = 0; i < n; i++) {
-    s.pirates.push({
+    s.pirates.push({ threat: t, layT: 3, fireK: 1 / (1 + (t - 1) * 0.15), hitT: 9,
+      ...(elite ? { elite, name: `${ELITE_TRAITS[elite].icon} ÉLITE`, eShield: elite === 'shielded' ? hp * 0.8 : 0, eShieldMax: elite === 'shielded' ? hp * 0.8 : 0 } : {}),
       pos: i ? add(pos, { x: s.rng.range(-30, 30), y: s.rng.range(-15, 15), z: s.rng.range(-30, 30) }) : pos,
-      yaw: s.rng.range(-3, 3), pitch: 0, hp, max: hp, boss, alive: true, flash: 0, state: 'attack', t: 0, kind: k, size: boss ? 13 : K.size,
-      speed: ((boss ? 70 : 85) + d * 7) * K.speedK, turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1),
+      yaw: s.rng.range(-3, 3), pitch: 0, hp: php, max: php, boss, alive: true, flash: 0, state: 'attack', t: 0, kind: k, size: boss ? 13 : K.size,
+      speed: ((boss ? 70 : 85) + d * 7) * K.speedK * (elite === 'kamikaze' ? 1.25 : 1), turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1) * Math.sqrt(t),
       missileCd: K.missiles ? 3 : 0,
       mesh: boss ? 'kaiju' : K.mesh || s.rng.pick(['raptor', 'viper', 'comet']), off: { x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) },
     });
@@ -564,7 +692,7 @@ function updatePirates(s, dt) {
     const aim = p.raider && s.freighter ? s.freighter.pos : s.decoy && !p.boss ? s.decoy.pos : sh.pos;
     const dAim = dist(p.pos, aim);
     if (p.state === 'attack' && dAim < 520 && p.fireCd <= 0 && angleTo(p.pos, p.yaw, p.pitch, aim) < (p.boss ? 0.35 : 0.18) && (p.raider || !playerSafe)) {
-      p.fireCd = p.boss ? 0.9 : Math.max(0.5, 1.2 - GAL[s.sysId].danger * 0.08);
+      p.fireCd = (p.boss ? 0.9 : Math.max(0.5, 1.2 - GAL[s.sysId].danger * 0.08)) * (p.fireK || 1);
       const dirs = p.boss ? [-0.12, 0, 0.12] : [0];
       for (const off of dirs) {
         const b = basis(p.yaw + off, p.pitch);
@@ -582,8 +710,10 @@ function updatePirates(s, dt) {
         sfx.dash();
       }
     }
+    pirateTraits(s, p, d, dt);
     if (p.state === 'flee' && d > 1600) p.alive = false; // se escapó
   }
+  updateEMines(s, dt);
   // misiles enemigos: persiguen con menos giro que los tuyos
   for (const m of s.emissiles) {
     steerMissile(m, sh.pos, dt, 1.5);
@@ -632,7 +762,10 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = (p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1);
+  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1));
+  s.sysKills = (s.sysKills || 0) + 1;
+  addWanted(gal(), 'kill');
+  if (p.elite) progress('eliteKill');
   s.loot.push({ pos: { ...p.pos }, credits: value, life: 60 });
   if (p.boss) {
     save.galaxyBoss[s.sysId] = true;
@@ -653,6 +786,7 @@ function killPirate(s, p) {
     addRep(save, s.owner, 12);
     fx.banner('🛡️ OFENSIVA RECHAZADA', `${GAL[s.sysId].name} resiste · +${fmtK(c)} 💰`, '#30d158', true);
     progress('defend', world(save).saved);
+    addWanted(gal(), 'defend');
     persist();
   }
   if (p.siege && s.event?.kind === 'siege' && !s.event.done) {
@@ -687,7 +821,7 @@ function spawnBase(s) {
   const a = s.rng.range(0, Math.PI * 2);
   const pos = { x: Math.cos(a) * 1150, y: s.rng.range(-100, 100), z: Math.sin(a) * 1150 };
   if (dist(pos, st) < SAFE_R + 500) { pos.x = -pos.x; pos.z = -pos.z; }
-  const hp = 600 + d * 150;
+  const hp = Math.round((600 + d * 150) * threat());
   s.base = { pos, hp, max: hp, r: 34, flash: 0, spin: 0, turrets: [0, 1, 2, 3].map((i) => ({ ang: (i * Math.PI) / 2, cd: 1 + i * 0.4 })) };
   for (let i = 0; i < 2; i++) spawnPirate(s, false, 'fighter', add(pos, { x: i ? 90 : -90, y: 0, z: 70 }));
 }
@@ -725,7 +859,8 @@ function killBase(s) {
   fx.shake(30);
   fx.flash('#ffe600', 0.5);
   sfx.boom();
-  const value = 680 + d * 200;
+  const value = Math.round((680 + d * 200) * rewardMul(threat()));
+  addWanted(gal(), 'base');
   s.loot.push({ pos: { ...b.pos }, credits: value, life: 90 });
   if (b.nest) {
     const res = clearNest(save, s.sysId, gal().jumps, GAL);
@@ -847,9 +982,7 @@ function updateItems(s, dt) {
     blast(s, m.pos, 60, '#ff9f0a', 0.6);
     for (const p of s.pirates) {
       if (!p.alive || dist(p.pos, m.pos) > 60) continue;
-      p.hp -= 150;
-      p.flash = 0.1;
-      if (p.hp <= 0) killPirate(s, p);
+      damagePirate(s, p, 150);
     }
     sfx.boom();
   }
@@ -1402,10 +1535,7 @@ export function updateSpace(dt) {
     let hit = false;
     for (const p of s.pirates) {
       if (!p.alive || dist(p.pos, bo.pos) > Math.max(6, p.size * 1.4)) continue;
-      p.hp -= bo.dmg;
-      p.flash = 0.08;
-      if (p.state === 'patrol') p.state = 'attack';
-      if (p.hp <= 0) killPirate(s, p);
+      damagePirate(s, p, bo.dmg);
       hit = true;
       break;
     }
@@ -1448,10 +1578,7 @@ export function updateSpace(dt) {
       if (m.target === s.base) hitBase(s, m.dmg);
       else if (m.target === s.devourer || m.target.eye) hitDevourer(s, m.target, m.dmg);
       else {
-        m.target.hp -= m.dmg;
-        m.target.flash = 0.1;
-        if (m.target.state === 'patrol') m.target.state = 'attack';
-        if (m.target.hp <= 0) killPirate(s, m.target);
+        damagePirate(s, m.target, m.dmg);
       }
     }
   }

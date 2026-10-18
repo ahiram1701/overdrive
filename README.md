@@ -173,6 +173,11 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **Corsario** (60K): +4 misiles, fija antes, impulso rapidísimo.
 - **Mejoras sin techo:** cada mejora de la nave sigue del nivel 5 al **Mk 10** (◆ naranja). Cada Mk es más caro y pide materiales, y rinde la mitad que un nivel normal. El **Salto** Mk 6+ abarata los peajes.
 - **Equipo con niveles:** cada pieza fabricada sube de nivel 1 a 5 con créditos y materiales (+12% por nivel: más daño, más cadencia, más alcance…).
+- **⚡ La amenaza crece contigo:** los piratas se refuerzan según el **PODER** de tu nave (mejoras, Mk, chasis y equipo). Con la nave casi nueva no cambia nada; muy mejorada, hay más piratas, con más vida y más daño, y pagan más. Tu poder sale en el panel 🎒 y en el Hangar; la amenaza del sistema, con ▲ junto a su nombre.
+  - **🚨 Nivel de búsqueda (⭐ hasta 5):** sube al abatir piratas, destruir bases, cobrar recompensas y defender sistemas; baja si saltas sin abatir a nadie. Con ⭐⭐ o más, al llegar a un sistema te pueden esperar **cazadores** (élites; con 4 ⭐, con su jefe). En las estaciones se puede **sobornar** para quitar una estrella.
+  - **Élites** (nombre dorado) con un rasgo: 🛡️ Blindado (escudo que hay que romper y se recarga), ✚ Regenerador, 💥 Kamikaze (se lanza contra ti y explota) y 🎯 Francotirador (avisa con una línea roja antes del disparo).
+  - **Enemigos nuevos:** la **Corbeta** (protege a los piratas cercanos: reciben la mitad de daño; líneas azules) y el **Minador** (siembra minas rojas: dispárales).
+  - Logros **Enemigo público** y **Matagigantes**.
 - **📰 Sucesos de la galaxia** (avanzan con cada salto; mira la pestaña **NOTICIAS** del panel 🎒 y el mapa):
   - **⚔️ Ofensivas piratas:** cada ~10 saltos atacan un sistema aliado que linda con los suyos. Tienes **5 saltos** para llegar y abatir a 6 piratas (con su comandante). Si lo salvas, buen premio y reputación; si no, **cae en manos piratas** hasta que lo liberes otra vez.
   - **🐝 Invasión del enjambre:** una colmena infecta un sistema y **se extiende** a un vecino cada 3 saltos (hasta 4). En un sistema infectado el mineral se paga a un 70 % y hay un **nido** amarillo: destrúyelo. Acabar con el último extermina la invasión (+4.000 💰).

@@ -52,6 +52,7 @@ const ASSETS = [
   './js/outposts.js',
   './js/galaxyWorld.js',
   './js/tips.js',
+  './js/galaxyThreat.js',
   './js/spaceGame.js',
   './js/spaceRender.js',
 ];

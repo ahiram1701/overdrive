@@ -133,6 +133,8 @@ const KIND_PAL = {
   interceptor: { hull: '#1a0a00', edge: '#ffb340', glow: '#ffe600' },
   bomber: { hull: '#14000c', edge: '#ff2bd6', glow: '#ff375f' },
   drone: { hull: '#100010', edge: '#ff6bd5', glow: '#ff2d55' },
+  corvette: { hull: '#06121a', edge: '#5ac8fa', glow: '#ff2d55' },
+  minelayer: { hull: '#1a1000', edge: '#ff9f0a', glow: '#ff2d55' },
 };
 
 export function renderSpace(dt) {
@@ -368,8 +370,16 @@ export function renderSpace(dt) {
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
     draws.push({ z: p.z, fn: () => {
       const size = pr.size || (pr.boss ? 13 : 6);
-      const pal = pr.pal || (pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : KIND_PAL[pr.kind] || KIND_PAL.fighter);
+      const pal = pr.pal || (pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : pr.elite ? { ...(KIND_PAL[pr.kind] || KIND_PAL.fighter), edge: '#ffd60a' } : KIND_PAL[pr.kind] || KIND_PAL.fighter);
       drawMesh3D(ctx, cam, pr.mesh, pr.pos, pr.yaw, pr.pitch, size, pal, pr.flash > 0);
+      // ÉLITE BLINDADO: su escudo (hay que romperlo antes)
+      if (pr.eShield > 0) {
+        ctx.strokeStyle = `rgba(125,249,255,${0.35 + 0.5 * pr.eShield / pr.eShieldMax})`;
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(14, p.s * size * 1.7), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       // escudo de la Reina (mientras la protegen sus drones)
       if (pr.shield) {
         ctx.strokeStyle = 'rgba(255,214,10,.75)';
@@ -396,12 +406,53 @@ export function renderSpace(dt) {
         ctx.fillStyle = '#ff2d55';
         ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw * Math.max(0, pr.hp / pr.max), 4);
         if (pr.boss || pr.name) {
-          ctx.fillStyle = pr.name ? '#ff9f0a' : '#ffe600';
+          ctx.fillStyle = pr.elite ? '#ffd60a' : pr.name ? '#ff9f0a' : '#ffe600';
           ctx.font = 'italic 900 11px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(pr.name ? (pr.story ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+          ctx.fillText(pr.name ? (pr.story || pr.elite || pr.hunter ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
         }
       }
+    } });
+  }
+  // CORBETA: enlaces con los piratas que protege (reciben la mitad de daño)
+  for (const c of s.pirates) {
+    if (!c.alive || c.kind !== 'corvette') continue;
+    const pc = project(cam, c.pos, 1);
+    if (!pc) continue;
+    for (const o of s.pirates) {
+      if (o === c || !o.alive || dist(o.pos, c.pos) > 260) continue;
+      const po = project(cam, o.pos, 1);
+      if (!po) continue;
+      draws.push({ z: Math.max(pc.z, po.z), fn: () => {
+        ctx.strokeStyle = 'rgba(90,200,250,.45)';
+        ctx.lineWidth = 1.5;
+        ctx.setLineDash([6, 5]);
+        ctx.beginPath(); ctx.moveTo(pc.x, pc.y); ctx.lineTo(po.x, po.y); ctx.stroke();
+        ctx.setLineDash([]);
+      } });
+    }
+  }
+  // FRANCOTIRADOR: la línea de aviso mientras apunta
+  for (const pr of s.pirates) {
+    if (!pr.alive || !pr.aimT) continue;
+    const a = project(cam, pr.pos, 1), b = project(cam, pr.aimAt, 1);
+    if (!a || !b) continue;
+    draws.push({ z: a.z, fn: () => {
+      ctx.strokeStyle = `rgba(255,45,85,${0.3 + 0.5 * Math.abs(Math.sin(G.realTime * 18))})`;
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    } });
+  }
+  // MINAS del minador: rojas, parpadean
+  for (const m of s.emines || []) {
+    const p = project(cam, m.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const r = Math.max(3.5, p.s * 4.5);
+      ctx.fillStyle = Math.floor(G.realTime * 5) % 2 ? '#ff2d55' : '#5a0010';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,45,85,.6)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.arc(p.x, p.y, r * 2.2, 0, Math.PI * 2); ctx.stroke();
     } });
   }
   // balas enemigas: rojas, siempre distintas de las tuyas
@@ -409,8 +460,8 @@ export function renderSpace(dt) {
     const p = project(cam, bo.pos, 1), q = project(cam, sub(bo.pos, scale(norm(bo.vel), 12)), 1);
     if (!p || !q) continue;
     draws.push({ z: p.z, fn: () => {
-      ctx.strokeStyle = '#ff2d55';
-      ctx.lineWidth = Math.max(2, p.s * 1.2);
+      ctx.strokeStyle = bo.big ? '#ffe600' : '#ff2d55';
+      ctx.lineWidth = Math.max(2, p.s * (bo.big ? 2.4 : 1.2));
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
