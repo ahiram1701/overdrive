@@ -4,11 +4,12 @@ import { makeRng } from '../../js/rng.js';
 import { loadFrom } from '../../js/save.js';
 import {
   CUPS, TRACK_BY_ID, makeRivals, stepRivals, standings, addPoints, cupMedal, encodeSample, ghostAt, GHOST_DT, isCupOpen, estimateFinish,
+  ttTargets, ttMedal, rivalAdapt,
 } from '../../js/race.js';
 
-test('3 copas de 3 pistas, ids únicos y cada vez más difíciles', () => {
-  assert.equal(CUPS.length, 3);
-  assert.equal(Object.keys(TRACK_BY_ID).length, 9);
+test('5 copas de 3 pistas, ids únicos y cada vez más difíciles', () => {
+  assert.equal(CUPS.length, 5);
+  assert.equal(Object.keys(TRACK_BY_ID).length, 15);
   for (let i = 1; i < CUPS.length; i++) {
     assert.ok(CUPS[i].skill > CUPS[i - 1].skill);
     assert.ok(CUPS[i].pace >= CUPS[i - 1].pace);
@@ -71,4 +72,26 @@ test('estimación de llegada y apertura de copas', () => {
   s.raceCups.c1 = 2;
   assert.ok(isCupOpen(s, 'c2'), 'un bronce abre la siguiente');
   assert.equal(loadFrom(JSON.stringify(s)).raceCups.c1, 2, 'persiste');
+});
+
+test('contrarreloj: tres tiempos objetivo; la medalla depende de tu tiempo', () => {
+  const t = TRACK_BY_ID['c1-1'];
+  const [g, sv, b] = ttTargets(t);
+  assert.ok(g < sv && sv < b);
+  assert.equal(ttMedal(t, g - 0.1), 0);
+  assert.equal(ttMedal(t, sv), 1);
+  assert.equal(ttMedal(t, b), 2);
+  assert.equal(ttMedal(t, b + 0.1), null);
+});
+
+test('rivales que se adaptan: si eres rápido aprietan, si no aflojan (±3 %)', () => {
+  const t = TRACK_BY_ID['c2-1'];
+  assert.equal(rivalAdapt(t, undefined), 1);
+  assert.ok(rivalAdapt(t, t.len * 0.9) > 1);
+  assert.ok(rivalAdapt(t, t.len * 1.2) < 1);
+  assert.equal(rivalAdapt(t, 1), 1.03);
+  assert.equal(rivalAdapt(t, 999), 0.97);
+  const cup = CUPS[1];
+  const base = makeRivals(cup, 7), fast = makeRivals(cup, 7, 1.03);
+  base.forEach((r, i) => assert.ok(Math.abs(fast[i].pace / r.pace - 1.03) < 1e-9));
 });
