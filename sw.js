@@ -49,6 +49,7 @@ const ASSETS = [
   './js/crafting.js',
   './js/story.js',
   './js/market.js',
+  './js/outposts.js',
   './js/spaceGame.js',
   './js/spaceRender.js',
 ];

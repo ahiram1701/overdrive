@@ -30,8 +30,9 @@ export function recordSale(save, sys, ore, n) {
 
 // el mercado se recupera mientras vuelas (rate: el Mercado propio de un puesto lo dobla)
 export function recoverMarket(save, dt, rate = 1) {
-  const m = mk(save), k = (dt / RECOVER_SECS) * rate;
+  const m = mk(save);
   for (const sys of Object.keys(m)) {
+    const k = (dt / RECOVER_SECS) * (typeof rate === 'function' ? rate(sys) : rate);
     for (const ore of Object.keys(m[sys])) {
       m[sys][ore] -= k;
       if (m[sys][ore] <= 0) delete m[sys][ore];

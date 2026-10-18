@@ -31,6 +31,7 @@ const DEFAULTS = {
   story: {},        // historia LA SEÑAL { ch, n, seen, choice }
   galaxyMarket: {}, // saturación del mercado { sys: { ore: unidades vendidas } }
   galaxyItems: {},  // consumibles de vuelo { repair: 2 }
+  outposts: {},     // puestos avanzados { sys: { name, mods: { radar: 2 }, store } }
   crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
   settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: false },
   runs: 0,
@@ -62,7 +63,7 @@ const DEFAULTS = {
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems', 'outposts']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);

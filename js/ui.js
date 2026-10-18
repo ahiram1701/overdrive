@@ -14,9 +14,10 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
@@ -1278,7 +1279,8 @@ export const ui = {
     ui.showSpaceHUD(false); // atracado: solo la estación
     const g = save.galaxy, st = spaceStats();
     const sd = GAL[s.sysId];
-    setText('stTitle', `🛰️ ESTACIÓN ${sd.name}`);
+    setText('stTitle', s.atOutpost && s.outpost ? `🏗️ ${s.outpost.name}` : `🛰️ ESTACIÓN ${sd.name}`);
+    ui.renderOutpost(s);
     setText('stCredits', fmt(g.credits));
     setText('stShip', shipName(save, save.ship) ? `· 🚀 «${shipName(save, save.ship)}»` : '');
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
@@ -1435,6 +1437,54 @@ export const ui = {
     show('station');
   },
 
+  // PUESTO AVANZADO: fundarlo (en un sistema liberado) o ampliarlo con módulos
+  renderOutpost(s) {
+    const box = $('stOutpost'), g = save.galaxy, o = outpostAt(save, s.sysId);
+    box.innerHTML = '';
+    if (!o) {
+      if (!canFound(save, s.sysId)) { box.classList.add('hidden'); return; }
+      box.classList.remove('hidden');
+      box.innerHTML = '<h3>🏗️ Puesto avanzado</h3><small>Este sistema es tuyo: funda aquí tu propia estación y amplíala con módulos.</small>';
+      const b = el('button', `btn${g.credits >= FOUND_COST ? '' : ' ghost'}`, `FUNDAR · ${fmt(FOUND_COST)} 💰`);
+      b.id = 'btnFound';
+      b.disabled = g.credits < FOUND_COST;
+      tap(b, () => { if (foundOutpost()) { toast('🏗️ ¡Puesto avanzado fundado!'); ui.showStation(s); } });
+      box.append(b);
+      return;
+    }
+    box.classList.remove('hidden');
+    box.innerHTML = `<h3>🏗️ ${o.name}</h3><small>Tu puesto en este sistema. Atraca en él (estructura verde) o aquí mismo para gestionarlo.</small>`;
+    for (const id of MOD_KEYS) {
+      const M = MODULES[id], l = modLvl(save, s.sysId, id), c = modCost(save, s.sysId, id);
+      const b = el('button', `st-up${c && g.credits >= c ? ' afford' : ''}${l ? ' on' : ''}`, `<span class="su-icon">${M.icon}</span>
+        <span class="su-body"><b>${M.name} <em>${l}/${MOD_MAX}</em></b><small>${l && l < MOD_MAX ? 'Siguiente: ' : ''}${M.desc(Math.min(MOD_MAX, l + 1))}</small></span>
+        <span class="su-cost">${c ? `${fmt(c)} 💰` : 'MÁX'}</span>`);
+      b.dataset.module = id;
+      b.disabled = !c;
+      tap(b, () => {
+        if (!upgradeModule(save, s.sysId, id)) { fx.vibe(40); return; }
+        progress('outpostLvl', Object.values(outpostAt(save, s.sysId).mods).reduce((a, n) => a + n, 0));
+        persist();
+        sfx.chest();
+        toast(`${M.icon} ${M.name} nivel ${l + 1}`);
+        ui.showStation(s);
+      });
+      box.append(b);
+    }
+    const cap = storeCap(save, s.sysId);
+    if (cap) {
+      const row = el('div', 'op-store', `<small>📦 Almacén: ${storeUsed(o)}/${cap}</small>`);
+      const dep = el('button', 'btn ghost', 'GUARDAR TODO');
+      dep.id = 'btnDeposit';
+      tap(dep, () => { const n = depositAll(save, s.sysId); persist(); toast(n ? `📦 ${n} guardados` : 'Nada que guardar (o lleno)'); ui.showStation(s); });
+      const wd = el('button', 'btn ghost', 'SACAR');
+      wd.id = 'btnWithdraw';
+      tap(wd, () => { const n = withdrawAll(save, s.sysId, spaceStats().cargo - cargoCount(save.galaxy.cargo)); persist(); toast(n ? `📦 ${n} sacados` : 'Nada que sacar'); ui.showStation(s); });
+      row.append(dep, wd);
+      box.append(row);
+    }
+  },
+
   // texto de un coste { credits, chatarra… }
   costText(c) {
     return Object.entries(c).map(([k, n]) => (k === 'credits' ? `${fmt(n)} 💰` : `${n} ${MATS[k].icon}`)).join(' · ');
@@ -1447,6 +1497,7 @@ export const ui = {
   // TALLER de fabricación: materiales, huecos montados y recetas (créditos + materiales)
   renderCraft(again) {
     const g = gear(save);
+    const disc = G.space ? workshopDisc(save, G.space.sysId) : 1; // Taller de tu puesto
     $('stMats').innerHTML = Object.entries(MATS).map(([k, m]) => `<span title="${m.desc}">${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('');
     const slotHtml = (slot, label) => Array.from({ length: slotsOf(save)[slot] }, (_, i) => {
       const id = g[slot][i];
@@ -1457,22 +1508,23 @@ export const ui = {
     box.innerHTML = '';
     for (const [id, it] of Object.entries(GEAR)) {
       const has = owns(save, id), on = g[it.slot].includes(id);
-      const cost = Object.entries(it.cost).map(([k, n]) => (k === 'credits' ? `${fmt(n)} 💰` : `${n} ${MATS[k].icon}`)).join(' · ');
-      const b = el('button', `st-up${!has && canCraft(save, id) ? ' afford' : ''}${on ? ' on' : ''}`, `<span class="su-icon">${it.icon}</span>
+      const cost = ui.costText(Object.fromEntries(Object.entries(it.cost).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n])));
+      const b = el('button', `st-up${!has && canCraft(save, id, disc) ? ' afford' : ''}${on ? ' on' : ''}`, `<span class="su-icon">${it.icon}</span>
         <span class="su-body"><b>${it.name} <em>${it.slot === 'w' ? 'arma' : 'módulo'}</em></b><small>${it.desc}</small><small class="cr-cost">${has ? (on ? '✔ MONTADO · toca para quitar' : 'fabricado · toca para montar') : cost}</small></span>
         <span class="su-cost">${has ? (on ? '✔' : '＋') : 'FABRICAR'}</span>`);
       b.dataset.gear = id;
       // NIVELES del equipo fabricado (1-5)
       if (has) {
         const lv = gearLvl(save, id), uc = gearUpCost(id, lv);
-        const up = el('span', `gear-up${uc && canUpgradeGear(save, id) ? ' afford' : ''}`, `Nv ${lv}/${GEAR_MAX}${uc ? ` · ⬆ ${ui.costText(uc)}` : ' · MÁX'}`);
+        const ucd = uc && Object.fromEntries(Object.entries(uc).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n]));
+        const up = el('span', `gear-up${uc && canUpgradeGear(save, id, disc) ? ' afford' : ''}`, `Nv ${lv}/${GEAR_MAX}${uc ? ` · ⬆ ${ui.costText(ucd)}` : ' · MÁX'}`);
         up.dataset.gearUp = id;
-        if (uc) tap(up, () => { if (upgradeGear(save, id)) { persist(); sfx.chest(); toast(`${it.icon} ${it.name} nivel ${lv + 1}`); again(); } else fx.vibe(40); });
+        if (uc) tap(up, () => { if (upgradeGear(save, id, disc)) { persist(); sfx.chest(); toast(`${it.icon} ${it.name} nivel ${lv + 1}`); again(); } else fx.vibe(40); });
         b.querySelector('.su-body').append(up);
       }
       tap(b, () => {
         if (has) { equipGear(save, id); persist(); again(); return; }
-        if (!craft(save, id)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
+        if (!craft(save, id, disc)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
         persist();
         sfx.chest();
         progress('craft');
@@ -1612,6 +1664,7 @@ export const ui = {
     if (G.mode === 'galaxy') { G.mode = 'galaxyMap'; musicDuck(true); if (s) s.fireHeld = false; }
     const g = save.galaxy;
     const seen = known(GAL, g.visited);
+    for (const id of radarSystems(save, GAL)) seen.add(id); // RADAR de tus puestos
     const path = s.routeTo !== null ? route(GAL, s.sysId, s.routeTo) || [] : [];
     const onPath = (a, b) => path.some((x, i) => i && ((path[i - 1] === a && x === b) || (path[i - 1] === b && x === a)));
     const dcol = (d) => ['#30d158', '#7df9ff', '#ffe600', '#ff9f0a', '#ff6a00', '#ff2d55', '#bf5af2'][Math.min(6, d)];
@@ -1629,6 +1682,7 @@ export const ui = {
         ${visited ? `<circle cx="${a.x}" cy="${a.y}" r="${here ? 31 : 25}" class="fac" style="fill:none;stroke:${FACTIONS[sysOwner(a.id)].color};stroke-width:5"/>` : ''}
         <circle cx="${a.x}" cy="${a.y}" r="${here ? 22 : 16}" fill="${visited ? dcol(a.danger) : '#333'}"/>
         ${save.bounties.active?.sys === a.id ? `<text x="${a.x + 24}" y="${a.y + 6}" class="gm-bounty">🎯</text>` : ''}
+        ${outpostAt(save, a.id) ? `<text x="${a.x - 34}" y="${a.y + 6}" class="gm-bounty">🏗️</text>` : ''}
         <text x="${a.x}" y="${a.y - 26}">${visited ? a.name : '???'}${lock ? ' 🔒' : ''}${a.id === (g.home ?? 0) ? ' 🏠' : ''}</text></g>`;
     }
     $('gmSvg').innerHTML = svg;

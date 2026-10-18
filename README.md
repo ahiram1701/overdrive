@@ -158,6 +158,14 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **Corsario** (60K): +4 misiles, fija antes, impulso rapidísimo.
 - **Mejoras sin techo:** cada mejora de la nave sigue del nivel 5 al **Mk 10** (◆ naranja). Cada Mk es más caro y pide materiales, y rinde la mitad que un nivel normal. El **Salto** Mk 6+ abarata los peajes.
 - **Equipo con niveles:** cada pieza fabricada sube de nivel 1 a 5 con créditos y materiales (+12% por nivel: más daño, más cadencia, más alcance…).
+- **🏗️ Puestos avanzados:** en un sistema que **liberaste**, funda tu propia estación por **20K** (verde, con su nombre; 🏗️ en el mapa). Atraca en ella o en la del sistema para ampliarla con **módulos de 3 niveles** (6K–30K cada uno):
+  - 🔧 **Taller**: fabricar y subir equipo allí sale un 20–40% más barato;
+  - 📦 **Almacén**: guarda 100–300 de carga y materiales a salvo;
+  - 📡 **Radar**: el mapa revela los sistemas a 2–4 saltos;
+  - 🗼 **Torretas**: disparan solas a los piratas cercanos;
+  - 🛒 **Mercado propio**: sus precios se recuperan 2–4 veces más rápido y pagan un 5–15% más.
+
+  Logros: **Colono** (primer puesto) y **Gobernador** (un puesto con todo al nivel 3).
 - **🛒 Suministros** (en las estaciones, hasta 5 de cada uno). En vuelo, con el botón **🧰** o las teclas **1–5**:
   - 🧰 kit de reparación (+40% de casco);
   - 🔋 escudo de emergencia;

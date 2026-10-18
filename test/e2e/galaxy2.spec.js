@@ -275,3 +275,38 @@ test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', a
   expect(await page.evaluate(() => window.__save.galaxy.chassis)).toBe('explorer');
   expect(errors).toEqual([]);
 });
+
+test('puesto avanzado: fundarlo en un sistema liberado, módulos, almacén y atracar en él', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 60000, cargo: { iron: 10 } }, territory: { 0: 'coal' }, galaxyMats: { chatarra: 5 } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await expect(page.locator('#stOutpost')).toBeVisible();
+  await page.locator('#btnFound').click();
+  expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(60000 - 20000);
+  expect(await page.evaluate(() => !!window.__save.outposts[0])).toBe(true);
+  // almacén nivel 1: guarda la carga y los materiales
+  await page.locator('#stOutpost [data-module="storage"]').click();
+  expect(await page.evaluate(() => window.__save.outposts[0].mods.storage)).toBe(1);
+  await page.locator('#btnDeposit').click();
+  const st = await page.evaluate(() => ({ store: window.__save.outposts[0].store, cargo: window.__save.galaxy.cargo.iron || 0 }));
+  expect(st.store.cargo.iron).toBe(10);
+  expect(st.store.mats.chatarra).toBe(5);
+  expect(st.cargo).toBe(0);
+  await page.locator('#btnWithdraw').click();
+  expect(await page.evaluate(() => window.__save.galaxy.cargo.iron)).toBe(10);
+  // torretas: disparan solas a un pirata cercano
+  await page.locator('#stOutpost [data-module="turrets"]').click();
+  await page.locator('#btnUndock').click();
+  const shots = await page.evaluate(() => {
+    const s = window.G.space;
+    s.ship.pos = { ...s.outpost.pos, z: s.outpost.pos.z - 60 };
+    for (let i = 0; i < 3; i++) window.D.step(1 / 30, false);
+    return { canDock: s.canDock, inRange: s.atOutpostRange };
+  });
+  expect(shots.inRange).toBe(true);
+  expect(shots.canDock).toBe(true);
+  await page.locator('#btnDock').click();
+  await expect(page.locator('#stTitle')).toContainText('🏗️');
+  expect(errors).toEqual([]);
+});
