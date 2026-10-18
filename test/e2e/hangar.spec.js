@@ -270,6 +270,41 @@ test.describe('pantalla táctil', () => {
     expect(Math.abs(await page.evaluate(() => document.getElementById('hangar').scrollTop) - top1)).toBeLessThan(5);
     expect(top0).toBeGreaterThan(0);
   });
+
+  // móvil bajo (375×640): al bajar, la cabecera se compacta SIN devolver la página arriba,
+  // y el botón de comprar/equipar queda siempre a la vista (encima de la barra de abajo)
+  test('nave: se desplaza sin rebote y COMPRAR/EQUIPAR siempre a mano', async ({ page }) => {
+    await page.setViewportSize({ width: 375, height: 640 });
+    await page.addInitScript((k) => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      localStorage.setItem(k, JSON.stringify({ v: 6, runs: 3, gems: 500, ship: 'viper', ships: ['viper', 'brick'] }));
+    }, SAVE);
+    await page.goto('/?nosw');
+    await page.locator('#btnHangar').click();
+    await page.locator('.ship-chip', { hasText: 'Ghost' }).dispatchEvent('click');
+    const inView = async (sel) => {
+      const [b, nav] = await Promise.all([page.locator(sel).boundingBox(), page.locator('nav').boundingBox()]);
+      return b.y >= 0 && b.y + b.height <= nav.y + 1;
+    };
+    expect(await inView('#btnBuyShip')).toBe(true);
+    const cdp = await page.context().newCDPSession(page);
+    const d = await page.locator('#shipDetail').boundingBox();
+    await swipe(page, cdp, 180, d.y + 40, 0, -260);
+    await page.waitForTimeout(400); // termina la transición de la cabecera
+    expect(await page.evaluate(() => document.getElementById('hangar').scrollTop)).toBeGreaterThan(60);
+    await expect(page.locator('.hangar-top')).toHaveClass(/compact/);
+    expect(await inView('#btnBuyShip')).toBe(true);
+    await page.locator('#btnBuyShip').dispatchEvent('click');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('overdrive-save-v1')).ship)).toBe('ghost');
+    // volver arriba y equipar otra nave tocando dos veces su ficha del carrusel
+    await page.evaluate(() => { const h = document.getElementById('hangar'); h.scrollTop = 0; h.dispatchEvent(new Event('scroll')); });
+    await expect(page.locator('.hangar-top')).not.toHaveClass(/compact/);
+    const brick = page.locator('.ship-chip', { hasText: 'Brick' });
+    await brick.dispatchEvent('click');
+    await page.locator('.ship-chip', { hasText: 'Brick' }).dispatchEvent('click');
+    expect(await page.evaluate(() => JSON.parse(localStorage.getItem('overdrive-save-v1')).ship)).toBe('brick');
+  });
 });
 
 test('estilo: elegir algo no te devuelve al principio (ni la página ni su fila)', async ({ page }) => {

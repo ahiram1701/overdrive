@@ -999,3 +999,8 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .op-store { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 10px; }
 .op-store small { flex-basis: 100%; margin: 0 !important; }
 #stOutpost .op-store .btn { flex: 1; min-height: 0; padding: 9px 10px; font-size: 13px; }
+
+/* ---------- Hangar: sin rebote al compactar y botón de la nave siempre a mano ---------- */
+#hangar::after { content: ''; flex: 0 0 var(--hspace, 0px); }
+.ship-detail > .btn { position: sticky; bottom: 8px; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
+.ship-detail > .btn.ghost { background: #1b0a33; }

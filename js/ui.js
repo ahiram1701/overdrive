@@ -456,7 +456,12 @@ export const ui = {
       const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}${prestigeOf(save) >= 5 ? ' gold' : ''}`);
       b.style.setProperty('--sc', s.color);
       b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : s.story ? '📖 historia' : `💎 ${s.cost}`}</small>`;
-      tap(b, () => { ui.preview = null; ui.showHangar(s.id); });
+      tap(b, () => {
+        // segundo toque en la nave que ya ves y es tuya: equiparla sin bajar a buscar el botón
+        if (s.id === ui.hangarView && has && save.ship !== s.id) { save.ship = s.id; persist(); fx.vibe(20); toast(`🚀 ${s.name} equipada`); }
+        ui.preview = null;
+        ui.showHangar(s.id);
+      });
       car.appendChild(b);
       // cada nave con SU pintura y SU emblema
       const lk = equipped(save, s.id);
@@ -686,9 +691,17 @@ export const ui = {
     if (!$('hangar').dataset.scrollReady) {
       $('hangar').dataset.scrollReady = '1';
       $('hangar').addEventListener('scroll', () => {
-        const top = $('hangar').scrollTop, hd = $('hangar').querySelector('.hangar-top');
-        if (top > 60) hd.classList.add('compact');
-        else if (top < 10) hd.classList.remove('compact');
+        const h = $('hangar'), top = h.scrollTop, hd = h.querySelector('.hangar-top');
+        if (top > 60 && !hd.classList.contains('compact')) {
+          // lo que encoge la cabecera se reserva abajo: si no, la página deja de desbordar,
+          // el navegador la devuelve arriba y la cabecera vuelve a crecer (el "rebote")
+          const lost = $('shipCarousel').offsetHeight + Math.max(0, $('hangarView').offsetHeight - 90);
+          h.style.setProperty('--hspace', `${lost}px`);
+          hd.classList.add('compact');
+        } else if (top < 10 && hd.classList.contains('compact')) {
+          hd.classList.remove('compact');
+          h.style.setProperty('--hspace', '0px');
+        }
       }, { passive: true });
     }
   },
