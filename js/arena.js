@@ -80,6 +80,7 @@ export function newArena(opts = {}) {
   music.intensity = 0;
   musicStart();
   progress('arena');
+  ui.showTip('arena');
 }
 
 const stats = (a) => passiveStats(a.passives);
@@ -765,6 +766,7 @@ export function pickArenaUpgrade(i) {
   if (up.kind === 'passive' && up.id === 'vitality') a.hp = Math.min(maxHp(a), a.hp + 30);
   if (up.kind === 'evolve') {
     fx.banner(`✨ ${EVOLUTIONS[up.id].name}`, 'ARMA EVOLUCIONADA', '#ffe600', true);
+    setTimeout(() => ui.showTip('evolve'), 0);
     progress('evolve');
   }
   a.pendingUps--;

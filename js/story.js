@@ -12,6 +12,7 @@ export const CAST = {
   heraldo: { icon: '👁️', name: 'El Heraldo', color: '#ff2d55' },
   reina: { icon: '🐝', name: 'La Reina', color: '#ffd60a' },
   vex: { icon: '🛰️', name: 'Vex', color: '#ff9f0a' },
+  guia: { icon: '🤖', name: 'GUÍA', color: '#7dffb0' },
 };
 
 export const ACT_LEN = 8;

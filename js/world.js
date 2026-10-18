@@ -1,6 +1,7 @@
 // Mundo: biomas, generación procedural de tramos, obstáculos, monedas, bifurcaciones y jefe.
 import { G, LANES, LANE_W, VIEW, clamp } from './state.js';
 import { fx } from './fx.js';
+import { ui } from './ui.js';
 import { sfx } from './audio.js';
 import { project } from './render.js';
 import { playerBox } from './player.js';
@@ -575,6 +576,7 @@ export function spawnBoss(r) {
   if (r.hunter) r.hunter.leaving = true; // el jefe ya mete presión de sobra
   sfx.alarm();
   fx.banner('⚠ JEFE ⚠', def.name, def.color, true);
+  ui.showTip('boss');
 }
 
 export const bossRz = () => BOSS_RZ + Math.sin(G.run.boss.t * 1.3) * 4;

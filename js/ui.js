@@ -19,6 +19,7 @@ import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './ga
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
+import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
@@ -263,6 +264,7 @@ export const ui = {
     });
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    tap($('btnTipsReset'), () => { resetTips(save); persist(); toast('🔁 Los consejos volverán a salir'); });
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
     screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
     tap($('btnRunner'), () => ui.showRunnerHub());
@@ -1084,6 +1086,7 @@ export const ui = {
       map.append(box);
     }
     show('campaign');
+    ui.showTip('campaign');
   },
 
   // Ficha del nivel antes de jugar: objetivos de las 3 estrellas
@@ -1340,7 +1343,7 @@ export const ui = {
     tgl(bars.heat.parentElement, 'over', !!s.overheat);
     tgl($h('btnDock'), 'hidden', !s.canDock);
     tgl($h('btnBoost'), 'cool', s.ship.boostCd > 0);
-    tgl($h('shHint'), 'hidden', s.t > 8);
+    tgl($h('shHint'), 'hidden', s.t > 8 || tipSeen(save, 'galaxy'));
   },
 
   // Estación: mercado, taller y reparación, todo en una pantalla
@@ -1348,6 +1351,7 @@ export const ui = {
     ui.showSpaceHUD(false); // atracado: solo la estación
     const g = save.galaxy, st = spaceStats();
     const sd = GAL[s.sysId];
+    ui.showTip('dock');
     setText('stTitle', s.atOutpost && s.outpost ? `🏗️ ${s.outpost.name}` : `🛰️ ESTACIÓN ${sd.name}`);
     ui.renderOutpost(s);
     setText('stCredits', fmt(g.credits));
@@ -1606,10 +1610,20 @@ export const ui = {
   },
 
   // DIÁLOGO de la historia: líneas con quién habla; la última puede tener una elección
-  showDialog(lines, choice = null) {
+  // opts.pause: congela la partida mientras se lee (y la reanuda al cerrar); opts.onClose
+  showDialog(lines, choice = null, opts = {}) {
     if (!lines?.length) return;
     const box = $('dialog');
     let i = 0;
+    const PAUSE = { play: 'paused', galaxy: 'galaxyPaused', arena: 'arenaPaused' };
+    const was = G.mode;
+    const paused = opts.pause && PAUSE[was];
+    if (paused) G.mode = PAUSE[was];
+    const close = () => {
+      box.classList.add('hidden');
+      if (paused && G.mode === PAUSE[was]) G.mode = was;
+      opts.onClose?.();
+    };
     const draw = () => {
       const [who, text] = lines[i], c = CAST[who];
       setText('dlIcon', c.icon);
@@ -1629,12 +1643,23 @@ export const ui = {
       } else {
         const b = el('button', 'btn', last ? 'ENTENDIDO' : 'SIGUIENTE ▸');
         b.id = 'btnDialog';
-        tap(b, () => { if (last) box.classList.add('hidden'); else { i++; draw(); } });
+        tap(b, () => { if (last) close(); else { i++; draw(); } });
         acts.append(b);
       }
     };
     box.classList.remove('hidden');
     draw();
+  },
+
+  // PRIMEROS PASOS: un consejo de la GUÍA la primera vez que pasa algo (pausa la partida mientras
+  // se lee). En los tests (?debug) no salen, salvo con ?tips: no estorban a los bots.
+  showTip(id, onClose = null) {
+    if (!TIPS[id] || tipSeen(save, id)) return false;
+    if (G.debug && !new URLSearchParams(location.search).has('tips')) return false;
+    markTip(save, id);
+    persist();
+    ui.showDialog(TIPS[id], null, { pause: true, onClose });
+    return true;
   },
 
   // ATLAS: lo descubierto, con su historia, y las mejoras únicas que da explorar
@@ -1836,6 +1861,7 @@ export const ui = {
       list.append(box);
     }
     show('raceCups');
+    ui.showTip('race');
   },
 
   showRacePodium(res) {
@@ -1877,6 +1903,7 @@ export const ui = {
   // Mapa del acto: la salida abajo y el jefe arriba. Las líneas se calculan con la fila y la
   // columna de cada nodo (sin medir el DOM): el mapa es igual en cualquier pantalla.
   showExpMap(e) {
+    if (e.relics?.length) ui.showTip('relic'); else ui.showTip('expedition');
     const act = ACTS[e.act];
     setText('emTitle', `ACTO ${e.act + 1} · ${act.name}`);
     setText('emSub', act.sub);
@@ -1961,7 +1988,7 @@ export const ui = {
     ab.style.setProperty('--f', readiness(a.ability).toFixed(3));
     setText('arenaAbilityIcon', ABILITIES[a.ability.id].icon);
     ab.classList.toggle('ready', a.ability.cdLeft <= 0 && a.ability.active <= 0);
-    $('ahHint').classList.toggle('hidden', a.time > 6);
+    $('ahHint').classList.toggle('hidden', a.time > 6 || tipSeen(save, 'arena'));
   },
 
   showArenaUp(a) {
@@ -1985,6 +2012,7 @@ export const ui = {
       box.append(b);
     });
     show('arenaUp');
+    ui.showTip('arenaLevel');
   },
 
   // ganaste: ¿seguir en el modo sin fin o cobrar?
@@ -2061,6 +2089,7 @@ export const ui = {
   },
 
   tutorial() {
+    if (ui.showTip('runner')) return; // la GUÍA lo explica (y pausa); si ya se vio, la chuleta de siempre
     const t = $('tutorial');
     t.classList.remove('hidden');
     clearTimeout(ui._tut);
