@@ -1004,3 +1004,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 #hangar::after { content: ''; flex: 0 0 var(--hspace, 0px); }
 .ship-detail > .btn { position: sticky; bottom: 8px; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
 .ship-detail > .btn.ghost { background: #1b0a33; }
+
+/* ---------- Historia: chasis que solo da el Acto III ---------- */
+#stShipyard .st-up.locked { opacity: .6; border-style: dashed; }
+#stShipyard .st-up.locked .su-cost { color: #bf5af2; font-size: 12px; }

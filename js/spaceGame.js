@@ -174,11 +174,13 @@ function storyHit(s, ev) {
   g.credits += r.credits || 0;
   for (const [k, n] of Object.entries(r.mats || {})) addMat(save, k, n);
   if (r.ship && !save.ships.includes(r.ship)) save.ships.push(r.ship);
-  fx.banner(`📖 ${done.title.toUpperCase()}`, `capítulo completado · +${r.credits || 0} 💰${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}`, '#bf5af2', true);
+  if (r.chassis && !g.hulls.includes(r.chassis)) { g.hulls = [...g.hulls, r.chassis]; progress('chassis', g.hulls.length); }
+  fx.banner(`${done.chronicle ? '📜' : '📖'} ${done.title.toUpperCase()}`, `${done.chronicle ? 'crónica' : 'capítulo'} completada · +${r.credits || 0} 💰${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}${r.chassis ? ' · ¡chasis ERRANTE Mk II!' : ''}`, '#bf5af2', true);
   sfx.milestone();
   progress('chapter');
   if (r.ship) progress('storyEnd');
   if (done.end) progress(done.end); // fin de acto
+  if (done.chronicle) progress('chronicle');
   persist();
   // diálogo de cierre y, si hay, el del capítulo siguiente
   const next = storyChapter();
@@ -205,14 +207,17 @@ function spawnStoryBoss(s) {
   if (ch.goal.boss === 'herald' && !s.pirates.some((p) => p.story === 'herald')) {
     spawnPirate(s, true);
     const h = s.pirates[s.pirates.length - 1];
-    Object.assign(h, { story: 'herald', name: 'EL HERALDO', hp: 1500, max: 1500, mesh: 'wanderer', size: 15, speed: 95, dmg: 14 });
+    const hp = Math.round(1500 * (ch.goal.hpMul || 1));
+    Object.assign(h, { story: 'herald', name: ch.goal.hpMul ? 'EL HERALDO RENACIDO' : 'EL HERALDO', hp, max: hp, mesh: 'wanderer', size: 15, speed: 95, dmg: 14 * Math.min(2, ch.goal.hpMul || 1) });
     fx.banner('👁️ EL HERALDO', 'te estaba esperando', '#ff2d55', true);
   }
   if (ch.goal.boss === 'devourer' && !s.devourer) spawnDevourer(s);
+  if (ch.goal.boss === 'primordial' && !s.devourer) spawnDevourer(s, PRIMORDIAL);
   if (ch.goal.boss === 'queen' && !s.pirates.some((p) => p.alive && p.story === 'queen')) {
     spawnPirate(s, true);
     const q = s.pirates[s.pirates.length - 1];
-    Object.assign(q, { story: 'queen', name: 'LA REINA DEL ENJAMBRE', hp: 2600, max: 2600, mesh: 'kaiju', size: 18, speed: 80, dmg: 12, broodT: 2,
+    const qhp = Math.round(2600 * (ch.goal.hpMul || 1));
+    Object.assign(q, { story: 'queen', name: ch.goal.hpMul ? 'ECO DE LA REINA' : 'LA REINA DEL ENJAMBRE', hp: qhp, max: qhp, mesh: 'kaiju', size: 18, speed: 80, dmg: 12, broodT: 2,
       pal: { hull: '#2a2000', edge: '#ffd60a', glow: '#ff9f0a' } });
     fx.banner('🐝 LA REINA DEL ENJAMBRE', 'sus drones la protegen', '#ffd60a', true);
   }
@@ -244,12 +249,16 @@ function updateQueen(s, dt) {
 
 // EL DEVORADOR DE ESTRELLAS: fase 1, tres ojos (el núcleo es invulnerable); fase 2, núcleo al
 // descubierto con oleadas de drones y misiles; fase 3 (furia, <30%), anillos de balas.
-export function spawnDevourer(s = S()) {
+// EL DEVORADOR PRIMORDIAL (fin del Acto III): 4 ojos, más vida y dos anillos de balas en la furia
+const PRIMORDIAL = { boss: 'primordial', name: 'EL DEVORADOR PRIMORDIAL', eyes: 4, hp: 7000, eyeHp: 650, rings: 2, color: '#ff2d55' };
+export function spawnDevourer(s = S(), o = {}) {
   const st = s.sys.station.pos;
   const pos = add(st, { x: 700, y: 160, z: 700 });
-  s.devourer = { pos, r: 60, hp: 4200, max: 4200, phase: 1, spin: 0, flash: 0, waveT: 6, volleyT: 4, ringT: 3, eyeT: 2,
-    eyes: [0, 1, 2].map((i) => ({ ang: (i / 3) * Math.PI * 2, hp: 450, max: 450, alive: true, eye: true, pos: { ...pos }, flash: 0 })) };
-  fx.banner('🌑 EL DEVORADOR DE ESTRELLAS', 'destruye sus tres ojos para dejar el núcleo al descubierto', '#bf5af2', true);
+  const ne = o.eyes || 3, hp = o.hp || 4200, eh = o.eyeHp || 450;
+  s.devourer = { pos, r: o.eyes ? 70 : 60, hp, max: hp, phase: 1, spin: 0, flash: 0, waveT: 6, volleyT: 4, ringT: 3, eyeT: 2,
+    boss: o.boss || 'devourer', name: o.name || 'EL DEVORADOR DE ESTRELLAS', rings: o.rings || 1, color: o.color || null,
+    eyes: Array.from({ length: ne }, (_, i) => ({ ang: (i / ne) * Math.PI * 2, hp: eh, max: eh, alive: true, eye: true, pos: { ...pos }, flash: 0 })) };
+  fx.banner(`🌑 ${s.devourer.name}`, `destruye sus ${ne === 3 ? 'tres' : 'cuatro'} ojos para dejar el núcleo al descubierto`, o.color || '#bf5af2', true);
   fx.shake(20);
   sfx.boom();
 }
@@ -269,7 +278,7 @@ function updateDevourer(s, dt) {
   }
   const near = dd < 900;
   // la furia llega por vida, estés donde estés (los ataques sí necesitan tenerte cerca)
-  if (d.phase === 2 && d.hp < d.max * 0.3) { d.phase = 3; fx.banner('🌑 FURIA', 'el Devorador se desata', '#ff2d55', true); }
+  if (d.phase === 2 && d.hp < d.max * 0.3) { d.phase = 3; fx.banner('🌑 FURIA', `${d.boss === 'primordial' ? 'el Primordial' : 'el Devorador'} se desata`, '#ff2d55', true); }
   if (d.phase === 1) {
     d.eyeT -= dt;
     if (d.eyeT <= 0 && near) {
@@ -293,9 +302,11 @@ function updateDevourer(s, dt) {
       d.ringT -= dt;
       if (d.ringT <= 0) {
         d.ringT = 3;
-        for (let i = 0; i < 12; i++) {
-          const a = (i / 12) * Math.PI * 2;
-          s.ebolts.push({ pos: { ...d.pos }, vel: { x: Math.cos(a) * 380, y: 0, z: Math.sin(a) * 380 }, life: 2.4, dmg: 10 });
+        for (let r = 0; r < d.rings; r++) {
+          for (let i = 0; i < 12; i++) {
+            const a = (i / 12) * Math.PI * 2 + r * 0.26; // el segundo anillo, girado y en vertical
+            s.ebolts.push({ pos: { ...d.pos }, vel: r ? { x: Math.cos(a) * 340, y: Math.sin(a) * 340, z: 0 } : { x: Math.cos(a) * 380, y: 0, z: Math.sin(a) * 380 }, life: 2.4, dmg: 10 });
+          }
         }
       }
     }
@@ -312,7 +323,7 @@ function hitDevourer(s, ref, dmg) {
     return;
   }
   if (d.phase === 1) {
-    if (!d.warned) { d.warned = true; fx.notice('🛡️ Invulnerable: destruye primero sus 3 ojos', '#ffe600'); }
+    if (!d.warned) { d.warned = true; fx.notice(`🛡️ Invulnerable: destruye primero sus ${d.eyes.length} ojos`, '#ffe600'); }
     return;
   }
   d.hp -= dmg;
@@ -328,7 +339,7 @@ function killDevourer(s) {
   sfx.boom();
   gainMats(s, { nucleos: 5, artefactos: 3 });
   s.loot.push({ pos: { ...d.pos }, credits: 2000, life: 120 });
-  storyHit(s, { type: 'boss', boss: 'devourer', sys: s.sysId });
+  storyHit(s, { type: 'boss', boss: d.boss || 'devourer', sys: s.sysId });
 }
 
 // BALIZA de la historia: quédate cerca 2 s
@@ -978,7 +989,7 @@ export function buyOre(ore, n = 1) {
 // ASTILLERO: comprar y cambiar de chasis (en cualquier estación)
 export function buyChassis(id) {
   const g = gal(), c = CHASSIS[id];
-  if (!c || g.hulls.includes(id) || g.credits < c.cost) return false;
+  if (!c || c.story || g.hulls.includes(id) || g.credits < c.cost) return false;
   g.credits -= c.cost;
   g.hulls = [...g.hulls, id];
   progress('chassis', g.hulls.length);

@@ -602,7 +602,7 @@ export function renderSpace(dt) {
       }
       ctx.fill();
       const g = ctx.createRadialGradient(p.x - R * 0.3, p.y - R * 0.3, R * 0.1, p.x, p.y, R);
-      g.addColorStop(0, d.phase > 1 ? '#ff9f0a' : '#5a1a7a');
+      g.addColorStop(0, d.phase > 1 ? '#ff9f0a' : d.color ? '#7a0a1e' : '#5a1a7a');
       g.addColorStop(0.6, '#1a0428');
       g.addColorStop(1, '#05010d');
       ctx.fillStyle = g;
@@ -895,7 +895,7 @@ export function renderSpace(dt) {
 
   // vida del DEVORADOR arriba, como en un jefe de verdad
   if (s.devourer) {
-    const d = s.devourer, w = Math.min(320, W - 40), x = (W - w) / 2, y = 108;
+    const d = s.devourer, w = Math.min(320, W - 110), x = (W - 70 - w) / 2, y = 132; // bajo el objetivo, aunque ocupe 2 líneas
     ctx.fillStyle = 'rgba(0,0,0,.6)';
     ctx.fillRect(x, y, w, 10);
     ctx.fillStyle = d.phase === 1 ? '#7a5cff' : d.phase === 2 ? '#ff9f0a' : '#ff2d55';
@@ -903,7 +903,7 @@ export function renderSpace(dt) {
     ctx.fillStyle = '#fff';
     ctx.font = 'italic 900 12px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(`🌑 EL DEVORADOR DE ESTRELLAS · ${d.phase === 1 ? `ojos ${d.eyes.filter((e) => e.alive).length}/3` : d.phase === 2 ? 'NÚCLEO' : 'FURIA'}`, W / 2, y - 6);
+    ctx.fillText(`🌑 ${d.name || 'EL DEVORADOR DE ESTRELLAS'} · ${d.phase === 1 ? `ojos ${d.eyes.filter((e) => e.alive).length}/${d.eyes.length}` : d.phase === 2 ? 'NÚCLEO' : 'FURIA'}`, x + w / 2, y - 6);
   }
 
   // VISOR DE MISIL: rombo que se cierra sobre el blanco; rojo = FIJADO

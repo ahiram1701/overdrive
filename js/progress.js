@@ -153,6 +153,8 @@ export const ACHIEVEMENTS = [
   { id: 'outpostMax', kind: 'outpostLvl', mode: 'best', n: 15, tier: 'gold', name: 'Gobernador', desc: 'Todos los módulos de un puesto al nivel 3' },
   // (siempre al final: el estilo de cada logro depende de su posición)
   { id: 'act2', kind: 'act2', mode: 'sum', n: 1, tier: 'gold', name: 'La Reina caída', desc: 'Termina el Acto II: derrota a la Reina del Enjambre' },
+  { id: 'act3', kind: 'act3', mode: 'sum', n: 1, tier: 'gold', name: 'Origen', desc: 'Termina el Acto III: derrota al Devorador Primordial' },
+  { id: 'chron10', kind: 'chronicle', mode: 'sum', n: 10, tier: 'gold', name: 'Cronista', desc: 'Completa 10 capítulos de la Crónica' },
 ];
 export const ACH_GEMS = T;
 

@@ -138,3 +138,51 @@ test('la Reina del Enjambre: inmune con 3 drones, cae sin ellos y cierra el Acto
   expect(done.ach).toBe(true);
   expect(errors).toEqual([]);
 });
+
+const PRIM = chapters(GAL2).findIndex((c) => c.goal.boss === 'primordial');
+
+test('el Devorador Primordial: 4 ojos, cierra el Acto III y regala el chasis Errante Mk II', async ({ page }) => {
+  const errors = trackErrors(page);
+  const sys = chapters(GAL2)[PRIM].goal.sys;
+  await startGalaxy(page, { galaxy: { started: true, credits: 5000, up: { missile: 2, jump: 5 }, sys }, story: { ch: PRIM, n: 0, seen: { [PRIM]: true } } });
+  await page.evaluate(() => { window.G.god = true; window.D.step(1 / 30, false); });
+  const d0 = await page.evaluate(() => { const d = window.G.space.devourer; return d && { eyes: d.eyes.length, hp: d.hp, boss: d.boss }; });
+  expect(d0).toEqual({ eyes: 4, hp: 7000, boss: 'primordial' });
+  const hit = (src) => page.evaluate((x) => {
+    const s = window.G.space, d = s.devourer;
+    const t = new Function('d', `return ${x}`)(d);
+    s.bolts.push({ pos: { ...t.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 900 });
+    window.D.step(1 / 60, false);
+    return s.devourer ? { eyes: s.devourer.eyes.filter((e) => e.alive).length } : null;
+  }, src);
+  let st = { eyes: 4 };
+  for (let i = 0; i < 10 && st.eyes > 0; i++) st = await hit('d.eyes.find((e) => e.alive)');
+  while (st) st = await hit('d');
+  const sv = await page.evaluate(() => ({ ch: window.__save.story.ch, hulls: window.__save.galaxy.hulls, ach: !!window.__save.ach.act3?.done }));
+  expect(sv.ch).toBe(PRIM + 1);
+  expect(sv.hulls).toContain('errante2');
+  expect(sv.ach).toBe(true);
+  // y la historia sigue: la Crónica (en el panel; el HUD aquí manda liberar este sistema pirata)
+  await page.locator('#dialog .btn').first().click().catch(() => {});
+  await page.evaluate(() => { document.getElementById('dialog').classList.add('hidden'); document.getElementById('btnInv').click(); });
+  await page.locator('#giTabs [data-tab="mis"]').click();
+  await expect(page.locator('#galInv .gi-mis.story')).toContainText('Crónica #1');
+  expect(errors).toEqual([]);
+});
+
+test('astillero: la Errante Mk II no se vende; con ella ganada se usa como cualquier chasis', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { galaxy: { started: true, credits: 999999 } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await expect(page.locator('#stShipyard .st-up.locked')).toContainText('Acto III');
+  expect(await page.locator('[data-chassis="errante2"]').count()).toBe(0);
+  await page.evaluate(() => { window.__save.galaxy.hulls = [...window.__save.galaxy.hulls, 'errante2']; });
+  await page.locator('#btnUndock').click();
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await page.locator('[data-chassis="errante2"]').click();
+  expect(await page.evaluate(() => window.__save.galaxy.chassis)).toBe('errante2');
+  expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(999999);
+  expect(errors).toEqual([]);
+});
