@@ -6,6 +6,7 @@ import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS, shipLvls, abilityMods } from './upgrades.js';
+import { hasTalent } from './economy.js';
 import { newAbility, trigger, tickAbility, canUse } from './abilities.js';
 import { BOSSES } from './bosses.js';
 import { equipped } from './cosmetics.js';
@@ -44,6 +45,12 @@ export function newArena() {
   // el árbol de la nave también cuenta aquí: BLINDAJE da vida, MOTOR velocidad
   a.maxHpBase += lvls.a * 15;
   a.speedMul *= 1 + lvls.b * 0.04;
+  // TALENTOS de la arena
+  if (hasTalent(save, 'a1')) a.maxHpBase += 20;
+  a.dmgMul = hasTalent(save, 'a2') ? 1.1 : 1;
+  a.magMul = hasTalent(save, 'a3') ? 1.4 : 1;
+  if (hasTalent(save, 'a4')) a.weapons[SHIP_WEAPON[ship.id]] = 2;
+  a.phoenix = hasTalent(save, 'a5') ? 1 : 0;
   a.hp = a.maxHpBase;
   G.arena = a;
   G.run = null;
@@ -145,7 +152,7 @@ export const zoomOf = () => Math.max(0.75, Math.min(1.3, Math.min(G.W || 375, G.
 
 export function hurtEnemy(a, e, dmg) {
   if (!e.alive) return;
-  e.hp -= dmg * stats(a).might;
+  e.hp -= dmg * stats(a).might * (a.dmgMul || 1);
   e.flash = 0.08;
   if (e.hp > 0) return;
   e.alive = false;
@@ -514,7 +521,7 @@ function updateEnemies(a, dt) {
 // ---------- Gemas, cofres, nivel ----------
 function updatePickups(a, dt) {
   const st = stats(a);
-  const magR = 115 * st.magnet;
+  const magR = 115 * st.magnet * (a.magMul || 1);
   for (const g of a.gems) {
     if (!g.alive) continue;
     const d = Math.hypot(g.x - a.x, g.y - a.y);
@@ -659,6 +666,7 @@ function finish(a, won) {
   const rw = arenaRewards({ time: a.time, kills: a.kills, bosses: a.bosses, won });
   const gems = Math.ceil(rw.gems * (1 + prestigeBonus(save)));
   save.gems += gems;
+  save.galaxy.credits += rw.credits;
   const xpBefore = save.xp;
   const rankUps = addXp(save, rw.xp);
   const prev = save.arena.best;
@@ -675,6 +683,16 @@ function finish(a, won) {
 }
 
 function loseArena(a) {
+  // FÉNIX (talento): una vez por partida vuelves con media vida
+  if (a.phoenix > 0) {
+    a.phoenix--;
+    a.hp = Math.round(maxHp(a) / 2);
+    a.iframes = 2;
+    for (const e of near(a.x, a.y, 260)) if (!e.boss) hurtEnemy(a, e, 999);
+    a.rings.push({ x: a.x, y: a.y, r: 260, t: 0.6, max: 0.6, color: '#ff9f0a' });
+    fx.banner('🔥 FÉNIX', 'vuelves de las cenizas', '#ff9f0a', true);
+    return;
+  }
   a.hp = 0;
   const sp = toScreen(a, a.x, a.y);
   const eq = equipped(save, save.ship);

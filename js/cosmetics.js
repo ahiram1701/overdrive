@@ -33,6 +33,10 @@ export const PALETTES = [
   { id: 'x-raptor2', name: 'Depredador', hull: '#1a0000', edge: '#ff1744', glow: '#ff8a80', ...X('raptor', 'bosses', 5) },
   { id: 'x-comet1', name: 'Cola de hielo', hull: '#04121e', edge: '#7fd8ff', glow: '#ffffff', ...X('comet', 'sections', 30) },
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
+  // exclusivos de COFRE (solo salen al abrir cofres de suministros)
+  { id: 'c-nebula', name: 'Nebulosa', hull: '#12002a', alt: '#002a3a', pattern: 'fade', edge: '#ff2bd6', glow: '#7df9ff', unlock: { crate: 'legendary' } },
+  { id: 'c-carbon', name: 'Carbono', hull: '#111114', alt: '#26262c', pattern: 'stripes', edge: '#9aa0a6', glow: '#ff3b30', unlock: { crate: 'epic' } },
+  { id: 'c-candy', name: 'Caramelo', hull: '#3a0a2a', alt: '#0a2a3a', pattern: 'split', edge: '#ff8ad8', glow: '#8affff', unlock: { crate: 'rare' } },
   { id: 'x-manta1', name: 'Abisal', hull: '#02101e', edge: '#3fd0ff', glow: '#9cf6ff', ...X('manta', 'sections', 30) },
   { id: 'x-manta2', name: 'Coral', hull: '#1e0610', edge: '#ff7aa8', glow: '#ffd1e0', ...X('manta', 'bosses', 5) },
   { id: 'x-spectra1', name: 'Tormenta', hull: '#0c0c18', edge: '#fff04a', glow: '#ffffff', ...X('spectra', 'sections', 30) },
@@ -87,6 +91,9 @@ export const ENGINES = [
   { id: 'e-white', name: 'Blanco solar', color: '#ffffff', unlock: { gems: 90 } },
   { id: 'e-violet', name: 'Violeta', color: '#bf5af2', unlock: { rank: 9 } },
   { id: 'e-red', name: 'Infierno', color: '#ff2d55', unlock: { ach: 'boss10' } },
+  { id: 'c-e-gold', name: 'Oro fundido', color: '#ffd60a', unlock: { crate: 'epic' } },
+  { id: 'c-e-mint', name: 'Menta', color: '#7dffb0', unlock: { crate: 'rare' } },
+  { id: 'c-e-void', name: 'Antimateria', color: '#7a5cff', unlock: { crate: 'legendary' } },
 ];
 
 // Aura alrededor de la nave (cosfx.auraFx)
@@ -107,6 +114,8 @@ export const SHOTS = [
   { id: 's-gold', name: 'Oro', color: '#ffd60a', unlock: { rank: 6 } },
   { id: 's-red', name: 'Rojo', color: '#ff2d55', unlock: { gems: 80 } },
   { id: 's-white', name: 'Blanco', color: '#ffffff', unlock: { rank: 12 } },
+  { id: 'c-s-violet', name: 'Violeta', color: '#bf5af2', unlock: { crate: 'rare' } },
+  { id: 'c-s-plasma', name: 'Plasma', color: '#ff9f0a', unlock: { crate: 'epic' } },
 ];
 
 export const GROUPS = { palette: PALETTES, trail: TRAILS, boom: BOOMS, emblem: EMBLEMS, engine: ENGINES, aura: AURAS, shot: SHOTS };
@@ -145,6 +154,7 @@ export function isUnlocked(item, save, ship = save.ship) {
   if (u.prestige) return prestigeOf(save) >= u.prestige;
   if (u.ach) return !!save.ach[u.ach]?.done;
   if (u.stat) return shipStat(save, ship, u.stat) >= u.n;
+  if (u.crate) return (save.crates?.owned || []).includes(item.id);
   return false;
 }
 
@@ -155,7 +165,18 @@ export function lockText(item, save = null, ship = null) {
   if (u.ach) return '🏆 logro';
   if (u.prestige) return `✨ PRESTIGIO ${u.prestige}`;
   if (u.stat) return save ? `${Math.min(u.n, shipStat(save, ship, u.stat))}/${u.n} ${STAT_TEXT[u.stat]}` : `${u.n} ${STAT_TEXT[u.stat]}`;
+  if (u.crate) return '🎁 cofre';
   return '';
+}
+
+// Regalo (cofre): lo de gemas, para esta nave; lo exclusivo de cofre, para todas
+export function grantCosmetic(item, save, ship = save.ship) {
+  if (item.unlock?.crate) {
+    save.crates.owned = [...(save.crates.owned || []), item.id];
+    return;
+  }
+  const c = cos(save);
+  c.owned[ship] = [...ownedOf(save, ship), item.id];
 }
 
 // Compra con gemas, solo para esta nave. Devuelve true si se compró.

@@ -14,6 +14,7 @@ import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui, toast } from './ui.js';
+import { hasTalent } from './economy.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 
 const S = () => G.space;
@@ -30,6 +31,9 @@ export const atlasCount = () => Object.keys(save.galaxyAtlas).length;
 const perks = () => perksFor(atlasCount());
 const stats = () => {
   const st = shipStats(gal().up, save.ship);
+  // TALENTOS de la galaxia
+  if (hasTalent(save, 'g1')) st.cargo += 10;
+  if (hasTalent(save, 'g5')) st.shield += 20;
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };
@@ -501,7 +505,7 @@ export function dock() {
   const g = gal();
   g.hull = s.ship.hull;
   g.home = s.sysId; // aquí reapareces si te destruyen
-  g.missiles = missileAmmo(g.up.missile || 0); // munición llena
+  g.missiles = missileAmmo(g.up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0); // munición llena
   if (s.event?.kind === 'rescue' && s.event.held && !s.event.done) {
     s.event.done = true;
     const c = 150 + GAL[s.sysId].danger * 60;
@@ -540,6 +544,7 @@ export function sellAll() {
     got += n * prices[k];
     g.cargo[k] = 0;
   }
+  if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -579,7 +584,7 @@ export function buyUpgrade(id) {
 
 export function repair() {
   const s = S(), g = gal(), st = stats();
-  const c = repairCost(s.ship.hull, st.hull);
+  const c = Math.ceil(repairCost(s.ship.hull, st.hull) * (hasTalent(save, 'g4') ? 0.5 : 1));
   if (!c || g.credits < c) return false;
   g.credits -= c;
   s.ship.hull = st.hull;

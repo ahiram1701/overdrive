@@ -13,6 +13,7 @@ import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
 import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeBonus } from './progress.js';
+import { takeBoosts, hasTalent, bankCoins } from './economy.js';
 import { equipped, addShipStat } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
 import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
@@ -96,7 +97,14 @@ export function newRun(opts = false) {
   applyShipTree(r, lvls);
   r.ability = newAbility(ship.ability, abilityMods(ship, lvls));
   G.timeWarp = 1;
-  if (save.meta.shield) addShields(r, 1);
+  // TALENTOS del runner y POTENCIADORES elegidos (no en carreras ni en el reto diario: son justos)
+  if (hasTalent(save, 'r1')) addShields(r, 1);
+  if (hasTalent(save, 'r3')) r.coins += 60;
+  r.boosts = track || daily ? [] : takeBoosts(save, (id) => id !== 'start' || opts.mode === 'endless');
+  if (r.boosts.includes('shield')) addShields(r, 1);
+  if (r.boosts.includes('magnet')) r.stats.magnet += 1;
+  if (r.boosts.includes('life')) r.extraLife = 1;
+  r.xpMult = r.boosts.includes('xp') ? 2 : 1;
   // MODIFICADORES: los elegidos (infinito), los del día (mutación) o los del nivel (campaña).
   // Se aplican después de nave y árbol, así sus topes mandan. ?debug&mods=a,b para los tests.
   const dbgMods = G.debug ? new URLSearchParams(location.search).get('mods') : null;
@@ -131,7 +139,10 @@ export function newRun(opts = false) {
   G.mode = 'play';
   if (save.runs === 0) ui.tutorial();
   if (daily) progress('daily');
-  if (save.meta.card) openCards({ title: 'CARTA INICIAL', next: false });
+  if (r.boosts.includes('start') && r.section < 1 && !level && !track) r.section = 1; // 🚀 ARRANQUE: tramo 3
+  if (r.boosts.length) persist();
+  if (r.boosts.includes('luck')) openCards({ title: '🍀 CARTA RARA', next: false, minRarity: 'rare' });
+  else if (hasTalent(save, 'r2')) openCards({ title: 'CARTA INICIAL', next: false });
 }
 
 function startSection() {
@@ -582,7 +593,7 @@ export function onCoin(o) {
   r.lastCoinT = r.time;
   addChain(0.2 + (r.synergies.has('sangre') ? 0.3 : 0));
   r.score += 10 * v * r.mult * scoreMult(r);
-  addOD(0.012);
+  addOD(o.mag ? 0.006 : 0.012); // lo que trae el imán carga la mitad: el imán es para recoger, no para vivir en overdrive
   sfx.coin(r.coinStreak);
   const sp = project(o.x, o.y, 0.3);
   if (sp) fx.burst(sp.x, sp.y, 6, '#ffcc00', 220, 3, 0.35, 300);
@@ -712,8 +723,9 @@ function rollChest(r) {
 
 function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, reward = '', after = null } = {}) {
   const r = run();
-  let offers = offerCards(r, 3, minRarity);
-  if (!offers.length) offers = offerCards(r, 3);
+  const n = hasTalent(save, 'r5') ? 4 : 3; // talento CUARTA CARTA
+  let offers = offerCards(r, n, minRarity);
+  if (!offers.length) offers = offerCards(r, n);
   const finish = () => {
     if (after) return after();
     if (next) startSection();
@@ -826,6 +838,7 @@ function raceFinish() {
   const gems = Math.ceil(([30, 18, 10, 5][pos] + (cupEnd && medal !== null ? [80, 50, 30][medal] : 0)) * (1 + prestigeBonus(save)));
   save.gems += gems;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: 2, bosses: 0, missionsDone: r.missionsDone }) + (3 - pos) * 40;
+  bankCoins(save, r.coins);
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
@@ -968,20 +981,34 @@ function expWin(gems) {
   musicStop();
   save.expedition.wins++;
   save.expedition.best = Math.max(save.expedition.best, progressOf(ACTS.length, 0));
-  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400;
+  const xp = (xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400) * r.xpMult;
+  const credits = bankCoins(save, r.coins);
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
   progress('runs');
   persist();
   ui.showHUD(false);
-  ui.showExpEnd({ gems, xp, xpBefore, rankUps, score: r.score, cards: r.cards, synergies: [...r.synergies], sections: r.section + 1 });
+  ui.showExpEnd({ gems, credits, xp, xpBefore, rankUps, score: r.score, cards: r.cards, synergies: [...r.synergies], sections: r.section + 1 });
 }
 
 // ---------- Muerte ----------
 // Explosión de la nave según el cosmético equipado
 function die() {
   const r = run(), p = G.player;
+  // ❤️ SEGUNDA VIDA: una vez, revives y se despeja lo que tienes delante
+  if (r.extraLife > 0) {
+    r.extraLife--;
+    p.invuln = 2.5;
+    sweep(Math.max(30, runSpeed() * 0.8));
+    const ps = playerScreen();
+    fx.banner('❤️ SEGUNDA VIDA', 'no la desperdicies', '#ff2d55', true);
+    fx.ring(ps.x, ps.y, '#ff2d55', 400, 0.6, 20);
+    fx.flash('#ff2d55', 0.5);
+    fx.vibe([60, 40, 120]);
+    sfx.shield();
+    return;
+  }
   G.mode = 'dying';
   G.timeWarp = 1;
   G.dyingT = 1.0;
@@ -1032,11 +1059,12 @@ function die() {
   progress('runs');
   progress('score', Math.floor(r.score));
   // rango de piloto: la XP de la partida y los rangos que suben (con su premio)
-  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone });
+  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
+  const credits = bankCoins(save, r.coins); // 🪙 que sobran -> 💰
   persist();
-  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, credits, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Campaña: meta ----------
@@ -1064,7 +1092,8 @@ export function onFinish() {
   const extra = Math.floor(res.gems * prestigeBonus(save));
   save.gems += extra;
   res.gems += extra;
-  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone });
+  const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
+  const credits = bankCoins(save, r.coins);
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
@@ -1075,7 +1104,7 @@ export function onFinish() {
   persist();
   const nx = nextLevel(lv.id);
   r.result = {
-    opts: r.opts, level: lv.id, stars, best: res.stars, newStars: res.newStars, gems: res.gems, xp, xpBefore, rankUps,
+    opts: r.opts, level: lv.id, stars, best: res.stars, newStars: res.newStars, gems: res.gems, xp, xpBefore, rankUps, credits,
     passed: stars[0], next: nx && isLevelOpen(save, nx.id) ? nx.id : null, unlocked: !!nx && !wasOpen && isLevelOpen(save, nx.id),
     score: r.score, near: r.nearMisses, perfect: r.perfects, coins: r.coins, maxMult: r.maxMult, hits: r.hitsTaken,
   };

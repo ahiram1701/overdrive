@@ -132,11 +132,6 @@ export const SHIPS = [
   { id: 'titan', name: 'Titán', cost: 1100, color: '#ff6b3d', ability: 'hammer', desc: 'Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.4; r.stats.scoreMult *= 0.85; } },
 ];
 
-export const META = [
-  { id: 'shield', name: 'Escudo inicial', icon: '🛡️', cost: 80, desc: 'Empiezas cada partida con 1 escudo.' },
-  { id: 'card', name: 'Carta inicial', icon: '🃏', cost: 120, desc: 'Eliges una carta al empezar cada partida.' },
-];
-
 // ---------- Árbol de mejoras por nave (hangar) ----------
 // 3 ramas x 3 niveles. Se compran en orden con gemas. A y B son comunes a todas las naves;
 // C mejora la habilidad propia de cada nave y su nivel 3 la MUTA.

@@ -20,7 +20,7 @@ test('un guardado v1 migra conservando todo el progreso', () => {
   assert.equal(s.best, 1234567);
   assert.deepEqual(s.ships, ['viper', 'brick']);
   assert.equal(s.ship, 'brick');
-  assert.equal(s.meta.shield, true);
+  assert.equal(s.talents.r1, true, 'el escudo global pasa a talento');
   assert.equal(s.settings.sound, false);
   assert.equal(s.settings.text, 'min');
   assert.equal(s.missions.list[0].progress, 12);

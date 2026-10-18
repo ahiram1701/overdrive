@@ -49,8 +49,14 @@
       <button class="icon-btn" id="btnSettings" aria-label="Ajustes">⚙️</button>
     </header>
     <div class="hub-stats">
-      <div><b id="mGems">0</b><small>💎 gemas</small></div>
+      <button id="btnWallet" class="wallet"><b id="mGems">0</b><small>💎 gemas</small></button>
+      <button id="btnWallet2" class="wallet"><b id="mCredits">0</b><small>💰 créditos</small></button>
       <div><b id="mBest">0</b><small>🏁 récord</small></div>
+    </div>
+    <div id="walletInfo" class="wallet-info hidden">
+      <p><b>🪙 Monedas</b> · se ganan y gastan en la partida (tienda). <b>Lo que sobra pasa a 💰</b>.</p>
+      <p><b>💰 Créditos</b> · Galaxia, monedas sobrantes y bajas de la Arena. Para mejoras de la nave espacial, cofres estándar y reparaciones.</p>
+      <p><b>💎 Gemas</b> · partidas, campaña, misiones y rangos. Para naves, árbol, estilos, potenciadores, talentos y cofres de élite.</p>
     </div>
     <div id="mRank" class="rank"></div>
 
@@ -59,6 +65,7 @@
       <div class="hero-card runner">
         <button class="hc-main" id="btnPlay"><span class="hc-icon">🏁</span><span class="hc-text"><b>RUNNER</b><small>esquiva a toda velocidad</small></span></button>
         <button class="hc-mods" id="btnMods" aria-label="Modificadores">⚙️<small id="mMods"></small></button>
+        <span class="hc-boosts" id="mBoosts"></span>
       </div>
     </div>
 
@@ -95,6 +102,7 @@
   <nav id="bottomNav" class="bottom-nav hidden">
     <button data-nav="menu"><span>🏠</span><small>Inicio</small></button>
     <button data-nav="hangar" id="btnHangar"><span>🚀</span><small>Hangar</small></button>
+    <button data-nav="store" id="btnStore"><span>🛒</span><small>Tienda</small></button>
     <button data-nav="achs" id="btnAch"><span>🏆</span><small>Logros</small></button>
     <button data-nav="codex" id="btnCodex"><span>📖</span><small>Colección</small></button>
   </nav>
@@ -119,7 +127,6 @@
         <button data-tab="mejoras" role="tab">MEJORAS</button>
         <button data-tab="estilo" role="tab">ESTILO</button>
         <button data-tab="galaxia" role="tab">GALAXIA</button>
-        <button data-tab="global" role="tab">GLOBAL</button>
       </div>
       <div id="cosPreview" class="cos-preview hidden"></div>
     </div>
@@ -127,7 +134,22 @@
     <div class="tab-panel" data-panel="mejoras"><div id="shipTree" class="tree"></div></div>
     <div class="tab-panel" data-panel="estilo"><h3 id="cosTitle">Personalizar</h3><div id="cosmetics" class="cosmetics"></div></div>
     <div class="tab-panel" data-panel="galaxia"><div id="galTab" class="gal-tab"></div></div>
-    <div class="tab-panel" data-panel="global"><p class="hint">Valen para todas las naves.</p><div id="metaList" class="list"></div></div>
+  </section>
+
+  <section id="store" class="overlay hidden">
+    <div class="h-tabs st-tabs" id="stTabs" role="tablist">
+      <button data-tab="crates" role="tab">🎁 COFRES</button>
+      <button data-tab="boosts" role="tab">⚡ POTENCIADORES</button>
+      <button data-tab="talents" role="tab">🌟 TALENTOS</button>
+    </div>
+    <p class="gems st-wallet">💎 <b id="stGems">0</b> · 💰 <b id="stCreditsW">0</b></p>
+    <div id="storeBody" class="store-body"></div>
+  </section>
+
+  <section id="crateOpen" class="overlay hidden">
+    <h2 id="coTitle">COFRE</h2>
+    <div id="coItems" class="co-items"></div>
+    <button class="btn" id="btnCrateOk">¡GENIAL!</button>
   </section>
 
   <section id="planet" class="overlay hidden">

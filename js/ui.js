@@ -10,7 +10,7 @@ import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
-import { RARITY, CARDS, CARD_BY_ID, SHIPS, META, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
@@ -23,13 +23,14 @@ import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount,
 import { BOSS_BY_ID } from './bosses.js';
 import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
 import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.js';
+import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'settings', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
-const NAV_SCREENS = new Set(['menu', 'hangar', 'achs', 'codex']);
+const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
 const BACK = {}; // id de pantalla -> qué hace "atrás" (botón ←, Esc o el atrás de Android)
 let current = null, pushed = false, skipPop = false;
 
@@ -222,6 +223,7 @@ export const ui = {
       tap(b, () => {
         const to = b.dataset.nav;
         if (to === 'menu') { ui.preview = null; ui.showMenu(); } else if (to === 'hangar') ui.showHangar();
+        else if (to === 'store') ui.showStore();
         else if (to === 'achs') ui.showAchievements(); else ui.showCodex();
       });
     }
@@ -233,6 +235,10 @@ export const ui = {
     });
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
+    tap($('btnCrateOk'), () => ui.showStore());
+    for (const b of $('stTabs').querySelectorAll('button')) tap(b, () => { ui.storeTab = b.dataset.tab; ui.showStore(); });
+    for (const id of ['btnWallet', 'btnWallet2']) tap($(id), () => $('walletInfo').classList.toggle('hidden'));
     screenHeader('expo', '🏛️ EXPOSICIÓN', () => ui.showHangar());
     screenHeader('planet', '🪐 EN ÓRBITA', () => leaveOrbit());
     tap($('btnExpo'), () => ui.showExpo(ui.hangarView || save.ship));
@@ -332,6 +338,9 @@ export const ui = {
     $('mBest').textContent = fmt(save.best);
     $('mGems').textContent = fmt(save.gems);
     $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `hoy ${fmt(save.daily.best)}` : 'pista nueva';
+    setText('mCredits', fmt(save.galaxy.credits));
+    const bs = save.boostSel.filter((id) => boostCount(save, id) > 0);
+    $('mBoosts').textContent = bs.length ? bs.map((id) => BOOSTS[id].icon).join('') : '';
     $('mMissions').innerHTML = missionsHTML();
     const ms = missions.today();
     setText('mMisCount', `${ms.filter((m) => m.done).length}/${ms.length}`);
@@ -381,7 +390,7 @@ export const ui = {
   showHangar(viewId = ui.hangarView || save.ship) {
     ui.hangarView = viewId;
     G.mode = 'hangar';
-    ui.hangarTab ||= 'nave';
+    if (!['nave', 'mejoras', 'estilo', 'galaxia'].includes(ui.hangarTab)) ui.hangarTab = 'nave';
     if (!ui._tabsReady) {
       ui._tabsReady = true;
       for (const b of $('hTabs').querySelectorAll('button')) {
@@ -585,26 +594,6 @@ export const ui = {
     // GALAXIA: cómo vuela esta nave allí y las mejoras de la nave espacial (con créditos)
     ui.renderGalTab(view);
 
-    // mejoras globales (todas las naves)
-    const ml = $('metaList');
-    ml.innerHTML = '';
-    for (const m of META) {
-      const has = save.meta[m.id];
-      const row = el('button', `item${has ? ' sel' : ''}${!has && save.gems < m.cost ? ' locked' : ''}`);
-      row.innerHTML = `<span class="i-icon">${m.icon}</span>
-        <span class="i-body"><b>${m.name}</b><small>${m.desc}</small></span>
-        <span class="i-act">${has ? '✔' : `💎 ${m.cost}`}</span>`;
-      tap(row, () => {
-        if (has || save.gems < m.cost) return;
-        save.gems -= m.cost;
-        save.meta[m.id] = true;
-        persist();
-        sfx.chest();
-        ui.showHangar();
-      });
-      ml.appendChild(row);
-    }
-
     // pestañas: solo se ve la activa; un puntito avisa de que hay algo que ya puedes comprar
     const lvNow = shipLvls(save.shipLvl, view.id);
     const treeBuy = owned && ['a', 'b', 'c'].some((k) => lvNow[k] < 3 && save.gems >= TREE_COSTS[k][lvNow[k]]);
@@ -612,7 +601,6 @@ export const ui = {
       nave: !owned && save.gems >= view.cost,
       mejoras: treeBuy,
       estilo: false,
-      global: META.some((m) => !save.meta[m.id] && save.gems >= m.cost),
       galaxia: Object.keys(SP_UP).some((k) => { const c = spUpCost(k, save.galaxy.up[k] || 0); return c !== null && save.galaxy.credits >= c; }),
     };
     for (const b of $('hTabs').querySelectorAll('button')) {
@@ -787,7 +775,7 @@ export const ui = {
 
   showShop(run, onDone) {
     let rerollCost = 10;
-    const price = (c) => Math.round({ common: 25, rare: 50, epic: 90 }[c.rarity] * (1 + run.section * 0.1));
+    const price = (c) => Math.round({ common: 25, rare: 50, epic: 90 }[c.rarity] * (1 + run.section * 0.1) * (hasTalent(save, 'r4') ? 0.8 : 1));
     const render = (offers) => {
       $('sCoins').textContent = run.coins;
       $('btnReroll').textContent = `RE-TIRAR · 🪙${rerollCost}`;
@@ -857,7 +845,7 @@ export const ui = {
     ];
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
-    $('dGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
+    $('dGems').innerHTML = `+${res.gems} 💎${res.credits ? ` · 🪙 ${res.credits} → +${res.credits} 💰` : ''} <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
     $('dExtra').textContent = res.exp ? `EXPEDICIÓN · acto ${res.exp.act + 1} de ${ACTS.length}, fila ${res.exp.row + 1} de ${ROWS}`
       : res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
@@ -940,7 +928,7 @@ export const ui = {
     const val = { near: res.near, perfect: res.perfect, coins: res.coins, mult: `x${res.maxMult}`, noHit: hits };
     $('vGoals').innerHTML = l.stars.map((s, i) => `<div class="item${res.stars[i] ? ' sel' : ' locked'}"><span class="i-icon">${res.stars[i] ? '✔' : '✖'}</span>
       <span class="i-body"><b>${s.text}</b>${val[s.kind] != null ? `<small>${val[s.kind]}</small>` : ''}</span>${res.best[i] && !res.stars[i] ? '<span class="i-act">★ ya la tenías</span>' : ''}</div>`).join('');
-    $('vGems').innerHTML = res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}</small>`;
+    $('vGems').innerHTML = (res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}</small>`) + (res.credits ? ` · +${res.credits} 💰` : '');
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     const unl = res.unlocked ? `<div class="rank-up">🔓 ¡Nivel ${res.next} desbloqueado!</div>` : '';
     $('vXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${unl}`;
@@ -954,6 +942,87 @@ export const ui = {
   showSpaceHUD(on) {
     $('spaceHud').classList.toggle('hidden', !on);
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
+  },
+
+  // TIENDA: cofres, potenciadores y talentos
+  showStore() {
+    G.mode = 'hangar';
+    ui.storeTab ||= 'crates';
+    for (const b of $('stTabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === ui.storeTab);
+    setText('stGems', fmt(save.gems));
+    setText('stCreditsW', fmt(save.galaxy.credits));
+    const body = $('storeBody');
+    body.innerHTML = '';
+    if (ui.storeTab === 'crates') {
+      const left = crateStyles(save, save.ship).length;
+      body.insertAdjacentHTML('beforeend', `<p class="hint">Estilos para tu ${SHIPS.find((x) => x.id === save.ship).name} que aún no tienes: <b>${left}</b> · nunca salen repetidos.<br>
+        Épico garantizado en <b>${PITY - save.crates.pity}</b> cofres como mucho.</p>`);
+      for (const [k, C] of Object.entries(CRATES)) {
+        const price = C.cost.gems ? `💎 ${C.cost.gems}` : `💰 ${fmt(C.cost.credits)}`;
+        const odds = Object.entries(C.odds).map(([r, p]) => `<i style="color:${RARITIES[r].color}">${RARITIES[r].name} ${Math.round(p * 100)}%</i>`).join(' · ');
+        const card = el('div', `crate-card c-${k}`, `<span class="cc-icon">${C.icon}</span><b>${C.name}</b><small>${C.items} objetos · ${odds}</small>
+          <button class="btn" data-crate="${k}" ${canAfford(save, k) ? '' : 'disabled'}>ABRIR · ${price}</button>`);
+        tap(card.querySelector('button'), () => {
+          const got = openCrate(save, k);
+          if (!got) return;
+          persist();
+          sfx.chest();
+          fx.vibe([30, 40, 80]);
+          ui.showCrateOpen(C, got);
+        });
+        body.append(card);
+      }
+    } else if (ui.storeTab === 'boosts') {
+      body.insertAdjacentHTML('beforeend', `<p class="hint">Marca hasta ${MAX_BOOSTS} para tu próxima partida (Runner, campaña, mutación o expedición). Se gastan al empezar.</p>`);
+      for (const [id, B] of Object.entries(BOOSTS)) {
+        const n = boostCount(save, id), on = save.boostSel.includes(id);
+        const row = el('div', `boost-row${on ? ' on' : ''}`, `<span class="i-icon">${B.icon}</span><span class="i-body"><b>${B.name} <em>x${n}</em></b><small>${B.desc}</small></span>
+          <button class="btn ghost bs-use" ${n ? '' : 'disabled'}>${on ? '✔ ACTIVO' : 'USAR'}</button>
+          <button class="btn bs-buy" ${save.gems >= B.cost ? '' : 'disabled'}>💎 ${B.cost}</button>`);
+        row.dataset.boost = id;
+        tap(row.querySelector('.bs-use'), () => { toggleBoost(save, id); persist(); ui.showStore(); });
+        tap(row.querySelector('.bs-buy'), () => { if (buyBoost(save, id)) { persist(); sfx.coin(3); toast(`${B.icon} ${B.name} x${boostCount(save, id)}`); ui.showStore(); } });
+        body.append(row);
+      }
+    } else {
+      body.insertAdjacentHTML('beforeend', '<p class="hint">Mejoras permanentes. Se compran en orden dentro de cada árbol.</p>');
+      for (const [tree, T] of Object.entries(TALENTS)) {
+        const nx = nextTalent(save, tree);
+        const col = el('div', 'tal-tree', `<h3>${T.icon} ${T.name}</h3>`);
+        T.nodes.forEach((n, i) => {
+          const has = hasTalent(save, n.id), next = nx?.id === n.id;
+          const node = el('button', `tal-node${has ? ' bought' : ''}${next ? ' next' : ''}${next && save.gems >= n.cost ? ' afford' : ''}`,
+            `<small>${i + 1}</small><b>${n.name}</b><span>${n.desc}</span><em>${has ? '✔' : `💎 ${n.cost}`}</em>`);
+          node.dataset.talent = n.id;
+          tap(node, () => {
+            if (!next) return;
+            if (!buyTalent(save, n.id)) { fx.vibe(50); return; }
+            persist();
+            sfx.chest();
+            toast(`🌟 ${n.name}`);
+            ui.showStore();
+          });
+          col.append(node);
+        });
+        body.append(col);
+      }
+    }
+    show('store');
+  },
+
+  showCrateOpen(C, items) {
+    setText('coTitle', `${C.icon} ${C.name.toUpperCase()}`);
+    const box = $('coItems');
+    box.innerHTML = '';
+    items.forEach((it, i) => {
+      const R = RARITIES[it.rarity];
+      const icon = it.kind === 'style' ? { palette: '🎨', engine: '🔥', trail: '✨', aura: '🌟', shot: '🔫', boom: '💥', emblem: '🛡️' }[it.group] : it.kind === 'gems' ? '💎' : it.kind === 'credits' ? '💰' : '⚡';
+      const c = el('div', `co-item r-${it.rarity}`, `<span>${icon}</span><b>${it.name}</b><small style="color:${R.color}">${R.name}${it.kind === 'style' ? ' · ¡nuevo estilo!' : ''}</small>`);
+      c.style.setProperty('--rc', R.color);
+      c.style.animationDelay = `${0.15 + i * 0.35}s`;
+      box.append(c);
+    });
+    show('crateOpen');
   },
 
   // ÓRBITA: el planeta, su historia, la primera visita paga y compra un mineral caro
@@ -1255,7 +1324,7 @@ export const ui = {
   showExpEnd(res) {
     setText('xeScore', fmt(res.score));
     $('xeBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
-    $('xeGems').innerHTML = `+${res.gems} 💎 por el último acto <small>(total ${fmt(save.gems)})</small>`;
+    $('xeGems').innerHTML = `+${res.gems} 💎 por el último acto${res.credits ? ` · +${res.credits} 💰` : ''} <small>(total ${fmt(save.gems)})</small>`;
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     $('xeXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
     show('expEnd');

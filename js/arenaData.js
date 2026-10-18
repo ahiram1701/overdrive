@@ -148,6 +148,7 @@ export const ELITE_EVERY = 60;
 export function arenaRewards({ time, kills, bosses, won }) {
   return {
     gems: Math.floor(time / 20) + Math.floor(kills / 40) + bosses * 10 + (won ? 40 : 0),
+    credits: Math.floor(kills / 2) + bosses * 50, // 💰 para la cartera común
     xp: Math.floor(time * 3 + kills * 0.6 + bosses * 120),
   };
 }
