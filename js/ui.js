@@ -101,6 +101,13 @@ function setText(id, v) {
   hudCache[id] = v;
   $(id).textContent = v;
 }
+// HUD a 60 fps: elementos fijos guardados una vez y estilos/clases escritos solo si cambian
+// (cada escritura en el DOM, aunque sea el mismo valor, puede costar un recálculo de estilos)
+const hudEl = {};
+const $h = (id) => hudEl[id] || (hudEl[id] = $(id));
+function setTf(n, v) { if (n._tf !== v) { n._tf = v; n.style.transform = v; } }
+function setVar(n, k, v) { const c = `_v${k}`; if (n[c] !== v) { n[c] = v; n.style.setProperty(k, v); } }
+function tgl(n, c, on) { if (n.classList.contains(c) !== on) n.classList.toggle(c, on); }
 function setHTML(id, v) {
   if (hudCache[id] === v) return;
   hudCache[id] = v;
@@ -1301,37 +1308,39 @@ export const ui = {
 
   updateSpaceHUD() {
     const s = G.space;
-    if (!s || $('spaceHud').classList.contains('hidden')) return;
+    const hud = $h('spaceHud');
+    if (!s || hud.classList.contains('hidden')) return;
     const st = spaceStats(), g = save.galaxy;
-    $('spaceHud').querySelector('.sh-bar.shield i').style.transform = `scaleX(${(s.ship.shield / st.shield).toFixed(3)})`;
-    $('spaceHud').querySelector('.sh-bar.hull i').style.transform = `scaleX(${Math.max(0, s.ship.hull / st.hull).toFixed(3)})`;
+    const bars = ui._shBars ||= { shield: hud.querySelector('.sh-bar.shield i'), hull: hud.querySelector('.sh-bar.hull i'), cargo: hud.querySelector('.sh-bar.cargo i'), heat: hud.querySelector('.sh-bar.heat i') };
+    setTf(bars.shield, `scaleX(${(s.ship.shield / st.shield).toFixed(3)})`);
+    setTf(bars.hull, `scaleX(${Math.max(0, s.ship.hull / st.hull).toFixed(3)})`);
     const n = cargoCount(g.cargo);
-    $('spaceHud').querySelector('.sh-bar.cargo i').style.transform = `scaleX(${Math.min(1, n / st.cargo).toFixed(3)})`;
+    setTf(bars.cargo, `scaleX(${Math.min(1, n / st.cargo).toFixed(3)})`);
     setText('shCargo', `${n}/${st.cargo}`);
     setText('shCredits', fmt(g.credits));
     const thr = Math.round((s.ship.throttle ?? 1) * 100);
-    if (document.activeElement !== $('throttle')) $('throttle').value = thr;
+    const thrEl = $h('throttle');
+    if (document.activeElement !== thrEl && thrEl._v !== thr) { thrEl._v = thr; thrEl.value = thr; }
     setText('thrVal', thr === 0 ? 'PARADO' : thr < 0 ? `◀ ${-thr}%` : `${thr}%`);
-    $('throttleBox').classList.toggle('rev', thr < 0);
-    $('throttleBox').classList.toggle('stop', thr === 0);
+    tgl($h('throttleBox'), 'rev', thr < 0);
+    tgl($h('throttleBox'), 'stop', thr === 0);
     // misiles (si tienes la mejora) y botón de contexto (COMERCIAR / ORBITAR)
     const hasMis = (g.up.missile || 0) > 0;
-    $('btnMissile').classList.toggle('hidden', !hasMis);
+    tgl($h('btnMissile'), 'hidden', !hasMis);
     if (hasMis) {
       setText('shMis', String(g.missiles || 0));
-      $('btnMissile').classList.toggle('lock', !!s.lock?.locked);
+      tgl($h('btnMissile'), 'lock', !!s.lock?.locked);
     }
-    $('btnAct').classList.toggle('hidden', !s.act);
+    tgl($h('btnAct'), 'hidden', !s.act);
     if (s.act) setText('btnAct', s.act.label);
     setText('shObjective', s.objective ? `▸ ${s.objective.text}` : '');
     const sd = GAL[s.sysId];
     setText('shSystem', `${sd.name} ${'☠'.repeat(sd.danger)}`);
-    const heat = $('spaceHud').querySelector('.sh-bar.heat i');
-    heat.style.transform = `scaleX(${Math.min(1, s.heat).toFixed(3)})`;
-    heat.parentElement.classList.toggle('over', s.overheat);
-    $('btnDock').classList.toggle('hidden', !s.canDock);
-    $('btnBoost').classList.toggle('cool', s.ship.boostCd > 0);
-    $('shHint').classList.toggle('hidden', s.t > 8);
+    setTf(bars.heat, `scaleX(${Math.min(1, s.heat).toFixed(3)})`);
+    tgl(bars.heat.parentElement, 'over', !!s.overheat);
+    tgl($h('btnDock'), 'hidden', !s.canDock);
+    tgl($h('btnBoost'), 'cool', s.ship.boostCd > 0);
+    tgl($h('shHint'), 'hidden', s.t > 8);
   },
 
   // Estación: mercado, taller y reparación, todo en una pantalla
@@ -2233,31 +2242,36 @@ export const ui = {
     const mEl = $('mult');
     const hue = Math.min(r.mult * 6, 330);
     if (hudCache.multHue !== hue) { hudCache.multHue = hue; mEl.style.color = `hsl(${hue},100%,62%)`; }
-    $('chainbar').firstElementChild.style.transform = `scaleX(${Math.max(0, 1 - r.chainT / 3)})`;
+    setTf($h('chainbar').firstElementChild, `scaleX(${Math.max(0, 1 - r.chainT / 3).toFixed(3)})`);
     setHTML('speed', `${Math.round(effSpeed(r) * 10)}<small> KM/H</small>`);
     setText('dist', `${fmt(r.dist)} m`);
     setText('coins', `🪙 ${r.coins}`);
     setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, shieldCap(r) - r.shields)));
     const a = r.ability;
-    const ab = $('abilityBtn');
-    ab.style.setProperty('--f', readiness(a).toFixed(3));
+    const ab = $h('abilityBtn');
+    setVar(ab, '--f', readiness(a).toFixed(3));
     setText('abilityIcon', ABILITIES[a.id].icon);
-    ab.classList.toggle('ready', a.cdLeft <= 0 && a.active <= 0);
-    ab.classList.toggle('active', a.active > 0);
-    const od = $('odbar');
-    od.firstElementChild.style.transform = `scaleX(${r.odTime > 0 ? r.odTime / r.stats.odDur : r.od})`;
-    od.classList.toggle('active', r.odTime > 0);
+    tgl(ab, 'ready', a.cdLeft <= 0 && a.active <= 0);
+    tgl(ab, 'active', a.active > 0);
+    const od = $h('odbar');
+    setTf(od.firstElementChild, `scaleX(${(r.odTime > 0 ? r.odTime / r.stats.odDur : r.od).toFixed(3)})`);
+    tgl(od, 'active', r.odTime > 0);
     // RECALENTANDO: tras un overdrive la barra no carga unos segundos
-    od.classList.toggle('cool', r.odCool > 0);
+    tgl(od, 'cool', r.odCool > 0);
     setText('odLabel', r.odCool > 0 ? 'RECALENTANDO' : 'OVERDRIVE');
+    // cargas de DASH: los <i> se crean una vez (al cambiar cuántas hay); luego solo cambia su --f
     const full = Math.floor(r.dashCharges);
     const part = r.dashCharges - full;
-    let dash = '';
-    for (let i = 0; i < r.stats.dashMax; i++) {
-      const f = i < full ? 1 : i === full ? part : 0;
-      dash += `<i class="${f >= 1 ? 'ready' : ''}" style="--f:${f}"></i>`;
+    const dashEl = $h('dash');
+    if (dashEl._n !== r.stats.dashMax) {
+      dashEl._n = r.stats.dashMax;
+      dashEl.innerHTML = '<i></i>'.repeat(r.stats.dashMax);
     }
-    setHTML('dash', dash);
+    for (let i = 0; i < dashEl.children.length; i++) {
+      const f = i < full ? 1 : i === full ? part : 0;
+      setVar(dashEl.children[i], '--f', f.toFixed(2));
+      tgl(dashEl.children[i], 'ready', f >= 1);
+    }
     const rt = $('raceTag');
     if (r.race) {
       const pos = racePosition(r);
