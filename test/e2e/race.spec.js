@@ -4,6 +4,7 @@ import { trackErrors, botInPage } from './helpers.js';
 const SAVE = 'overdrive-save-v1';
 
 async function startCup(page, cup = 'c1') {
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnRaces').click();
   await page.evaluate(() => { window.G.manual = true; });
   await page.locator(`[data-cup="${cup}"]`).click();
@@ -76,6 +77,7 @@ test('carrera: repetir una pista carga tu fantasma y chocar no mata', async ({ p
 test('carreras: la copa 2 está cerrada hasta tener medalla en la 1', async ({ page }) => {
   await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 5 })), SAVE);
   await page.goto('/?nosw');
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnRaces').click();
   await expect(page.locator('[data-cup="c2"]')).toBeDisabled();
   await expect(page.locator('[data-cup="c1"]')).toBeEnabled();

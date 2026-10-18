@@ -1,6 +1,6 @@
-// ECONOMÍA: cofres de suministros, potenciadores y talentos. Módulo puro (recibe el guardado).
-// Monedas 🪙 = la partida; créditos 💰 = la cartera común (Galaxia + lo que sobra de cada partida);
-// gemas 💎 = lo permanente.
+// ECONOMÍA de RUNNER y ARENA: cofres, potenciadores, talentos, mazo y arsenal. Módulo puro.
+// 🪙 monedas = lo de cada día (lo que sobra de cada partida y las bajas de la Arena);
+// 💎 gemas = lo especial. Los 💰 créditos son SOLO de la Galaxia (su taller, sus talentos).
 import { makeRng, hashString } from './rng.js';
 import { GROUPS, isUnlocked, grantCosmetic } from './cosmetics.js';
 import { CARDS, CARD_BY_ID, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
@@ -18,8 +18,8 @@ export function buyCard(save, id) {
 }
 export function upgradeCard(save, id) {
   const c = CARD_BY_ID[id], l = cardLvl(save, id);
-  if (!c || !cardOwned(save, c) || l >= MAX_CARD_LVL || save.gems < CARD_LVL_COST[l]) return false;
-  save.gems -= CARD_LVL_COST[l];
+  if (!c || !cardOwned(save, c) || l >= MAX_CARD_LVL || save.coins < CARD_LVL_COST[l]) return false;
+  save.coins -= CARD_LVL_COST[l];
   save.cardLvl[id] = l + 1;
   return true;
 }
@@ -35,12 +35,12 @@ export function buyWeapon(save, id) {
 
 // ---------- Potenciadores (consumibles, se compran con 💎) ----------
 export const BOOSTS = {
-  shield: { icon: '🛡️', name: 'Escudo extra', desc: 'Empiezas con +1 escudo.', cost: 30 },
-  magnet: { icon: '🧲', name: 'Imán', desc: 'Imán de monedas toda la partida.', cost: 25 },
-  start: { icon: '🚀', name: 'Arranque', desc: 'Empiezas en el tramo 3 (modo infinito).', cost: 40 },
-  life: { icon: '❤️', name: 'Segunda vida', desc: 'Si te estrellas sin escudos, revives una vez.', cost: 60 },
-  xp: { icon: '📈', name: 'Doble XP', desc: 'x2 de XP en la partida.', cost: 35 },
-  luck: { icon: '🍀', name: 'Carta rara', desc: 'Empiezas eligiendo una carta rara o mejor.', cost: 30 },
+  shield: { icon: '🛡️', name: 'Escudo extra', desc: 'Empiezas con +1 escudo.', cost: 300 },
+  magnet: { icon: '🧲', name: 'Imán', desc: 'Imán de monedas toda la partida.', cost: 250 },
+  start: { icon: '🚀', name: 'Arranque', desc: 'Empiezas en el tramo 3 (modo infinito).', cost: 400 },
+  life: { icon: '❤️', name: 'Segunda vida', desc: 'Si te estrellas sin escudos, revives una vez.', cost: 600 },
+  xp: { icon: '📈', name: 'Doble XP', desc: 'x2 de XP en la partida.', cost: 350 },
+  luck: { icon: '🍀', name: 'Carta rara', desc: 'Empiezas eligiendo una carta rara o mejor.', cost: 300 },
 };
 export const MAX_BOOSTS = 2; // activos a la vez
 
@@ -48,8 +48,8 @@ export const boostCount = (save, id) => save.boosts?.[id] || 0;
 
 export function buyBoost(save, id) {
   const b = BOOSTS[id];
-  if (!b || save.gems < b.cost) return false;
-  save.gems -= b.cost;
+  if (!b || save.coins < b.cost) return false;
+  save.coins -= b.cost;
   save.boosts[id] = boostCount(save, id) + 1;
   return true;
 }
@@ -78,26 +78,26 @@ export function takeBoosts(save, allowed = () => true) {
 
 // ---------- Talentos (mejoras permanentes, 💎, en orden dentro de cada árbol) ----------
 export const TALENTS = {
-  runner: { name: 'RUNNER', icon: '🏁', nodes: [
-    { id: 'r1', name: 'Escudo inicial', desc: 'Empiezas cada partida con 1 escudo.', cost: 80 },
-    { id: 'r2', name: 'Carta inicial', desc: 'Eliges una carta al empezar cada partida.', cost: 120 },
-    { id: 'r3', name: 'Bolsillos', desc: 'Empiezas cada partida con 60 🪙.', cost: 150 },
-    { id: 'r4', name: 'Regateo', desc: 'La tienda de la partida es un 20% más barata.', cost: 220 },
-    { id: 'r5', name: 'Cuarta carta', desc: 'Eliges entre 4 cartas en vez de 3.', cost: 380 },
+  runner: { name: 'RUNNER', icon: '🏁', cur: 'coins', nodes: [
+    { id: 'r1', name: 'Escudo inicial', desc: 'Empiezas cada partida con 1 escudo.', cost: 800 },
+    { id: 'r2', name: 'Carta inicial', desc: 'Eliges una carta al empezar cada partida.', cost: 1200 },
+    { id: 'r3', name: 'Bolsillos', desc: 'Empiezas cada partida con 60 🪙.', cost: 1500 },
+    { id: 'r4', name: 'Regateo', desc: 'La tienda de la partida es un 20% más barata.', cost: 2200 },
+    { id: 'r5', name: 'Cuarta carta', desc: 'Eliges entre 4 cartas en vez de 3.', cost: 3800 },
   ] },
-  arena: { name: 'ARENA', icon: '⚔️', nodes: [
-    { id: 'a1', name: 'Blindaje', desc: '+20 de vida.', cost: 100 },
-    { id: 'a2', name: 'Calibre', desc: '+10% de daño.', cost: 150 },
-    { id: 'a3', name: 'Atracción', desc: '+40% de alcance para recoger XP.', cost: 150 },
-    { id: 'a4', name: 'Arsenal', desc: 'Tu arma inicial empieza en nivel 2.', cost: 250 },
-    { id: 'a5', name: 'Fénix', desc: 'Revives una vez por partida con media vida.', cost: 380 },
+  arena: { name: 'ARENA', icon: '⚔️', cur: 'coins', nodes: [
+    { id: 'a1', name: 'Blindaje', desc: '+20 de vida.', cost: 1000 },
+    { id: 'a2', name: 'Calibre', desc: '+10% de daño.', cost: 1500 },
+    { id: 'a3', name: 'Atracción', desc: '+40% de alcance para recoger XP.', cost: 1500 },
+    { id: 'a4', name: 'Arsenal', desc: 'Tu arma inicial empieza en nivel 2.', cost: 2500 },
+    { id: 'a5', name: 'Fénix', desc: 'Revives una vez por partida con media vida.', cost: 3800 },
   ] },
-  galaxy: { name: 'GALAXIA', icon: '🌌', nodes: [
-    { id: 'g1', name: 'Bodega ampliada', desc: '+10 de bodega.', cost: 100 },
-    { id: 'g2', name: 'Santabárbara', desc: '+2 misiles de munición.', cost: 150 },
-    { id: 'g3', name: 'Contactos', desc: 'Vendes mineral un 10% más caro.', cost: 200 },
-    { id: 'g4', name: 'Mecánico propio', desc: 'Reparar cuesta la mitad.', cost: 120 },
-    { id: 'g5', name: 'Escudo deflector', desc: '+20 de escudo.', cost: 250 },
+  galaxy: { name: 'GALAXIA', icon: '🌌', cur: 'credits', nodes: [
+    { id: 'g1', name: 'Bodega ampliada', desc: '+10 de bodega.', cost: 1000 },
+    { id: 'g2', name: 'Santabárbara', desc: '+2 misiles de munición.', cost: 1500 },
+    { id: 'g3', name: 'Contactos', desc: 'Vendes mineral un 10% más caro.', cost: 2000 },
+    { id: 'g4', name: 'Mecánico propio', desc: 'Reparar cuesta la mitad.', cost: 1200 },
+    { id: 'g5', name: 'Escudo deflector', desc: '+20 de escudo.', cost: 2500 },
   ] },
 };
 export const TALENT_BY_ID = Object.fromEntries(Object.values(TALENTS).flatMap((t) => t.nodes.map((n) => [n.id, n])));
@@ -107,11 +107,18 @@ export const hasTalent = (save, id) => !!save.talents?.[id];
 export function nextTalent(save, tree) {
   return TALENTS[tree].nodes.find((n) => !hasTalent(save, n.id)) || null;
 }
+// Cartera de cada árbol: Runner y Arena con 🪙, Galaxia con 💰
+export const wallet = (save, cur) => (cur === 'credits' ? save.galaxy.credits : save.coins);
+function pay(save, cur, n) {
+  if (cur === 'credits') save.galaxy.credits -= n;
+  else save.coins -= n;
+}
 export function buyTalent(save, id) {
   const tree = Object.keys(TALENTS).find((k) => TALENTS[k].nodes.some((n) => n.id === id));
   const n = tree && nextTalent(save, tree);
-  if (!n || n.id !== id || save.gems < n.cost) return false;
-  save.gems -= n.cost;
+  const cur = tree && TALENTS[tree].cur;
+  if (!n || n.id !== id || wallet(save, cur) < n.cost) return false;
+  pay(save, cur, n.cost);
   save.talents[id] = true;
   return true;
 }
@@ -125,7 +132,7 @@ export const RARITIES = {
 };
 const ORDER = ['common', 'rare', 'epic', 'legendary'];
 export const CRATES = {
-  std: { name: 'Cofre estándar', icon: '📦', cost: { credits: 1500 }, items: 3, odds: { common: 0.62, rare: 0.28, epic: 0.08, legendary: 0.02 } },
+  std: { name: 'Cofre estándar', icon: '📦', cost: { coins: 1500 }, items: 3, odds: { common: 0.62, rare: 0.28, epic: 0.08, legendary: 0.02 } },
   elite: { name: 'Cofre de élite', icon: '🎁', cost: { gems: 150 }, items: 3, odds: { common: 0.25, rare: 0.45, epic: 0.22, legendary: 0.08 } },
 };
 export const PITY = 10; // como mucho 10 cofres seguidos sin algo épico o mejor
@@ -152,14 +159,14 @@ function rollRarity(rng, odds) {
 }
 
 const FILLER = {
-  common: [{ kind: 'credits', n: 400 }, { kind: 'boost', n: 1 }],
-  rare: [{ kind: 'credits', n: 900 }, { kind: 'gems', n: 25 }, { kind: 'boost', n: 2 }, { kind: 'card', n: 1 }],
-  epic: [{ kind: 'gems', n: 60 }, { kind: 'credits', n: 2500 }, { kind: 'card', n: 1 }],
+  common: [{ kind: 'coins', n: 400 }, { kind: 'boost', n: 1 }],
+  rare: [{ kind: 'coins', n: 900 }, { kind: 'gems', n: 25 }, { kind: 'boost', n: 2 }, { kind: 'card', n: 1 }],
+  epic: [{ kind: 'gems', n: 60 }, { kind: 'coins', n: 2500 }, { kind: 'card', n: 1 }],
   legendary: [{ kind: 'gems', n: 150 }],
 };
 
 // Abre un cofre (sin cobrar: eso lo hace openCrate). Determinista por número de cofre.
-// Devuelve [{ rarity, kind: 'style'|'credits'|'gems'|'boost', ... }] y lo aplica al guardado.
+// Devuelve [{ rarity, kind: 'style'|'coins'|'gems'|'boost'|'card', ... }] y lo aplica al guardado.
 export function rollCrate(save, kind, ship = save.ship) {
   const C = CRATES[kind];
   const c = save.crates;
@@ -190,9 +197,9 @@ export function rollCrate(save, kind, ship = save.ship) {
           out.push({ rarity, kind: 'card', id: card.id, name: `${card.icon} ${card.name} · maestría ${save.cardLvl[card.id]}` });
           continue;
         }
-        f = { kind: 'credits', n: 900 };
+        f = { kind: 'coins', n: 900 };
       }
-      if (f.kind === 'credits') save.galaxy.credits += f.n;
+      if (f.kind === 'coins') save.coins += f.n;
       else if (f.kind === 'gems') save.gems += f.n;
       else {
         const id = rng.pick(Object.keys(BOOSTS));
@@ -200,7 +207,7 @@ export function rollCrate(save, kind, ship = save.ship) {
         out.push({ rarity, kind: 'boost', id, n: f.n, name: `${BOOSTS[id].icon} ${BOOSTS[id].name} x${f.n}` });
         continue;
       }
-      out.push({ rarity, kind: f.kind, n: f.n, name: f.kind === 'gems' ? `+${f.n} 💎` : `+${f.n} 💰` });
+      out.push({ rarity, kind: f.kind, n: f.n, name: f.kind === 'gems' ? `+${f.n} 💎` : `+${f.n} 🪙` });
     }
   }
   const best = Math.max(...out.map((o) => ORDER.indexOf(o.rarity)));
@@ -210,21 +217,21 @@ export function rollCrate(save, kind, ship = save.ship) {
 
 export function canAfford(save, kind) {
   const cost = CRATES[kind].cost;
-  return cost.gems ? save.gems >= cost.gems : save.galaxy.credits >= cost.credits;
+  return cost.gems ? save.gems >= cost.gems : save.coins >= cost.coins;
 }
 
 export function openCrate(save, kind, ship = save.ship) {
   if (!canAfford(save, kind)) return null;
   const cost = CRATES[kind].cost;
   if (cost.gems) save.gems -= cost.gems;
-  else save.galaxy.credits -= cost.credits;
+  else save.coins -= cost.coins;
   return rollCrate(save, kind, ship);
 }
 
-// ---------- Monedas -> créditos ----------
-// Lo que sobra de la partida pasa a tu cartera (1:1)
+// ---------- Monedas que sobran ----------
+// Lo que no gastas en la tienda de la partida pasa a tu cartera de 🪙 (no a los créditos de la Galaxia)
 export function bankCoins(save, coins) {
   const n = Math.max(0, Math.floor(coins || 0));
-  save.galaxy.credits += n;
+  save.coins += n;
   return n;
 }

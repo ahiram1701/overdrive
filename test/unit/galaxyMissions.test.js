@@ -21,7 +21,7 @@ test('tablón: hasta 3 ofertas distintas, alcanzables y con recompensa', () => {
     assert.ok(b.length >= 1 && b.length <= 3);
     assert.equal(new Set(b.map((m) => m.kind)).size, b.length);
     for (const m of b) {
-      assert.ok(m.reward > 0 && m.gems >= 1);
+      assert.ok(m.reward > 0 && m.gems === undefined, 'la Galaxia paga solo en créditos');
       const r = route(GAL, sys, m.sys);
       assert.ok(r && r.length - 1 <= 3, 'destino a 3 saltos como mucho');
       assert.ok(m.sys === sys || Math.max(0, GAL[m.sys].danger - 1) <= 1, 'alcanzable con tu Salto (o en este mismo sistema)');

@@ -736,7 +736,7 @@ function finish(a, won) {
   const rw = arenaRewards({ time: a.time, kills: a.kills, bosses: a.bosses, won });
   const gems = Math.ceil(rw.gems * (1 + prestigeBonus(save)));
   save.gems += gems;
-  save.galaxy.credits += rw.credits;
+  save.coins += rw.coins;
   const xpBefore = save.xp;
   const rankUps = addXp(save, rw.xp);
   const prev = save.arena.best;

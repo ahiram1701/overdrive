@@ -5,6 +5,7 @@ test('el menú carga y RUNNER muestra el HUD sin errores', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/?nosw');
   await expect(page.locator('h1.logo')).toBeVisible();
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnPlay').click();
   await expect(page.locator('#hud')).toBeVisible();
   await expect(page.locator('#menu')).toBeHidden();
@@ -118,7 +119,7 @@ test('un muro no se puede saltar ni con Salto doble', async ({ page }) => {
   expect(res.hits).toEqual(['wall']);
 });
 
-// El reto diario debe ser la misma pista para todos: lo que elige cada uno (aquí la "Carta inicial")
+// La Mutación del día debe ser la misma pista para todos: lo que elige cada uno (aquí la "Carta inicial")
 // no puede desplazar el RNG de la pista. Se elige una carta que no cambia velocidad ni carriles.
 test('la misma semilla genera la misma pista con y sin "Carta inicial"', async ({ page }) => {
   const track = async (withCard) => {

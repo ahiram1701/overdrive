@@ -15,6 +15,7 @@ async function openLevel(page, id, { god = false, seedSave = null } = {}) {
   await page.goto('/?debug&nosw');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate((g) => { window.G.manual = true; window.G.god = g; }, god);
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnCampaign').click();
   await page.locator(`.lvl[data-level="${id}"]`).click();
   await page.locator('#btnLevelGo').click();
@@ -56,6 +57,7 @@ test('un nivel de campaña tiene siempre la misma pista', async ({ page }) => {
   await page.goto('/?debug&nosw');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnCampaign').click();
   await page.locator('.lvl[data-level="1-1"]').click();
   await page.locator('#btnLevelGo').click();
@@ -82,6 +84,7 @@ test('los sectores se abren con estrellas', async ({ page }) => {
   const all = [true, true, true];
   await page.addInitScript(([k, v]) => localStorage.setItem(k, JSON.stringify(v)), [SAVE, { v: 2, campaign: { '1-1': all, '1-2': all } }]);
   await page.goto('/?debug&nosw');
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnCampaign').click();
   await expect(page.locator('#campStars')).toHaveText('★ 6');
   await expect(page.locator('.sector').nth(1)).not.toHaveClass(/locked/);

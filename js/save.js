@@ -1,7 +1,7 @@
 // Guardado persistente. localStorage puede fallar (modo privado), así que todo va en try/catch.
 // La clave de almacenamiento NO cambia entre versiones: el formato se versiona con el campo `v`.
 const KEY = 'overdrive-save-v1';
-export const SAVE_VERSION = 4;
+export const SAVE_VERSION = 5;
 
 const reducedMotion = (() => {
   try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -10,6 +10,7 @@ const reducedMotion = (() => {
 const DEFAULTS = {
   v: SAVE_VERSION,
   gems: 0,
+  coins: 0,         // 🪙 cartera de RUNNER y ARENA (lo que sobra de cada partida)
   best: 0,
   bestDist: 0,
   daily: { key: '', best: 0 },
@@ -102,6 +103,11 @@ export function migrate(data) {
     if (data.meta?.shield) data.talents.r1 = true;
     if (data.meta?.card) data.talents.r2 = true;
     delete data.meta;
+  }
+  if (v < 5) {
+    // v5: las monedas que sobraban se convertían en créditos de la Galaxia; ahora tienen su propia
+    // cartera. No se puede saber qué créditos venían del Runner: un regalo de bienvenida.
+    data.coins = (data.coins || 0) + 500;
   }
   data.v = SAVE_VERSION;
   return data;

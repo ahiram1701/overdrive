@@ -26,11 +26,11 @@ import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount,
 import { BOSS_BY_ID } from './bosses.js';
 import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
 import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.js';
-import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
+import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, wallet, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -167,7 +167,6 @@ function buildSummary(run) {
 export const ui = {
   init() {
     tap($('btnPlay'), () => newRun(false));
-    tap($('btnDaily'), () => newRun(true));
     tap($('btnMods'), () => ui.showMods());
     tap($('btnArena'), () => newArena());
     tap($('btnGalaxy'), () => newSpace());
@@ -240,6 +239,8 @@ export const ui = {
     });
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
+    tap($('btnRunner'), () => ui.showRunnerHub());
     screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
     tap($('btnCrateOk'), () => ui.showStore());
     for (const b of $('stTabs').querySelectorAll('button')) tap(b, () => { ui.storeTab = b.dataset.tab; ui.showStore(); });
@@ -249,9 +250,9 @@ export const ui = {
     tap($('btnExpo'), () => ui.showExpo(ui.hangarView || save.ship));
     screenHeader('achs', '🏆 LOGROS', () => ui.showMenu());
     screenHeader('codex', '📖 COLECCIÓN', () => ui.showMenu());
-    screenHeader('campaign', '🗺️ CAMPAÑA', () => ui.showMenu());
-    screenHeader('mods', '⚙️ MODIFICADORES', () => ui.showMenu());
-    screenHeader('raceCups', '🏆 CARRERAS', () => ui.showMenu());
+    screenHeader('campaign', '🗺️ CAMPAÑA', () => ui.showRunnerHub());
+    screenHeader('mods', '⚙️ MODIFICADORES', () => ui.showRunnerHub());
+    screenHeader('raceCups', '🏆 CARRERAS', () => ui.showRunnerHub());
     screenHeader('atlas', '📖 ATLAS', () => ui.showStation(G.space));
     screenHeader('galMap', '🗺️ MAPA GALÁCTICO', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     BACK.hangar = () => { ui.preview = null; ui.showMenu(); };
@@ -340,12 +341,7 @@ export const ui = {
     ui.showSpaceHUD(false);
     G.player = null;
     ui.showHUD(false);
-    $('mBest').textContent = fmt(save.best);
-    $('mGems').textContent = fmt(save.gems);
-    $('mDaily').textContent = save.daily.key === todayKey() && save.daily.best ? `hoy ${fmt(save.daily.best)}` : 'pista nueva';
-    setText('mCredits', fmt(save.galaxy.credits));
-    const bs = save.boostSel.filter((id) => boostCount(save, id) > 0);
-    $('mBoosts').textContent = bs.length ? bs.map((id) => BOOSTS[id].icon).join('') : '';
+    ui.refreshLabels();
     $('mMissions').innerHTML = missionsHTML();
     const ms = missions.today();
     setText('mMisCount', `${ms.filter((m) => m.done).length}/${ms.length}`);
@@ -376,19 +372,40 @@ export const ui = {
       });
       $('mRank').append(b);
     }
-    $('mGalaxy').textContent = save.galaxy.started ? `💰 ${fmt(save.galaxy.credits)} · ${GAL[save.galaxy.sys ?? 0].name}` : 'explora, mina, comercia y lucha';
+    show('menu');
+  },
+
+  // Rótulos del menú y de la pantalla RUNNER (carteras, récords y progreso de cada modo)
+  refreshLabels() {
+    setText('mGems', fmt(save.gems));
+    setText('mCoins', fmt(save.coins));
+    setText('mBest', save.best ? `récord ${fmt(save.best)}` : 'aún sin récord');
+    setText('mBest2', save.best ? `récord ${fmt(save.best)}` : '');
+    setText('mCredits', `💰 ${fmt(save.galaxy.credits)}`);
+    setText('mGalaxy', save.galaxy.started ? `en ${GAL[save.galaxy.sys ?? 0].name}` : 'explora, mina, comercia y lucha');
+    setText('mArena', save.arena.best ? `récord ${fmtTime(save.arena.best)}` : 'sobrevive 10:00');
+    const bs = save.boostSel.filter((id) => boostCount(save, id) > 0);
+    setText('mBoosts', bs.length ? bs.map((id) => BOOSTS[id].icon).join('') : '');
     const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
-    $('mRace').textContent = Object.keys(save.raceCups).length ? `${golds} 🥇` : '3 copas';
+    setText('mRace', Object.keys(save.raceCups).length ? `${golds} 🥇` : '3 copas');
     const eb = save.expedition.best;
-    $('mExp').textContent = save.expedition.wins ? `✔ ${save.expedition.wins}` : eb ? `acto ${Math.floor(eb / 10) + 1}` : 'roguelite';
-    $('mArena').textContent = save.arena.best ? `récord ${fmtTime(save.arena.best)}` : 'sobrevive 10:00';
-    $('mStars').textContent = `★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`;
+    setText('mExp', save.expedition.wins ? `✔ ${save.expedition.wins}` : eb ? `acto ${Math.floor(eb / 10) + 1}` : 'roguelite');
+    setText('mStars', `★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`);
     const sel = cleanMods(save.modsLast, effectiveRank(save));
-    $('mMods').textContent = sel.length ? `x${modScore(sel).toFixed(1)}` : '';
+    setText('mMods', sel.length ? `x${modScore(sel).toFixed(1)}` : '');
     const mut = mutationOf(todayKey());
     const mutDone = save.mutation.key === todayKey() && save.mutation.played;
-    $('mMut').textContent = `${mut.map((id) => MOD_BY_ID[id].icon).join('')}${mutDone ? '' : ' x1,5 💎'}`;
-    show('menu');
+    setText('mMut', `${mut.map((id) => MOD_BY_ID[id].icon).join('')}${mutDone ? '' : ' x1,5 💎'}`);
+  },
+
+  // RUNNER: el modo infinito y sus 4 modos
+  showRunnerHub() {
+    G.mode = 'hangar'; // pantalla estática
+    G.run = null;
+    G.player = null;
+    ui.showHUD(false);
+    ui.refreshLabels();
+    show('runnerHub');
   },
 
   // Hangar: carrusel de naves, ficha con stats comparadas con la equipada y árbol de mejoras.
@@ -914,15 +931,15 @@ export const ui = {
   showDeath(res) {
     ui.deathAt = performance.now();
     $('dScore').textContent = fmt(res.score);
-    $('dNew').classList.toggle('hidden', !(res.isBest || res.dailyBest));
-    $('dNew').textContent = res.daily ? (res.dailyBest ? '¡RÉCORD DEL DÍA!' : '') : '¡NUEVO RÉCORD!';
+    $('dNew').classList.toggle('hidden', !res.isBest);
+    $('dNew').textContent = '¡NUEVO RÉCORD!';
     const cells = [
       ['Distancia', `${fmt(res.dist)} m`], ['Combo máx.', `x${res.maxMult}`], ['Near-miss', res.near],
       ['Roturas', res.breaks], ['Tramo', res.section], ['Jefes', res.bosses],
     ];
     $('dGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
-    $('dGems').innerHTML = `+${res.gems} 💎${res.credits ? ` · 🪙 ${res.credits} → +${res.credits} 💰` : ''} <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
+    $('dGems').innerHTML = `+${res.gems} 💎${res.banked ? ` · +${res.banked} 🪙` : ''} <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
     $('dExtra').textContent = res.exp ? `EXPEDICIÓN · acto ${res.exp.act + 1} de ${ACTS.length}, fila ${res.exp.row + 1} de ${ROWS}`
       : res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
@@ -1005,7 +1022,7 @@ export const ui = {
     const val = { near: res.near, perfect: res.perfect, coins: res.coins, mult: `x${res.maxMult}`, noHit: hits };
     $('vGoals').innerHTML = l.stars.map((s, i) => `<div class="item${res.stars[i] ? ' sel' : ' locked'}"><span class="i-icon">${res.stars[i] ? '✔' : '✖'}</span>
       <span class="i-body"><b>${s.text}</b>${val[s.kind] != null ? `<small>${val[s.kind]}</small>` : ''}</span>${res.best[i] && !res.stars[i] ? '<span class="i-act">★ ya la tenías</span>' : ''}</div>`).join('');
-    $('vGems').innerHTML = (res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}</small>`) + (res.credits ? ` · +${res.credits} 💰` : '');
+    $('vGems').innerHTML = (res.gems ? `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>` : `<small>★ ${totalStars(save)}</small>`) + (res.banked ? ` · +${res.banked} 🪙` : '');
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     const unl = res.unlocked ? `<div class="rank-up">🔓 ¡Nivel ${res.next} desbloqueado!</div>` : '';
     $('vXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}${unl}`;
@@ -1033,7 +1050,7 @@ export const ui = {
       const stars = '★'.repeat(lv) + '☆'.repeat(MAX_CARD_LVL - lv);
       let act;
       if (!own) act = `<button class="btn dk-buy" ${save.gems >= c.cost ? '' : 'disabled'}>DESBLOQUEAR · 💎 ${c.cost}</button>`;
-      else if (lv < MAX_CARD_LVL) act = `<button class="btn ghost dk-up" ${save.gems >= CARD_LVL_COST[lv] ? '' : 'disabled'}>MAESTRÍA · 💎 ${CARD_LVL_COST[lv]}</button>`;
+      else if (lv < MAX_CARD_LVL) act = `<button class="btn ghost dk-up" ${save.coins >= CARD_LVL_COST[lv] ? '' : 'disabled'}>MAESTRÍA · 🪙 ${fmt(CARD_LVL_COST[lv])}</button>`;
       else act = '<span class="dk-max">MÁX</span>';
       const row = el('div', `deck-row r-${c.rarity}${own ? '' : ' locked'}`, `<span class="dk-icon">${c.icon}</span>
         <span class="dk-body"><b>${c.name}${c.locked ? ' <em>NUEVA</em>' : ''}</b><small>${c.desc}</small><i>${own ? stars : '🔒'}</i></span>${act}`);
@@ -1051,7 +1068,7 @@ export const ui = {
     ui.storeTab ||= 'crates';
     for (const b of $('stTabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === ui.storeTab);
     setText('stGems', fmt(save.gems));
-    setText('stCreditsW', fmt(save.galaxy.credits));
+    setText('stCoinsW', fmt(save.coins));
     const body = $('storeBody');
     body.innerHTML = '';
     if (ui.storeTab === 'crates') {
@@ -1059,7 +1076,7 @@ export const ui = {
       body.insertAdjacentHTML('beforeend', `<p class="hint">Estilos para tu ${SHIPS.find((x) => x.id === save.ship).name} que aún no tienes: <b>${left}</b> · nunca salen repetidos.<br>
         Épico garantizado en <b>${PITY - save.crates.pity}</b> cofres como mucho.</p>`);
       for (const [k, C] of Object.entries(CRATES)) {
-        const price = C.cost.gems ? `💎 ${C.cost.gems}` : `💰 ${fmt(C.cost.credits)}`;
+        const price = C.cost.gems ? `💎 ${C.cost.gems}` : `🪙 ${fmt(C.cost.coins)}`;
         const odds = Object.entries(C.odds).map(([r, p]) => `<i style="color:${RARITIES[r].color}">${RARITIES[r].name} ${Math.round(p * 100)}%</i>`).join(' · ');
         const card = el('div', `crate-card c-${k}`, `<span class="cc-icon">${C.icon}</span><b>${C.name}</b><small>${C.items} objetos · ${odds}</small>
           <button class="btn" data-crate="${k}" ${canAfford(save, k) ? '' : 'disabled'}>ABRIR · ${price}</button>`);
@@ -1080,21 +1097,22 @@ export const ui = {
         const n = boostCount(save, id), on = save.boostSel.includes(id);
         const row = el('div', `boost-row${on ? ' on' : ''}`, `<span class="i-icon">${B.icon}</span><span class="i-body"><b>${B.name} <em>x${n}</em></b><small>${B.desc}</small></span>
           <button class="btn ghost bs-use" ${n ? '' : 'disabled'}>${on ? '✔ ACTIVO' : 'USAR'}</button>
-          <button class="btn bs-buy" ${save.gems >= B.cost ? '' : 'disabled'}>💎 ${B.cost}</button>`);
+          <button class="btn bs-buy" ${save.coins >= B.cost ? '' : 'disabled'}>🪙 ${fmt(B.cost)}</button>`);
         row.dataset.boost = id;
         tap(row.querySelector('.bs-use'), () => { toggleBoost(save, id); persist(); ui.showStore(); });
         tap(row.querySelector('.bs-buy'), () => { if (buyBoost(save, id)) { persist(); sfx.coin(3); toast(`${B.icon} ${B.name} x${boostCount(save, id)}`); ui.showStore(); } });
         body.append(row);
       }
     } else {
-      body.insertAdjacentHTML('beforeend', '<p class="hint">Mejoras permanentes. Se compran en orden dentro de cada árbol.</p>');
+      body.insertAdjacentHTML('beforeend', '<p class="hint">Mejoras permanentes, con 🪙. Se compran en orden dentro de cada árbol. Los de la Galaxia están en sus estaciones (con 💰).</p>');
       for (const [tree, T] of Object.entries(TALENTS)) {
+        if (T.cur === 'credits') continue;
         const nx = nextTalent(save, tree);
         const col = el('div', 'tal-tree', `<h3>${T.icon} ${T.name}</h3>`);
         T.nodes.forEach((n, i) => {
           const has = hasTalent(save, n.id), next = nx?.id === n.id;
-          const node = el('button', `tal-node${has ? ' bought' : ''}${next ? ' next' : ''}${next && save.gems >= n.cost ? ' afford' : ''}`,
-            `<small>${i + 1}</small><b>${n.name}</b><span>${n.desc}</span><em>${has ? '✔' : `💎 ${n.cost}`}</em>`);
+          const node = el('button', `tal-node${has ? ' bought' : ''}${next ? ' next' : ''}${next && wallet(save, T.cur) >= n.cost ? ' afford' : ''}`,
+            `<small>${i + 1}</small><b>${n.name}</b><span>${n.desc}</span><em>${has ? '✔' : `${T.cur === 'credits' ? '💰' : '🪙'} ${fmt(n.cost)}`}</em>`);
           node.dataset.talent = n.id;
           tap(node, () => {
             if (!next) return;
@@ -1250,6 +1268,26 @@ export const ui = {
       box.append(b);
     }
     ui.renderCraft(() => ui.showStation(s));
+    // TALENTOS DE LA GALAXIA (con créditos)
+    const tb = $('stTalents');
+    tb.innerHTML = '';
+    const GT = TALENTS.galaxy, gnx = nextTalent(save, 'galaxy');
+    GT.nodes.forEach((n, i) => {
+      const has = hasTalent(save, n.id), next = gnx?.id === n.id;
+      const node = el('button', `tal-node${has ? ' bought' : ''}${next ? ' next' : ''}${next && g.credits >= n.cost ? ' afford' : ''}`,
+        `<small>${i + 1}</small><b>${n.name}</b><span>${n.desc}</span><em>${has ? '✔' : `💰 ${fmt(n.cost)}`}</em>`);
+      node.dataset.talent = n.id;
+      tap(node, () => {
+        if (!next) return;
+        if (!buyTalent(save, n.id)) { fx.vibe(50); return; }
+        progress('talent');
+        persist();
+        sfx.chest();
+        toast(`🌟 ${n.name}`);
+        ui.showStation(s);
+      });
+      tb.append(node);
+    });
     // FACCIÓN de la estación: reputación, ventajas y su tienda (con créditos)
     const own = sysOwner(s.sysId), F = FACTIONS[own], rp = repOf(save, own), lvR = repLevel(rp);
     const fb = $('stFaction');
@@ -1272,14 +1310,14 @@ export const ui = {
     bBox.innerHTML = '';
     const act = save.bounties.active;
     if (act) {
-      const row = el('div', 'st-mis active', `<span>🎯</span><div><b>${act.name} · nivel ${act.level}</b><small>${TRAITS[act.trait].icon} ${TRAITS[act.trait].name} · visto en ${GAL[act.sys].name} · +${fmt(act.reward)} 💰 · +${act.gems} 💎</small></div>`);
+      const row = el('div', 'st-mis active', `<span>🎯</span><div><b>${act.name} · nivel ${act.level}</b><small>${TRAITS[act.trait].icon} ${TRAITS[act.trait].name} · visto en ${GAL[act.sys].name} · +${fmt(act.reward)} 💰</small></div>`);
       const x = el('button', 'btn ghost', '✕');
       tap(x, () => { abandonBounty(); ui.showStation(s); });
       row.append(x);
       bBox.append(row);
     } else {
       for (const b of bountyBoardNow(s)) {
-        const row = el('div', 'st-mis', `<span>🎯</span><div><b>${b.name} · nivel ${b.level}</b><small>${TRAITS[b.trait].icon} ${TRAITS[b.trait].desc} · en ${GAL[b.sys].name} · +${fmt(b.reward)} 💰 · +${b.gems} 💎</small></div>`);
+        const row = el('div', 'st-mis', `<span>🎯</span><div><b>${b.name} · nivel ${b.level}</b><small>${TRAITS[b.trait].icon} ${TRAITS[b.trait].desc} · en ${GAL[b.sys].name} · +${fmt(b.reward)} 💰</small></div>`);
         const ok = el('button', 'btn', 'CAZAR');
         ok.dataset.bounty = b.id;
         tap(ok, () => { acceptBounty(b); ui.showStation(s); });
@@ -1291,7 +1329,7 @@ export const ui = {
     const mBox = $('stMissions');
     mBox.innerHTML = '';
     for (const m of g.missions) {
-      const row = el('div', 'st-mis active', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>${m.n > 1 ? `${m.progress}/${m.n} · ` : ''}+${m.reward} 💰 · +${m.gems} 💎</small></div>`);
+      const row = el('div', 'st-mis active', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>${m.n > 1 ? `${m.progress}/${m.n} · ` : ''}+${m.reward} 💰</small></div>`);
       const x = el('button', 'btn ghost', '✕');
       x.title = 'Abandonar';
       tap(x, () => { abandonMission(m.id); ui.showStation(s); });
@@ -1299,7 +1337,7 @@ export const ui = {
       mBox.append(row);
     }
     for (const m of boardNow(s)) {
-      const row = el('div', 'st-mis', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>+${m.reward} 💰 · +${m.gems} 💎</small></div>`);
+      const row = el('div', 'st-mis', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>+${m.reward} 💰</small></div>`);
       const ok = el('button', 'btn', 'ACEPTAR');
       ok.disabled = g.missions.length >= MAX_ACTIVE;
       ok.dataset.mission = m.kind;
@@ -1554,7 +1592,7 @@ export const ui = {
   showExpEnd(res) {
     setText('xeScore', fmt(res.score));
     $('xeBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
-    $('xeGems').innerHTML = `+${res.gems} 💎 por el último acto${res.credits ? ` · +${res.credits} 💰` : ''} <small>(total ${fmt(save.gems)})</small>`;
+    $('xeGems').innerHTML = `+${res.gems} 💎 por el último acto${res.banked ? ` · +${res.banked} 🪙` : ''} <small>(total ${fmt(save.gems)})</small>`;
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     $('xeXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
     show('expEnd');

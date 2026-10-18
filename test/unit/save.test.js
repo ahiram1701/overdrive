@@ -51,3 +51,10 @@ test('claves desconocidas de nivel superior se ignoran (no ensucian el guardado)
   assert.equal(s.gems, 5);
   assert.ok(!('basura' in s));
 });
+
+test('v5: cartera de monedas propia con regalo de bienvenida; los créditos no se tocan', () => {
+  const s = loadFrom(JSON.stringify({ v: 4, gems: 10, galaxy: { credits: 900 } }));
+  assert.equal(s.coins, 500);
+  assert.equal(s.galaxy.credits, 900);
+  assert.equal(loadFrom(JSON.stringify(s)).coins, 500, 'el regalo es una sola vez');
+});

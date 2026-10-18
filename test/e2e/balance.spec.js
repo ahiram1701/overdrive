@@ -15,6 +15,7 @@ async function measure(page, { ship, cards = [], seconds = 120, seed = 21, boost
   await page.goto(`/?debug&nosw&seed=${seed}`);
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnPlay').click();
   await page.waitForFunction(() => window.G.mode === 'play');
   await page.evaluate(async (ids) => {

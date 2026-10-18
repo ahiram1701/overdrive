@@ -168,10 +168,9 @@ function storyHit(s, ev) {
   if (!done) return;
   const r = done.reward, g = gal();
   g.credits += r.credits || 0;
-  save.gems += r.gems || 0;
   for (const [k, n] of Object.entries(r.mats || {})) addMat(save, k, n);
   if (r.ship && !save.ships.includes(r.ship)) save.ships.push(r.ship);
-  fx.banner(`📖 ${done.title.toUpperCase()}`, `capítulo completado · +${r.credits || 0} 💰 · +${r.gems || 0} 💎${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}`, '#bf5af2', true);
+  fx.banner(`📖 ${done.title.toUpperCase()}`, `capítulo completado · +${r.credits || 0} 💰${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}`, '#bf5af2', true);
   sfx.milestone();
   progress('chapter');
   if (r.ship) progress('storyEnd');
@@ -339,12 +338,11 @@ function bountyKilled(s, p) {
   if (!b || b.id !== p.bounty) return;
   const g = gal();
   g.credits += b.reward;
-  save.gems += b.gems;
   B().done[b.id] = true;
   B().active = null;
   B().seq = (B().seq || 0) + 1;
   addRep(save, sysOwner(b.from), 5);
-  fx.banner(`🎯 ${b.name.toUpperCase()} ABATIDO`, `+${b.reward} 💰 · +${b.gems} 💎`, '#ffe600', true);
+  fx.banner(`🎯 ${b.name.toUpperCase()} ABATIDO`, `+${b.reward} 💰`, '#ffe600', true);
   progress('bounty');
   persist();
 }
@@ -600,10 +598,9 @@ function killBase(s) {
   fx.shake(30);
   fx.flash('#ffe600', 0.5);
   sfx.boom();
-  const value = 500 + d * 200;
+  const value = 680 + d * 200;
   s.loot.push({ pos: { ...b.pos }, credits: value, life: 90 });
-  save.gems += 3;
-  fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo · +3 💎`, '#ffe600', true);
+  fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo`, '#ffe600', true);
   if (s.event?.kind === 'assault') s.event.done = true;
   progress('pirateBase');
   gainMats(s, dropsOf('base', { base: true }));
@@ -788,10 +785,9 @@ export function dock() {
   g.missiles = missileAmmo(g.up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? 2 : 0); // munición llena
   if (s.event?.kind === 'rescue' && s.event.held && !s.event.done) {
     s.event.done = true;
-    const c = 150 + GAL[s.sysId].danger * 60;
+    const c = 270 + GAL[s.sysId].danger * 60;
     g.credits += c;
-    save.gems += 2;
-    toast(`🆘 Tripulación a salvo · +${c} 💰 · +2 💎`);
+    toast(`🆘 Tripulación a salvo · +${c} 💰`);
     progress('rescue');
   }
   missionEvent(s, { type: 'dock', sys: s.sysId });
@@ -916,11 +912,10 @@ function missionEvent(s, ev) {
   const done = advanceMissions(g.missions, ev);
   for (const m of done) {
     g.credits += m.reward;
-    save.gems += m.gems;
     addXp(save, m.reward / 2);
     g.boardSeq = (g.boardSeq || 0) + 1;
     addRep(save, sysOwner(m.from ?? s.sysId), 8);
-    fx.banner(`✔ MISIÓN: ${MISSION_KINDS[m.kind].name.toUpperCase()}`, `+${m.reward} 💰 · +${m.gems} 💎 · reputación +8`, '#30d158', true);
+    fx.banner(`✔ MISIÓN: ${MISSION_KINDS[m.kind].name.toUpperCase()}`, `+${m.reward} 💰 · reputación +8`, '#30d158', true);
     sfx.milestone();
     progress('gmission');
   }

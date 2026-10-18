@@ -44,10 +44,9 @@ export const effSpeed = (r = G.run) => r.speed * (r.odTime > 0 ? 1.5 : 1) * (r.c
 const scoreMult = (r) => r.stats.scoreMult * (r.risk ? 2 : 1) * (r.odTime > 0 ? 2 : 1);
 
 // ---------- Inicio ----------
-// opts: { mode: 'endless' | 'daily' | 'mutation' | 'campaign', level, mods } (un booleano = reto diario sí/no)
+// opts: { mode: 'endless' | 'mutation' | 'campaign' | 'expedition' | 'race', level, mods }
 export function newRun(opts = false) {
-  if (typeof opts !== 'object' || !opts) opts = { mode: opts ? 'daily' : 'endless' };
-  const daily = opts.mode === 'daily';
+  if (typeof opts !== 'object' || !opts) opts = { mode: 'endless' };
   const mutation = opts.mode === 'mutation';
   const expedition = opts.mode === 'expedition';
   const track = opts.mode === 'race' ? TRACK_BY_ID[opts.track] : null;
@@ -57,12 +56,11 @@ export function newRun(opts = false) {
   // CAMPAÑA: cada nivel tiene su semilla fija, así que su pista es siempre la misma y se puede aprender
   const seed = track ? hashString('race-' + track.id) : level ? hashString('camp-' + level.id)
     : forced !== null ? Number(forced) >>> 0
-      : daily ? hashString('overdrive-' + todayKey())
-        : mutation ? hashString('mutation-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
+      : mutation ? hashString('mutation-' + todayKey()) : (Math.random() * 2 ** 32) >>> 0;
   const r = {
     // tres RNG: pista (igual para todos en el reto diario), botín (cartas, cofres) e IA (jefe, movers).
     // Así lo que elige cada jugador no desplaza la secuencia de la pista.
-    opts, daily, rng: makeRng(seed), lootRng: makeRng(seed ^ 0x9e3779b9), aiRng: makeRng(seed ^ 0x85ebca6b),
+    opts, rng: makeRng(seed), lootRng: makeRng(seed ^ 0x9e3779b9), aiRng: makeRng(seed ^ 0x85ebca6b),
     stats: baseStats(),
     dist: 0, time: 0, speed: 28, curve: 0,
     score: 0, coins: 0, chain: 0, mult: 1, maxMult: 1, chainT: 0, coinStreak: 0, lastCoinT: -9,
@@ -101,7 +99,7 @@ export function newRun(opts = false) {
   if (hasTalent(save, 'r1')) addShields(r, 1);
   if (hasTalent(save, 'r3')) r.coins += 60;
   r.deck = { owned: { ...save.cardsOwned }, lvl: { ...save.cardLvl } };
-  r.boosts = track || daily ? [] : takeBoosts(save, (id) => id !== 'start' || opts.mode === 'endless');
+  r.boosts = track ? [] : takeBoosts(save, (id) => id !== 'start' || opts.mode === 'endless');
   if (r.boosts.includes('shield')) addShields(r, 1);
   if (r.boosts.includes('magnet')) r.stats.magnet += 1;
   if (r.boosts.includes('life')) r.extraLife = 1;
@@ -139,7 +137,6 @@ export function newRun(opts = false) {
   musicStart();
   G.mode = 'play';
   if (save.runs === 0) ui.tutorial();
-  if (daily) progress('daily');
   if (r.boosts.includes('start') && r.section < 1 && !level && !track) r.section = 1; // 🚀 ARRANQUE: tramo 3
   if (r.boosts.length) { progress('boost', r.boosts.length); persist(); }
   if (r.boosts.includes('luck')) openCards({ title: '🍀 CARTA RARA', next: false, minRarity: 'rare' });
@@ -1033,14 +1030,14 @@ function expWin(gems) {
   save.expedition.wins++;
   save.expedition.best = Math.max(save.expedition.best, progressOf(ACTS.length, 0));
   const xp = (xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400) * r.xpMult;
-  const credits = bankCoins(save, r.coins);
+  const banked = bankCoins(save, r.coins);
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
   progress('runs');
   persist();
   ui.showHUD(false);
-  ui.showExpEnd({ gems, credits, xp, xpBefore, rankUps, score: r.score, cards: r.cards, synergies: [...r.synergies], sections: r.section + 1 });
+  ui.showExpEnd({ gems, banked, xp, xpBefore, rankUps, score: r.score, cards: r.cards, synergies: [...r.synergies], sections: r.section + 1 });
 }
 
 // ---------- Muerte ----------
@@ -1077,7 +1074,6 @@ function die() {
   // raíz cuadrada: la puntuación crece de forma explosiva, las gemas no deben hacerlo
   // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
-  if (r.daily) gems = Math.ceil(gems * 1.5);
   if (r.cards.tesoro) gems = Math.ceil(gems * 1.5); // carta TESORO
   if (r.exp) {
     gems += r.exp.acts * 15;
@@ -1101,12 +1097,6 @@ function die() {
   save.gems += gems;
   save.best = Math.max(save.best, Math.floor(r.score));
   save.bestDist = Math.max(save.bestDist, Math.floor(r.dist));
-  let dailyBest = false;
-  if (r.daily) {
-    if (save.daily.key !== todayKey()) save.daily = { key: todayKey(), best: 0 };
-    dailyBest = r.score > save.daily.best;
-    save.daily.best = Math.max(save.daily.best, Math.floor(r.score));
-  }
   save.runs++;
   progress('runs');
   progress('score', Math.floor(r.score));
@@ -1114,9 +1104,9 @@ function die() {
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
-  const credits = bankCoins(save, r.coins); // 🪙 que sobran -> 💰
+  const banked = bankCoins(save, r.coins); // las 🪙 que sobran, a tu cartera
   persist();
-  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, credits, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, dailyBest, daily: r.daily, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, banked, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Campaña: meta ----------
@@ -1145,7 +1135,7 @@ export function onFinish() {
   save.gems += extra;
   res.gems += extra;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
-  const credits = bankCoins(save, r.coins);
+  const banked = bankCoins(save, r.coins);
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
@@ -1156,7 +1146,7 @@ export function onFinish() {
   persist();
   const nx = nextLevel(lv.id);
   r.result = {
-    opts: r.opts, level: lv.id, stars, best: res.stars, newStars: res.newStars, gems: res.gems, xp, xpBefore, rankUps, credits,
+    opts: r.opts, level: lv.id, stars, best: res.stars, newStars: res.newStars, gems: res.gems, xp, xpBefore, rankUps, banked,
     passed: stars[0], next: nx && isLevelOpen(save, nx.id) ? nx.id : null, unlocked: !!nx && !wasOpen && isLevelOpen(save, nx.id),
     score: r.score, near: r.nearMisses, perfect: r.perfects, coins: r.coins, maxMult: r.maxMult, hits: r.hitsTaken,
   };

@@ -77,7 +77,7 @@ export function bountyBoard(gal, sysId, seq, done = {}) {
     const trait = rng.pick(Object.keys(TRAITS));
     out.push({
       id, name: `${rng.pick(NAMES)} ${rng.pick(EPITHETS)}`, level, trait, sys: s.id, from: sysId,
-      reward: 300 + level * 250, gems: 5 + level * 3, moves: 0,
+      reward: 600 + level * 430, moves: 0, // solo créditos
     });
   }
   return out;
@@ -103,7 +103,7 @@ export function bountyStats(b) {
 // Si te destruye, sube de nivel y paga más (némesis)
 export function nemesisUp(b) {
   if (b.level >= 6) return b;
-  return { ...b, level: b.level + 1, reward: Math.round(b.reward * 1.25), gems: b.gems + 3 };
+  return { ...b, level: b.level + 1, reward: Math.round(b.reward * 1.25) };
 }
 
 export const hopsTo = (gal, a, b) => (route(gal, a, b)?.length ?? 99) - 1;

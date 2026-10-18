@@ -11,6 +11,7 @@ test('expedición: el bot recorre el acto 1 eligiendo en el mapa y llega al acto
   await page.goto('/?debug&nosw&seed=4');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; window.G.god = true; });
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnExpedition').click();
   await page.waitForFunction(() => window.G.mode === 'play');
   expect(await page.evaluate(() => window.G.run.exp.act)).toBe(0);
@@ -51,6 +52,7 @@ test('expedición: un evento aplica su efecto y vuelve al mapa; el descanso da u
   await page.goto('/?debug&nosw&seed=4');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnExpedition').click();
   await page.waitForFunction(() => window.G.mode === 'play');
   const res = await page.evaluate(async () => {

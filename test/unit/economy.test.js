@@ -4,13 +4,13 @@ import { loadFrom } from '../../js/save.js';
 import { BOOSTS, buyBoost, toggleBoost, takeBoosts, MAX_BOOSTS, TALENTS, buyTalent, hasTalent, nextTalent, CRATES, PITY, rollCrate, openCrate, crateStyles, bankCoins } from '../../js/economy.js';
 import { isUnlocked, GROUPS } from '../../js/cosmetics.js';
 
-test('potenciadores: se compran con gemas, se eligen hasta 2 y se gastan al empezar', () => {
+test('potenciadores: se compran con monedas, se eligen hasta 2 y se gastan al empezar', () => {
   const s = loadFrom(null);
-  s.gems = 1000;
+  s.coins = 10000;
   assert.ok(buyBoost(s, 'life'));
   assert.ok(buyBoost(s, 'xp'));
   assert.ok(buyBoost(s, 'shield'));
-  assert.equal(s.gems, 1000 - BOOSTS.life.cost - BOOSTS.xp.cost - BOOSTS.shield.cost);
+  assert.equal(s.coins, 10000 - BOOSTS.life.cost - BOOSTS.xp.cost - BOOSTS.shield.cost);
   assert.equal(toggleBoost(s, 'magnet'), false, 'no se elige lo que no tienes');
   toggleBoost(s, 'life'); toggleBoost(s, 'xp');
   assert.equal(toggleBoost(s, 'shield'), false, `máximo ${MAX_BOOSTS}`);
@@ -18,17 +18,21 @@ test('potenciadores: se compran con gemas, se eligen hasta 2 y se gastan al empe
   assert.equal(s.boosts.life, 0);
   assert.equal(s.boosts.xp, 1, 'lo filtrado no se gasta');
   assert.deepEqual(s.boostSel, ['xp']);
-  s.gems = 0;
+  s.coins = 0;
   assert.equal(buyBoost(s, 'luck'), false);
 });
 
-test('talentos: en orden, con gemas; las mejoras globales antiguas pasan a ser talentos', () => {
+test('talentos: en orden; Runner y Arena con monedas, Galaxia con créditos; las mejoras globales antiguas pasan a talentos', () => {
   const s = loadFrom(null);
-  s.gems = 10000;
+  s.coins = 100000;
   assert.equal(buyTalent(s, 'r2'), false, 'no te saltas el primero');
   assert.ok(buyTalent(s, 'r1'));
   assert.ok(buyTalent(s, 'r2'));
   assert.equal(nextTalent(s, 'runner').id, 'r3');
+  assert.equal(buyTalent(s, 'g1'), false, 'la Galaxia no se paga con monedas');
+  s.galaxy.credits = 5000;
+  assert.ok(buyTalent(s, 'g1'));
+  assert.equal(s.galaxy.credits, 5000 - TALENTS.galaxy.nodes[0].cost);
   for (const t of Object.values(TALENTS)) assert.equal(t.nodes.length, 5);
   // guardado v3 con las mejoras globales compradas
   const old = loadFrom(JSON.stringify({ v: 3, gems: 5, meta: { shield: true, card: true } }));
@@ -40,7 +44,8 @@ test('talentos: en orden, con gemas; las mejoras globales antiguas pasan a ser t
 test('cofres: nunca repiten un estilo, cobran y la racha garantiza un épico', () => {
   const s = loadFrom(null);
   s.gems = 1e6;
-  s.galaxy.credits = 1e7;
+  s.coins = 1e7;
+  const credits0 = s.galaxy.credits;
   const before = crateStyles(s, 'viper').length;
   assert.ok(before > 20);
   const seen = new Set();
@@ -62,6 +67,7 @@ test('cofres: nunca repiten un estilo, cobran y la racha garantiza un épico', (
   assert.equal(crateStyles(s, 'viper').length, 0, 'tras muchos cofres ya no quedan estilos por dar');
   // sin estilos, el cofre sigue dando algo
   assert.equal(rollCrate(s, 'std', 'viper').length, CRATES.std.items);
+  assert.equal(s.galaxy.credits, credits0, 'los cofres no tocan los créditos de la Galaxia');
   // sin dinero no se abre
   const p = loadFrom(null);
   assert.equal(openCrate(p, 'elite'), null);
@@ -69,14 +75,16 @@ test('cofres: nunca repiten un estilo, cobran y la racha garantiza un épico', (
 
 test('cofres deterministas por número de cofre', () => {
   const a = loadFrom(null), b = loadFrom(null);
-  a.galaxy.credits = b.galaxy.credits = 1e6;
+  a.coins = b.coins = 1e6;
   assert.deepEqual(openCrate(a, 'std'), openCrate(b, 'std'));
 });
 
-test('las monedas que sobran pasan a créditos', () => {
+test('las monedas que sobran van a tu cartera de monedas, no a los créditos', () => {
   const s = loadFrom(null);
+  const c0 = s.coins;
   assert.equal(bankCoins(s, 34.7), 34);
-  assert.equal(s.galaxy.credits, 34);
+  assert.equal(s.coins, c0 + 34);
+  assert.equal(s.galaxy.credits, 0);
 });
 
 test('mazo: las cartas nuevas salen solo si las tienes; la maestría sube su peso', async () => {
@@ -94,6 +102,7 @@ test('mazo: las cartas nuevas salen solo si las tienes; la maestría sube su pes
   assert.equal(buyCard(s, 'iman'), false, 'las de siempre no se compran');
   assert.ok(availableCards(fake({ owned: s.cardsOwned, lvl: {} })).some((c) => c.id === 'turbo'));
   assert.equal(upgradeCard(s, 'tesoro'), false, 'no subes una carta que no tienes');
+  s.coins = 10000;
   for (let i = 0; i < 3; i++) assert.ok(upgradeCard(s, 'iman'));
   assert.equal(upgradeCard(s, 'iman'), false, 'máximo 3');
   assert.equal(cardLvl(s, 'iman'), 3);
