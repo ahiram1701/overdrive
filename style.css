@@ -1028,3 +1028,12 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .au-tools .hidden { display: none; }
 #arenaChoice h2.won { color: var(--yellow); text-shadow: 0 0 18px var(--yellow); }
 #arenaChoice .btn { width: min(360px, 100%); }
+
+/* ---------- Carreras: contrarreloj ---------- */
+.rc-tabs { width: min(440px, 100%); grid-template-columns: 1fr 1fr; margin-bottom: 4px; }
+.tt-row { --cc: var(--cyan); width: min(440px, 100%); display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--r-2); border: 1px solid var(--cc); background: rgba(0,0,0,.4); color: #fff; text-align: left; font-family: var(--font); }
+.tt-medal { font-size: 26px; width: 34px; text-align: center; }
+.tt-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.tt-body b { font: italic 900 15px var(--font); }
+.tt-body small { color: var(--muted); font-size: 11px; }
+.tt-row em { font: 900 13px var(--font); color: var(--yellow); font-style: normal; }

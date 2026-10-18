@@ -240,13 +240,15 @@ El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu
 - Cada acto superado da gemas; completar la expedición da un buen premio de XP. Logros propios.
 
 ## 🏁 Modo CARRERAS
-- **3 copas de 3 pistas** (Neón, Magma y Vacío) contra **3 rivales IA con personalidad**:
+- **5 copas de 3 pistas** (Neón, Magma, Vacío, **Glaciar** y **Leyenda**, que mezcla biomas) contra **3 rivales IA con personalidad**:
   - **BRUTO** busca tu carril y empuja;
   - **SEDA** corre limpio;
   - **CHISPA** mete acelerones.
 - Los rivales corren por la **misma pista** y esquivan sus obstáculos (cada copa los hace más hábiles). Con DASH u overdrive **los sacas de la pista**.
 - **Chocar frena, no mata**: la carrera siempre acaba. Posición en directo y podio con puntos (10/6/3/1); al final de la copa, medalla. Cada medalla abre la copa siguiente.
 - **Tu fantasma:** se guarda tu mejor carrera de cada pista y la próxima vez corres contra ella (el HUD dice a cuántos segundos vas).
+- **Rivales que se adaptan:** si en una pista vas muy rápido, aprietan un poco (±3 %); si te cuesta, aflojan.
+- **⏱️ CONTRARRELOJ** (pestaña en Carreras): cada pista de las copas abiertas, sin rivales. Solo tú, el reloj y tu fantasma, con tres tiempos objetivo 🥇🥈🥉 (el oro pide overdrive). Logro **Cronómetro** por 5 oros.
 
 ## 🧪 Modificadores y mutación del día
 - **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:

@@ -17,7 +17,7 @@ import { takeBoosts, hasTalent, bankCoins } from './economy.js';
 import { equipped, addShipStat, achStyle } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
 import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
-import { TRACK_BY_ID, CUP_BY_ID, CUPS, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal } from './race.js';
+import { TRACK_BY_ID, CUP_BY_ID, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal, ttMedal, ttTargets, rivalAdapt, MEDALS } from './race.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
 import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
@@ -77,9 +77,11 @@ export function newRun(opts = false) {
   if (track) {
     // CARRERA: una pista de longitud fija, 3 rivales y tu fantasma (si ya la corriste)
     const cup = CUP_BY_ID[track.cup];
+    // CONTRARRELOJ (solo): sin rivales, contra el reloj y tu fantasma
+    const solo = !!opts.solo;
     r.race = {
-      track, cup, rivals: makeRivals(cup, seed), rng: makeRng(seed ^ 0x2468ace), rec: [], recAcc: 0,
-      ghost: save.ghosts[track.id] || null, points: opts.points || {},
+      track, cup, solo, rivals: solo ? [] : makeRivals(cup, seed, rivalAdapt(track, save.raceBest[track.id])), rng: makeRng(seed ^ 0x2468ace), rec: [], recAcc: 0,
+      ghost: save.ghosts[track.id] || null, points: opts.points || {}, targets: ttTargets(track),
     };
   }
   if (expedition) {
@@ -869,8 +871,15 @@ function raceFinish() {
   const order = standings([you, ...rivals]);
   const pos = order.findIndex((x) => x.you);
   const pointsBefore = R.points;
-  const points = addPoints(R.points, order.map((x) => x.who));
-  const cupEnd = t.idx === 2;
+  const points = R.solo ? R.points : addPoints(R.points, order.map((x) => x.who));
+  const cupEnd = !R.solo && t.idx === 2;
+  // CONTRARRELOJ: medalla por tiempo (la mejor se guarda)
+  const tt = R.solo ? ttMedal(t, r.time) : null;
+  if (R.solo && tt !== null) {
+    const prev = save.raceTT[t.id];
+    save.raceTT[t.id] = prev === undefined ? tt : Math.min(prev, tt);
+    progress('ttGold', Object.values(save.raceTT).filter((m) => m === 0).length);
+  }
   const medal = cupEnd ? cupMedal(points) : null;
   if (cupEnd && medal !== null) {
     const prev = save.raceCups[R.cup.id];
@@ -884,7 +893,7 @@ function raceFinish() {
     save.raceBest[t.id] = Math.round(r.time * 100) / 100;
     save.ghosts[t.id] = { t: r.time, d: R.rec };
   }
-  const gems = Math.ceil(([30, 18, 10, 5][pos] + (cupEnd && medal !== null ? [80, 50, 30][medal] : 0)) * (1 + prestigeBonus(save)));
+  const gems = Math.ceil((R.solo ? (tt !== null ? [40, 25, 15][tt] : 5) : [30, 18, 10, 5][pos] + (cupEnd && medal !== null ? [80, 50, 30][medal] : 0)) * (1 + prestigeBonus(save)));
   save.gems += gems;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: 2, bosses: 0, missionsDone: r.missionsDone }) + (3 - pos) * 40;
   bankCoins(save, r.coins);
@@ -892,16 +901,17 @@ function raceFinish() {
   const rankUps = addXp(save, xp);
   save.runs++;
   progress('runs');
-  if (pos === 0) progress('raceWin');
+  if (pos === 0 && !R.solo) progress('raceWin');
   persist();
   const ps = playerScreen();
   for (const c of ['#ffe600', '#fff', R.cup.color]) fx.burst(ps.x, ps.y - 80, 40, c, 700, 6, 1.2, 400);
-  fx.banner(pos === 0 ? '¡VICTORIA!' : `${pos + 1}.º PUESTO`, t.name, pos === 0 ? '#ffe600' : '#fff', true);
+  if (R.solo) fx.banner(tt !== null ? `${MEDALS[tt]} ${r.time.toFixed(1)} s` : `${r.time.toFixed(1)} s`, t.name, tt === 0 ? '#ffe600' : '#fff', true);
+  else fx.banner(pos === 0 ? '¡VICTORIA!' : `${pos + 1}.º PUESTO`, t.name, pos === 0 ? '#ffe600' : '#fff', true);
   sfx.milestone();
   musicStop();
-  const next = t.idx < 2 ? CUPS.find((c) => c.id === R.cup.id).tracks[t.idx + 1].id : null;
+  const next = !R.solo && t.idx < R.cup.tracks.length - 1 ? R.cup.tracks[t.idx + 1].id : null;
   r.result = {
-    race: true, track: t, cup: R.cup, order: order.map((x) => ({ name: x.name, color: x.color, t: x.finishT, you: !!x.you })),
+    race: true, solo: R.solo, tt, targets: R.targets, track: t, cup: R.cup, order: order.map((x) => ({ name: x.name, color: x.color, t: x.finishT, you: !!x.you })),
     pos, points, pointsBefore, cupEnd, medal, next, gems, xp, xpBefore, rankUps, time: r.time, best: save.raceBest[t.id], ghostBeaten, hadGhost: !!R.ghost,
   };
 }

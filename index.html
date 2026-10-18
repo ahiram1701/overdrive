@@ -390,8 +390,11 @@
   </section>
 
   <section id="raceCups" class="overlay hidden">
-    <h2>CARRERAS</h2>
-    <p class="hint">3 rivales, 3 pistas por copa y tu fantasma. Chocar frena, no mata.</p>
+    <div class="h-tabs rc-tabs" id="rcTabs" role="tablist">
+      <button data-tab="cups" role="tab">🏆 COPAS</button>
+      <button data-tab="tt" role="tab">⏱️ CONTRARRELOJ</button>
+    </div>
+    <p class="hint" id="rcHint">3 rivales, 3 pistas por copa y tu fantasma. Chocar frena, no mata.</p>
     <div id="rcList" class="rc-list"></div>
   </section>
 

@@ -82,3 +82,36 @@ test('carreras: la copa 2 está cerrada hasta tener medalla en la 1', async ({ p
   await expect(page.locator('[data-cup="c2"]')).toBeDisabled();
   await expect(page.locator('[data-cup="c1"]')).toBeEnabled();
 });
+
+test('contrarreloj: sin rivales, el bot llega a la meta y gana una medalla por tiempo', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem(k, JSON.stringify({ v: 6, runs: 5 }));
+  }, SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { window.G.manual = true; });
+  await page.locator('#btnRunner').click();
+  await page.locator('#btnRaces').click();
+  await page.locator('#rcTabs [data-tab="tt"]').click();
+  await expect(page.locator('#rcList .tt-row')).toHaveCount(3); // solo la copa abierta
+  await page.locator('[data-tt="c1-1"]').click();
+  await page.waitForFunction(() => window.G.mode === 'play');
+  expect(await page.evaluate(() => ({ solo: window.G.run.race.solo, rivals: window.G.run.race.rivals.length }))).toEqual({ solo: true, rivals: 0 });
+  await expect(page.locator('#raceTag')).toContainText('⏱️');
+  const res = await page.evaluate(botInPage, { seconds: 150 });
+  expect(res.mode).toBe('won');
+  expect(await page.evaluate(toPodium)).toBe('victory');
+  await expect(page.locator('#rpTrack')).toContainText('CONTRARRELOJ');
+  const r = await page.evaluate(() => window.G.run.result);
+  console.log(`CONTRARRELOJ c1-1: ${r.time.toFixed(1)} s · objetivos ${r.targets.join(' / ')} · medalla ${r.tt}`);
+  expect(r.solo).toBe(true);
+  expect(r.tt).not.toBeNull(); // el bot, sin chocar, saca al menos bronce
+  const s = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), SAVE);
+  expect(s.raceTT['c1-1']).toBe(r.tt);
+  expect(s.raceCups.c1).toBeUndefined(); // el contrarreloj no da copas
+  await expect(page.locator('#btnRaceNext')).toBeHidden();
+  expect(errors).toEqual([]);
+});

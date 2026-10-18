@@ -13,7 +13,7 @@ import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
-import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
+import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
 import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
@@ -214,7 +214,8 @@ export const ui = {
     tap($('btnRaces'), () => ui.showRaceCups());
     tap($('btnRaceMenu'), () => ui.showRaceCups());
     tap($('btnRaceNext'), () => { const res = ui.lastRace; if (res?.next) newRun({ mode: 'race', track: res.next, points: res.points }); });
-    tap($('btnRaceRetry'), () => { const res = ui.lastRace; if (res) newRun({ mode: 'race', track: res.track.id, points: res.pointsBefore }); });
+    tap($('btnRaceRetry'), () => { const res = ui.lastRace; if (res) newRun({ mode: 'race', track: res.track.id, points: res.pointsBefore, solo: res.solo }); });
+    for (const b of $('rcTabs').querySelectorAll('button')) tap(b, () => { ui.rcTab = b.dataset.tab; ui.showRaceCups(); });
     tap($('btnRestShield'), () => expRest('shield'));
     tap($('btnRestCard'), () => expRest('card'));
     tap($('btnArenaRetry'), () => newArena({ map: save.arena.map }));
@@ -404,7 +405,7 @@ export const ui = {
     const bs = save.boostSel.filter((id) => boostCount(save, id) > 0);
     setText('mBoosts', bs.length ? bs.map((id) => BOOSTS[id].icon).join('') : '');
     const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
-    setText('mRace', Object.keys(save.raceCups).length ? `${golds} 🥇` : '3 copas');
+    setText('mRace', Object.keys(save.raceCups).length ? `${golds} 🥇` : `${CUPS.length} copas`);
     const eb = save.expedition.best;
     setText('mExp', save.expedition.wins ? `✔ ${save.expedition.wins}` : eb ? `acto ${Math.floor(eb / 10) + 1}` : 'roguelite');
     setText('mStars', `★ ${totalStars(save)}${frontier(save) > FIXED_SECTORS ? ` · sector ${frontier(save)}` : ''}`);
@@ -1778,6 +1779,27 @@ export const ui = {
     ui.showHUD(false);
     const list = $('rcList');
     list.innerHTML = '';
+    ui.rcTab ||= 'cups';
+    for (const b of $('rcTabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === ui.rcTab);
+    setText('rcHint', ui.rcTab === 'tt' ? 'Solo tú, el reloj y tu fantasma. Bate los tiempos para ganar 🥇🥈🥉.' : '3 rivales, 3 pistas por copa y tu fantasma. Chocar frena, no mata.');
+    // CONTRARRELOJ: cada pista de las copas abiertas, con su medalla y sus tiempos
+    if (ui.rcTab === 'tt') {
+      for (const cup of CUPS) {
+        if (!isCupOpen(save, cup.id)) continue;
+        for (const t of cup.tracks) {
+          const m = save.raceTT[t.id], best = save.raceBest[t.id], tg = ttTargets(t);
+          const b = el('button', 'tt-row', `<span class="tt-medal">${m !== undefined ? MEDALS[m] : '⏱️'}</span>
+            <span class="tt-body"><b>${t.name}</b><small>${cup.name} · ${tg.map((x, i) => `${MEDALS[i]} ${x.toFixed(1)}`).join(' ')}</small></span>
+            <em>${best ? `${best.toFixed(1)} s` : '—'}</em>`);
+          b.style.setProperty('--cc', cup.color);
+          b.dataset.tt = t.id;
+          tap(b, () => newRun({ mode: 'race', track: t.id, solo: true }));
+          list.append(b);
+        }
+      }
+      show('raceCups');
+      return;
+    }
     for (const cup of CUPS) {
       const open = isCupOpen(save, cup.id);
       const medal = save.raceCups[cup.id];
@@ -1798,19 +1820,35 @@ export const ui = {
   showRacePodium(res) {
     ui.lastRace = res;
     ui.deathAt = performance.now();
+    if (res.solo) {
+      // CONTRARRELOJ: tu tiempo frente a los tres objetivos
+      setText('rpTitle', res.tt !== null ? `${MEDALS[res.tt]} ${res.time.toFixed(1)} s` : `${res.time.toFixed(1)} s`);
+      $('rpTitle').className = res.tt === 0 ? 'won' : '';
+      setText('rpTrack', `⏱️ CONTRARRELOJ · ${res.track.name}`);
+      $('rpOrder').innerHTML = res.targets.map((x, i) => `<div class="${res.time <= x ? 'you' : ''}"><b>${MEDALS[i]}</b><span>${['ORO', 'PLATA', 'BRONCE'][i]}</span><em>${x.toFixed(1)} s</em><small>${res.time <= x ? '✔' : ''}</small></div>`).join('');
+      setText('rpGhost', res.hadGhost ? (res.ghostBeaten ? '👻 ¡Has batido a tu fantasma!' : `👻 Tu mejor tiempo: ${res.best.toFixed(1)} s`) : '👻 Fantasma guardado');
+      $('rpCup').innerHTML = '';
+      $('rpGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+      const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
+      $('rpXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
+      $('btnRaceNext').classList.add('hidden');
+      show('racePodium');
+      return;
+    }
+    const nT = res.cup.tracks.length;
     setText('rpTitle', res.pos === 0 ? '¡VICTORIA!' : `${res.pos + 1}.º PUESTO`);
     $('rpTitle').className = res.pos === 0 ? 'won' : '';
-    setText('rpTrack', `${res.cup.name} · ${res.track.idx + 1}/3 · ${res.track.name}`);
+    setText('rpTrack', `${res.cup.name} · ${res.track.idx + 1}/${nT} · ${res.track.name}`);
     $('rpOrder').innerHTML = res.order.map((x, i) => `<div class="${x.you ? 'you' : ''}" style="--rc:${x.color}"><b>${i + 1}.º</b><span>${x.name}</span><em>${x.t.toFixed(1)} s</em><small>+${[10, 6, 3, 1][i]}</small></div>`).join('');
     setText('rpGhost', res.hadGhost ? (res.ghostBeaten ? '👻 ¡Has batido a tu fantasma!' : `👻 Tu mejor tiempo: ${res.best.toFixed(1)} s`) : '👻 Fantasma guardado: la próxima vez corres contra ti');
     const table = Object.entries(res.points).sort((a, b) => b[1] - a[1]);
-    const names = { you: 'TÚ', 0: 'BRUTO', 1: 'SEDA', 2: 'CHISPA' };
+    const names = { you: 'TÚ', ...Object.fromEntries(RIVALS.map((rv, i) => [i, rv.name])) };
     $('rpCup').innerHTML = `<small>${res.cupEnd ? 'CLASIFICACIÓN FINAL' : 'CLASIFICACIÓN DE LA COPA'}</small>${table.map(([k, v], i) => `<div class="${k === 'you' ? 'you' : ''}"><b>${i + 1}.</b> ${names[k]} <em>${v} pts</em></div>`).join('')}${res.cupEnd ? `<div class="rp-medal">${res.medal !== null ? `${MEDALS[res.medal]} ¡${['ORO', 'PLATA', 'BRONCE'][res.medal]}!` : 'Sin medalla esta vez'}</div>` : ''}`;
     $('rpGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     $('rpXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
     $('btnRaceNext').classList.toggle('hidden', !res.next);
-    $('btnRaceNext').textContent = res.next ? `SIGUIENTE · ${res.track.idx + 2}/3` : '';
+    $('btnRaceNext').textContent = res.next ? `SIGUIENTE · ${res.track.idx + 2}/${nT}` : '';
     show('racePodium');
   },
 
@@ -2213,7 +2251,10 @@ export const ui = {
       const pos = racePosition(r);
       const g = ghostAt(r.race.ghost, r.time);
       const ghostGap = g ? ` · 👻 ${((r.dist - g.z) / Math.max(1, r.speed)).toFixed(1)} s` : '';
-      setText('raceTag', `${pos}.º / 4${ghostGap}`);
+      if (r.race.solo) {
+        const i = r.race.targets.findIndex((x) => r.time <= x);
+        setText('raceTag', `⏱️ ${r.time.toFixed(1)} s${i >= 0 ? ` · ${MEDALS[i]} ${r.race.targets[i].toFixed(0)}` : ''}${ghostGap}`);
+      } else setText('raceTag', `${pos}.º / ${r.race.rivals.length + 1}${ghostGap}`);
       rt.classList.remove('hidden');
       rt.classList.toggle('first', pos === 1);
     } else rt.classList.add('hidden');

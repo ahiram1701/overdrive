@@ -23,6 +23,16 @@ export const CUPS = [
     { id: 'c3-2', name: 'Hiperenlace', biome: 3, len: 65, diff: 8 },
     { id: 'c3-3', name: 'Singularidad', biome: 3, len: 70, diff: 9 },
   ] },
+  { id: 'c4', name: 'COPA GLACIAR', color: '#7df9ff', skill: 0.95, pace: 1.07, tracks: [
+    { id: 'c4-1', name: 'Escarcha', biome: 4, len: 65, diff: 9 },
+    { id: 'c4-2', name: 'Bosque de carámbanos', biome: 4, len: 70, diff: 10 },
+    { id: 'c4-3', name: 'Aurora', biome: 4, len: 75, diff: 11 },
+  ] },
+  { id: 'c5', name: 'COPA LEYENDA', color: '#ffd60a', skill: 0.97, pace: 1.09, tracks: [
+    { id: 'c5-1', name: 'Gran premio neón', biome: 0, len: 75, diff: 12 },
+    { id: 'c5-2', name: 'Corazón de lava', biome: 1, len: 80, diff: 13 },
+    { id: 'c5-3', name: 'Fin del mundo', biome: 4, len: 85, diff: 14 },
+  ] },
 ];
 export const TRACK_BY_ID = Object.fromEntries(CUPS.flatMap((c) => c.tracks.map((t, i) => [t.id, { ...t, cup: c.id, idx: i }])));
 export const CUP_BY_ID = Object.fromEntries(CUPS.map((c) => [c.id, c]));
@@ -44,13 +54,13 @@ export const RIVALS = [
   { name: 'CHISPA', color: '#ffe600', mesh: 'raptor', kind: 'turbo' },
 ];
 
-export function makeRivals(cup, seed) {
+export function makeRivals(cup, seed, adapt = 1) {
   const rng = makeRng(hashString(`rivals-${seed}`));
   return RIVALS.map((d, i) => ({
     // salen por delante: hay que adelantarlos (y así se les ve correr)
     ...d, i, z: 14 - i * 5, lane: [-1, 0, 1][i], x: [-1, 0, 1][i], y: 0, vy: 0,
     skill: Math.min(0.98, cup.skill + (d.kind === 'clean' ? 0.04 : d.kind === 'rammer' ? -0.04 : 0)),
-    pace: cup.pace * (1 + rng.range(-0.015, 0.015)), slowT: 0, boostT: 0, boostCd: rng.range(5, 9), bumpCd: 0,
+    pace: cup.pace * adapt * (1 + rng.range(-0.015, 0.015)), slowT: 0, boostT: 0, boostCd: rng.range(5, 9), bumpCd: 0,
     finishT: null, passed: new Set(), flash: 0,
   }));
 }
@@ -148,6 +158,20 @@ export function ghostAt(ghost, t) {
   const a = ghost.d[i], b = ghost.d[j];
   const lerp = (p, q) => p + (q - p) * k;
   return { z: lerp(a[0], b[0]) / 10, x: lerp(a[1], b[1]) / 100, y: lerp(a[2], b[2]) / 100, done: f >= ghost.d.length - 1 };
+}
+
+// ---------- Contrarreloj ----------
+// Sin rivales: solo tú, tu fantasma y tres tiempos objetivo (segundos = largo de la pista × k)
+export const TT_K = [0.66, 0.72, 0.8]; // calibrado: el bot (sin fallos, sin overdrive) hace ~0,70: plata. El oro pide overdrive
+export const ttTargets = (track) => TT_K.map((k) => Math.round(track.len * k * 10) / 10);
+export const ttMedal = (track, time) => {
+  const i = ttTargets(track).findIndex((t) => time <= t);
+  return i < 0 ? null : i;
+};
+// Rivales que se adaptan: si en esta pista vas rápido, aprietan; si te cuesta, aflojan (±3 %)
+export function rivalAdapt(track, best) {
+  if (!best) return 1;
+  return Math.max(0.97, Math.min(1.03, 1 + ((track.len - best) / track.len) * 0.5));
 }
 
 // Puntos de la copa tras una carrera: order = ['you', 0, 1, 2] (índices de rival) en orden de llegada

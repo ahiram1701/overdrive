@@ -158,6 +158,7 @@ export const ACHIEVEMENTS = [
   { id: 'arenaEndless', kind: 'arenaTime', mode: 'best', n: 900, tier: 'gold', name: 'Sin fin', desc: 'Aguanta 15:00 en la ARENA (modo sin fin)' },
   { id: 'arenaMaps', kind: 'arenaMapsWon', mode: 'best', n: 4, tier: 'gold', name: 'Conquistador', desc: 'Gana la ARENA en los 4 mapas' },
   { id: 'leviatan', kind: 'leviatan', mode: 'sum', n: 1, tier: 'gold', name: 'Deshielo', desc: 'Derrota al Leviatán de hielo del GLACIAR' },
+  { id: 'tt5', kind: 'ttGold', mode: 'best', n: 5, tier: 'gold', name: 'Cronómetro', desc: 'Gana 5 oros en CONTRARRELOJ' },
 ];
 export const ACH_GEMS = T;
 
