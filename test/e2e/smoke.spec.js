@@ -223,3 +223,25 @@ test('PWA: manifest válido, iconos y service worker con caché', async ({ page,
   });
   expect(cached).toBeGreaterThanOrEqual(20);
 });
+
+test('runner: rendimiento de un fotograma completo (simular + dibujar + HUD) por debajo de 16 ms', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('overdrive-save-v1', JSON.stringify({ v: 6, runs: 5 })));
+  await page.goto('/?debug&nosw&seed=12&start=4');
+  await page.waitForFunction(() => !!window.G);
+  const ms = await page.evaluate(() => {
+    window.G.manual = true;
+    window.G.god = true;
+    document.getElementById('btnPlay').click();
+    for (let i = 0; i < 60; i++) window.D.step(1 / 60, true); // calentar
+    // 6 tandas de 20 fotogramas y la mejor: con la suite en paralelo, la CPU compartida mete ruido
+    let best = Infinity;
+    for (let k = 0; k < 6; k++) {
+      const t0 = performance.now();
+      for (let i = 0; i < 20; i++) window.D.step(1 / 60, true);
+      best = Math.min(best, (performance.now() - t0) / 20);
+    }
+    return best;
+  });
+  console.log(`RUNNER fotograma medio: ${ms.toFixed(2)} ms`);
+  expect(ms).toBeLessThan(16);
+});

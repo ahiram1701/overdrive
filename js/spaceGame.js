@@ -35,7 +35,17 @@ const gal = () => save.galaxy;
 // stats de la nave: mejoras del taller + mejoras únicas del ATLAS
 export const atlasCount = () => Object.keys(save.galaxyAtlas).length;
 const perks = () => perksFor(atlasCount());
+// En vuelo se piden muchas veces por paso (120 por segundo): se calculan una vez por paso.
+// Atracado o en menús (donde se compra) se recalculan siempre.
+let statsMemo = null, statsAt = -1;
 const stats = () => {
+  const s = S();
+  if (s && G.mode === 'galaxy' && statsMemo && statsAt === s.t) return statsMemo;
+  statsMemo = calcStats();
+  statsAt = s && G.mode === 'galaxy' ? s.t : -1;
+  return statsMemo;
+};
+const calcStats = () => {
   const st = shipStats(gal().up, save.ship, gal().chassis);
   // TALENTOS de la galaxia
   if (hasTalent(save, 'g1')) st.cargo += 10;

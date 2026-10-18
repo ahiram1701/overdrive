@@ -441,7 +441,7 @@ export function renderSpace(dt) {
       ctx.strokeStyle = col;
       ctx.lineWidth = Math.max(2, c.s * 4);
       ctx.shadowColor = col;
-      ctx.shadowBlur = 14;
+      ctx.shadowBlur = save.settings.fx ? 14 : 0;
       ctx.beginPath();
       for (let i = 0; i <= 24; i++) {
         const a = (i / 24) * Math.PI * 2;
@@ -625,7 +625,7 @@ export function renderSpace(dt) {
         const R = Math.max(5, 12 * q.s);
         ctx.fillStyle = e.flash > 0 ? '#fff' : '#ff2d55';
         ctx.shadowColor = '#ff2d55';
-        ctx.shadowBlur = 16;
+        ctx.shadowBlur = save.settings.fx ? 16 : 0;
         ctx.beginPath(); ctx.ellipse(q.x, q.y, R, R * 0.6, 0, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
         ctx.fillStyle = '#000';
@@ -775,7 +775,7 @@ export function renderSpace(dt) {
       if (bo.plasma) {
         ctx.fillStyle = '#bf5af2';
         ctx.shadowColor = '#bf5af2';
-        ctx.shadowBlur = 14;
+        ctx.shadowBlur = save.settings.fx ? 14 : 0;
         ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(4, p.s * 4), 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
         return;
@@ -830,7 +830,7 @@ export function renderSpace(dt) {
         ctx.setLineDash([size * 0.18, size * 0.1]);
         ctx.lineDashOffset = -G.realTime * 60;
         ctx.shadowColor = '#7df9ff';
-        ctx.shadowBlur = 12;
+        ctx.shadowBlur = save.settings.fx ? 12 : 0;
         ctx.beginPath(); ctx.ellipse(shp.x, shp.y, size * 0.95, size * 0.62, 0, 0, Math.PI * 2); ctx.stroke();
         ctx.restore();
       }

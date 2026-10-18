@@ -445,7 +445,7 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 <!-- CARDS:END -->
 
 ### Ajustes del menú
-En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
+En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes y, en la Galaxia, los brillos con desenfoque: apagarlo ahorra batería en móviles modestos) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
 
 ## 🛠️ Desarrollo
 El juego no necesita build (HTML, CSS y JS nativos); Node solo hace falta para las herramientas.
