@@ -199,7 +199,17 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - hasta 4 pasivas, cada una de 5 niveles;
   - un arma al máximo con su pasiva **evoluciona**: Tormenta, Supernova, Infierno…
 - **Cada nave empieza con su arma**, y su habilidad ⚡ funciona en la arena: tiempo bala, embestida, fase, onda, empuje, rayo, salto. Doble toque = DASH.
-- **Sobrevive 10:00.** En el 5:00 y el 10:00 llega un jefe, y un **anillo de energía** cierra el combate hasta que cae.
+- **4 mapas** (la tarjeta ARENA abre la elección; cada uno con récord y victorias):
+  - ▦ **Rejilla**: abierta, la de siempre;
+  - ☄️ **Cinturón** (sobrevive 5:00): cerrado, con rocas que paran naves y balas (las tuyas y las suyas);
+  - 🔥 **Forja** (derrota a un jefe): charcos de lava que queman; cada 20 s un **pulso** los agranda (avisa antes);
+  - 🕳️ **Vacío** (gana una vez): cerrado, con 2 agujeros negros que atraen a todos y aplastan a los enemigos.
+- **Sobrevive 10:00.** En el 5:00 y el 10:00 llega el jefe de ese mapa, y un **anillo de energía** cierra el combate hasta que cae. Cada jefe tiene sus ataques y una **FASE 2** a media vida:
+  - **Coloso**: embiste avisando con una línea, anillos y abanicos de balas;
+  - **La Colmena**: pone crías; con 4 vivas, su **escudo** lo para todo;
+  - **Tejedora**: láseres que giran (finos un momento antes de quemar);
+  - **Núcleo**: espirales de balas que cambian de sentido;
+  - **Devorador**: te atrae (el DASH te suelta) y siembra minas.
 - Gemas y XP para el hangar y el rango. Récord, logros y misiones propias.
 
 ## 🗺️ Modo EXPEDICIÓN

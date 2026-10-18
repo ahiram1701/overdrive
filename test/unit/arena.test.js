@@ -4,7 +4,9 @@ import { makeRng } from '../../js/rng.js';
 import {
   WEAPONS, PASSIVES, EVOLUTIONS, SHIP_WEAPON, SHIP_ARENA, ENEMIES, waveAt, offerUpgrades, applyUpgrade, canEvolve, xpNeed,
   passiveStats, arenaRewards, MAX_WEAPONS, MAX_LVL,
+  ARENA_MAPS, MAP_KEYS, mapUnlocked, mapFeatures, ARENA_BOSSES, BOSS_ATTACKS, bossOf,
 } from '../../js/arenaData.js';
+import { loadFrom } from '../../js/save.js';
 import { SHIPS } from '../../js/upgrades.js';
 
 test('cada nave tiene arma inicial y perfil de arena; cada arma, su evolución', () => {
@@ -59,4 +61,37 @@ test('XP, pasivas y recompensas', () => {
   assert.equal(p.maxHp, 20);
   const r = arenaRewards({ time: 600, kills: 800, bosses: 2, won: true });
   assert.ok(r.gems > arenaRewards({ time: 60, kills: 50, bosses: 0, won: false }).gems);
+});
+
+test('mapas: 4, se abren con logros y sus peligros son deterministas y no tocan el centro', () => {
+  assert.equal(MAP_KEYS.length, 4);
+  const s = loadFrom(null);
+  assert.deepEqual(MAP_KEYS.filter((id) => mapUnlocked(s, id)), ['grid']);
+  s.arena.best = 300;
+  assert.ok(mapUnlocked(s, 'belt') && !mapUnlocked(s, 'forge'));
+  s.arena.bossBest = 1;
+  s.arena.wins = 1;
+  assert.ok(MAP_KEYS.every((id) => mapUnlocked(s, id)));
+  for (const id of MAP_KEYS) {
+    const f1 = mapFeatures(id, makeRng(7)), f2 = mapFeatures(id, makeRng(7));
+    assert.deepEqual(f1, f2, `${id}: misma semilla, mismo mapa`);
+    for (const k of f1.rocks) {
+      assert.ok(Math.hypot(k.x, k.y) - k.r > 100, 'el centro, libre de rocas');
+      assert.ok(Math.hypot(k.x, k.y) + k.r < ARENA_MAPS[id].radius, 'rocas dentro del mapa');
+    }
+    for (const p of f1.pools) assert.ok(Math.hypot(p.x, p.y) >= 220, 'sin lava donde empiezas');
+    for (const b of ARENA_MAPS[id].bosses) assert.ok(ARENA_BOSSES[b], b);
+  }
+  assert.equal(mapFeatures('grid', makeRng(1)).rocks.length, 0, 'la Rejilla sigue igual');
+});
+
+test('jefes de la arena: 2 fases con ataques conocidos; cada mapa trae los suyos', () => {
+  assert.equal(Object.keys(ARENA_BOSSES).length, 5);
+  for (const [id, b] of Object.entries(ARENA_BOSSES)) {
+    assert.equal(b.phases.length, 2, id);
+    for (const ph of b.phases) for (const k of ph) assert.ok(BOSS_ATTACKS[k], `${id}: ${k}`);
+    assert.ok(b.phases[1].length >= b.phases[0].length, `${id}: la fase 2 no tiene menos ataques`);
+  }
+  assert.equal(bossOf('belt', 0), 'colmena');
+  assert.equal(bossOf('belt', 1), 'coloso');
 });

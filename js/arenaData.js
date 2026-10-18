@@ -157,6 +157,58 @@ export function waveAt(t) {
 // ¿Toca élite? Uno por minuto (más vida, más grande, suelta un cofre con una mejora gratis)
 export const ELITE_EVERY = 60;
 
+// ---------- Mapas ----------
+// bg/grid: colores; radius: arena cerrada (sin él, infinita); rocks/pools/holes: cuántos de cada peligro;
+// tile: los peligros de un mapa infinito se repiten cada `tile` unidades (nunca te quedas sin ellos)
+export const ARENA_MAPS = {
+  grid: { name: 'Rejilla', icon: '▦', desc: 'Abierta y sin trampas: la de siempre.', bg: '#07020f', grid: 'rgba(255,43,214,0.13)', bosses: ['coloso', 'nucleo'] },
+  belt: { name: 'Cinturón', icon: '☄️', desc: 'Cerrada, con rocas que paran naves y balas. Úsalas de escudo.', bg: '#03070f', grid: 'rgba(125,249,255,0.10)', radius: 1400, rocks: 22, bosses: ['colmena', 'coloso'],
+    unlock: { best: 300, text: 'Sobrevive 5:00' } },
+  forge: { name: 'Forja', icon: '🔥', desc: 'Charcos de lava que queman. Cada 20 s, un pulso los hace crecer.', bg: '#110403', grid: 'rgba(255,106,0,0.14)', pools: 10, tile: 1500, pulse: 20, bosses: ['tejedora', 'devorador'],
+    unlock: { bosses: 1, text: 'Derrota a un jefe' } },
+  void: { name: 'Vacío', icon: '🕳️', desc: 'Cerrada, con 2 agujeros negros que atraen a todos (y los aplastan).', bg: '#020108', grid: 'rgba(191,90,242,0.12)', radius: 1600, holes: 2, bosses: ['devorador', 'nucleo'],
+    unlock: { wins: 1, text: 'Gana la Arena una vez' } },
+};
+export const MAP_KEYS = Object.keys(ARENA_MAPS);
+export function mapUnlocked(save, id) {
+  const u = ARENA_MAPS[id]?.unlock, ar = save.arena;
+  if (!u) return !!ARENA_MAPS[id];
+  return (ar.best || 0) >= (u.best || 0) && (ar.bossBest || 0) >= (u.bosses || 0) && (ar.wins || 0) >= (u.wins || 0);
+}
+// los peligros del mapa, deterministas por la semilla de la partida (el centro, donde empiezas, libre)
+export function mapFeatures(id, rng) {
+  const M = ARENA_MAPS[id] || ARENA_MAPS.grid;
+  const spot = (minD, maxD) => {
+    const ang = rng.range(0, Math.PI * 2), d = rng.range(minD, maxD);
+    return { x: Math.cos(ang) * d, y: Math.sin(ang) * d };
+  };
+  const rocks = [], pools = [], holes = [];
+  for (let i = 0; i < (M.rocks || 0); i++) rocks.push({ ...spot(260, M.radius - 120), r: rng.range(38, 85) });
+  for (let i = 0; i < (M.pools || 0); i++) pools.push({ x: rng.range(0, M.tile), y: rng.range(0, M.tile), r: rng.range(60, 120) });
+  // la lava nunca justo donde empiezas
+  for (const p of pools) if (Math.hypot(p.x, p.y) < 220) p.x += 400;
+  for (let i = 0; i < (M.holes || 0); i++) holes.push({ ang: (i / M.holes) * Math.PI * 2, d: M.radius * 0.5, r: 46, pull: 120 });
+  return { rocks, pools, holes };
+}
+
+// ---------- Jefes de la arena ----------
+// Cada uno con 2 fases (la 2.ª a media vida) y sus ataques; cd = segundos entre usos (0 = continuo)
+export const BOSS_ATTACKS = {
+  ring: { cd: 3 }, charge: { cd: 4.5 }, brood: { cd: 7 }, spray: { cd: 2.4 },
+  lasers: { cd: 0 }, spiral: { cd: 0 }, suction: { cd: 0 }, mines: { cd: 5 },
+};
+export const ARENA_BOSSES = {
+  coloso: { name: 'COLOSO', color: '#ff6a00', shape: 'colossus', phases: [['charge', 'ring'], ['charge', 'ring', 'spray']], desc: 'embiste avisando con una línea' },
+  colmena: { name: 'LA COLMENA', color: '#ffcc00', shape: 'hive', phases: [['brood', 'spray'], ['brood', 'ring', 'spray']], shield: 4, desc: 'con 4 crías vivas, su escudo lo para todo' },
+  tejedora: { name: 'TEJEDORA', color: '#00e5ff', shape: 'weaver', phases: [['lasers'], ['lasers', 'ring']], lasers: [2, 3], desc: 'láseres que giran' },
+  nucleo: { name: 'NÚCLEO', color: '#bf5af2', shape: 'core', phases: [['spiral'], ['spiral', 'ring']], desc: 'espirales de balas que cambian de sentido' },
+  devorador: { name: 'DEVORADOR', color: '#ff2d55', shape: 'maw', phases: [['suction', 'mines'], ['suction', 'mines', 'ring']], desc: 'te atrae y siembra minas' },
+};
+export const bossOf = (mapId, idx) => {
+  const list = (ARENA_MAPS[mapId] || ARENA_MAPS.grid).bosses;
+  return list[idx % list.length];
+};
+
 // Recompensas al acabar: gemas y XP de rango
 export function arenaRewards({ time, kills, bosses, won }) {
   return {
