@@ -202,7 +202,7 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - ⚙️ **MOTOR:** agilidad, una carga extra de DASH y más OVERDRIVE.
   - **La rama de la habilidad:** recarga, potencia y, en el nivel 3, una **mutación** que cambia cómo funciona.
 - **Ficha de cada nave:** 6 barras (velocidad, agilidad, DASH, overdrive, defensa y puntos), calculadas con las reglas reales del juego y comparadas con tu nave equipada (▲ mejor, ▼ peor).
-- **Hangar por pestañas:** NAVE (ficha y compra), MEJORAS (árbol), ESTILO (personalización), **GALAXIA** y GLOBAL.
+- **Hangar por pestañas:** NAVE (ficha y compra), MEJORAS (árbol), ESTILO (personalización) y **GALAXIA**.
   - **GALAXIA:** cómo vuela cada nave en la Galaxia (cada una tiene su perfil: el Titán aguanta más, la Spectra corre más…) y las mejoras de la nave espacial, compradas con créditos sin salir del hangar.
   - La cabecera con el carrusel y la **vista 3D queda fija**: ves la nave mientras la mejoras o la personalizas.
   - Un puntito avisa de qué pestaña tiene algo que ya puedes comprar.
@@ -215,6 +215,31 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - **Pruébalo antes de comprar:** tocar cualquier objeto lo pone en la vista 3D. La explosión estalla y la nave se vuelve a montar.
   - **Emblema a tu gusto:** en las dos alas, en una sola o en la cola, y en el color que quieras (gratis). Siempre cabe dentro de su cara: se centra en el incentro del triángulo y se recorta a su contorno.
   - **Pinturas con patrón** (Tigre a franjas, Dúo partida, Aurora en degradado), estelas de **Humo** y **Relámpago**, y explosiones **Agujero negro** y **Fuegos artificiales**.
+
+## 💰 Economía y 🛒 Tienda
+Tres monedas, cada una con su papel (toca 💎 o 💰 en el menú para verlo):
+
+| Moneda | Se gana | Se gasta |
+|---|---|---|
+| 🪙 **Monedas** | en la partida | en la tienda de la partida. **Lo que sobra pasa a 💰** (1:1) |
+| 💰 **Créditos** | Galaxia, monedas sobrantes, bajas de la Arena | mejoras de la nave espacial, **cofres estándar**, reparaciones |
+| 💎 **Gemas** | partidas, campaña, misiones, rangos, logros | naves, árbol, estilos, **cofres de élite**, **potenciadores**, **talentos** |
+
+En la **🛒 TIENDA** (barra inferior):
+- **🎁 Cofres de suministros:** estándar (💰 1.500) o de élite (💎 150). Cada uno trae 3 objetos con rareza (común, raro, épico, legendario): estilos que **aún no tienes** (nunca repetidos, incluidos exclusivos de cofre), potenciadores, créditos o gemas. **Épico garantizado** como mucho cada 10 cofres.
+- **⚡ Potenciadores:** consumibles de un solo uso. Marca hasta 2 para tu próxima partida (Runner, campaña, mutación o expedición; no en carreras ni en el reto diario):
+  - 🛡️ escudo extra;
+  - 🧲 imán;
+  - 🚀 arranque en el tramo 3;
+  - ❤️ **segunda vida**;
+  - 📈 doble XP;
+  - 🍀 carta rara al empezar.
+- **🌟 Talentos:** mejoras permanentes, en orden, en tres árboles de 5:
+  - **Runner:** escudo inicial, carta inicial, 60 🪙 al empezar, tienda más barata y elegir entre 4 cartas;
+  - **Arena:** vida, daño, alcance de XP, arma inicial a nivel 2 y Fénix (revivir);
+  - **Galaxia:** bodega, misiles, mejor precio de venta, reparación a mitad y escudo.
+
+  Las antiguas "mejoras globales" del hangar son ahora los dos primeros talentos del Runner (si ya las tenías, se conservan).
 
 ## ⚖️ Balance
 El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:

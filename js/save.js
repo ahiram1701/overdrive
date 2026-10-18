@@ -1,7 +1,7 @@
 // Guardado persistente. localStorage puede fallar (modo privado), así que todo va en try/catch.
 // La clave de almacenamiento NO cambia entre versiones: el formato se versiona con el campo `v`.
 const KEY = 'overdrive-save-v1';
-export const SAVE_VERSION = 3;
+export const SAVE_VERSION = 4;
 
 const reducedMotion = (() => {
   try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -15,7 +15,10 @@ const DEFAULTS = {
   daily: { key: '', best: 0 },
   ships: ['viper'],
   ship: 'viper',
-  meta: { shield: false, card: false },
+  boosts: {},       // potenciadores que tienes { life: 2 }
+  boostSel: [],     // los elegidos para la próxima partida (máx. 2)
+  talents: {},      // talentos comprados { r1: true }
+  crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
   settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: true },
   runs: 0,
   missions: { key: '', list: [] },
@@ -46,7 +49,7 @@ const DEFAULTS = {
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);
@@ -83,6 +86,13 @@ export function migrate(data) {
     // v1 no tenía campos de progreso: los valores por defecto bastan
   }
   if (v < 3) data.cosmetics = migrateCosmetics(data.cosmetics, data.ships || ['viper']);
+  if (v < 4) {
+    // v4: las "mejoras globales" del hangar pasan a ser los dos primeros talentos del RUNNER
+    data.talents = { ...(data.talents || {}) };
+    if (data.meta?.shield) data.talents.r1 = true;
+    if (data.meta?.card) data.talents.r2 = true;
+    delete data.meta;
+  }
   data.v = SAVE_VERSION;
   return data;
 }

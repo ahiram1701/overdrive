@@ -9,8 +9,9 @@ const BROKEN = ['cargador', 'cargador', 'cargador', 'odplus', 'odplus', 'odplus'
 
 // Antes del ajuste: Viper 64%, Nova 84% y Nova con la build rota 96% del tiempo invulnerable.
 // Mide en la página: % del tiempo invulnerable (overdrive, dash o Ariete/Fase activos) y escudos ganados
-async function measure(page, { ship, cards = [], seconds = 120, seed = 21 }) {
-  await page.addInitScript(([k, s, tree]) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 5, ship: s, ships: Object.keys(tree), shipLvl: tree })), [SAVE, ship, MAX_TREE]);
+async function measure(page, { ship, cards = [], seconds = 120, seed = 21, boosts = [] }) {
+  await page.addInitScript(([k, s, tree, bs]) => localStorage.setItem(k, JSON.stringify({ v: 4, runs: 5, ship: s, ships: Object.keys(tree), shipLvl: tree,
+    boosts: Object.fromEntries(bs.map((id) => [id, 1])), boostSel: bs })), [SAVE, ship, MAX_TREE, boosts]);
   await page.goto(`/?debug&nosw&seed=${seed}`);
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
@@ -48,6 +49,16 @@ test('Nova con la build rota no vive en overdrive', async ({ page }) => {
   const errors = trackErrors(page);
   const m = await measure(page, { ship: 'nova', cards: BROKEN });
   console.log(`BALANCE nova+rota uptime=${(m.uptime * 100).toFixed(1)}% escudos=${m.shields} t=${m.t.toFixed(0)}s (${m.split})`);
+  expect(m.uptime).toBeLessThanOrEqual(0.35);
+  expect(errors).toEqual([]);
+});
+
+// los potenciadores ayudan, pero no rompen los topes (el imán alimenta el overdrive con monedas)
+test('Nova con escudo e imán de potenciadores sigue bajo los topes', async ({ page }) => {
+  const errors = trackErrors(page);
+  const m = await measure(page, { ship: 'nova', boosts: ['shield', 'magnet'] });
+  console.log(`BALANCE nova+potenciadores uptime=${(m.uptime * 100).toFixed(1)}% (${m.split})`);
+  expect(m.od).toBeLessThanOrEqual(0.3);
   expect(m.uptime).toBeLessThanOrEqual(0.35);
   expect(errors).toEqual([]);
 });
