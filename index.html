@@ -323,9 +323,13 @@
 
   <section id="galMap" class="overlay hidden">
     <h2>🗺️ MAPA GALÁCTICO</h2>
-    <p class="hint">Toca un sistema para trazar la ruta. ☠ = peligro · 🔒 = necesitas más Salto</p>
-    <div class="gm-wrap"><svg id="gmSvg" viewBox="0 0 1000 1000"></svg></div>
+    <div id="gmLayers" class="gm-layers"></div>
+    <div id="gmWrap" class="gm-wrap">
+      <svg id="gmSvg" viewBox="0 0 1000 1000"></svg>
+      <div class="gm-zoom"><button id="gmIn" aria-label="Acercar">＋</button><button id="gmOut" aria-label="Alejar">－</button><button id="gmFit" aria-label="Ver todo">⌖</button></div>
+    </div>
     <div id="gmInfo" class="gm-info"></div>
+    <details id="gmLegend" class="gm-legend-box"><summary>📘 LEYENDA</summary><div id="gmLegendBody"></div></details>
   </section>
 
   <section id="arenaUp" class="overlay hidden">
