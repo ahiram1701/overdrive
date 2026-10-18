@@ -9,6 +9,9 @@ const SCREENS = [
   ['#btnRankBadge', '#achs'],
   ['#btnAch', '#achs'],
   ['#btnCodex', '#codex'],
+];
+// los modos del Runner cuelgan de su pantalla: su ← vuelve a ella
+const RUNNER_SCREENS = [
   ['#btnCampaign', '#campaign'],
   ['#btnMods', '#mods'],
   ['#btnRaces', '#raceCups'],
@@ -24,6 +27,20 @@ test('hub: cada pantalla se abre y su ← vuelve al menú', async ({ page }) => 
     await page.locator(`${scr} .scr-back`).click();
     await expect(page.locator('#menu')).toBeVisible();
   }
+  // RUNNER: su pantalla con el infinito y los 4 modos
+  await page.locator('#btnRunner').click();
+  await expect(page.locator('#runnerHub')).toBeVisible();
+  for (const [btn, scr] of RUNNER_SCREENS) {
+    await page.locator(btn).click();
+    await expect(page.locator(scr)).toBeVisible();
+    await page.locator(`${scr} .scr-back`).click();
+    await expect(page.locator('#runnerHub')).toBeVisible();
+  }
+  await page.locator('#runnerHub .scr-back').click();
+  await expect(page.locator('#menu')).toBeVisible();
+  // el menú tiene los 3 juegos y ya no hay reto diario
+  await expect(page.locator('#menu .game-card')).toHaveCount(3);
+  await expect(page.locator('#btnDaily')).toHaveCount(0);
   // el hangar desde la barra inferior, y la barra marca dónde estás
   await page.locator('#btnHangar').click();
   await expect(page.locator('#hangar')).toBeVisible();
@@ -51,18 +68,22 @@ test('hub: ningún botón se solapa con otro ni se sale de la pantalla a 375×81
     for (let i = 0; i < set.length; i++) {
       for (let j = i + 1; j < set.length; j++) {
         const [a, b] = [set[i], set[j]];
-        // ⚙️ de modificadores va a propósito dentro de la tarjeta RUNNER, encima de su esquina
-        if ([a.id, b.id].includes('btnMods') && [a.id, b.id].includes('btnPlay')) continue;
         if (ov(a, b)) bad.push(`${a.id} ↔ ${b.id}`);
       }
     }
   }
   expect(bad).toEqual([]);
-  // los modos se pueden ver desplazando, sin quedar tapados por la barra inferior al final
-  await page.locator('#btnMutation').scrollIntoViewIfNeeded();
-  const mut = await page.locator('#btnMutation').boundingBox();
+  // la última tarjeta (ARENA) se ve entera, sin quedar tapada por la barra inferior
+  await page.locator('#btnArena').scrollIntoViewIfNeeded();
+  const ar = await page.locator('#btnArena').boundingBox();
   const nav = await page.locator('#bottomNav').boundingBox();
-  expect(mut.y + mut.height).toBeLessThanOrEqual(nav.y + 1);
+  expect(ar.y + ar.height).toBeLessThanOrEqual(nav.y + 1);
+  // pantalla RUNNER: tampoco se solapa nada
+  await page.locator('#btnRunner').click();
+  const rb = await page.evaluate(() => [...document.querySelectorAll('#runnerHub button')].filter((e) => e.offsetParent).map((e) => { const r = e.getBoundingClientRect(); return { id: e.id || e.className, x: r.x, y: r.y, w: r.width, h: r.height }; }));
+  const bad2 = [];
+  for (let i = 0; i < rb.length; i++) for (let j = i + 1; j < rb.length; j++) if (ov(rb[i], rb[j])) bad2.push(`${rb[i].id} ↔ ${rb[j].id}`);
+  expect(bad2).toEqual([]);
 });
 
 test('el "atrás" del navegador / Android cierra la pantalla en vez de salir', async ({ page }) => {

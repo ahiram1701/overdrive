@@ -100,10 +100,10 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **🚀 Misiles teledirigidos** (mejora *Misiles*): mantén un enemigo en el visor hasta que ponga **FIJADO** y dispara. La munición se recarga al atracar. En teclado: **M**.
   - **🌀 Tonel** (doble toque o **X**): una vuelta de campana hacia un lado, invulnerable mientras dura. Esquiva balas y misiles.
   - **Enemigos:** cazas, **interceptores** rápidos y frágiles, **bombarderos** lentos que lanzan misiles (derríbalos a tiros) y **enjambres de drones**. Aparecen más tipos al alejarte de ORIGEN.
-  - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín y 3 💎.
+  - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín de créditos.
 - **Sucesos al llegar a un sistema** (con aviso):
   - ☄️ **lluvia de meteoritos**: minería rápida, el doble de mineral, pero duelen;
-  - 🆘 **cápsula de rescate**: llévala a la estación (créditos y 💎);
+  - 🆘 **cápsula de rescate**: llévala a la estación (créditos);
   - 🚚 **convoy mercante**: alcánzalo y te compra la carga a +40%;
   - 🌀 **agujero de gusano**: un atajo a un sistema al azar;
   - 🏴‍☠️ **asalto a una base pirata**.
@@ -140,7 +140,7 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **Piratas:** atacan en pasadas, esquivan y huyen con poca vida. Llevan corchetes rojos para verlos siempre, y sueltan 💰. En los sistemas más peligrosos hay **jefes piratas**. Tu láser se **sobrecalienta** si no paras.
 - **Comercio:** cada estación paga distinto. Compra barato el mineral local y véndelo donde lo paguen más.
 - **Zona segura:** junto a las estaciones los piratas no entran.
-- **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos y 💎):
+- **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos):
   - 🎯 caza: elimina N piratas en un sistema;
   - 📦 entrega: lleva un paquete a otra estación;
   - 📡 exploración: escanea un punto de interés;
@@ -214,8 +214,7 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
 3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
 4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y **pasa por sus núcleos verdes** antes de que escape: tocarlos le hace daño, y con DASH el golpe es **crítico (doble)**. El núcleo blindado del Censor solo cede al DASH.
-5. Al morir ganas **gemas 💎** para el hangar: naves nuevas y mejoras permanentes.
-6. **Reto diario:** la misma pista para todo el mundo durante el día, elijas lo que elijas.
+5. Al morir ganas **gemas 💎** para el hangar, y las **🪙 que no gastaste** van a tu cartera.
 
 ## ⚡ Habilidades y hangar
 - **Cada nave tiene una habilidad activa propia.** Se lanza con el botón ⚡ (abajo a la derecha) o con **E**/**Q** en el teclado. Tiene un tiempo de recarga, que se ve en el anillo del botón, y **cada near-miss lo recorta 0,15 s**.
@@ -241,32 +240,40 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - **Emblema a tu gusto:** en las dos alas, en una sola o en la cola, y en el color que quieras (gratis). Siempre cabe dentro de su cara: se centra en el incentro del triángulo y se recorta a su contorno.
   - **Pinturas con patrón** (Tigre a franjas, Dúo partida, Aurora en degradado), estelas de **Humo** y **Relámpago**, y explosiones **Agujero negro** y **Fuegos artificiales**.
 
-## 💰 Economía y 🛒 Tienda
-Tres monedas, cada una con su papel (toca 💎 o 💰 en el menú para verlo):
+## 🏠 Menú
+El menú tiene los **3 juegos**:
+- **🏁 RUNNER** abre su pantalla con el modo **Infinito** (con ⚙️ modificadores y tus potenciadores) y sus 4 modos: **🗺️ Campaña**, **🧭 Expedición**, **🏆 Carreras** y **🧬 Mutación** del día;
+- **🌌 GALAXIA**;
+- **⚔️ ARENA**.
 
-| Moneda | Se gana | Se gasta |
-|---|---|---|
-| 🪙 **Monedas** | en la partida | en la tienda de la partida. **Lo que sobra pasa a 💰** (1:1) |
-| 💰 **Créditos** | Galaxia, monedas sobrantes, bajas de la Arena | mejoras de la nave espacial, **cofres estándar**, reparaciones |
-| 💎 **Gemas** | partidas, campaña, misiones, rangos, logros | naves, árbol, estilos, **cofres de élite**, **potenciadores**, **talentos** |
+Debajo están las misiones del día, y en la barra inferior: Inicio · Hangar · Tienda · Logros · Colección.
+
+## 💰 Economía y 🛒 Tienda
+Dos economías separadas (toca 💎 o 🪙 en el menú para verlo):
+
+| Moneda | Juegos | Se gana | Se gasta |
+|---|---|---|---|
+| 🪙 **Monedas** | Runner y Arena | lo que **no gastas** en la tienda de cada partida, las bajas de la Arena y los cofres | **potenciadores**, **cofres estándar**, **maestría de cartas**, **talentos** de Runner y Arena |
+| 💎 **Gemas** | Runner y Arena | partidas, campaña, misiones, rangos y logros | naves, árbol de mejoras, estilos, **cofres de élite**, **cartas nuevas**, **armas del arsenal** |
+| 💰 **Créditos** | solo Galaxia | minería, comercio, misiones, cazas, bases e historia | nave espacial, taller de fabricación, reparaciones, tienda de facción y **talentos de la Galaxia** (en sus estaciones) |
 
 En la **🛒 TIENDA** (barra inferior):
-- **🎁 Cofres de suministros:** estándar (💰 1.500) o de élite (💎 150). Cada uno trae 3 objetos con rareza (común, raro, épico, legendario): estilos que **aún no tienes** (nunca repetidos, incluidos exclusivos de cofre), potenciadores, créditos o gemas. **Épico garantizado** como mucho cada 10 cofres.
-- **⚡ Potenciadores:** consumibles de un solo uso. Marca hasta 2 para tu próxima partida (Runner, campaña, mutación o expedición; no en carreras ni en el reto diario):
+- **🎁 Cofres de suministros:** estándar (🪙 1.500) o de élite (💎 150). Cada uno trae 3 objetos con rareza (común, raro, épico, legendario): estilos que **aún no tienes** (nunca repetidos, incluidos exclusivos de cofre), potenciadores, maestrías de carta, monedas o gemas. **Épico garantizado** como mucho cada 10 cofres.
+- **⚡ Potenciadores** (con 🪙): consumibles de un solo uso. Marca hasta 2 para tu próxima partida (Infinito, campaña, mutación o expedición; no en carreras):
   - 🛡️ escudo extra;
   - 🧲 imán;
   - 🚀 arranque en el tramo 3;
   - ❤️ **segunda vida**;
   - 📈 doble XP;
   - 🍀 carta rara al empezar.
-- **🌟 Talentos:** mejoras permanentes, en orden, en tres árboles de 5:
+- **🌟 Talentos:** mejoras permanentes, en orden, en tres árboles de 5 (Runner y Arena con 🪙 en la Tienda; Galaxia con 💰 en sus estaciones):
   - **Runner:** escudo inicial, carta inicial, 60 🪙 al empezar, tienda más barata y elegir entre 4 cartas;
   - **Arena:** vida, daño, alcance de XP, arma inicial a nivel 2 y Fénix (revivir);
   - **Galaxia:** bodega, misiles, mejor precio de venta, reparación a mitad y escudo.
 
   Las antiguas "mejoras globales" del hangar son ahora los dos primeros talentos del Runner (si ya las tenías, se conservan).
 - **🔱 Arsenal de la Arena** (en Talentos): 4 armas nuevas que, una vez compradas, pueden salir al subir de nivel: Rayo gemelo, Relámpago, Minas y Bumerán, cada una con su evolución.
-- **🃏 Mazo** (en Colección): **8 cartas nuevas** que se desbloquean con gemas (Turbo, Chatarrero, Fortuna, Aerodinámica, Trofeo, Mecánico, Parachoques y Tesoro) y **maestría** de 3 niveles para cada carta: cuanto más alta, más a menudo te sale. Los cofres también suben maestrías.
+- **🃏 Mazo** (en Colección): **8 cartas nuevas** que se desbloquean con gemas (Turbo, Chatarrero, Fortuna, Aerodinámica, Trofeo, Mecánico, Parachoques y Tesoro) y **maestría** de 3 niveles para cada carta (con 🪙): cuanto más alta, más a menudo te sale. Los cofres también suben maestrías.
 - **Más estilo:** grupos nuevos **🏁 Rayas** (de carreras, sobre el lomo) y **🪟 Cabina**, y más pinturas, motores y disparos.
 
 ## ⚖️ Balance

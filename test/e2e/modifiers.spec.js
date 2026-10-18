@@ -13,6 +13,7 @@ test('panel de modificadores: se activan, choques, bonus y se guardan', async ({
     }
   }, [SAVE, HIGH_RANK_XP]);
   await page.goto('/?nosw');
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnMods').click();
   await expect(page.locator('#modList .mod')).toHaveCount(12);
   await page.locator('[data-mod="turbo"]').click();
@@ -24,6 +25,7 @@ test('panel de modificadores: se activan, choques, bonus y se guardan', async ({
   await page.reload();
   expect(await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).modsLast, SAVE)).toEqual(['turbo', 'fragile']);
   // RUNNER usa lo elegido
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnPlay').click();
   await page.waitForFunction(() => window.G?.mode === 'play' || document.querySelector('#hud:not(.hidden)'));
   await expect(page.locator('#modTag')).toHaveText('🚀🩹');
@@ -34,6 +36,7 @@ test('lo bloqueado no se puede activar ni colar en la partida', async ({ page })
   await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, xp: 0, modsLast: ['turbo', 'glass'] })), SAVE);
   await page.goto('/?debug&nosw&seed=4');
   await page.waitForFunction(() => !!window.G);
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnMods').click();
   await expect(page.locator('[data-mod="glass"]')).toHaveClass(/locked/);
   await page.locator('[data-mod="glass"]').click();
@@ -48,6 +51,7 @@ test('mutación del día: dos modificadores, misma pista y x1,5 gemas solo la pr
   await page.waitForFunction(() => !!window.G);
   const run = async () => {
     await page.evaluate(() => { window.G.manual = true; window.G.god = false; });
+    if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
     await page.locator('#btnMutation').click();
     const track = await page.evaluate(() => {
       for (let i = 0; i < 60; i++) window.D.step(1 / 60, false);
@@ -83,6 +87,7 @@ for (const mod of ['turbo', 'chaos', 'mines', 'hunter', 'greed', 'lowgrav', 'nod
       await page.goto(`/?debug&nosw&seed=${seed}&mods=${mod}`);
       await page.waitForFunction(() => !!window.G);
       await page.evaluate(() => { window.G.manual = true; });
+      if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
       await page.locator('#btnPlay').click();
       await page.waitForFunction(() => window.G.mode === 'play');
       expect(await page.evaluate(() => [...window.G.run.mods])).toEqual([mod]);

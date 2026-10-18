@@ -15,7 +15,6 @@ export const POOL = [
   { kind: 'section', mode: 'best', diff: 'easy', n: 4, text: 'Llega al tramo 4' },
   { kind: 'speed', mode: 'best', diff: 'easy', n: 800, text: 'Alcanza 800 km/h' },
   { kind: 'mult', mode: 'best', diff: 'easy', n: 30, text: 'Llega a x30 de combo' },
-  { kind: 'daily', mode: 'sum', diff: 'easy', n: 1, text: 'Juega el reto diario' },
   { kind: 'arenaKills', mode: 'sum', diff: 'easy', n: 300, text: 'Elimina 300 enemigos en la ARENA' },
 
   { kind: 'perfect', mode: 'sum', diff: 'medium', n: 25, text: 'Haz 25 near-miss PERFECTOS' },
@@ -52,7 +51,8 @@ export function pickMissions(key) {
 }
 
 function ensure(key) {
-  if (!save.missions || save.missions.key !== key) save.missions = { key, list: pickMissions(key) };
+  // (las listas antiguas con la misión del reto diario, que ya no existe, se rehacen)
+  if (!save.missions || save.missions.key !== key || save.missions.list.some((m) => m.kind === 'daily')) save.missions = { key, list: pickMissions(key) };
   return save.missions.list;
 }
 

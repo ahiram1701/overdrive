@@ -910,3 +910,29 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .at-story > div.done b { color: #30d158; }
 .at-story > div.locked { opacity: .5; }
 .at-story small { display: block; color: var(--muted); font-size: 12px; }
+
+/* ---------- Menú: 3 juegos y pantalla RUNNER ---------- */
+.hub-games { width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--sp-2); }
+.game-card { position: relative; display: grid; grid-template-columns: 56px 1fr 24px; align-items: center; gap: var(--sp-3); min-height: 96px; padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-3); color: #fff; text-align: left; font-family: var(--font); border: 2px solid var(--gc); background: linear-gradient(120deg, color-mix(in srgb, var(--gc) 30%, transparent), rgba(0,0,0,.4));
+  box-shadow: 0 0 20px color-mix(in srgb, var(--gc) 40%, transparent); }
+.game-card.g-runner { --gc: #ff2bd6; }
+.game-card.g-galaxy { --gc: #7df9ff; }
+.game-card.g-arena { --gc: #ff6a00; }
+.gc-icon { font-size: 40px; text-align: center; }
+.gc-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.gc-text b { font: italic 900 24px var(--font); letter-spacing: .5px; }
+.gc-text small { font-size: 12px; color: rgba(255,255,255,.75); }
+.gc-text em { font-style: normal; font-weight: 900; font-size: 13px; color: var(--yellow); }
+.gc-go { font: 900 30px var(--font); color: rgba(255,255,255,.6); }
+.game-card:active { transform: scale(.98); }
+.rh-main { width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--sp-2); position: relative; }
+#runnerHub .hero-card.runner { min-height: 120px; padding: var(--sp-4); flex-direction: row; align-items: center; gap: var(--sp-3); border: 2px solid var(--pink); }
+#runnerHub .hero-card .hc-icon { font-size: 42px; }
+#runnerHub .hero-card b { font-size: 28px; }
+#runnerHub .hc-mods { position: static; width: 100%; height: auto; padding: 12px; border-radius: var(--r-2); border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.45); color: #fff; font: 900 13px var(--font); }
+#runnerHub .hc-mods small { color: var(--yellow); margin-left: 6px; }
+#runnerHub .hc-boosts { left: auto; right: 12px; top: 10px; font-size: 18px; }
+.mode-grid.two { grid-template-columns: repeat(2, 1fr); }
+.mode-grid.two .mode-tile { padding: 16px 6px; }
+.hub-stats .wallet { flex: 1; }

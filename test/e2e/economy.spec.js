@@ -27,7 +27,7 @@ test('tienda: abrir un cofre de élite da un estilo nuevo que aparece en el hang
 
 test('potenciadores: comprar, activar y gastarse al empezar; Segunda vida revive', async ({ page }) => {
   const errors = trackErrors(page);
-  await seed(page, { v: 4, runs: 3, gems: 500 });
+  await seed(page, { v: 5, runs: 3, coins: 1000 });
   await page.goto('/?debug&nosw&seed=7');
   await page.waitForFunction(() => !!window.G);
   await page.locator('#btnStore').click();
@@ -36,7 +36,9 @@ test('potenciadores: comprar, activar y gastarse al empezar; Segunda vida revive
   await page.locator('[data-boost="life"] .bs-use').click();
   await expect(page.locator('[data-boost="life"]')).toHaveClass(/on/);
   await page.locator('#store .scr-back').click();
+  await page.locator('#btnRunner').click();
   await expect(page.locator('#mBoosts')).toHaveText('❤️');
+  expect(await page.evaluate(() => window.__save.coins)).toBe(1000 - 600);
   await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
   await page.waitForFunction(() => window.G.mode === 'play');
   const res = await page.evaluate(async () => {
@@ -51,9 +53,9 @@ test('potenciadores: comprar, activar y gastarse al empezar; Segunda vida revive
   expect(errors).toEqual([]);
 });
 
-test('las monedas que sobran al morir pasan a créditos', async ({ page }) => {
+test('las monedas que sobran al morir van a tu cartera de 🪙 y los créditos no cambian', async ({ page }) => {
   const errors = trackErrors(page);
-  await seed(page, { v: 4, runs: 3 });
+  await seed(page, { v: 5, runs: 3 });
   await page.goto('/?debug&nosw&seed=7');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
@@ -67,14 +69,14 @@ test('las monedas que sobran al morir pasan a créditos', async ({ page }) => {
     window.D.step(2, false);
   });
   await expect(page.locator('#death')).toBeVisible();
-  await expect(page.locator('#dGems')).toContainText('🪙 77 → +77 💰');
-  expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(77);
+  await expect(page.locator('#dGems')).toContainText('+77 🪙');
+  expect(await page.evaluate(() => ({ coins: window.__save.coins, credits: window.__save.galaxy.credits }))).toEqual({ coins: 77, credits: 0 });
   expect(errors).toEqual([]);
 });
 
 test('talentos: se compran en orden y el hangar ya no tiene la pestaña GLOBAL', async ({ page }) => {
   const errors = trackErrors(page);
-  await seed(page, { v: 4, runs: 3, gems: 400 });
+  await seed(page, { v: 5, runs: 3, coins: 4000 });
   await page.goto('/?nosw');
   await page.locator('#btnHangar').click();
   await expect(page.locator('#hTabs button')).toHaveCount(4);
@@ -84,13 +86,14 @@ test('talentos: se compran en orden y el hangar ya no tiene la pestaña GLOBAL',
   await expect(page.locator('[data-talent="r2"]')).not.toHaveClass(/bought/);
   await page.locator('[data-talent="r1"]').click();
   await expect(page.locator('[data-talent="r1"]')).toHaveClass(/bought/);
-  await expect(page.locator('#stGems')).toHaveText('320');
+  await expect(page.locator('#stCoinsW')).toHaveText('3.2K');
+  await expect(page.locator('[data-talent^="g"]')).toHaveCount(0); // los de la Galaxia están en sus estaciones
   expect(errors).toEqual([]);
 });
 
 test('mazo y arsenal: desbloquear una carta, subir su maestría y comprar un arma de la Arena', async ({ page }) => {
   const errors = trackErrors(page);
-  await seed(page, { v: 4, runs: 3, gems: 600 });
+  await seed(page, { v: 5, runs: 3, gems: 600, coins: 1000 });
   await page.goto('/?nosw');
   await page.locator('#btnCodex').click();
   await page.locator('[data-card="turbo"] .dk-buy').click();
@@ -105,6 +108,7 @@ test('mazo y arsenal: desbloquear una carta, subir su maestría y comprar un arm
   expect(sv.cardsOwned.turbo).toBe(true);
   expect(sv.cardLvl.iman).toBe(1);
   expect(sv.arenaWeapons.mines).toBe(true);
-  expect(sv.gems).toBe(600 - 60 - 40 - 250);
+  expect(sv.gems).toBe(600 - 60 - 250);
+  expect(sv.coins).toBe(1000 - 400);
   expect(errors).toEqual([]);
 });

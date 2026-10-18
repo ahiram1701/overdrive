@@ -87,6 +87,7 @@ test('prestigio: en el rango 30 aparece el botón, pide confirmación y renace',
   await page.locator('#hTabs [data-tab="estilo"]').click();
   await expect(page.locator('[data-cos="emblem:laurel"]')).not.toHaveClass(/locked/);
   await page.locator('#btnHangarBack').click();
+  if (await page.locator('#btnRunner').isVisible()) await page.locator('#btnRunner').click(); // los modos del Runner están en su pantalla
   await page.locator('#btnMods').click();
   await expect(page.locator('#modList .mod.locked')).toHaveCount(0);
   expect(errors).toEqual([]);

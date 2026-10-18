@@ -85,7 +85,8 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
       const to = rng.pick(gal[sysId].links);
       m = { kind, sys: sysId, gate: to, n: 1, text: `Escolta un carguero hasta la puerta a ${gal[to].name}`, reward: 150 + gal[sysId].danger * 60 };
     }
-    if (m) out.push({ ...m, id: `${sysId}-${seq}-${kind}`, from: sysId, progress: 0, gems: Math.round(m.reward / 60) });
+    // la Galaxia paga solo en créditos (antes también gemas: ahora va todo al premio)
+    if (m) out.push({ ...m, reward: m.reward + Math.round(m.reward / 60) * 60, id: `${sysId}-${seq}-${kind}`, from: sysId, progress: 0 });
   }
   return out;
 }

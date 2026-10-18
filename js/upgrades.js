@@ -68,7 +68,7 @@ export const CARDS = [
 ];
 
 // Maestría de carta (Mazo): cada nivel la hace salir más a menudo
-export const CARD_LVL_COST = [40, 80, 150];
+export const CARD_LVL_COST = [400, 800, 1500]; // 🪙
 export const CARD_LVL_W = [1, 1.5, 2, 3];
 export const MAX_CARD_LVL = 3;
 

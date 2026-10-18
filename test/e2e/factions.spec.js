@@ -103,3 +103,14 @@ test('tienda de facción: con reputación de Amigo se compra su pintura con cré
   await expect(page.locator('[data-fshop="f-coal-e"]')).toContainText('Aliado');
   expect(errors).toEqual([]);
 });
+
+test('talentos de la Galaxia: en la estación y con créditos (las gemas no cambian)', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { gems: 50, galaxy: { started: true, credits: 1500 } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await page.locator('#stTalents [data-talent="g1"]').click();
+  await expect(page.locator('#stTalents [data-talent="g1"]')).toHaveClass(/bought/);
+  expect(await page.evaluate(() => ({ c: window.__save.galaxy.credits, g: window.__save.gems, t: window.__save.talents.g1 }))).toEqual({ c: 500, g: 50, t: true });
+  expect(errors).toEqual([]);
+});

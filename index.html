@@ -50,38 +50,40 @@
     </header>
     <div class="hub-stats">
       <button id="btnWallet" class="wallet"><b id="mGems">0</b><small>💎 gemas</small></button>
-      <button id="btnWallet2" class="wallet"><b id="mCredits">0</b><small>💰 créditos</small></button>
-      <div><b id="mBest">0</b><small>🏁 récord</small></div>
+      <button id="btnWallet2" class="wallet"><b id="mCoins">0</b><small>🪙 monedas</small></button>
     </div>
     <div id="walletInfo" class="wallet-info hidden">
-      <p><b>🪙 Monedas</b> · se ganan y gastan en la partida (tienda). <b>Lo que sobra pasa a 💰</b>.</p>
-      <p><b>💰 Créditos</b> · Galaxia, monedas sobrantes y bajas de la Arena. Para mejoras de la nave espacial, cofres estándar y reparaciones.</p>
-      <p><b>💎 Gemas</b> · partidas, campaña, misiones y rangos. Para naves, árbol, estilos, potenciadores, talentos y cofres de élite.</p>
+      <p><b>🪙 Monedas</b> · RUNNER y ARENA: lo que no gastas en la tienda de cada partida y las bajas de la Arena. Para potenciadores, cofres estándar, maestría de cartas y talentos.</p>
+      <p><b>💎 Gemas</b> · RUNNER y ARENA: partidas, campaña, misiones, rangos y logros. Para naves, árbol de mejoras, estilos, cofres de élite, cartas nuevas y armas del arsenal.</p>
+      <p><b>💰 Créditos</b> · solo en la GALAXIA: minería, comercio, misiones y cazas. Para tu nave espacial, el taller y los talentos de la Galaxia.</p>
     </div>
     <div id="mRank" class="rank"></div>
 
-    <div class="hub-hero">
-      <button class="hero-card galaxy" id="btnGalaxy"><span class="hc-icon">🌌</span><span class="hc-text"><b>GALAXIA</b><small id="mGalaxy">nuevo</small></span></button>
-      <div class="hero-card runner">
-        <button class="hc-main" id="btnPlay"><span class="hc-icon">🏁</span><span class="hc-text"><b>RUNNER</b><small>esquiva a toda velocidad</small></span></button>
-        <button class="hc-mods" id="btnMods" aria-label="Modificadores">⚙️<small id="mMods"></small></button>
-        <span class="hc-boosts" id="mBoosts"></span>
-      </div>
+    <div class="hub-games">
+      <button class="game-card g-runner" id="btnRunner"><span class="gc-icon">🏁</span><span class="gc-text"><b>RUNNER</b><small>esquiva a toda velocidad · 5 modos</small><em id="mBest">récord 0</em></span><span class="gc-go">›</span></button>
+      <button class="game-card g-galaxy" id="btnGalaxy"><span class="gc-icon">🌌</span><span class="gc-text"><b>GALAXIA</b><small id="mGalaxy">explora, mina, comercia y lucha</small><em id="mCredits">💰 0</em></span><span class="gc-go">›</span></button>
+      <button class="game-card g-arena" id="btnArena"><span class="gc-icon">⚔️</span><span class="gc-text"><b>ARENA</b><small>sobrevive a las oleadas</small><em id="mArena">sobrevive 10:00</em></span><span class="gc-go">›</span></button>
     </div>
 
     <button class="mission-chip" id="btnMissions">🎯 Misiones de hoy <b id="mMisCount">0/3</b><span class="chev">▾</span></button>
     <div id="mMissions" class="missions collapsed"></div>
 
+    <div class="hub-space"></div>
+  </section>
+
+  <section id="runnerHub" class="overlay hidden">
+    <div class="rh-main">
+      <button class="hero-card runner" id="btnPlay"><span class="hc-icon">🏁</span><span class="hc-text"><b>INFINITO</b><small>tramo a tramo, hasta donde llegues</small><small id="mBest2"></small></span></button>
+      <button class="hc-mods" id="btnMods" aria-label="Modificadores">⚙️ MODIFICADORES <small id="mMods"></small></button>
+      <span class="hc-boosts" id="mBoosts"></span>
+    </div>
     <h3 class="hub-h">MODOS</h3>
-    <div class="mode-grid">
+    <div class="mode-grid two">
       <button class="mode-tile t-camp" id="btnCampaign"><span>🗺️</span><b>Campaña</b><small id="mStars"></small></button>
-      <button class="mode-tile t-arena" id="btnArena"><span>⚔️</span><b>Arena</b><small id="mArena"></small></button>
       <button class="mode-tile t-exp" id="btnExpedition"><span>🧭</span><b>Expedición</b><small id="mExp"></small></button>
       <button class="mode-tile t-race" id="btnRaces"><span>🏆</span><b>Carreras</b><small id="mRace"></small></button>
-      <button class="mode-tile t-daily" id="btnDaily"><span>📅</span><b>Reto diario</b><small id="mDaily"></small></button>
       <button class="mode-tile t-mut" id="btnMutation"><span>🧬</span><b>Mutación</b><small id="mMut"></small></button>
     </div>
-    <div class="hub-space"></div>
   </section>
 
   <section id="settings" class="overlay hidden">
@@ -151,7 +153,7 @@
       <button data-tab="boosts" role="tab">⚡ POTENCIADORES</button>
       <button data-tab="talents" role="tab">🌟 TALENTOS</button>
     </div>
-    <p class="gems st-wallet">💎 <b id="stGems">0</b> · 💰 <b id="stCreditsW">0</b></p>
+    <p class="gems st-wallet">💎 <b id="stGems">0</b> · 🪙 <b id="stCoinsW">0</b></p>
     <div id="storeBody" class="store-body"></div>
   </section>
 
@@ -252,6 +254,10 @@
     <div class="st-block">
       <h3>Taller</h3>
       <div id="stUpgrades" class="st-ups"></div>
+    </div>
+    <div class="st-block">
+      <h3>🌟 Talentos de la Galaxia</h3>
+      <div id="stTalents" class="tal-tree"></div>
     </div>
     <div class="st-block">
       <h3>🔧 Fabricación</h3>
