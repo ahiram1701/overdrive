@@ -12,7 +12,7 @@ import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
-import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
+import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
 import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
@@ -1027,7 +1027,7 @@ export const ui = {
     const modTxt = res.mods?.length ? ` · ${res.mods.map((id) => MOD_BY_ID[id].icon).join('')} x${modGems(res.mods).toFixed(2)}` : '';
     $('dGems').innerHTML = `+${res.gems} 💎${res.banked ? ` · +${res.banked} 🪙` : ''} <small>(total ${fmt(save.gems)})${modTxt}${res.mutationBonus ? ' · 🧬 x1,5' : ''}${prestigeBonus(save) ? ` · ✨ +${Math.round(prestigeBonus(save) * 100)}%` : ''}</small>`;
     // cuánto faltó para el récord: el "casi" es lo que hace darle a reintentar
-    $('dExtra').textContent = res.exp ? `EXPEDICIÓN · acto ${res.exp.act + 1} de ${ACTS.length}, fila ${res.exp.row + 1} de ${ROWS}`
+    $('dExtra').textContent = res.exp ? `EXPEDICIÓN · acto ${res.exp.act + 1} de ${res.exp.total || ACTS.length - 1}, fila ${res.exp.row + 1} de ${ROWS}`
       : res.level ? `NIVEL ${res.level} · la pista es siempre la misma: apréndetela`
       : res.isBest || !res.prevBest ? '' : `te faltaron ${fmt(res.prevBest - res.score)} para tu récord`;
     $('dBuild').innerHTML = buildSummary({ cards: res.cards, synergies: new Set(res.synergies) });
@@ -1860,7 +1860,7 @@ export const ui = {
     setText('emTitle', `ACTO ${e.act + 1} · ${act.name}`);
     setText('emSub', act.sub);
     const r = G.run;
-    $('emStatus').innerHTML = `<span>🛡️ ${r.shields}</span><span>🪙 ${r.coins}</span><span>🃏 ${Object.values(r.cards).reduce((a, b) => a + b, 0)}</span><span>🏁 ${e.acts}/${ACTS.length}</span>`;
+    $('emStatus').innerHTML = `<span>🛡️ ${r.shields}</span><span>🪙 ${r.coins}</span><span>🃏 ${Object.values(r.cards).reduce((a, b) => a + b, 0)}</span><span>🏁 ${e.acts}/${e.total}</span>${e.relics.length ? `<span class="em-relics" title="Reliquias">${e.relics.map((id) => RELICS[id].icon).join('')}</span>` : ''}`;
     const cur = nodeById(e.map, e.at);
     const ROW_H = 78, H = ROWS * ROW_H;
     const pos = (n) => ({ x: n.col * 100, y: H - (n.row + 0.5) * ROW_H });

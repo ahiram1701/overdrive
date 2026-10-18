@@ -16,7 +16,7 @@ import { xpForRun, addXp, trackAch, ACH_GEMS, codexAdd, effectiveRank, prestigeB
 import { takeBoosts, hasTalent, bankCoins } from './economy.js';
 import { equipped, addShipStat, achStyle } from './cosmetics.js';
 import { capStats, OD_GAIN, OD_COOL, vampireNeed } from './balance.js';
-import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE } from './expedition.js';
+import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, NODE, actsTotal, FORGE, RELICS, offerRelics, relicEvent } from './expedition.js';
 import { TRACK_BY_ID, CUP_BY_ID, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal, ttMedal, ttTargets, rivalAdapt, MEDALS } from './race.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
@@ -87,7 +87,7 @@ export function newRun(opts = false) {
   if (expedition) {
     // EXPEDICIÓN: mapa del acto 1; se empieza en su salida (un tramo)
     const map = genAct(seed, 0);
-    r.exp = { seed, act: 0, map, at: startOf(map).id, path: [startOf(map).id], acts: 0, events: 0 };
+    r.exp = { seed, act: 0, map, at: startOf(map).id, path: [startOf(map).id], acts: 0, events: 0, relics: [], total: actsTotal(save) };
   }
   G.player = newPlayer();
   r.player = G.player;
@@ -145,9 +145,33 @@ export function newRun(opts = false) {
   else if (hasTalent(save, 'r2')) openCards({ title: 'CARTA INICIAL', next: false });
 }
 
+// ---------- Reliquias de la expedición ----------
+export const hasRelic = (r, id) => !!r?.exp?.relics?.includes(id);
+function gainRelic(r, id) {
+  if (!RELICS[id] || hasRelic(r, id)) return;
+  r.exp.relics.push(id);
+  if (id === 'iman') r.stats.magnet += 1;
+  if (id === 'fenix') r.extraLife = (r.extraLife || 0) + 1;
+  progress('relic');
+  fx.notice(`🏺 ${RELICS[id].icon} ${RELICS[id].name}`, '#ffd60a');
+  sfx.chest();
+}
+// ofrece 1 de 3 reliquias y luego sigue con `then`
+function offerRelic(r, then) {
+  const ids = offerRelics(r.exp.relics, r.lootRng);
+  if (!ids.length) return then();
+  r.exp.afterEvent = then;
+  G.mode = 'event';
+  musicDuck(true);
+  ui.showHUD(false);
+  ui.showExpEvent(relicEvent(ids), r);
+}
+
 function startSection() {
   const r = run();
   r.section++;
+  r.crystalUsed = false;
+  if (hasRelic(r, 'brasa')) r.od = Math.max(r.od, 0.5);
   // cartas del mazo que actúan al empezar cada tramo
   r.bumperUsed = false;
   if (r.cards.chatarrero && r.section > 0) r.coins += 15 * r.cards.chatarrero;
@@ -375,6 +399,15 @@ export function onHit(o) {
   if (G.god) return breakObj(o, 'dash');
   r.hitsTaken++;
   if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id, hunter: !!o.hunter, boss: !!r.boss });
+  // ESCUDO DE CRISTAL (reliquia): el primer golpe de cada tramo no cuenta
+  if (hasRelic(r, 'cristal') && !r.crystalUsed && !o.hunter) {
+    r.crystalUsed = true;
+    p.invuln = 0.8;
+    breakObj(o, 'shield');
+    fx.notice('🛡️ ¡ESCUDO DE CRISTAL!', '#7df9ff');
+    sfx.shield();
+    return;
+  }
   // PARACHOQUES (carta): el primer golpe de cada tramo no quita escudo, pero sí combo y overdrive
   if (r.cards.parachoques && !r.bumperUsed && !o.hunter) {
     r.bumperUsed = true;
@@ -636,7 +669,9 @@ function abilityEnded(a) {
 
 export function onCoin(o) {
   const r = run();
-  const v = r.stats.coinValue * (r.odTime > 0 && r.synergies.has('supernova') ? 3 : 1);
+  let v = r.stats.coinValue * (r.odTime > 0 && r.synergies.has('supernova') ? 3 : 1);
+  // AVARO (reliquia): una moneda de cada cuatro vale doble (+25 %)
+  if (hasRelic(r, 'avaro') && (r.avaroN = (r.avaroN || 0) + 1) % 4 === 0) v *= 2;
   r.coins += v;
   progress('coins', v);
   r.coinStreak = r.time - r.lastCoinT < 0.45 ? r.coinStreak + 1 : 0;
@@ -774,7 +809,7 @@ function rollChest(r) {
 
 function openCards({ minRarity = null, title = 'ELIGE UNA CARTA', next = true, reward = '', after = null } = {}) {
   const r = run();
-  const n = hasTalent(save, 'r5') ? 4 : 3; // talento CUARTA CARTA
+  const n = (hasTalent(save, 'r5') ? 4 : 3) + (hasRelic(r, 'coleccionista') ? 1 : 0); // talento CUARTA CARTA y reliquia COLECCIONISTA
   let offers = offerCards(r, n, minRarity);
   if (!offers.length) offers = offerCards(r, n);
   const finish = () => {
@@ -924,22 +959,28 @@ function expNodeDone() {
   const ps = playerScreen();
   for (const c of ['#ffe600', '#fff', '#30d158']) fx.burst(ps.x, ps.y - 60, 30, c, 600, 5, 1, 400);
   sfx.milestone();
+  if (hasRelic(r, 'hucha')) r.coins += 25;
   if (node.type === 'boss') {
     e.acts++;
     progress('expAct', e.acts);
-    const gems = 25 * e.acts;
+    const gems = 25 * e.acts + (hasRelic(r, 'gema') ? 10 : 0);
     save.gems += gems;
     persist();
-    if (e.act >= ACTS.length - 1) return expWin(gems);
+    if (e.act >= e.total - 1) return expWin(gems);
     e.act++;
     e.map = genAct(e.seed, e.act);
     e.at = startOf(e.map).id;
     e.path = [e.at];
     fx.banner(`ACTO ${e.act} SUPERADO`, `+${gems} 💎 · siguiente: ${ACTS[e.act].name}`, '#ffe600', true);
-    return openCards({ minRarity: 'rare', title: `¡ACTO ${e.act} SUPERADO!`, next: false, after: expStartNode });
+    // tras el jefe: carta rara, SIEMPRE una reliquia, y (con el Corazón) un escudo para el acto nuevo
+    return openCards({ minRarity: 'rare', title: `¡ACTO ${e.act} SUPERADO!`, next: false, after: () => offerRelic(r, () => {
+      if (hasRelic(r, 'corazon')) gainShield(1, '❤️ +1 🛡️');
+      expStartNode();
+    }) });
   }
   const elite = node.type === 'elite';
-  openCards({ minRarity: elite ? 'rare' : null, title: elite ? '☠ ÉLITE SUPERADO' : 'ELIGE UNA CARTA', next: false, after: expShowMap });
+  // los élites dan carta rara y, la mitad de las veces, una reliquia
+  openCards({ minRarity: elite ? 'rare' : null, title: elite ? '☠ ÉLITE SUPERADO' : 'ELIGE UNA CARTA', next: false, after: elite && r.lootRng.chance(0.5) ? () => offerRelic(r, expShowMap) : expShowMap });
 }
 
 function expShowMap() {
@@ -969,7 +1010,11 @@ export function expChoose(id) {
     case 'shop':
       G.mode = 'shop';
       return ui.showShop(r, expShowMap);
+    case 'forge':
+      G.mode = 'event';
+      return ui.showExpEvent(FORGE, r);
     case 'treasure': {
+      if (r.lootRng.chance(0.4)) return offerRelic(r, expShowMap); // a veces, el tesoro es una reliquia
       G.mode = 'chest';
       const res = rollChest(r);
       return ui.showChest(res, () => {
@@ -994,9 +1039,26 @@ export function expEventChoice(ev, i) {
   const r = run(), e = r.exp;
   if (G.mode !== 'event') return;
   const eff = resolveEffect(ev.choices[i].eff, r.lootRng);
-  e.events++;
-  progress('expEvent');
+  const cont = e.afterEvent || expShowMap;
+  e.afterEvent = null;
   const notes = [];
+  if (ev.id === 'relic') {
+    if (eff.relic) gainRelic(r, eff.relic);
+    return cont();
+  }
+  if (ev.id !== 'forge') {
+    e.events++;
+    progress('expEvent');
+    if (hasRelic(r, 'mapa')) { r.coins += 20; notes.push('🗺️ +20 🪙'); }
+  }
+  // subir cartas de nivel (Forja, Espejo, Peregrino)
+  for (let k = 0; k < (eff.upgrade || 0); k++) {
+    const owned = Object.keys(r.cards).filter((id) => r.cards[id] < CARD_BY_ID[id].max);
+    if (!owned.length) break;
+    const id = r.lootRng.pick(owned);
+    pickCard(id);
+    notes.push(`${CARD_BY_ID[id].icon} ${CARD_BY_ID[id].name} sube`);
+  }
   if (eff.coins) { r.coins = Math.max(0, r.coins + eff.coins); notes.push(`${eff.coins > 0 ? '+' : ''}${eff.coins} 🪙`); }
   if (eff.shields > 0) notes.push(gainShield(eff.shields, `+${eff.shields} 🛡️`));
   if (eff.shields < 0) { r.shields = Math.max(0, r.shields + eff.shields); notes.push(`${eff.shields} 🛡️`); }
@@ -1007,11 +1069,13 @@ export function expEventChoice(ev, i) {
   if ('lucky' in eff) notes.unshift(eff.lucky ? '¡SUERTE!' : 'Mala suerte…');
   const reward = notes.join(' · ');
   const n = eff.card ? 1 : eff.cards || 0;
+  // una reliquia a elegir (Oráculo, Contrabandista, Reliquia maldita)
+  const end = eff.relic === 'pick' ? () => offerRelic(r, cont) : cont;
   if (!n) {
     if (reward) fx.notice(reward, '#ffe600');
-    return expShowMap();
+    return end();
   }
-  const more = (left) => openCards({ minRarity: eff.card && eff.card !== 'common' ? eff.card : null, title: eff.card === 'epic' ? '¡CARTA ÉPICA!' : 'ELIGE UNA CARTA', next: false, reward, after: left > 1 ? () => more(left - 1) : expShowMap });
+  const more = (left) => openCards({ minRarity: eff.card && eff.card !== 'common' ? eff.card : null, title: eff.card === 'epic' ? '¡CARTA ÉPICA!' : 'ELIGE UNA CARTA', next: false, reward, after: left > 1 ? () => more(left - 1) : end });
   more(n);
 }
 
@@ -1039,7 +1103,8 @@ function expWin(gems) {
   G.mode = 'expEnd';
   musicStop();
   save.expedition.wins++;
-  save.expedition.best = Math.max(save.expedition.best, progressOf(ACTS.length, 0));
+  save.expedition.best = Math.max(save.expedition.best, progressOf(r.exp.total, 0));
+  if (r.exp.total >= ACTS.length) progress('exp4');
   const xp = (xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400) * r.xpMult;
   const banked = bankCoins(save, r.coins);
   const xpBefore = save.xp;
@@ -1117,7 +1182,7 @@ function die() {
   const rankUps = addXp(save, xp);
   const banked = bankCoins(save, r.coins); // las 🪙 que sobran, a tu cartera
   persist();
-  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, banked, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, cards: r.cards, synergies: [...r.synergies] };
+  r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row, total: r.exp.total } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, banked, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, cards: r.cards, synergies: [...r.synergies] };
 }
 
 // ---------- Campaña: meta ----------

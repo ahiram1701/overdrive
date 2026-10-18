@@ -1037,3 +1037,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .tt-body b { font: italic 900 15px var(--font); }
 .tt-body small { color: var(--muted); font-size: 11px; }
 .tt-row em { font: 900 13px var(--font); color: var(--yellow); font-style: normal; }
+
+/* ---------- Expedición: reliquias y forja ---------- */
+.em-relics { letter-spacing: 2px; }
+.em-node.t-forge small { color: #ff9f0a; }

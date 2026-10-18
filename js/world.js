@@ -566,6 +566,7 @@ export function spawnBoss(r) {
   const lv = r.camp?.level;
   let def = BOSS_BY_ID[lv?.boss] || BOSS_BY_ID[FORCED_BOSS] || bossFor(Math.floor(r.section / 3));
   if (lv?.elite) def = makeElite(def, lv.elite.attack);
+  if (r.exp?.act === 3) def = makeElite(def, 'mines'); // EL ABISMO: jefe ÉLITE
   const hp = bossHp(r.section, !!def.elite);
   r.boss = {
     def, id: def.id, name: def.name, hp, max: hp, phase: 0, calm: 1.5,
