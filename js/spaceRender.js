@@ -508,6 +508,28 @@ export function renderSpace(dt) {
     }
   }
 
+  // MINAS y SEÑUELO (consumibles)
+  for (const m of s.mines || []) {
+    const p = project(cam, m.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const r = Math.max(3, p.s * 4);
+      ctx.fillStyle = m.arm > 0 || Math.floor(G.realTime * 4) % 2 ? '#ff9f0a' : '#ff2d55';
+      ctx.beginPath(); ctx.arc(p.x, p.y, r, 0, Math.PI * 2); ctx.fill();
+    } });
+  }
+  if (s.decoy) {
+    const p = project(cam, s.decoy.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const def = shipDef(), size = Math.max(14, p.s * 4.2);
+      ctx.globalAlpha = 0.45 + 0.25 * Math.sin(G.realTime * 10);
+      drawShip(ctx, def.id, { hull: '#000', edge: '#ffe600', glow: '#ffe600' }, p.x, p.y, size, { pitch: -0.32, roll: 0, yaw: 0 }, { line: 1.5 });
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = '#ffe600';
+      ctx.font = 'italic 900 11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('🎈 SEÑUELO', p.x, p.y - size);
+    } });
+  }
   // BALIZA de la historia
   if (s.storyMarker) {
     const p = project(cam, s.storyMarker, 1);

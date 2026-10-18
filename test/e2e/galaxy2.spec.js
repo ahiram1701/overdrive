@@ -204,3 +204,46 @@ test('🎒 panel de vuelo: inventario y misiones activas; pausa la partida y se 
   expect(await page.evaluate(() => window.G.mode)).toBe('galaxy');
   expect(errors).toEqual([]);
 });
+
+test('mercado y mantenimiento: vender mucho baja el precio, peaje al saltar, kit y recarga de misiles de pago', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 3000, up: { missile: 3, jump: 5 }, missiles: 1, cargo: { iron: 30 } } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  // primera venta de 30 y otra igual: la segunda paga menos (saturación)
+  const c0 = await page.evaluate(() => window.__save.galaxy.credits);
+  await page.locator('#btnSell').click();
+  const c1 = await page.evaluate(() => window.__save.galaxy.credits);
+  await page.evaluate(() => { window.__save.galaxy.cargo.iron = 30; });
+  await page.evaluate(() => document.getElementById('btnUndock').click());
+  await page.waitForFunction(() => window.G.mode === 'galaxy');
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await expect(page.locator('#stCargo .sat')).toContainText('📉');
+  await page.locator('#btnSell').click();
+  const c2 = await page.evaluate(() => window.__save.galaxy.credits);
+  expect(c2 - c1).toBeLessThan(c1 - c0);
+  // recargar misiles cuesta créditos
+  const m0 = await page.evaluate(() => ({ c: window.__save.galaxy.credits, m: window.__save.galaxy.missiles }));
+  await page.locator('#btnRefill').click();
+  const m1 = await page.evaluate(() => ({ c: window.__save.galaxy.credits, m: window.__save.galaxy.missiles }));
+  expect(m1.m).toBeGreaterThan(m0.m);
+  expect(m1.c).toBeLessThan(m0.c);
+  // comprar un kit de reparación y usarlo en vuelo (tecla 1)
+  await page.locator('[data-item="repair"]').click();
+  await page.evaluate(() => document.getElementById('btnUndock').click());
+  await page.waitForFunction(() => window.G.mode === 'galaxy');
+  await page.evaluate(() => { window.G.space.ship.hull = 20; });
+  await page.keyboard.press('1');
+  expect(await page.evaluate(() => ({ hull: window.G.space.ship.hull, kits: window.__save.galaxyItems.repair }))).toEqual({ hull: 60, kits: 0 });
+  // peaje al cruzar una puerta
+  const cg = await page.evaluate(() => {
+    const s = window.G.space, gt = s.sys.gates[0];
+    const before = window.__save.galaxy.credits;
+    s.ship.pos = { ...gt.pos };
+    window.D.step(1 / 60, false);
+    return { before, after: window.__save.galaxy.credits };
+  });
+  expect(cg.after).toBeLessThan(cg.before);
+  expect(errors).toEqual([]);
+});

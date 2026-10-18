@@ -145,6 +145,17 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **🗺️ Mapa galáctico:** ves lo visitado y sus vecinos (lo demás es niebla). Toca un sistema y **traza la ruta**: la brújula te guía de puerta en puerta.
 - **Piratas:** atacan en pasadas, esquivan y huyen con poca vida. Llevan corchetes rojos para verlos siempre, y sueltan 💰. En los sistemas más peligrosos hay **jefes piratas**. Tu láser se **sobrecalienta** si no paras.
 - **Comercio:** cada estación paga distinto. Compra barato el mineral local y véndelo donde lo paguen más.
+  - **Mercado vivo:** cada estación paga las 10 primeras unidades de un mineral a precio completo. A partir de ahí, cada una baja un 2% (hasta −60%, la estación muestra "📉 −34%"). El precio se recupera mientras vuelas. Vaciar la bodega siempre en el mismo sitio sale caro; repartir entre sistemas, no.
+- **Mantenimiento:**
+  - **peaje** en cada puerta de salto (25 + 15 × el peligro del destino; si no te llega, te lo perdonan);
+  - **recargar misiles** cuesta 40 💰 cada uno, en los Suministros de las estaciones;
+  - reparar cuesta más.
+- **🛒 Suministros** (en las estaciones, hasta 5 de cada uno). En vuelo, con el botón **🧰** o las teclas **1–5**:
+  - 🧰 kit de reparación (+40% de casco);
+  - 🔋 escudo de emergencia;
+  - 💣 minas (3 detrás de ti);
+  - 🎈 señuelo (los piratas lo persiguen 6 s);
+  - 🏠 baliza de retorno (a tu estación base).
 - **Zona segura:** junto a las estaciones los piratas no entran.
 - **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos):
   - 🎯 caza: elimina N piratas en un sistema;

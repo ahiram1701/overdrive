@@ -9,7 +9,8 @@ import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem } from './spaceGame.js';
+import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 
@@ -79,7 +80,11 @@ initInput({
   },
   // doble toque (o Shift): DASH en el runner y la arena. En la galaxia, doble toque = TONEL y Shift = impulso
   double: () => (G.mode === 'galaxy' ? (held.has('Shift') ? spaceBoost() : held.has(' ') ? null : spaceRoll()) : G.mode === 'arena' ? arenaDash() : dash()),
-  extra: (k) => { if (G.mode !== 'galaxy') return; if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else spaceMissile(); },
+  extra: (k) => {
+    if (G.mode !== 'galaxy') return;
+    if ('12345'.includes(k)) useItem(ITEM_KEYS[Number(k) - 1]); // consumibles
+    else if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else spaceMissile();
+  },
   ability: () => (G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {
     if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();

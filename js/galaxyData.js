@@ -57,7 +57,7 @@ export const ORES = {
 };
 export const cargoCount = (cargo) => Object.values(cargo).reduce((a, b) => a + b, 0);
 export const cargoValue = (cargo, prices = {}) => Object.entries(cargo).reduce((s, [k, n]) => s + n * (prices[k] ?? ORES[k].price), 0);
-export const repairCost = (hull, max) => Math.ceil((max - hull) * 1.2);
+export const repairCost = (hull, max) => Math.ceil((max - hull) * 1.8); // mantenimiento: reparar no es gratis
 
 // ---------- Sistema ----------
 // El primer sistema, ORIGEN: un sol, 3 planetas, un cinturón de asteroides y una estación.

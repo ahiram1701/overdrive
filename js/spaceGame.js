@@ -16,6 +16,7 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear } from './crafting.js';
+import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
@@ -106,7 +107,7 @@ function enterSystem(s, id, fromId) {
   s.pois = poisOf(GAL, id);
   s.scanT = 0;
   s.freighter = null;
-  s.missiles = []; s.emissiles = []; s.blasts = []; s.sparks = []; s.trail = [];
+  s.missiles = []; s.emissiles = []; s.blasts = []; s.sparks = []; s.trail = []; s.mines = []; s.decoy = null;
   s.base = null; s.event = null; s.act = null;
   s.lock = { ref: null, t: 0, locked: false };
   const g = gal();
@@ -426,6 +427,9 @@ function updatePirates(s, dt) {
     if (p.raider && fr && fr.hp > 0) {
       target = fr.pos;
       p.state = 'attack';
+    } else if (s.decoy && !p.boss) {
+      target = s.decoy.pos; // SEÑUELO: lo persiguen a él
+      p.state = 'attack';
     } else if (p.state === 'attack') {
       // apunta a donde vas a estar (te adelanta un poco)
       target = add(sh.pos, scale(basis(sh.yaw, sh.pitch).f, (sh.speed || 90) * Math.min(1, d / 400)));
@@ -443,7 +447,7 @@ function updatePirates(s, dt) {
     if (ds < SAFE_R) p.pos = add(st, scale(norm(sub(p.pos, st)), SAFE_R));
     // disparo: alineado contigo y a tiro
     p.fireCd -= dt;
-    const aim = p.raider && s.freighter ? s.freighter.pos : sh.pos;
+    const aim = p.raider && s.freighter ? s.freighter.pos : s.decoy && !p.boss ? s.decoy.pos : sh.pos;
     const dAim = dist(p.pos, aim);
     if (p.state === 'attack' && dAim < 520 && p.fireCd <= 0 && angleTo(p.pos, p.yaw, p.pitch, aim) < (p.boss ? 0.35 : 0.18) && (p.raider || !playerSafe)) {
       p.fireCd = p.boss ? 0.9 : Math.max(0.5, 1.2 - GAL[s.sysId].danger * 0.08);
@@ -676,6 +680,53 @@ export function forceEvent(kind) {
   if (s) startEvent(s, { kind, id: `force-${s.sysId}-${kind}` });
 }
 
+// ---------- Consumibles de vuelo ----------
+export function useItem(id) {
+  const s = S();
+  if (!s || G.mode !== 'galaxy' || !ITEMS[id] || itemCount(save, id) <= 0) return false;
+  const sh = s.ship, st = stats(), g = gal();
+  if (id === 'repair' && sh.hull >= st.hull) { fx.notice('🧰 El casco ya está entero', '#b8c2cc'); return false; }
+  if (id === 'shield' && sh.shield >= st.shield) { fx.notice('🔋 El escudo ya está lleno', '#b8c2cc'); return false; }
+  if (id === 'beacon' && s.jumpT > 0) return false;
+  takeItem(save, id);
+  if (id === 'repair') { sh.hull = Math.min(st.hull, sh.hull + st.hull * 0.4); g.hull = sh.hull; }
+  else if (id === 'shield') { sh.shield = st.shield; sh.shieldFx = 0.6; }
+  else if (id === 'mines') {
+    for (let i = 0; i < 3; i++) s.mines.push({ pos: add(add(sh.pos, scale(sh.f, -14 - i * 12)), scale(sh.r, (i - 1) * 10)), life: 25, arm: 0.6 });
+  } else if (id === 'decoy') {
+    s.decoy = { pos: add(sh.pos, scale(sh.f, -30)), t: 6 };
+  } else if (id === 'beacon') {
+    const home = g.home ?? 0;
+    if (home === s.sysId) undockPose(s);
+    else { s.jumpT = 1.1; s.jumpTo = home; s.beaconJump = true; }
+    fx.flash('#7df9ff', 0.6);
+  }
+  fx.notice(`${ITEMS[id].icon} ${ITEMS[id].name}`, '#7df9ff');
+  sfx.ui();
+  persist();
+  return true;
+}
+function updateItems(s, dt) {
+  if (s.decoy) { s.decoy.t -= dt; if (s.decoy.t <= 0) s.decoy = null; }
+  for (const m of s.mines) {
+    m.life -= dt;
+    m.arm -= dt;
+    if (m.arm > 0) continue;
+    const near = s.pirates.find((p) => p.alive && dist(p.pos, m.pos) < 40);
+    if (!near) continue;
+    m.life = 0;
+    blast(s, m.pos, 60, '#ff9f0a', 0.6);
+    for (const p of s.pirates) {
+      if (!p.alive || dist(p.pos, m.pos) > 60) continue;
+      p.hp -= 150;
+      p.flash = 0.1;
+      if (p.hp <= 0) killPirate(s, p);
+    }
+    sfx.boom();
+  }
+  s.mines = s.mines.filter((m) => m.life > 0);
+}
+
 // ---------- Acciones ----------
 // MISIL: necesita un blanco fijado (mantenerlo en el visor) y munición (se recarga al atracar)
 export function spaceMissile() {
@@ -712,9 +763,8 @@ export function spaceAct() {
   if (!s || G.mode !== 'galaxy' || !s.act) return;
   const g = gal();
   if (s.act.kind === 'trade') {
-    const prices = stationPrices(s.sysId);
     let total = 0;
-    for (const [k, n] of Object.entries(g.cargo)) { total += Math.round(n * prices[k] * 1.4); g.cargo[k] = 0; }
+    for (const [k, n] of Object.entries(g.cargo)) { if (n) { total += Math.round(marketValue(k, n, s.sysId) * 1.4); recordSale(save, s.sysId, k, n); } g.cargo[k] = 0; }
     if (!total) { fx.notice('🚚 No llevas carga que venderles', '#ff9f0a'); return; }
     g.credits += total;
     g.earned = (g.earned || 0) + total;
@@ -748,7 +798,8 @@ export function planetSell(idx) {
   const s = S(), g = gal(), info = planetOf(idx);
   const n = g.cargo[info.buys] || 0;
   if (!n) return 0;
-  const total = Math.round(n * stationPrices(s.sysId)[info.buys] * info.mult);
+  const total = Math.round(marketValue(info.buys, n, s.sysId) * info.mult);
+  recordSale(save, s.sysId, info.buys, n);
   g.cargo[info.buys] = 0;
   g.credits += total;
   g.earned = (g.earned || 0) + total;
@@ -782,7 +833,7 @@ export function dock() {
   const g = gal();
   g.hull = s.ship.hull;
   g.home = s.sysId; // aquí reapareces si te destruyen
-  g.missiles = missileAmmo(g.up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? 2 : 0); // munición llena
+  g.missiles = Math.min(g.missiles || 0, missileMax()); // la recarga se paga en la estación
   if (s.event?.kind === 'rescue' && s.event.held && !s.event.done) {
     s.event.done = true;
     const c = 270 + GAL[s.sysId].danger * 60;
@@ -814,11 +865,18 @@ export function undock() {
 export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.2);
 
+// lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
+export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore]);
+// lo que pagaría por n unidades (cada una algo menos)
+export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore]);
+
 export function sellAll() {
-  const g = gal(), prices = stationPrices();
+  const g = gal(), sys = S()?.sysId ?? 0;
   let got = 0;
   for (const [k, n] of Object.entries(g.cargo)) {
-    got += n * prices[k];
+    if (!n) continue;
+    got += marketValue(k, n, sys);
+    recordSale(save, sys, k, n);
     g.cargo[k] = 0;
   }
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
@@ -846,6 +904,21 @@ export function buyOre(ore, n = 1) {
   return k;
 }
 
+// MISILES: capacidad y recarga de pago (más barata en estaciones amigas)
+export const missileMax = () => missileAmmo(gal().up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? 2 : 0);
+export const missileRefillCost = () => Math.max(0, missileMax() - (gal().missiles || 0)) * Math.round(MISSILE_PRICE * repBonus(S()?.sysId ?? 0).disc);
+export function refillMissiles() {
+  const g = gal(), c = missileRefillCost();
+  if (!c || g.credits < c) return false;
+  g.credits -= c;
+  g.missiles = missileMax();
+  sfx.coin(4);
+  persist();
+  return true;
+}
+// CONSUMIBLES con descuento de la facción de la estación
+export const itemDisc = () => repBonus(S()?.sysId ?? 0).disc;
+
 // precio de una mejora: atracado en una estación amiga, con descuento
 export function stationUpCost(id, lvl) {
   const c = upgradeCost(id, lvl);
@@ -859,7 +932,7 @@ export function buyUpgrade(id) {
   if (c === null || g.credits < c) return false;
   g.credits -= c;
   g.up[id] = lvl + 1;
-  if (id === 'missile') g.missiles = missileAmmo(g.up.missile);
+  if (id === 'missile' && lvl === 0) g.missiles = missileMax(); // la primera carga, de regalo
   progress('galaxyUpgrade');
   sfx.milestone();
   persist();
@@ -1054,6 +1127,7 @@ export function updateSpace(dt) {
     if (s.jumpT <= 0) {
       const from = s.sysId;
       enterSystem(s, s.jumpTo, from);
+      if (s.beaconJump) { s.beaconJump = false; undockPose(s); } // BALIZA: directo a la estación
       progress('jump');
     }
     s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
@@ -1099,6 +1173,7 @@ export function updateSpace(dt) {
   sh.speed = Math.abs(speed) < 0.5 && want === 0 ? 0 : speed;
   const b = { f: sh.f, r: sh.r, u: sh.u };
   sh.pos = add(sh.pos, scale(b.f, sh.speed * dt));
+  recoverMarket(save, dt);
   // estela del motor en el mundo (cinta 3D)
   s.trailT = (s.trailT || 0) + dt;
   if (s.trailT > 0.025) {
@@ -1261,6 +1336,7 @@ export function updateSpace(dt) {
   s.sys.asteroids = s.sys.asteroids.filter((a) => a.alive);
 
   updatePirates(s, dt);
+  updateItems(s, dt);
   updateBase(s, dt);
   updateDevourer(s, dt);
   updateStoryMarker(s, dt);
@@ -1344,6 +1420,9 @@ export function updateSpace(dt) {
     }
     s.jumpT = 1.1;
     s.jumpTo = gt.to;
+    // PEAJE de la puerta (si no te llega, te lo perdonan: nunca te quedas atrapado)
+    const toll = tollFor(to.danger);
+    if (g.credits >= toll) { g.credits -= toll; fx.notice(`🌀 Peaje −${toll} 💰`, '#b8c2cc'); } else fx.notice('🌀 Peaje perdonado (no te llegaba)', '#ff9f0a');
     fx.flash('#ffffff', 0.8);
     fx.banner('🌀 SALTO', `rumbo a ${to.name}`, '#7df9ff', true);
     sfx.od();
