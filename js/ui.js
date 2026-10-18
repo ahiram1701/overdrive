@@ -1017,7 +1017,8 @@ export const ui = {
 
   // ---------- GALAXIA ----------
   showSpaceHUD(on) {
-    if (on && G.mode === 'galaxy') setTimeout(() => storyIntro(), 400);
+    // un poco después de despegar, y solo si sigues volando (si abriste el mapa, espera al próximo)
+    if (on && G.mode === 'galaxy') setTimeout(() => { if (G.mode === 'galaxy') storyIntro(); }, 400);
     $('spaceHud').classList.toggle('hidden', !on);
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
   },
