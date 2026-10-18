@@ -235,8 +235,12 @@ El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu
   - ❓ Evento: 12 decisiones de riesgo y recompensa, como un casino, un altar o una nave abandonada;
   - 🎁 Tesoro;
   - 🔥 Descanso: +1 escudo o sube de nivel una carta;
+  - 🔨 **Forja**: sube 2 cartas de nivel, o funde 40 🪙 en una carta épica;
   - 👾 Jefe.
 - Escudos, monedas y cartas te acompañan todo el viaje. Si caes, se acaba.
+- **🏺 Reliquias** (10, eliges 1 de 3): las dan siempre los jefes, a veces los élites y los tesoros, y eventos como el Oráculo o el Contrabandista. Duran toda la expedición: Escudo de cristal (el primer golpe de cada tramo no cuenta), Avaro, Brasa eterna, Coleccionista (una carta más para elegir), Corazón de reserva, Hucha, Imán eterno, Gema del viajero, Cartógrafo y Pluma de fénix (una vida extra). Se ven arriba del mapa.
+- **18 eventos** (6 nuevos: Oráculo, Contrabandista, Reliquia maldita, Espejo gemelo, Ruleta y Peregrino).
+- **Acto 4 · EL ABISMO:** tras completar una expedición, las siguientes tienen un 4.º acto con jefe ÉLITE. Logro **Del abismo**.
 - Cada acto superado da gemas; completar la expedición da un buen premio de XP. Logros propios.
 
 ## 🏁 Modo CARRERAS

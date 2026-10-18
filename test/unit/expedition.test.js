@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng } from '../../js/rng.js';
-import { ROWS, NODE, genAct, nodeById, startOf, EVENTS, canChoose, resolveEffect, eventFor, progressOf } from '../../js/expedition.js';
+import { ROWS, NODE, genAct, nodeById, startOf, EVENTS, canChoose, resolveEffect, eventFor, progressOf, ACTS, actsTotal, RELICS, RELIC_KEYS, offerRelics, relicEvent, FORGE } from '../../js/expedition.js';
+import { loadFrom } from '../../js/save.js';
 
 test('mapa: salida abajo, jefe arriba, 2-4 nodos por fila, tipos válidos y determinista', () => {
   for (const seed of [1, 2, 99, 12345]) {
@@ -58,4 +59,25 @@ test('eventos: opciones con requisitos, efectos con azar resueltos y determinist
   assert.deepEqual([...results].sort(), [false, true], 'a veces se gana y a veces no');
   assert.equal(eventFor(5, '0-3-1').id, eventFor(5, '0-3-1').id);
   assert.ok(progressOf(1, 0) > progressOf(0, 6));
+});
+
+test('reliquias: 10, se ofrecen 3 distintas que no tienes; el 4.º acto, tras ganar una expedición', () => {
+  assert.equal(RELIC_KEYS.length, 10);
+  for (const k of RELIC_KEYS) assert.ok(RELICS[k].icon && RELICS[k].name && RELICS[k].desc);
+  for (let i = 0; i < 30; i++) {
+    const o = offerRelics(['cristal', 'avaro'], makeRng(i));
+    assert.equal(o.length, 3);
+    assert.equal(new Set(o).size, 3);
+    assert.ok(!o.includes('cristal') && !o.includes('avaro'));
+  }
+  assert.deepEqual(offerRelics(RELIC_KEYS, makeRng(1)), [], 'con todas, ninguna');
+  const ev = relicEvent(['iman', 'gema', 'fenix']);
+  assert.equal(ev.choices.length, 4, '3 reliquias y «ninguna»');
+  assert.equal(ACTS.length, 4);
+  const s = loadFrom(null);
+  assert.equal(actsTotal(s), 3);
+  s.expedition.wins = 1;
+  assert.equal(actsTotal(s), 4);
+  assert.ok(NODE.forge && FORGE.choices.some((c) => canChoose(c, { coins: 0, shields: 0 })));
+  assert.ok(EVENTS.length >= 18, 'eventos nuevos');
 });

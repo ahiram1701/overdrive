@@ -75,3 +75,53 @@ test('expedición: un evento aplica su efecto y vuelve al mapa; el descanso da u
   await expect(page.locator('#emMap .em-node.open').first()).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('reliquias: se eligen en su panel, salen en el mapa y el Escudo de cristal para un golpe; 4.º acto tras ganar', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 6, runs: 5, expedition: { best: 30, wins: 1 } })), SAVE);
+  await page.goto('/?debug&nosw&seed=4');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { window.G.manual = true; });
+  await page.locator('#btnRunner').click();
+  await page.locator('#btnExpedition').click();
+  await page.waitForFunction(() => window.G.mode === 'play');
+  expect(await page.evaluate(() => window.G.run.exp.total)).toBe(4);
+  // elegir una reliquia en el panel (el mismo de los eventos)
+  await page.evaluate(async () => {
+    const { ui } = await import('/js/ui.js');
+    const { relicEvent } = await import('/js/expedition.js');
+    window.G.mode = 'event';
+    ui.showExpEvent(relicEvent(['cristal', 'avaro', 'brasa']), window.G.run);
+  });
+  await expect(page.locator('#expEvent')).toContainText('RELIQUIA');
+  await page.locator('#eeChoices [data-choice="0"]').click();
+  await expect(page.locator('#expMap')).toBeVisible();
+  await expect(page.locator('#emStatus .em-relics')).toContainText('🛡️');
+  // el Escudo de cristal: el primer golpe del tramo no quita escudo
+  const hit = await page.evaluate(async () => {
+    const { onHit } = await import('/js/game.js');
+    const r = window.G.run;
+    r.shields = 1;
+    window.G.player.invuln = 0;
+    onHit({ type: 'wall', x: 0, y0: 0, y1: 9, alive: true });
+    const first = r.shields;
+    window.G.player.invuln = 0;
+    onHit({ type: 'wall', x: 0, y0: 0, y1: 9, alive: true });
+    return { first, second: r.shields, used: r.crystalUsed };
+  });
+  expect(hit).toEqual({ first: 1, second: 0, used: true });
+  // FORJA: sube cartas de nivel
+  const forge = await page.evaluate(async () => {
+    const { expEventChoice } = await import('/js/game.js');
+    const { FORGE } = await import('/js/expedition.js');
+    const r = window.G.run;
+    r.cards = { iman: 1, chatarrero: 1 };
+    const before = Object.values(r.cards).reduce((a, b) => a + b, 0);
+    window.G.mode = 'event';
+    expEventChoice(FORGE, 0);
+    return { gained: Object.values(r.cards).reduce((a, b) => a + b, 0) - before, mode: window.G.mode };
+  });
+  expect(forge.gained).toBe(2);
+  expect(forge.mode).toBe('map');
+  expect(errors).toEqual([]);
+});

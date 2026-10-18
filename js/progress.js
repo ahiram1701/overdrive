@@ -159,6 +159,7 @@ export const ACHIEVEMENTS = [
   { id: 'arenaMaps', kind: 'arenaMapsWon', mode: 'best', n: 4, tier: 'gold', name: 'Conquistador', desc: 'Gana la ARENA en los 4 mapas' },
   { id: 'leviatan', kind: 'leviatan', mode: 'sum', n: 1, tier: 'gold', name: 'Deshielo', desc: 'Derrota al Leviatán de hielo del GLACIAR' },
   { id: 'tt5', kind: 'ttGold', mode: 'best', n: 5, tier: 'gold', name: 'Cronómetro', desc: 'Gana 5 oros en CONTRARRELOJ' },
+  { id: 'exp4', kind: 'exp4', mode: 'sum', n: 1, tier: 'gold', name: 'Del abismo', desc: 'Completa una EXPEDICIÓN de 4 actos' },
 ];
 export const ACH_GEMS = T;
 
