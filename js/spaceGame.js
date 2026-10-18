@@ -15,6 +15,8 @@ import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
+import { MATS, addMat, dropsOf, hasGear } from './crafting.js';
+import { currentChapter, storyEvent, storyState, markerPos } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 
@@ -35,6 +37,8 @@ const stats = () => {
   // TALENTOS de la galaxia
   if (hasTalent(save, 'g1')) st.cargo += 10;
   if (hasTalent(save, 'g5')) st.shield += 20;
+  if (hasGear(save, 'hold')) st.cargo += 15;
+  if (hasGear(save, 'reactive')) st.regen *= 1.6;
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };
@@ -144,7 +148,163 @@ function enterSystem(s, id, fromId) {
     }
   }
   spawnBounty(s);
+  s.devourer = null;
+  s.markerT = 0;
+  spawnStoryBoss(s);
   persist();
+}
+
+// ---------- Materiales ----------
+function gainMats(s, drops) {
+  const parts = [];
+  for (const [k, n] of Object.entries(drops)) { addMat(save, k, n); parts.push(`+${n} ${MATS[k].icon}`); }
+  if (parts.length) fx.notice(parts.join(' '), '#b8c2cc');
+}
+
+// ---------- Historia: LA SEÑAL ----------
+export const storyChapter = () => currentChapter(save, GAL);
+function storyHit(s, ev) {
+  const done = storyEvent(save, GAL, ev);
+  if (!done) return;
+  const r = done.reward, g = gal();
+  g.credits += r.credits || 0;
+  save.gems += r.gems || 0;
+  for (const [k, n] of Object.entries(r.mats || {})) addMat(save, k, n);
+  if (r.ship && !save.ships.includes(r.ship)) save.ships.push(r.ship);
+  fx.banner(`📖 ${done.title.toUpperCase()}`, `capítulo completado · +${r.credits || 0} 💰 · +${r.gems || 0} 💎${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}`, '#bf5af2', true);
+  sfx.milestone();
+  progress('chapter');
+  if (r.ship) progress('storyEnd');
+  persist();
+  // diálogo de cierre y, si hay, el del capítulo siguiente
+  const next = storyChapter();
+  ui.showDialog?.([...done.outro, ...(next ? next.intro : [])], next?.choice);
+  if (next) storyState(save).seen[storyState(save).ch] = true;
+  spawnStoryBoss(s);
+}
+export function storyChoose(pick) {
+  const s = S();
+  addRep(save, pick, 20);
+  storyHit(s, { type: 'choice', pick });
+}
+// diálogo de entrada si no se ha visto (al despegar en la galaxia)
+export function storyIntro() {
+  const ch = storyChapter(), st = storyState(save);
+  if (!ch || st.seen[st.ch]) return;
+  st.seen[st.ch] = true;
+  persist();
+  ui.showDialog?.(ch.intro, ch.choice);
+}
+function spawnStoryBoss(s) {
+  const ch = storyChapter();
+  if (!ch || ch.goal.kind !== 'boss' || ch.goal.sys !== s.sysId) return;
+  if (ch.goal.boss === 'herald' && !s.pirates.some((p) => p.story === 'herald')) {
+    spawnPirate(s, true);
+    const h = s.pirates[s.pirates.length - 1];
+    Object.assign(h, { story: 'herald', name: 'EL HERALDO', hp: 1500, max: 1500, mesh: 'wanderer', size: 15, speed: 95, dmg: 14 });
+    fx.banner('👁️ EL HERALDO', 'te estaba esperando', '#ff2d55', true);
+  }
+  if (ch.goal.boss === 'devourer' && !s.devourer) spawnDevourer(s);
+}
+
+// EL DEVORADOR DE ESTRELLAS: fase 1, tres ojos (el núcleo es invulnerable); fase 2, núcleo al
+// descubierto con oleadas de drones y misiles; fase 3 (furia, <30%), anillos de balas.
+export function spawnDevourer(s = S()) {
+  const st = s.sys.station.pos;
+  const pos = add(st, { x: 700, y: 160, z: 700 });
+  s.devourer = { pos, r: 60, hp: 4200, max: 4200, phase: 1, spin: 0, flash: 0, waveT: 6, volleyT: 4, ringT: 3, eyeT: 2,
+    eyes: [0, 1, 2].map((i) => ({ ang: (i / 3) * Math.PI * 2, hp: 450, max: 450, alive: true, eye: true, pos: { ...pos }, flash: 0 })) };
+  fx.banner('🌑 EL DEVORADOR DE ESTRELLAS', 'destruye sus tres ojos para dejar el núcleo al descubierto', '#bf5af2', true);
+  fx.shake(20);
+  sfx.boom();
+}
+function updateDevourer(s, dt) {
+  const d = s.devourer;
+  if (!d) return;
+  const sh = s.ship;
+  d.spin += dt * (d.phase === 3 ? 0.9 : 0.4);
+  d.flash = Math.max(0, d.flash - dt);
+  // se acerca despacio, sin pegarse
+  const dd = dist(d.pos, sh.pos);
+  if (dd > 260) d.pos = add(d.pos, scale(norm(sub(sh.pos, d.pos)), (d.phase === 3 ? 40 : 22) * dt));
+  if (dd < d.r + 8) sh.pos = add(d.pos, scale(norm(sub(sh.pos, d.pos)), d.r + 9));
+  for (const e of d.eyes) {
+    e.pos = add(d.pos, { x: Math.cos(e.ang + d.spin) * d.r * 0.95, y: Math.sin(e.ang * 2 + d.spin) * d.r * 0.35, z: Math.sin(e.ang + d.spin) * d.r * 0.95 });
+    e.flash = Math.max(0, e.flash - dt);
+  }
+  const near = dd < 900;
+  // la furia llega por vida, estés donde estés (los ataques sí necesitan tenerte cerca)
+  if (d.phase === 2 && d.hp < d.max * 0.3) { d.phase = 3; fx.banner('🌑 FURIA', 'el Devorador se desata', '#ff2d55', true); }
+  if (d.phase === 1) {
+    d.eyeT -= dt;
+    if (d.eyeT <= 0 && near) {
+      d.eyeT = 2.2;
+      for (const e of d.eyes) if (e.alive) s.ebolts.push({ pos: { ...e.pos }, vel: scale(norm(sub(sh.pos, e.pos)), 520), life: 2, dmg: 9 });
+    }
+    if (d.eyes.every((e) => !e.alive)) {
+      d.phase = 2;
+      fx.banner('🌑 ¡EL NÚCLEO!', 'ahora sí: dispara al centro', '#ffe600', true);
+      fx.shake(24);
+    }
+  } else if (near) {
+    d.waveT -= dt;
+    d.volleyT -= dt;
+    if (d.waveT <= 0) { d.waveT = 9; spawnPirate(s, false, 'drone', add(d.pos, { x: 0, y: -d.r - 20, z: 0 })); }
+    if (d.volleyT <= 0) {
+      d.volleyT = 4;
+      for (const k of [-1, 0, 1]) s.emissiles.push({ pos: add(d.pos, { x: k * 30, y: d.r, z: 0 }), vel: scale(norm(sub(sh.pos, d.pos)), 210), life: 7, dmg: 16 });
+    }
+    if (d.phase === 3) {
+      d.ringT -= dt;
+      if (d.ringT <= 0) {
+        d.ringT = 3;
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2;
+          s.ebolts.push({ pos: { ...d.pos }, vel: { x: Math.cos(a) * 380, y: 0, z: Math.sin(a) * 380 }, life: 2.4, dmg: 10 });
+        }
+      }
+    }
+  }
+}
+function hitDevourer(s, ref, dmg) {
+  const d = s.devourer;
+  if (!d) return;
+  if (ref.eye) {
+    if (!ref.alive) return;
+    ref.hp -= dmg;
+    ref.flash = 0.08;
+    if (ref.hp <= 0) { ref.alive = false; blast(s, ref.pos, 50, '#ff2d55', 0.6); sfx.boom(); fx.notice(`👁️ Ojo destruido · quedan ${d.eyes.filter((e) => e.alive).length}`, '#ff2d55'); }
+    return;
+  }
+  if (d.phase === 1) {
+    if (!d.warned) { d.warned = true; fx.notice('🛡️ Invulnerable: destruye primero sus 3 ojos', '#ffe600'); }
+    return;
+  }
+  d.hp -= dmg;
+  d.flash = 0.08;
+  if (d.hp <= 0) killDevourer(s);
+}
+function killDevourer(s) {
+  const d = s.devourer;
+  s.devourer = null;
+  for (let i = 0; i < 4; i++) blast(s, add(d.pos, { x: (i - 1.5) * 30, y: 0, z: 0 }), 200 + i * 60, i % 2 ? '#bf5af2' : '#ffe600', 1.2 + i * 0.3);
+  fx.flash('#ffffff', 0.9);
+  fx.shake(40);
+  sfx.boom();
+  gainMats(s, { nucleos: 5, artefactos: 3 });
+  s.loot.push({ pos: { ...d.pos }, credits: 2000, life: 120 });
+  storyHit(s, { type: 'boss', boss: 'devourer', sys: s.sysId });
+}
+
+// BALIZA de la historia: quédate cerca 2 s
+function updateStoryMarker(s, dt) {
+  const ch = storyChapter();
+  if (!ch || ch.goal.kind !== 'reach' || ch.goal.sys !== s.sysId) { s.storyMarker = null; return; }
+  s.storyMarker = markerPos(s.sysId);
+  if (dist(s.storyMarker, s.ship.pos) < 70) {
+    s.markerT = (s.markerT || 0) + dt;
+    if (s.markerT >= 2) { s.markerT = 0; storyHit(s, { type: 'reach', sys: s.sysId }); }
+  } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
 }
 
 // ---------- Cazarrecompensas ----------
@@ -363,6 +523,9 @@ function killPirate(s, p) {
     progress('pirateBoss');
   }
   progress('pirate');
+  gainMats(s, dropsOf(p.kind, { boss: p.boss, bounty: !!p.bounty }));
+  if (p.story) storyHit(s, { type: 'boss', boss: p.story, sys: s.sysId });
+  else storyHit(s, { type: 'kill', sys: s.sysId });
   if (s.owner !== 'pir') addRep(save, s.owner, 1);
   addRep(save, 'pir', -1);
   if (s.owner === 'pir') { s.libKills++; checkLiberation(s); }
@@ -443,6 +606,8 @@ function killBase(s) {
   fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo · +3 💎`, '#ffe600', true);
   if (s.event?.kind === 'assault') s.event.done = true;
   progress('pirateBase');
+  gainMats(s, dropsOf('base', { base: true }));
+  storyHit(s, { type: 'base', sys: s.sysId });
   checkLiberation(s);
   persist();
 }
@@ -525,7 +690,7 @@ export function spaceMissile() {
   if (!s.lock.locked || !s.lock.ref) { fx.notice('🎯 Mantén un enemigo en el visor para fijarlo', '#ffe600'); sfx.bump(); return; }
   g.missiles--;
   const sh = s.ship;
-  s.missiles.push({ pos: add(sh.pos, scale(sh.u, -2.5)), vel: scale(sh.f, MISSILE.speed), life: MISSILE.life, target: s.lock.ref, dmg: missileDmg(g.up.missile) });
+  s.missiles.push({ pos: add(sh.pos, scale(sh.u, -2.5)), vel: scale(sh.f, MISSILE.speed * (hasGear(save, 'rapid') ? 1.3 : 1)), life: MISSILE.life, target: s.lock.ref, dmg: missileDmg(g.up.missile) });
   sfx.dash();
   fx.vibe(25);
 }
@@ -606,7 +771,7 @@ export function spaceBoost() {
   const s = S();
   if (!s || G.mode !== 'galaxy' || s.ship.boostCd > 0) return;
   s.ship.boostT = 1.6;
-  s.ship.boostCd = perks().includes('warp') ? 2.3 : 3.5;
+  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 : 1);
   sfx.dash();
   fx.vibe(20);
 }
@@ -620,7 +785,7 @@ export function dock() {
   const g = gal();
   g.hull = s.ship.hull;
   g.home = s.sysId; // aquí reapareces si te destruyen
-  g.missiles = missileAmmo(g.up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0); // munición llena
+  g.missiles = missileAmmo(g.up.missile || 0) + (hasTalent(save, 'g2') ? 2 : 0) + (hasGear(save, 'rapid') ? 2 : 0); // munición llena
   if (s.event?.kind === 'rescue' && s.event.held && !s.event.done) {
     s.event.done = true;
     const c = 150 + GAL[s.sysId].danger * 60;
@@ -630,6 +795,7 @@ export function dock() {
     progress('rescue');
   }
   missionEvent(s, { type: 'dock', sys: s.sysId });
+  storyHit(s, { type: 'dock', sys: s.sysId });
   persist();
   ui.showStation(s);
   progress('dock');
@@ -826,6 +992,7 @@ function updateScan(s, dt) {
   fx.notice(`+${poi.reward} 💰 · ATLAS ${atlasCount()}`, '#ffe600');
   sfx.chest();
   progress('discover');
+  gainMats(s, { artefactos: 1 });
   missionEvent(s, { type: 'scan', poi: poi.id });
   const fresh = ATLAS_PERKS.filter((pk) => perks().includes(pk.id) && !before.includes(pk.id));
   for (const pk of fresh) fx.banner(`✨ ${pk.name}`, pk.desc, '#ffe600', true);
@@ -976,7 +1143,22 @@ export function updateSpace(dt) {
     sh.side = -sh.side;
     const from = add(add(sh.pos, scale(b.r, sh.side * 2.2)), scale(b.f, 4));
     s.bolts.push({ pos: from, vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
+    // EQUIPO fabricado: láser doble, metralla y plasma
+    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
+    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), 950), scale(b.f, speed)), life: 0.6, dmg: st.dmg * 0.6 });
+    if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: st.dmg * 3, plasma: true });
     sfx.swish();
+  }
+
+  // TORRETA automática (equipo): dispara sola al pirata más cercano
+  if (hasGear(save, 'turret')) {
+    s.turretT = (s.turretT || 0) - dt;
+    const tgt = s.turretT <= 0 && s.pirates.filter((p) => p.alive && dist(p.pos, sh.pos) < 450).sort((x, y) => dist(x.pos, sh.pos) - dist(y.pos, sh.pos))[0];
+    if (tgt) {
+      s.turretT = 0.8;
+      const from = add(sh.pos, scale(sh.u, 3));
+      s.bolts.push({ pos: from, vel: scale(norm(sub(tgt.pos, from)), 900), life: 0.7, dmg: st.dmg * 0.7 });
+    }
   }
 
   // tus proyectiles: piratas y asteroides
@@ -994,6 +1176,10 @@ export function updateSpace(dt) {
       break;
     }
     if (!hit && s.base && dist(s.base.pos, bo.pos) < s.base.r + 4) { hitBase(s, bo.dmg); hit = true; }
+    if (!hit && s.devourer) {
+      const eye = s.devourer.eyes.find((e) => e.alive && dist(e.pos, bo.pos) < 16);
+      if (eye) { hitDevourer(s, eye, bo.dmg); hit = true; } else if (dist(s.devourer.pos, bo.pos) < s.devourer.r) { hitDevourer(s, s.devourer, bo.dmg); hit = true; }
+    }
     if (!hit) {
       for (const m of s.emissiles) {
         if (m.life > 0 && dist(m.pos, bo.pos) < 7) { m.life = 0; blast(s, m.pos, 25, '#ffe600', 0.4); hit = true; break; }
@@ -1017,14 +1203,16 @@ export function updateSpace(dt) {
   s.bolts = s.bolts.filter((bo) => bo.life > 0);
 
   // TUS MISILES: persiguen al blanco fijado
-  const tgtPos = (t) => (t === s.base ? (s.base ? s.base.pos : null) : t.alive ? t.pos : null);
+  const tgtPos = (t) => (t === s.base ? (s.base ? s.base.pos : null) : t === s.devourer ? t.pos : t.eye ? (t.alive && s.devourer ? t.pos : null) : t.alive ? t.pos : null);
   for (const m of s.missiles) {
     const tp = m.target && tgtPos(m.target);
     steerMissile(m, tp, dt);
-    if (tp && dist(m.pos, tp) < (m.target === s.base ? s.base.r + 4 : Math.max(8, m.target.size * 1.6))) {
+    const reach = m.target === s.base ? s.base.r + 4 : m.target === s.devourer ? s.devourer.r : m.target.eye ? 16 : Math.max(8, m.target.size * 1.6);
+    if (tp && dist(m.pos, tp) < reach) {
       m.life = 0;
       blast(s, m.pos, 45, '#ffe600', 0.5);
       if (m.target === s.base) hitBase(s, m.dmg);
+      else if (m.target === s.devourer || m.target.eye) hitDevourer(s, m.target, m.dmg);
       else {
         m.target.hp -= m.dmg;
         m.target.flash = 0.1;
@@ -1038,6 +1226,10 @@ export function updateSpace(dt) {
   if (g.up.missile > 0) {
     const cands = s.pirates.filter((p) => p.alive).map((p) => ({ ref: p, pos: p.pos }));
     if (s.base) cands.push({ ref: s.base, pos: s.base.pos });
+    if (s.devourer) {
+      for (const e of s.devourer.eyes) if (e.alive) cands.push({ ref: e, pos: e.pos });
+      if (s.devourer.phase > 1) cands.push({ ref: s.devourer, pos: s.devourer.pos });
+    }
     const was = s.lock.locked;
     s.lock = lockStep(s.lock, cands, sh.pos, sh.f, dt);
     if (s.lock.locked && !was) sfx.ui();
@@ -1070,6 +1262,8 @@ export function updateSpace(dt) {
 
   updatePirates(s, dt);
   updateBase(s, dt);
+  updateDevourer(s, dt);
+  updateStoryMarker(s, dt);
   updateEvent(s, dt);
   updateEscort(s, dt);
   updateScan(s, dt);
@@ -1094,7 +1288,7 @@ export function updateSpace(dt) {
     o.pos = add(o.pos, scale(o.vel, dt));
     o.vel = scale(o.vel, 1 - Math.min(1, dt * 1.5));
     const d = dist(o.pos, sh.pos);
-    if (d < MAGNET_R && cargoCount(g.cargo) < cap) o.vel = add(o.vel, scale(norm(sub(sh.pos, o.pos)), 900 * dt));
+    if (d < MAGNET_R * (hasGear(save, 'bigmag') ? 2 : 1) && cargoCount(g.cargo) < cap) o.vel = add(o.vel, scale(norm(sub(sh.pos, o.pos)), 900 * dt));
     if (d < 9) {
       if (cargoCount(g.cargo) < cap) {
         g.cargo[o.ore] = (g.cargo[o.ore] || 0) + 1;
@@ -1111,7 +1305,7 @@ export function updateSpace(dt) {
   for (const l of s.loot) {
     l.life -= dt;
     const d = dist(l.pos, sh.pos);
-    if (d < MAGNET_R * 1.6) l.pos = add(l.pos, scale(norm(sub(sh.pos, l.pos)), Math.min(d, 400 * dt)));
+    if (d < MAGNET_R * 1.6 * (hasGear(save, 'bigmag') ? 2 : 1)) l.pos = add(l.pos, scale(norm(sub(sh.pos, l.pos)), Math.min(d, 400 * dt)));
     if (d < 10) {
       l.life = 0;
       g.credits += l.credits;
@@ -1210,6 +1404,25 @@ function updateObjective(s) {
     s.objective = { kind: 'liberate', text: s.base ? `🏴‍☠️ Libera ${GAL[s.sysId].name}: destruye la base pirata` : `🏴‍☠️ Libera ${GAL[s.sysId].name}: abate ${Math.max(0, LIBERATE_KILLS - s.libKills)} piratas más` };
     s.target = s.base ? s.base.pos : s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || null;
     if (s.target) return;
+  }
+  // HISTORIA: el capítulo actual (después de lo que eliges tú: caza y liberar este sistema)
+  const ch = storyChapter();
+  if (ch && ch.goal.kind !== 'choice') {
+    const gsys = ch.goal.sys;
+    const text = `📖 Cap. ${storyState(save).ch + 1} · ${ch.goal.text}${ch.goal.n > 1 ? ` (${storyState(save).n}/${ch.goal.n})` : ''}`;
+    if (gsys !== s.sysId) {
+      const path = route(GAL, s.sysId, gsys);
+      const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
+      if (gate && canJump(GAL[path[1]], g.up.jump || 0)) { s.objective = { kind: 'story', text }; s.target = gate.pos; return; }
+    } else {
+      let t = null;
+      if (ch.goal.kind === 'reach') t = s.storyMarker;
+      else if (ch.goal.kind === 'dock') t = s.sys.station.pos;
+      else if (ch.goal.kind === 'base') t = s.base?.pos;
+      else if (ch.goal.kind === 'boss') t = s.devourer ? (s.devourer.eyes.find((ey) => ey.alive)?.pos || s.devourer.pos) : s.pirates.find((p) => p.story)?.pos;
+      else if (ch.goal.kind === 'kill') t = s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos;
+      if (t) { s.objective = { kind: 'story', text }; s.target = t; return; }
+    }
   }
   // MISIÓN activa: te lleva al sistema y, allí, a su objetivo
   const m = g.missions.find((x) => x.progress < x.n);

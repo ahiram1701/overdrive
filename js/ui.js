@@ -14,9 +14,11 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { MATS, GEAR, SLOTS, matOf, owns, canCraft, craft, equipGear, gear } from './crafting.js';
+import { chapters, storyState, CAST } from './story.js';
 import { FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
 import { ABILITIES, readiness, newAbility } from './abilities.js';
@@ -37,6 +39,8 @@ let current = null, pushed = false, skipPop = false;
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
+  // el diálogo de la historia solo convive con el vuelo y la estación (allí se cierra un capítulo)
+  if (id && id !== 'station') $('dialog').classList.add('hidden');
   $('bottomNav').classList.toggle('hidden', !NAV_SCREENS.has(id));
   for (const b of $('bottomNav').querySelectorAll('button')) b.classList.toggle('on', b.dataset.nav === id);
   // historial: una sola entrada mientras hay una pantalla abierta, para que el "atrás" del móvil
@@ -418,7 +422,7 @@ export const ui = {
       const stars = treeStars(lv);
       const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}${prestigeOf(save) >= 5 ? ' gold' : ''}`);
       b.style.setProperty('--sc', s.color);
-      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : `💎 ${s.cost}`}</small>`;
+      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : s.story ? '📖 historia' : `💎 ${s.cost}`}</small>`;
       tap(b, () => { ui.preview = null; ui.showHangar(s.id); });
       car.appendChild(b);
       // cada nave con SU pintura y SU emblema
@@ -441,6 +445,7 @@ export const ui = {
     let action;
     if (inUse) action = '<button class="btn ghost" disabled>EN USO</button>';
     else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
+    else if (view.story) action = '<button class="btn ghost" disabled>📖 Termina la historia LA SEÑAL (Galaxia)</button>';
     else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
     $('shipDetail').innerHTML = `
       <div class="sd-head" style="--sc:${view.color}"><div><h3>${shipName(save, view.id) ? `«${shipName(save, view.id)}» <em>${view.name}</em>` : view.name}</h3><small>${view.desc}</small></div>
@@ -643,7 +648,9 @@ export const ui = {
       <div class="stats">${bars}</div>
       <h3>Nave espacial · 💰 <b id="galCredits">${fmt(g.credits)}</b></h3>
       ${g.started ? '' : '<p class="hint">Aún no has despegado: gana créditos en 🌌 GALAXIA minando y comerciando.</p>'}
-      <div id="galUps" class="list"></div>`;
+      <div id="galUps" class="list"></div>
+      <h3>🔧 Equipo fabricado</h3><div id="galGear" class="st-ups"></div>
+      <p class="hint">Se fabrica en el taller de las estaciones (Fabricación) con créditos y materiales.</p>`;
     for (const [id, u] of Object.entries(SP_UP)) {
       const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
       const row = el('button', `item${c === null ? ' sel' : g.credits < c ? ' locked' : ''}`);
@@ -657,6 +664,16 @@ export const ui = {
       });
       $('galUps').append(row);
     }
+    // reutiliza la lista del taller, pero sin fabricar: solo montar lo que ya tienes
+    const gg = $('galGear');
+    for (const [id, it] of Object.entries(GEAR)) {
+      if (!owns(save, id)) continue;
+      const on = gear(save)[it.slot].includes(id);
+      const b = el('button', `st-up${on ? ' on' : ''}`, `<span class="su-icon">${it.icon}</span><span class="su-body"><b>${it.name}</b><small>${it.desc}</small></span><span class="su-cost">${on ? '✔' : '＋'}</span>`);
+      tap(b, () => { equipGear(save, id); persist(); ui.showHangar(); });
+      gg.append(b);
+    }
+    if (!gg.children.length) gg.innerHTML = '<small>Aún no has fabricado nada.</small>';
   },
 
   // EXPOSICIÓN: la nave a pantalla completa en una sala con focos; deslizar = otra nave
@@ -1000,6 +1017,7 @@ export const ui = {
 
   // ---------- GALAXIA ----------
   showSpaceHUD(on) {
+    if (on && G.mode === 'galaxy') setTimeout(() => storyIntro(), 400);
     $('spaceHud').classList.toggle('hidden', !on);
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
   },
@@ -1230,6 +1248,7 @@ export const ui = {
       });
       box.append(b);
     }
+    ui.renderCraft(() => ui.showStation(s));
     // FACCIÓN de la estación: reputación, ventajas y su tienda (con créditos)
     const own = sysOwner(s.sysId), F = FACTIONS[own], rp = repOf(save, own), lvR = repLevel(rp);
     const fb = $('stFaction');
@@ -1295,11 +1314,78 @@ export const ui = {
     show('station');
   },
 
+  // TALLER de fabricación: materiales, huecos montados y recetas (créditos + materiales)
+  renderCraft(again) {
+    const g = gear(save);
+    $('stMats').innerHTML = Object.entries(MATS).map(([k, m]) => `<span title="${m.desc}">${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('');
+    const slotHtml = (slot, label) => Array.from({ length: SLOTS[slot] }, (_, i) => {
+      const id = g[slot][i];
+      return `<span class="slot${id ? ' full' : ''}">${id ? `${GEAR[id].icon} ${GEAR[id].name}` : `${label} libre`}</span>`;
+    }).join('');
+    $('stSlots').innerHTML = `<div><small>ARMAS</small>${slotHtml('w', '🔫')}</div><div><small>MÓDULOS</small>${slotHtml('m', '⚙️')}</div>`;
+    const box = $('stCraft');
+    box.innerHTML = '';
+    for (const [id, it] of Object.entries(GEAR)) {
+      const has = owns(save, id), on = g[it.slot].includes(id);
+      const cost = Object.entries(it.cost).map(([k, n]) => (k === 'credits' ? `${fmt(n)} 💰` : `${n} ${MATS[k].icon}`)).join(' · ');
+      const b = el('button', `st-up${!has && canCraft(save, id) ? ' afford' : ''}${on ? ' on' : ''}`, `<span class="su-icon">${it.icon}</span>
+        <span class="su-body"><b>${it.name} <em>${it.slot === 'w' ? 'arma' : 'módulo'}</em></b><small>${it.desc}</small><small class="cr-cost">${has ? (on ? '✔ MONTADO · toca para quitar' : 'fabricado · toca para montar') : cost}</small></span>
+        <span class="su-cost">${has ? (on ? '✔' : '＋') : 'FABRICAR'}</span>`);
+      b.dataset.gear = id;
+      tap(b, () => {
+        if (has) { equipGear(save, id); persist(); again(); return; }
+        if (!craft(save, id)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
+        persist();
+        sfx.chest();
+        progress('craft');
+        toast(`${it.icon} ${it.name} fabricado y montado`);
+        again();
+      });
+      box.append(b);
+    }
+  },
+
+  // DIÁLOGO de la historia: líneas con quién habla; la última puede tener una elección
+  showDialog(lines, choice = null) {
+    if (!lines?.length) return;
+    const box = $('dialog');
+    let i = 0;
+    const draw = () => {
+      const [who, text] = lines[i], c = CAST[who];
+      setText('dlIcon', c.icon);
+      setText('dlName', c.name);
+      $('dlName').style.color = c.color;
+      setText('dlText', text);
+      const acts = $('dlActs');
+      acts.innerHTML = '';
+      const last = i === lines.length - 1;
+      if (last && choice) {
+        for (const [pick, label] of choice) {
+          const b = el('button', 'btn', label);
+          b.dataset.pick = pick;
+          tap(b, () => { box.classList.add('hidden'); storyChoose(pick); });
+          acts.append(b);
+        }
+      } else {
+        const b = el('button', 'btn', last ? 'ENTENDIDO' : 'SIGUIENTE ▸');
+        b.id = 'btnDialog';
+        tap(b, () => { if (last) box.classList.add('hidden'); else { i++; draw(); } });
+        acts.append(b);
+      }
+    };
+    box.classList.remove('hidden');
+    draw();
+  },
+
   // ATLAS: lo descubierto, con su historia, y las mejoras únicas que da explorar
   showAtlas() {
     const pois = allPois(GAL);
     const n = atlasCount();
     setText('atCount', `📖 ${n} / ${pois.length} descubiertos`);
+    // HISTORIA: capítulos de LA SEÑAL
+    const chs = chapters(GAL), cur = storyState(save).ch;
+    $('atStory').innerHTML = `<h3>📡 LA SEÑAL · ${Math.min(cur, chs.length)}/${chs.length}</h3>` + chs.map((c, i) => `<div class="${i < cur ? 'done' : i === cur ? 'now' : 'locked'}">
+      <b>${i < cur ? '✔' : i === cur ? '▸' : '🔒'} ${i + 1}. ${i <= cur ? c.title : '???'}</b>${i === cur ? `<small>${c.goal.text}</small>` : ''}</div>`).join('');
     $('atPerks').innerHTML = ATLAS_PERKS.map((pk) => `<div class="${n >= pk.n ? 'on' : ''}"><b>${n >= pk.n ? '✨' : '🔒'} ${pk.name}</b><small>${pk.desc} · ${pk.n} descubrimientos</small></div>`).join('');
     const found = pois.filter((p) => save.galaxyAtlas[p.id]);
     $('atList').innerHTML = found.length

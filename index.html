@@ -109,6 +109,14 @@
 
   <div id="toast" class="toast hidden"></div>
 
+  <div id="dialog" class="dialog hidden">
+    <div class="dl-card">
+      <div class="dl-who"><span id="dlIcon"></span><b id="dlName"></b></div>
+      <p id="dlText"></p>
+      <div id="dlActs" class="dl-acts"></div>
+    </div>
+  </div>
+
   <section id="hangar" class="overlay hidden">
     <!-- cabecera fija: la nave se ve siempre mientras mejoras o personalizas -->
     <div class="hangar-top">
@@ -246,6 +254,12 @@
       <div id="stUpgrades" class="st-ups"></div>
     </div>
     <div class="st-block">
+      <h3>🔧 Fabricación</h3>
+      <div id="stMats" class="st-mats"></div>
+      <div id="stSlots" class="st-slots"></div>
+      <div id="stCraft" class="st-ups"></div>
+    </div>
+    <div class="st-block">
       <h3>Tablón de misiones</h3>
       <div id="stMissions" class="st-missions"></div>
     </div>
@@ -265,6 +279,7 @@
   <section id="atlas" class="overlay hidden">
     <h2>📖 ATLAS</h2>
     <p class="gems" id="atCount"></p>
+    <div id="atStory" class="at-story"></div>
     <div id="atPerks" class="at-perks"></div>
     <div id="atList" class="list"></div>
   </section>

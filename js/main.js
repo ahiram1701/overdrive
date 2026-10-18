@@ -9,7 +9,7 @@ import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer } from './spaceGame.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 
@@ -145,6 +145,7 @@ if (G.debug) {
   window.__save = save; // para los bots de los tests
   window.__spaceStats = spaceStats;
   window.__forceEvent = forceEvent;
+  window.__devourer = () => spawnDevourer();
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }

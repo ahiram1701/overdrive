@@ -143,6 +143,9 @@ export const ACHIEVEMENTS = [
   { id: 'bounty1', kind: 'bounty', mode: 'sum', n: 1, tier: 'bronze', name: 'Cazarrecompensas', desc: 'Abate a un pirata buscado' },
   { id: 'bounty10', kind: 'bounty', mode: 'sum', n: 10, tier: 'gold', name: 'Leyenda del gatillo', desc: 'Abate a 10 piratas buscados' },
   { id: 'siege1', kind: 'siege', mode: 'sum', n: 1, tier: 'silver', name: 'Muralla', desc: 'Repele un asedio pirata' },
+  { id: 'craft3', kind: 'craft', mode: 'sum', n: 3, tier: 'bronze', name: 'Manitas', desc: 'Fabrica 3 piezas en el taller' },
+  { id: 'story4', kind: 'chapter', mode: 'sum', n: 4, tier: 'silver', name: 'A medio camino', desc: 'Completa 4 capítulos de LA SEÑAL' },
+  { id: 'storyEnd', kind: 'storyEnd', mode: 'sum', n: 1, tier: 'gold', name: 'Silencio', desc: 'Derrota al Devorador de Estrellas' },
 ];
 export const ACH_GEMS = T;
 
