@@ -64,8 +64,9 @@ export function doPrestige(save) {
 }
 
 // ---------- Logros ----------
-// mode 'sum' = acumulado de por vida; 'best' = en una sola partida. tier = premio en gemas.
-const T = { bronze: 20, silver: 40, gold: 80 };
+// mode 'sum' = acumulado de por vida; 'best' = en una sola partida. tier = rareza del logro.
+// El premio de cada logro es un ESTILO EXCLUSIVO (cosmetics.ACH_STYLES); las gemas son un detalle.
+const T = { bronze: 5, silver: 10, gold: 20 };
 export const ACHIEVEMENTS = [
   { id: 'near100', kind: 'near', mode: 'sum', n: 100, tier: 'bronze', name: 'Rozador', desc: '100 near-miss' },
   { id: 'near1k', kind: 'near', mode: 'sum', n: 1000, tier: 'silver', name: 'Al filo', desc: '1.000 near-miss' },
@@ -126,6 +127,17 @@ export const ACHIEVEMENTS = [
   { id: 'gal4', kind: 'gmission', mode: 'sum', n: 10, tier: 'silver', name: 'Mercenario', desc: 'Cumple 10 misiones en la GALAXIA' },
   { id: 'gal5', kind: 'discover', mode: 'sum', n: 15, tier: 'gold', name: 'Cartógrafo', desc: 'Descubre 15 puntos de interés del ATLAS' },
   { id: 'gal6', kind: 'pirateBoss', mode: 'sum', n: 1, tier: 'silver', name: 'Cazapiratas', desc: 'Derrota a un jefe pirata' },
+  // economía y contenido nuevo
+  { id: 'crate10', kind: 'crate', mode: 'sum', n: 10, tier: 'bronze', name: 'Desempaquetador', desc: 'Abre 10 cofres de suministros' },
+  { id: 'crate50', kind: 'crate', mode: 'sum', n: 50, tier: 'gold', name: 'Acaparador', desc: 'Abre 50 cofres de suministros' },
+  { id: 'boost10', kind: 'boost', mode: 'sum', n: 10, tier: 'bronze', name: 'Dopado', desc: 'Usa 10 potenciadores' },
+  { id: 'tal5', kind: 'talent', mode: 'sum', n: 5, tier: 'silver', name: 'Talentoso', desc: 'Compra 5 talentos' },
+  { id: 'master1', kind: 'mastery', mode: 'sum', n: 1, tier: 'gold', name: 'Maestro', desc: 'Consigue la MAESTRÍA de una nave' },
+  { id: 'deck4', kind: 'deckCard', mode: 'sum', n: 4, tier: 'silver', name: 'Barajador', desc: 'Desbloquea 4 cartas del mazo' },
+  { id: 'galBase', kind: 'pirateBase', mode: 'sum', n: 1, tier: 'silver', name: 'Demoledor', desc: 'Destruye una base pirata en la GALAXIA' },
+  { id: 'galRescue', kind: 'rescue', mode: 'sum', n: 3, tier: 'bronze', name: 'Socorrista', desc: 'Rescata 3 cápsulas en la GALAXIA' },
+  { id: 'galPlanet', kind: 'planet', mode: 'sum', n: 10, tier: 'silver', name: 'Astronauta', desc: 'Orbita 10 planetas distintos' },
+  { id: 'galWorm', kind: 'wormhole', mode: 'sum', n: 1, tier: 'bronze', name: 'Atajo cósmico', desc: 'Cruza un agujero de gusano' },
 ];
 export const ACH_GEMS = T;
 

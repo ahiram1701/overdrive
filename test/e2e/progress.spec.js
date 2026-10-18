@@ -36,14 +36,14 @@ test('al morir se gana XP, la colección registra las cartas y el menú muestra 
   await page.locator('#btnMenu').click();
   await expect(page.locator('#mRank')).toContainText('RANGO');
   await page.locator('#btnAch').click();
-  await expect(page.locator('#achList .item')).toHaveCount(59);
+  await expect(page.locator('#achList .item')).toHaveCount(69);
   await page.locator('#achs .scr-back').click();
   await page.locator('#btnCodex').click();
   await expect(page.locator('#codexCards .cx:not(.unknown)')).not.toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
-test('un logro se celebra en plena partida y paga sus gemas', async ({ page }) => {
+test('un logro se celebra en plena partida y da su estilo (y unas gemas)', async ({ page }) => {
   await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 2, runs: 3, ach: { near100: { p: 98, done: false } } })), SAVE);
   await page.goto('/?debug&nosw&seed=1');
   await page.waitForFunction(() => !!window.G);
@@ -52,11 +52,13 @@ test('un logro se celebra en plena partida y paga sus gemas', async ({ page }) =
   await page.evaluate(botInPage, { seconds: 20 });
   const res = await page.evaluate(async () => {
     const { save } = await import('/js/save.js');
-    return { done: save.ach.near100.done, gems: save.gems, inRun: window.G.run.achDone || [] };
+    const { isUnlocked, achStyle } = await import('/js/cosmetics.js');
+    return { done: save.ach.near100.done, gems: save.gems, inRun: window.G.run.achDone || [], style: isUnlocked(achStyle('near100'), save, save.ship) };
   });
   expect(res.done).toBe(true);
   expect(res.inRun).toContain('near100');
-  expect(res.gems).toBeGreaterThanOrEqual(gems0 + 20);
+  expect(res.style).toBe(true);
+  expect(res.gems).toBeGreaterThanOrEqual(gems0 + 5);
 });
 
 test('prestigio: en el rango 30 aparece el botón, pide confirmación y renace', async ({ page }) => {
@@ -87,5 +89,25 @@ test('prestigio: en el rango 30 aparece el botón, pide confirmación y renace',
   await page.locator('#btnHangarBack').click();
   await page.locator('#btnMods').click();
   await expect(page.locator('#modList .mod.locked')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test('logros: el premio es un estilo exclusivo que se equipa desde la lista', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    localStorage.setItem('overdrive-save-v1', JSON.stringify({ v: 4, runs: 3, ship: 'viper', ach: { boss1: { p: 1, done: true } } }));
+  });
+  await page.goto('/?nosw');
+  await page.locator('#btnAch').click();
+  const row = page.locator('[data-ach="boss1"]');
+  await expect(row.locator('.ach-prize')).toContainText('Cazajefes');
+  await row.locator('.ach-eq').click();
+  await expect(page.locator('[data-ach="boss1"] .ach-eq')).toHaveText('PUESTO');
+  const eq = await page.evaluate(() => JSON.parse(localStorage.getItem('overdrive-save-v1')).cosmetics.equip.viper);
+  expect(Object.values(eq)).toContain('ach-boss1');
+  // los que faltan enseñan su premio pero no se equipan
+  await expect(page.locator('[data-ach="boss50"] .ach-eq')).toHaveCount(0);
   expect(errors).toEqual([]);
 });

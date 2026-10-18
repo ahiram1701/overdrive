@@ -867,3 +867,8 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .cos i.sw-stripe.s-wide::before { left: 8px; width: 14px; }
 .cos i.sw-stripe.none::before { left: 4px; right: 4px; top: 12px; bottom: 12px; background: rgba(255,255,255,.4); }
 .cos i.sw-cockpit { display: block; width: 28px; height: 18px; margin: 4px auto 6px; border-radius: 50% 50% 30% 30%; background: linear-gradient(160deg, #fff 0 15%, var(--c) 40%); box-shadow: 0 0 8px var(--c); }
+
+/* ---------- Logros con estilo (E2) ---------- */
+.ach-prize { display: flex !important; align-items: center; gap: 6px; color: var(--yellow) !important; font-weight: 800; }
+.ach-sw { display: inline-block; width: 16px; height: 16px; border-radius: 50%; border: 1px solid rgba(255,255,255,.4); flex-shrink: 0; }
+.ach-item .ach-eq { padding: 6px 8px; font-size: 11px; white-space: nowrap; }

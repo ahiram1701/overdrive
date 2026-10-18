@@ -144,7 +144,7 @@ test('convoy (comercia a +40%), base pirata (botín y gemas) y agujero de gusano
     return { had, gone: !s.base, loot: s.loot.length > 0, done: s.event.done };
   });
   expect(base).toEqual({ had: true, gone: true, loot: true, done: true });
-  expect(await page.evaluate(() => window.__save.gems)).toBe(g0 + 3);
+  expect(await page.evaluate(() => window.__save.gems)).toBe(g0 + 3 + 10); // +3 de la base, +10 del logro DEMOLEDOR (plata)
 
   await page.evaluate(() => window.__forceEvent('wormhole'));
   await goTo(page, 's.event.pos', 5);
