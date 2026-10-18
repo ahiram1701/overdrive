@@ -71,11 +71,12 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
   - **Vacío glitch:** muros que saltan de carril; un fantasma verde marca el destino antes.
   - **Hiperespacio:** gravedad baja, con saltos más largos y flotantes.
   - **Neón urbano:** cortinas de láser bajo y alto seguidas.
+  - **❄️ Glaciar** (nuevo, el 5.º): **carámbanos** que caen sobre dos carriles (su sombra los anuncia; cambia al libre) y **crestas de hielo** de lado a lado que hay que saltar, bajo una aurora. En la Campaña sale en los sectores generados múltiplos de 5 (5, 10, 15…).
 - **Set pieces:** desde el tramo 3, a veces aparece una secuencia guionizada con aviso: **TÚNEL** (rieles y portales), **ESTAMPIDA** (oleada de rodillos), **LLUVIA DE MINAS** o **AGUJERO DE GUSANO** (el mundo gira).
 - **Eventos:** controles invertidos, mundo al revés, lluvia de monedas, solo near-miss, **apagón** (solo ves lo cercano), **tormenta magnética** (todas las monedas vienen a ti) y **combo doble**.
 
 ## 👾 Jefes
-Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una **segunda fase** al llegar al 50% de vida:
+Cada 3 tramos aparece un jefe. Hay 6, cada uno con su forma, sus ataques y una **segunda fase** al llegar al 50% de vida:
 
 | Jefe | Fase 1 | Fase 2 |
 |---|---|---|
@@ -84,6 +85,9 @@ Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una *
 | **Devorador** | minas + succión hacia su carril | + disparos |
 | **El Censor** | ráfaga en todos los carriles menos uno; núcleo **blindado** (el láser rebota: solo DASH) | + rayo |
 | **Mamá Ovni** | disparos + dianas | ráfaga + dianas + minas |
+| **❄️ Leviatán de hielo** | carámbanos en dos carriles + disparos | + congela la pista (cresta que hay que saltar) |
+
+Derrotar al Leviatán da el logro **Deshielo**.
 
 ## 🌌 Modo GALAXIA (nuevo)
 Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia que se explora a tu ritmo.

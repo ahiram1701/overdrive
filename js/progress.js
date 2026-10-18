@@ -157,6 +157,7 @@ export const ACHIEVEMENTS = [
   { id: 'chron10', kind: 'chronicle', mode: 'sum', n: 10, tier: 'gold', name: 'Cronista', desc: 'Completa 10 capítulos de la Crónica' },
   { id: 'arenaEndless', kind: 'arenaTime', mode: 'best', n: 900, tier: 'gold', name: 'Sin fin', desc: 'Aguanta 15:00 en la ARENA (modo sin fin)' },
   { id: 'arenaMaps', kind: 'arenaMapsWon', mode: 'best', n: 4, tier: 'gold', name: 'Conquistador', desc: 'Gana la ARENA en los 4 mapas' },
+  { id: 'leviatan', kind: 'leviatan', mode: 'sum', n: 1, tier: 'gold', name: 'Deshielo', desc: 'Derrota al Leviatán de hielo del GLACIAR' },
 ];
 export const ACH_GEMS = T;
 

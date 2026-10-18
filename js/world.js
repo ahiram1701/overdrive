@@ -14,6 +14,7 @@ export const BIOMES = [
   { id: 'lava', name: 'TÚNEL DE LAVA', sky: ['#140000', '#b32400'], ground: '#1a0400', road: ['#2c0900', '#1e0500'], line: '#ff6a00', edge: '#ffcc00', obs: '#ff3b1f', obs2: '#ffcc00', accent: '#ff9500', music: 1 },
   { id: 'glitch', name: 'VACÍO GLITCH', sky: ['#000000', '#00431d'], ground: '#000a04', road: ['#03200f', '#011207'], line: '#39ff14', edge: '#00ffaa', obs: '#39ff14', obs2: '#ff00ff', accent: '#ffffff', music: 2 },
   { id: 'hyper', name: 'HIPERESPACIO', sky: ['#000010', '#16287a'], ground: '#00020c', road: ['#081238', '#050b26'], line: '#7df9ff', edge: '#ffffff', obs: '#4d7cff', obs2: '#ffffff', accent: '#7df9ff', music: 3 },
+  { id: 'ice', name: 'GLACIAR', sky: ['#020a1a', '#1d5f8a'], ground: '#04101c', road: ['#0e2b42', '#081c2c'], line: '#9fe8ff', edge: '#e8fbff', obs: '#9fe8ff', obs2: '#ffffff', accent: '#b8f3ff', music: 4 },
 ];
 
 export const FORK_REWARDS = {
@@ -56,6 +57,9 @@ const DIM = {
   portal: { w: 0.9, y0: 0, y1: 2, depth: 0.1 },                   // te cambia de carril
   ramp: { w: 0.9, y0: 0, y1: 0.6, depth: 3 },                     // te lanza por los aires
   drone: { w: 0.7, y0: 0.6, y1: 1.4, depth: 0.5 },                // diana: rómpela con DASH o láser
+  // GLACIAR
+  icicle: { w: 0.9, y0: 0, y1: TALL, depth: 0.6, need: 'lane' },   // carámbano que cae sobre un carril (su sombra avisa)
+  iceRidge: { w: 3, y0: 0, y1: 0.45, depth: 0.4, all: true, need: 'jump' }, // cresta de hielo de lado a lado: salta
 };
 
 const ACT_DODGE = '#ff3b6b'; // mismo magenta que "esquiva" en render.js
@@ -210,6 +214,21 @@ const PATTERNS = {
     r.extraGap = z2 - z + spd * 0.66;
     return 'slide';
   },
+  // GLACIAR: carámbanos que caen en dos carriles (siempre queda uno libre, con monedas)
+  icicleRain(r, z, L, rng) {
+    if (L.length < 2) return PATTERNS.wall1(r, z, L, rng);
+    const lanes = rng.shuffle([...L]).slice(0, Math.min(2, L.length - 1));
+    lanes.forEach((l, i) => add('icicle', l, z + i * 1.5));
+    const free = L.find((l) => !lanes.includes(l));
+    coinLine(free, z - 4, z + 4);
+    return 'lane';
+  },
+  // GLACIAR: cresta de hielo de lado a lado (salta), con un arco de monedas encima
+  iceRidge(r, z, L, rng) {
+    add('iceRidge', 0, z);
+    coinArc(rng.pick(L), z);
+    return 'jump';
+  },
   droneLine(r, z, L, rng) {
     const l = rng.pick(L);
     for (let k = 0; k < 3; k++) add('drone', l, z + k * 6);
@@ -229,6 +248,7 @@ const WEIGHTS = {
   lava: { mines: 3, laserLow: 2.5, laserHigh: 2, wall1: 1.5, mixed: 1, barrier3: 1, rollers: 2, rampJump: 1, dropRow: 1, lavaFlow: 2.5 },
   glitch: { mover: 3, wall2: 2, mixed: 2, laserHigh: 1, mines: 1, wall1: 1, portalSwap: 2, pinch: 1.5, railRun: 1, droneLine: 1, glitchWall: 3 },
   hyper: { wall2: 2, gate: 2, mixed: 2.5, laserLow: 1.5, laserHigh: 1.5, mover: 1.5, mines: 1, railRun: 1.5, portalSwap: 1.5, rollers: 1, dropRow: 1, rampJump: 1.2, droneLine: 1 },
+  ice: { icicleRain: 3, iceRidge: 2.5, wall2: 2, mixed: 1.5, dropRow: 1.5, rollers: 1, laserHigh: 1, pinch: 1, rampJump: 1, coinArc: 1 },
   boss: { wall1: 3, mines: 2 },
 };
 
@@ -595,6 +615,15 @@ const ATTACKS = {
   },
   mines(r) {
     for (const l of attackLanes(r, 2)) add('mine', l, r.dist + bossRz(), { vz: 6 });
+  },
+  // LEVIATÁN: carámbanos sobre dos carriles (siempre queda uno libre)
+  icicles(r) {
+    for (const l of attackLanes(r, 2)) add('icicle', l, r.dist + bossRz() * 0.85);
+  },
+  // LEVIATÁN: congela la pista: una cresta de hielo de lado a lado (salta). Quieta, como una
+  // barrera: a la velocidad de la pista se lee bien aunque acabes de esquivar carámbanos
+  freeze(r) {
+    add('iceRidge', 0, r.dist + bossRz());
   },
   // succión: si llevas un rato sin moverte, te arrastra un carril hacia el suyo (nunca contra algo)
   suction(r, b) {

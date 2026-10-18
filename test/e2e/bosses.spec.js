@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { trackErrors, botInPage } from './helpers.js';
 
-const IDS = ['gusano', 'ojo', 'devorador', 'censor', 'ovni'];
+const IDS = ['gusano', 'ojo', 'devorador', 'censor', 'ovni', 'leviatan'];
 
 async function startBoss(page, id, seed) {
   await page.addInitScript(() => localStorage.setItem('overdrive-save-v1', JSON.stringify({ v: 2, runs: 3 })));

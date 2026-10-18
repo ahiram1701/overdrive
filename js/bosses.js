@@ -7,12 +7,13 @@ export const BOSSES = [
   { id: 'devorador', name: 'DEVORADOR', color: '#ff9500', shape: 'maw', phases: [['mines', 'suction'], ['mines', 'suction', 'shots']] },
   { id: 'censor', name: 'EL CENSOR', color: '#5ac8fa', shape: 'cube', shieldedCore: true, phases: [['barrage'], ['barrage', 'beam']] },
   { id: 'ovni', name: 'MAMÁ OVNI', color: '#bf5af2', shape: 'ufo', phases: [['shots', 'drones'], ['barrage', 'drones', 'mines']] },
+  { id: 'leviatan', name: 'LEVIATÁN DE HIELO', color: '#7df9ff', shape: 'serpent', phases: [['icicles', 'shots'], ['icicles', 'freeze', 'shots']] },
 ];
 
 export const BOSS_BY_ID = Object.fromEntries(BOSSES.map((b) => [b.id, b]));
 
 // Cada cuánto lanza cada ataque (segundos, antes de escalar con el tramo y la fase)
-export const ATTACK_EVERY = { shots: 1.35, wallRain: 3, beam: 2.6, mines: 2.3, suction: 3.6, barrage: 2.9, drones: 4.2 };
+export const ATTACK_EVERY = { shots: 1.35, wallRain: 3, beam: 2.6, mines: 2.3, suction: 3.6, barrage: 2.9, drones: 4.2, icicles: 2.6, freeze: 4.2 };
 
 // Jefe del n-ésimo encuentro (cada 3 tramos sale el siguiente)
 export const bossFor = (encounter) => BOSSES[encounter % BOSSES.length];
