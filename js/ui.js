@@ -28,12 +28,12 @@ import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
 import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
-import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed } from './arenaData.js';
+import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed, ARENA_MAPS, MAP_KEYS, mapUnlocked, ARENA_BOSSES } from './arenaData.js';
 import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, wallet, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -171,7 +171,7 @@ export const ui = {
   init() {
     tap($('btnPlay'), () => newRun(false));
     tap($('btnMods'), () => ui.showMods());
-    tap($('btnArena'), () => newArena());
+    tap($('btnArena'), () => ui.showArenaHub());
     tap($('btnGalaxy'), () => newSpace());
     tap($('btnDock'), () => dock());
     tap($('btnUndock'), () => undock());
@@ -217,8 +217,8 @@ export const ui = {
     tap($('btnRaceRetry'), () => { const res = ui.lastRace; if (res) newRun({ mode: 'race', track: res.track.id, points: res.pointsBefore }); });
     tap($('btnRestShield'), () => expRest('shield'));
     tap($('btnRestCard'), () => expRest('card'));
-    tap($('btnArenaRetry'), () => newArena());
-    tap($('btnArenaMenu'), () => ui.showMenu());
+    tap($('btnArenaRetry'), () => newArena({ map: save.arena.map }));
+    tap($('btnArenaMenu'), () => ui.showArenaHub());
     tap($('arenaPause'), () => ui.pause());
     $('arenaAbility').addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -251,6 +251,7 @@ export const ui = {
     // cabeceras comunes con ← (y su "atrás")
     screenHeader('settings', 'AJUSTES', () => ui.showMenu());
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
+    screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
     tap($('btnRunner'), () => ui.showRunnerHub());
     screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
     tap($('btnCrateOk'), () => ui.showStore());
@@ -418,6 +419,28 @@ export const ui = {
     ui.showHUD(false);
     ui.refreshLabels();
     show('runnerHub');
+  },
+
+  // ARENA: elegir mapa (cada uno con sus peligros y sus jefes); tocar uno empieza la partida
+  showArenaHub() {
+    G.mode = 'hangar'; // pantalla estática
+    G.arena = null;
+    ui.showHUD(false);
+    const box = $('arenaMaps');
+    box.innerHTML = '';
+    for (const id of MAP_KEYS) {
+      const M = ARENA_MAPS[id], open = mapUnlocked(save, id), rec = save.arenaMaps[id];
+      const b = el('button', `arena-map${open ? '' : ' locked'}${save.arena.map === id ? ' last' : ''}`, `<span class="am-icon">${open ? M.icon : '🔒'}</span>
+        <span class="am-body"><b>${M.name}</b><small>${open ? M.desc : `Se abre: ${M.unlock.text}`}</small>
+        <em>${M.bosses.map((k) => ARENA_BOSSES[k].name).join(' · ')}</em></span>
+        <span class="am-rec">${rec ? `${fmtTime(rec.best)}${rec.wins ? ` · 🏆${rec.wins}` : ''}` : open ? '›' : ''}</span>`);
+      b.dataset.map = id;
+      b.style.setProperty('--am', M.grid.replace(/[\d.]+\)$/, '1)'));
+      b.disabled = !open;
+      if (open) tap(b, () => newArena({ map: id }));
+      box.append(b);
+    }
+    show('arenaHub');
   },
 
   // Hangar: carrusel de naves, ficha con stats comparadas con la equipada y árbol de mejoras.

@@ -7,7 +7,7 @@ import { getCtx } from './render.js';
 import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
 import { trailFx, auraFx } from './cosfx.js';
-import { zoomOf, maxHp } from './arena.js';
+import { zoomOf, maxHp, lavaScale, holePos } from './arena.js';
 
 // ---------- Sprites ----------
 const sprites = new Map();
@@ -21,6 +21,12 @@ function shapePath(c, shape, r) {
     case 'hex': for (let i = 0; i < 6; i++) { const a = (i / 6) * Math.PI * 2; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } break;
     case 'square': c.rect(-r * 0.75, -r * 0.75, r * 1.5, r * 1.5); break;
     case 'boss': for (let i = 0; i < 10; i++) { const a = (i / 10) * Math.PI * 2, k = i % 2 ? 0.72 : 1; c.lineTo(Math.cos(a) * r * k, Math.sin(a) * r * k); } break;
+    // jefes de la arena
+    case 'colossus': for (let i = 0; i < 8; i++) { const a = (i / 8) * Math.PI * 2 + Math.PI / 8; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); } c.closePath(); c.moveTo(r * 1.15, 0); c.lineTo(r * 0.7, r * 0.3); c.lineTo(r * 0.7, -r * 0.3); break;
+    case 'hive': for (const [hx, hy] of [[0, 0], [0.55, 0.32], [-0.55, 0.32], [0, -0.64], [0.55, -0.32], [-0.55, -0.32], [0, 0.64]]) { c.moveTo(hx * r + r * 0.34, hy * r); for (let i = 1; i <= 6; i++) { const a = (i / 6) * Math.PI * 2; c.lineTo(hx * r + Math.cos(a) * r * 0.34, hy * r + Math.sin(a) * r * 0.34); } } break;
+    case 'weaver': for (let i = 0; i < 12; i++) { const a = (i / 12) * Math.PI * 2, k = i % 2 ? 0.35 : 1; c.lineTo(Math.cos(a) * r * k, Math.sin(a) * r * k); } break;
+    case 'core': c.arc(0, 0, r, 0, Math.PI * 2); c.moveTo(r * 0.6, 0); c.arc(0, 0, r * 0.6, 0, Math.PI * 2, true); break;
+    case 'maw': c.arc(0, 0, r, 0.55, Math.PI * 2 - 0.55); c.lineTo(r * 0.15, 0); break;
     default: c.arc(0, 0, r, 0, Math.PI * 2);
   }
   c.closePath();
@@ -61,7 +67,8 @@ export function renderArena(dt) {
   if (!ctx || !a) return;
   const W = G.W, H = G.H, z = zoomOf();
   ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
-  ctx.fillStyle = '#07020f';
+  const M = a.M;
+  ctx.fillStyle = M.bg;
   ctx.fillRect(0, 0, W, H);
 
   const shk = a.shake + fx.shakeAmt;
@@ -74,7 +81,7 @@ export function renderArena(dt) {
   const step = 80 * z;
   const gx = ((-a.x * z) % step + step) % step, gy = ((-a.y * z) % step + step) % step;
   ctx.lineWidth = 1;
-  ctx.strokeStyle = 'rgba(255,43,214,0.13)';
+  ctx.strokeStyle = M.grid;
   ctx.beginPath();
   for (let x = gx + (W / 2) % step - step; x < W + step; x += step) { ctx.moveTo(x + ox, 0); ctx.lineTo(x + ox, H); }
   for (let y = gy + (H / 2) % step - step; y < H + step; y += step) { ctx.moveTo(0, y + oy); ctx.lineTo(W, y + oy); }
@@ -87,6 +94,83 @@ export function renderArena(dt) {
   ctx.fillRect(0, 0, W, H);
 
   const onScreen = (x, y, r) => sx(x) > -r && sx(x) < W + r && sy(y) > -r && sy(y) < H + r;
+
+  // MAPA: lava (repetida en mosaico), agujeros negros, rocas y el borde de los mapas cerrados
+  if (a.feat.pools.length) {
+    const T = M.tile, L = lavaScale(a), vr = Math.hypot(W, H) / 2 / z + 140;
+    for (let tx = Math.floor((a.x - vr) / T); tx <= Math.floor((a.x + vr) / T); tx++) {
+      for (let ty = Math.floor((a.y - vr) / T); ty <= Math.floor((a.y + vr) / T); ty++) {
+        for (const p of a.feat.pools) {
+          const x = p.x + tx * T, y = p.y + ty * T, r = p.r * L.k;
+          if (!onScreen(x, y, r * z)) continue;
+          const g = ctx.createRadialGradient(sx(x), sy(y), 0, sx(x), sy(y), r * z);
+          g.addColorStop(0, L.k > 1 ? 'rgba(255,230,120,.85)' : 'rgba(255,150,30,.7)');
+          g.addColorStop(0.7, 'rgba(255,60,0,.4)');
+          g.addColorStop(1, 'rgba(255,40,0,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath();
+          ctx.arc(sx(x), sy(y), r * z, 0, Math.PI * 2);
+          ctx.fill();
+          // borde claro: se ve de un vistazo dónde quema
+          ctx.strokeStyle = L.k > 1 ? 'rgba(255,230,120,.9)' : 'rgba(255,106,0,.75)';
+          ctx.lineWidth = 2.5;
+          ctx.beginPath();
+          ctx.arc(sx(x), sy(y), r * z * 0.92, 0, Math.PI * 2);
+          ctx.stroke();
+          if (L.warn) {
+            ctx.strokeStyle = `rgba(255,214,10,${0.4 + 0.4 * Math.sin(G.realTime * 18)})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(sx(x), sy(y), p.r * 1.6 * z, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
+    }
+  }
+  for (const h of a.feat.holes) {
+    const c = holePos(a, h), x = sx(c.x), y = sy(c.y);
+    if (!onScreen(c.x, c.y, 600 * z)) continue;
+    const g = ctx.createRadialGradient(x, y, h.r * z * 0.6, x, y, 300 * z);
+    g.addColorStop(0, 'rgba(191,90,242,.35)');
+    g.addColorStop(1, 'rgba(191,90,242,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(x, y, 300 * z, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#000';
+    ctx.beginPath(); ctx.arc(x, y, h.r * z, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = '#bf5af2';
+    ctx.lineWidth = 2;
+    for (let i = 0; i < 3; i++) {
+      ctx.beginPath();
+      ctx.arc(x, y, h.r * z * (1.3 + i * 0.5), G.realTime * (2 - i * 0.5) + i, G.realTime * (2 - i * 0.5) + i + 2.2);
+      ctx.stroke();
+    }
+  }
+  for (const k of a.feat.rocks) {
+    if (!onScreen(k.x, k.y, k.r * z)) continue;
+    const x = sx(k.x), y = sy(k.y), r = k.r * z;
+    ctx.fillStyle = '#1c2230';
+    ctx.strokeStyle = 'rgba(125,249,255,.55)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    for (let i = 0; i < 9; i++) {
+      const ang = (i / 9) * Math.PI * 2, kk = 0.82 + 0.18 * Math.sin(i * 2.7 + k.r);
+      ctx.lineTo(x + Math.cos(ang) * r * kk, y + Math.sin(ang) * r * kk);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.stroke();
+  }
+  if (M.radius) {
+    ctx.save();
+    ctx.strokeStyle = M.grid.replace(/[\d.]+\)$/, '0.8)');
+    ctx.lineWidth = 6;
+    ctx.setLineDash([24, 14]);
+    ctx.beginPath();
+    ctx.arc(sx(0), sy(0), M.radius * z, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // anillo del jefe: pared de energía que no deja salir
   if (a.ring) {
@@ -140,6 +224,13 @@ export function renderArena(dt) {
     ctx.beginPath();
     ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2);
     ctx.fill();
+    if (b.mine) { // mina: parpadea
+      ctx.strokeStyle = `rgba(255,214,10,${0.5 + 0.5 * Math.sin(G.realTime * 12)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(sx(b.x), sy(b.y), b.r * z * 1.8, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   // enemigos
@@ -179,6 +270,27 @@ export function renderArena(dt) {
       ctx.lineTo(x + e.dx * 260 * z, y + e.dy * 260 * z);
       ctx.stroke();
     }
+  }
+
+  // jefe: láseres de la Tejedora y escudo de la Colmena
+  if (boss?.nLasers) {
+    for (let i = 0; i < boss.nLasers; i++) {
+      const ang = boss.spin + (i / boss.nLasers) * Math.PI * 2;
+      ctx.strokeStyle = boss.lasersOn ? 'rgba(0,229,255,.85)' : 'rgba(0,229,255,.25)';
+      ctx.lineWidth = (boss.lasersOn ? 14 : 3) * z;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(sx(boss.x), sy(boss.y));
+      ctx.lineTo(sx(boss.x + Math.cos(ang) * 560), sy(boss.y + Math.sin(ang) * 560));
+      ctx.stroke();
+    }
+  }
+  if (boss?.shield) {
+    ctx.strokeStyle = 'rgba(255,204,0,.8)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.arc(sx(boss.x), sy(boss.y), boss.r * z * 1.5, 0, Math.PI * 2);
+    ctx.stroke();
   }
 
   // tus disparos
@@ -275,7 +387,7 @@ export function renderArena(dt) {
     ctx.fillStyle = '#fff';
     ctx.font = 'italic 900 13px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(boss.name, W / 2, by + 28);
+    ctx.fillText(`${boss.name}${boss.p2 ? ' · FASE 2' : ''}${boss.shield ? ' · 🛡️' : ''}`, W / 2, by + 28);
     const x = sx(boss.x), y = sy(boss.y);
     if (x < 0 || x > W || y < 0 || y > H) {
       const ang = Math.atan2(y - H / 2, x - W / 2);

@@ -47,7 +47,8 @@ const DEFAULTS = {
   shipNames: {},    // { viper: 'Rayo azul' }
   shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
-  arena: { best: 0, kills: 0, wins: 0 },
+  arena: { best: 0, kills: 0, wins: 0, bossBest: 0, map: 'grid' },
+  arenaMaps: {},    // { belt: { best: 412, wins: 1 } } récord y victorias de cada mapa de la ARENA
   expedition: { best: 0, wins: 0 },
   // GALAXIA: créditos, mejoras de la nave espacial, carga y progreso
   galaxy: { credits: 0, up: { engine: 0, laser: 0, shield: 0, cargo: 0, jump: 0, missile: 0 }, missiles: 0, jumps: 0, chassis: 'explorer', hulls: ['explorer'], cargo: { iron: 0, crystal: 0, plasma: 0, dark: 0 }, hull: 100, sold: false, started: false, earned: 0, sys: 0, home: 0, visited: [0], missions: [], boardSeq: 0 },
@@ -63,7 +64,7 @@ const DEFAULTS = {
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems', 'outposts']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems', 'outposts', 'arenaMaps']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);

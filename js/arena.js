@@ -8,7 +8,6 @@ import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS, shipLvls, abilityMods } from './upgrades.js';
 import { hasTalent } from './economy.js';
 import { newAbility, trigger, tickAbility, canUse } from './abilities.js';
-import { BOSSES } from './bosses.js';
 import { equipped } from './cosmetics.js';
 import { boomFx } from './cosfx.js';
 import { addXp, prestigeBonus } from './progress.js';
@@ -17,6 +16,7 @@ import { ui } from './ui.js';
 import {
   WEAPONS, SHIP_WEAPON, SHIP_ARENA, passiveStats, EVOLUTIONS, offerUpgrades, applyUpgrade, xpNeed,
   ENEMIES, waveAt, ELITE_EVERY, BOSS_TIMES, ARENA_TIME, arenaRewards,
+  ARENA_MAPS, mapFeatures, mapUnlocked, ARENA_BOSSES, BOSS_ATTACKS, bossOf,
 } from './arenaData.js';
 
 const A = () => G.arena;
@@ -25,7 +25,10 @@ const PLAYER_R = 14;
 const CELL = 80;
 
 // ---------- Inicio ----------
-export function newArena() {
+export function newArena(opts = {}) {
+  let mapId = opts.map || save.arena.map || 'grid';
+  if (!mapUnlocked(save, mapId)) mapId = 'grid';
+  save.arena.map = mapId;
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   const seed = forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0;
   const ship = SHIPS.find((s) => s.id === save.ship) || SHIPS[0];
@@ -41,7 +44,9 @@ export function newArena() {
     spawnAcc: 0, nextElite: ELITE_EVERY, bossIdx: 0, orbAngle: 0, flameT: 0,
     ability: newAbility(ship.ability, abilityMods(ship, lvls)), slowT: 0, phaseT: 0, ramT: 0,
     shake: 0, dmgBy: {},
+    map: mapId, M: ARENA_MAPS[mapId], pulseT: 0,
   };
+  a.feat = mapFeatures(mapId, a.rng); // rocas, lava y agujeros (el centro, libre)
   // el árbol de la nave también cuenta aquí: BLINDAJE da vida, MOTOR velocidad
   a.maxHpBase += lvls.a * 15;
   a.speedMul *= 1 + lvls.b * 0.04;
@@ -118,6 +123,11 @@ function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
     ex = a.x + Math.cos(ang) * R;
     ey = a.y + Math.sin(ang) * R;
   }
+  if (a.M.radius) {
+    const p = { x: ex, y: ey };
+    keepIn(a, p, def.r);
+    ex = p.x; ey = p.y;
+  }
   const hp = def.hp * w.hpMul * (elite ? 7 : 1);
   a.enemies.push({
     id, def, x: ex, y: ey, hp, max: hp, r: def.r * (elite ? 1.6 : 1), speed: def.speed * (elite ? 0.9 : 1), dmg: def.dmg * (elite ? 1.5 : 1),
@@ -127,20 +137,23 @@ function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
   });
 }
 
-function spawnBoss(a) {
-  const def = BOSSES[a.bossIdx % BOSSES.length];
-  const final = a.bossIdx === BOSS_TIMES.length - 1;
+function spawnBoss(a, forced = null) {
+  const bid = forced || bossOf(a.map, a.bossIdx);
+  const def = ARENA_BOSSES[bid];
+  const final = !forced && a.bossIdx === BOSS_TIMES.length - 1;
   const hp = (final ? 2400 : 900) * waveAt(a.time).hpMul;
   const ang = a.rng.range(0, Math.PI * 2);
+  const pos = { x: a.x + Math.cos(ang) * 320, y: a.y + Math.sin(ang) * 320 };
+  if (a.M.radius) keepIn(a, pos, 46);
   a.enemies.push({
-    id: 'boss', def: { color: def.color, shape: 'boss', name: def.name }, name: def.name, final,
-    x: a.x + Math.cos(ang) * 420, y: a.y + Math.sin(ang) * 420, hp, max: hp, r: 46, speed: 55, dmg: 25, xp: 60,
-    elite: false, boss: true, alive: true, flash: 0, state: 'go', st: 0, cd: 2.5, summon: 6, phase: 0, vx: 0, vy: 0, orbT: 0,
+    id: 'boss', bid, def: { color: def.color, shape: def.shape, name: def.name }, name: def.name, final,
+    x: pos.x, y: pos.y, hp, max: hp, r: 46, speed: 55, dmg: 25, xp: 60, cds: {}, p2: false, spin: 0,
+    elite: false, boss: true, alive: true, flash: 0, state: 'go', st: 0, phase: 0, vx: 0, vy: 0, orbT: 0,
   });
-  a.bossIdx++;
+  if (!forced) a.bossIdx++;
   // ANILLO DE COMBATE: se cierra alrededor del duelo; no se sale hasta que cae el jefe
   a.ring = { x: a.x, y: a.y, r: 430, color: def.color };
-  fx.banner(final ? '☠ JEFE FINAL ☠' : '⚠ JEFE ⚠', `${def.name} · no hay salida`, def.color, true);
+  fx.banner(final ? '☠ JEFE FINAL ☠' : '⚠ JEFE ⚠', `${def.name} · ${def.desc}`, def.color, true);
   sfx.alarm();
   fx.vibe([60, 40, 60]);
 }
@@ -153,8 +166,16 @@ export const zoomOf = () => Math.max(0.75, Math.min(1.3, Math.min(G.W || 375, G.
 
 export function hurtEnemy(a, e, dmg) {
   if (!e.alive) return;
+  if (e.shield) { e.flash = 0.03; return; } // LA COLMENA: con sus crías alrededor no le entra nada
   e.hp -= dmg * stats(a).might * (a.dmgMul || 1);
   e.flash = 0.08;
+  if (e.boss && !e.p2 && e.hp > 0 && e.hp < e.max / 2) {
+    e.p2 = true;
+    e.state = 'go';
+    fx.banner('⚠ FASE 2', e.name, e.def.color, true);
+    a.shake = 14;
+    sfx.alarm();
+  }
   if (e.hp > 0) return;
   e.alive = false;
   a.kills++;
@@ -471,6 +492,7 @@ function updateBullets(a, dt) {
     }
     b.x += b.vx * dt;
     b.y += b.vy * dt;
+    if (inRock(a, b.x, b.y)) { b.life = 0; continue; } // las rocas paran tus balas
     for (const e of near(b.x, b.y, b.r)) {
       if (b.hit && b.hit.has(e)) continue;
       if (b.kind === 'mine') {
@@ -525,22 +547,7 @@ function updateEnemies(a, dt) {
         a.ebullets.push({ x: e.x, y: e.y, vx: (dx / d) * 210, vy: (dy / d) * 210, r: 6, dmg: 8, life: 4 });
       }
     } else if (e.boss) {
-      // jefe: se acerca despacio; anillos de balas y refuerzos
-      e.cd -= dt * slow;
-      e.summon -= dt * slow;
-      if (e.cd <= 0) {
-        e.cd = e.final ? 2.2 : 3;
-        const n = e.final ? 16 : 12, off = a.rng.range(0, 1);
-        for (let i = 0; i < n; i++) {
-          const ang = ((i + off) / n) * Math.PI * 2;
-          a.ebullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * 150, vy: Math.sin(ang) * 150, r: 7, dmg: 7, life: 5, boss: true });
-        }
-        sfx.dash();
-      }
-      if (e.summon <= 0) {
-        e.summon = 6;
-        for (let i = 0; i < 6; i++) spawnEnemy(a, 'chaser', { x: e.x + a.rng.range(-50, 50), y: e.y + a.rng.range(-50, 50) });
-      }
+      ({ vx, vy } = bossAI(a, e, dt, slow, dx, dy, d));
     }
     // ariete: lo que te toca sale despedido
     e.x += vx * dt * slow;
@@ -573,12 +580,14 @@ function updateEnemies(a, dt) {
       e.y = a.y + Math.sin(ang) * (viewRadius() + 30);
     }
   }
+  if (a.M.radius || a.feat.rocks.length) for (const e of a.enemies) if (e.alive) keepIn(a, e, e.r);
   a.enemies = a.enemies.filter((e) => e.alive);
   // balas enemigas
   for (const b of a.ebullets) {
     b.life -= dt;
     b.x += b.vx * dt * slow;
     b.y += b.vy * dt * slow;
+    if (!b.mine && inRock(a, b.x, b.y)) { b.life = 0; continue; } // …y también las suyas
     if (Math.hypot(b.x - a.x, b.y - a.y) < b.r + PLAYER_R * 0.7) {
       b.life = 0;
       hurtPlayer(a, b.dmg, b.boss ? 'balaJefe' : 'bala');
@@ -694,6 +703,7 @@ export function updateArena(dt) {
     a.x += ix * sp * dt;
     a.y += iy * sp * dt;
   }
+  updateMap(a, dt);
   // dentro del anillo del jefe
   if (a.ring) {
     const dx = a.x - a.ring.x, dy = a.y - a.ring.y, d = Math.hypot(dx, dy), lim = a.ring.r - PLAYER_R;
@@ -743,10 +753,13 @@ function finish(a, won) {
   save.arena.best = Math.max(save.arena.best, Math.floor(a.time));
   save.arena.kills = Math.max(save.arena.kills, a.kills);
   if (won) save.arena.wins++;
+  save.arena.bossBest = Math.max(save.arena.bossBest || 0, a.bosses);
+  const mr = save.arenaMaps[a.map] || { best: 0, wins: 0 };
+  save.arenaMaps[a.map] = { best: Math.max(mr.best, Math.floor(a.time)), wins: mr.wins + (won ? 1 : 0) };
   progress('arenaTime', Math.floor(a.time));
   progress('arenaKills', a.kills);
   persist();
-  a.result = { won, time: a.time, kills: a.kills, level: a.level, bosses: a.bosses, gems, xp: rw.xp, xpBefore, rankUps, best: save.arena.best, isBest: a.time > prev, weapons: { ...a.weapons }, evolved: { ...a.evolved } };
+  a.result = { map: a.map, won, time: a.time, kills: a.kills, level: a.level, bosses: a.bosses, gems, xp: rw.xp, xpBefore, rankUps, best: save.arena.best, isBest: a.time > prev, weapons: { ...a.weapons }, evolved: { ...a.evolved } };
   G.mode = 'arenaEnd';
   a.endT = won ? 1.6 : 1.1;
   musicStop();
@@ -781,6 +794,143 @@ function winArena(a) {
 export function toScreen(a, x, y) {
   const z = zoomOf();
   return { x: (G.W || 375) / 2 + (x - a.x) * z, y: (G.H || 812) / 2 + (y - a.y) * z, s: z };
+}
+
+// ---------- Mapas: límites, rocas, lava y agujeros negros ----------
+// o: { x, y } que se queda dentro del mapa cerrado y fuera de las rocas (radio r)
+function keepIn(a, o, r) {
+  const R = a.M.radius;
+  if (R) {
+    const d = Math.hypot(o.x, o.y), lim = R - r;
+    if (d > lim) { o.x = (o.x / d) * lim; o.y = (o.y / d) * lim; }
+  }
+  for (const k of a.feat.rocks) {
+    const dx = o.x - k.x, dy = o.y - k.y, d = Math.hypot(dx, dy) || 1, m = k.r + r;
+    if (d < m) { o.x = k.x + (dx / d) * m; o.y = k.y + (dy / d) * m; }
+  }
+}
+function inRock(a, x, y) {
+  for (const k of a.feat.rocks) if ((x - k.x) ** 2 + (y - k.y) ** 2 < k.r * k.r) return true;
+  return false;
+}
+// el pulso de la Forja: aviso 1,5 s antes; 2 s con la lava al 160 %
+export function lavaScale(a) {
+  const P = a.M.pulse;
+  if (!P) return { k: 1, warn: false };
+  const t = a.pulseT % P;
+  return { k: t > P - 2 ? 1.6 : 1, warn: t > P - 3.5 && t <= P - 2 };
+}
+// distancia a la copia más cercana de un charco (los charcos se repiten cada `tile`)
+function wrapD(a, p, x, y) {
+  const T = a.M.tile;
+  let dx = x - p.x, dy = y - p.y;
+  dx -= Math.round(dx / T) * T;
+  dy -= Math.round(dy / T) * T;
+  return Math.hypot(dx, dy);
+}
+export const holePos = (a, h) => ({ x: Math.cos(h.ang + a.time * 0.08) * h.d, y: Math.sin(h.ang + a.time * 0.08) * h.d });
+function updateMap(a, dt) {
+  if (a.M.radius || a.feat.rocks.length) keepIn(a, a, PLAYER_R);
+  // LAVA: quema al pisarla (más grande durante el pulso)
+  if (a.feat.pools.length) {
+    a.pulseT += dt;
+    const L = lavaScale(a);
+    if (L.k > 1 && !a.pulsed) { a.pulsed = true; fx.notice('🔥 ¡PULSO DE LAVA!', '#ff6a00'); a.shake = 6; }
+    if (L.k === 1) a.pulsed = false;
+    for (const p of a.feat.pools) if (wrapD(a, p, a.x, a.y) < p.r * L.k) { hurtPlayer(a, 7, 'lava'); break; }
+  }
+  // AGUJEROS NEGROS: atraen a todos; a los enemigos que caen los aplastan; a ti te hacen daño
+  for (const h of a.feat.holes) {
+    const c = holePos(a, h);
+    const pull = (o, k) => {
+      const dx = c.x - o.x, dy = c.y - o.y, d = Math.hypot(dx, dy) || 1;
+      if (d > 560) return d;
+      const f = (h.pull * (1 - d / 560) + 30) * k * dt;
+      o.x += (dx / d) * Math.min(f, d);
+      o.y += (dy / d) * Math.min(f, d);
+      return d;
+    };
+    if (pull(a, a.dashT > 0 ? 0.3 : 1) < h.r) hurtPlayer(a, 12, 'agujero');
+    for (const e of a.enemies) if (e.alive && !e.boss && pull(e, 1.5) < h.r) hurtEnemy(a, e, 9999);
+  }
+}
+
+// ---------- Jefes: cada uno con sus ataques (y más en la fase 2) ----------
+function bossAI(a, e, dt, slow, dx, dy, d) {
+  const B = ARENA_BOSSES[e.bid], atk = B.phases[e.p2 ? 1 : 0];
+  let vx = (dx / d) * e.speed, vy = (dy / d) * e.speed;
+  // EMBESTIDA: se para, avisa con una línea y carga
+  if (e.state === 'aim') { e.st -= dt; if (e.st <= 0) { e.state = 'dash'; e.st = 0.6; } return { vx: 0, vy: 0 }; }
+  if (e.state === 'dash') { e.st -= dt; if (e.st <= 0) e.state = 'go'; return { vx: e.dx * 520, vy: e.dy * 520 }; }
+  const ready = (k) => {
+    e.cds[k] = (e.cds[k] ?? BOSS_ATTACKS[k].cd * 0.5) - dt * slow;
+    if (e.cds[k] > 0) return false;
+    e.cds[k] = BOSS_ATTACKS[k].cd * (e.p2 ? 0.75 : 1);
+    return true;
+  };
+  const shot = (ang, v, r = 7, dmg = 7) => a.ebullets.push({ x: e.x, y: e.y, vx: Math.cos(ang) * v, vy: Math.sin(ang) * v, r, dmg, life: 5, boss: true });
+  const toYou = Math.atan2(dy, dx);
+  for (const k of atk) {
+    if (k === 'ring' && ready(k)) {
+      const n = e.final || e.p2 ? 16 : 12, off = a.rng.range(0, 1);
+      for (let i = 0; i < n; i++) shot(((i + off) / n) * Math.PI * 2, 150);
+      sfx.dash();
+    } else if (k === 'spray' && ready(k)) {
+      for (let i = -2; i <= 2; i++) shot(toYou + i * 0.18, 220, 6, 7);
+    } else if (k === 'charge' && ready(k)) {
+      e.state = 'aim'; e.st = 0.8; e.dx = dx / d; e.dy = dy / d;
+      return { vx: 0, vy: 0 };
+    } else if (k === 'brood' && ready(k)) {
+      for (let i = 0; i < 5; i++) {
+        spawnEnemy(a, 'swarm', { x: e.x + a.rng.range(-60, 60), y: e.y + a.rng.range(-60, 60) });
+        a.enemies[a.enemies.length - 1].kid = e;
+      }
+    } else if (k === 'mines' && ready(k)) {
+      for (let i = 0; i < 4; i++) {
+        const ang = a.rng.range(0, Math.PI * 2), r = a.rng.range(90, 170);
+        a.ebullets.push({ x: a.x + Math.cos(ang) * r, y: a.y + Math.sin(ang) * r, vx: 0, vy: 0, r: 11, dmg: 12, life: 7, boss: true, mine: true });
+      }
+    } else if (k === 'lasers') {
+      // LÁSERES que giran; 1,2 s de aviso (finos) antes de quemar
+      e.spin += dt * slow * (e.p2 ? 0.75 : 0.55);
+      e.lasersT = (e.lasersT || 0) + dt;
+      e.nLasers = B.lasers[e.p2 ? 1 : 0];
+      e.lasersOn = e.lasersT > 1.2;
+      if (e.lasersOn) {
+        for (let i = 0; i < e.nLasers; i++) {
+          const ang = e.spin + (i / e.nLasers) * Math.PI * 2, cx = Math.cos(ang), cy = Math.sin(ang);
+          const px = a.x - e.x, py = a.y - e.y, along = px * cx + py * cy;
+          if (along > 0 && along < 560 && Math.abs(px * cy - py * cx) < 14 + PLAYER_R * 0.5) hurtPlayer(a, 10, 'laser');
+        }
+      }
+      vx *= 0.4; vy *= 0.4;
+    } else if (k === 'spiral') {
+      // ESPIRAL de balas; cada 4 s cambia de sentido
+      e.rev = (e.rev || 0) + dt;
+      if (e.rev > 4) { e.rev = 0; e.dir = -(e.dir || 1); }
+      e.spin += dt * slow * 1.8 * (e.dir || 1);
+      e.sT = (e.sT || 0) - dt * slow;
+      if (e.sT <= 0) {
+        e.sT = e.p2 ? 0.09 : 0.13;
+        const arms = e.p2 ? 2 : 1;
+        for (let i = 0; i < arms; i++) shot(e.spin + (i / arms) * Math.PI * 2, 170, 6, 6);
+      }
+      vx *= 0.5; vy *= 0.5;
+    } else if (k === 'suction' && d < 560) {
+      // SUCCIÓN: te arrastra hacia su boca (el DASH te suelta)
+      const f = (e.p2 ? 150 : 100) * dt * (a.dashT > 0 ? 0.2 : 1);
+      a.x -= (dx / d) * f;
+      a.y -= (dy / d) * f;
+      vx *= 0.6; vy *= 0.6;
+    }
+  }
+  if (B.shield) e.shield = a.enemies.filter((k) => k.alive && k.kid === e).length >= B.shield;
+  return { vx, vy };
+}
+// (debug y tests) hace aparecer un jefe concreto
+export function debugArenaBoss(id) {
+  const a = A();
+  if (a && ARENA_BOSSES[id]) spawnBoss(a, id);
 }
 
 export const fmtTime = (t) => `${Math.floor(t / 60)}:${String(Math.floor(t % 60)).padStart(2, '0')}`;

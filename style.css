@@ -1005,6 +1005,18 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .ship-detail > .btn { position: sticky; bottom: 8px; z-index: 2; box-shadow: 0 6px 18px rgba(0,0,0,.6); }
 .ship-detail > .btn.ghost { background: #1b0a33; }
 
+/* ---------- Arena: mapas ---------- */
+.arena-maps { width: min(440px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.arena-map { --am: var(--pink); display: flex; align-items: center; gap: 12px; padding: 14px 12px; border-radius: var(--r-2); border: 2px solid var(--am); background: linear-gradient(120deg, rgba(0,0,0,.55), color-mix(in srgb, var(--am) 18%, transparent)); color: #fff; text-align: left; font-family: var(--font); }
+.arena-map.last { box-shadow: 0 0 16px color-mix(in srgb, var(--am) 55%, transparent); }
+.arena-map.locked { opacity: .5; border-style: dashed; }
+.am-icon { font-size: 34px; width: 44px; text-align: center; }
+.am-body { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.am-body b { font: italic 900 18px var(--font); }
+.am-body small { color: var(--muted); font-size: 12px; }
+.am-body em { font-style: normal; font-size: 11px; color: var(--am); font-weight: 800; letter-spacing: .5px; }
+.am-rec { font: 900 13px var(--font); color: var(--yellow); white-space: nowrap; }
+
 /* ---------- Historia: chasis que solo da el Acto III ---------- */
 #stShipyard .st-up.locked { opacity: .6; border-style: dashed; }
 #stShipyard .st-up.locked .su-cost { color: #bf5af2; font-size: 12px; }

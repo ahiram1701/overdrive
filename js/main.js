@@ -7,7 +7,7 @@ import { fx } from './fx.js';
 import { moveLane, jump, slide, dash } from './player.js';
 import { update, useAbility } from './game.js';
 import { ui } from './ui.js';
-import { updateArena, arenaDash, useArenaAbility } from './arena.js';
+import { updateArena, arenaDash, useArenaAbility, debugArenaBoss } from './arena.js';
 import { renderArena } from './arenaRender.js';
 import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem } from './spaceGame.js';
 import { ITEM_KEYS } from './market.js';
@@ -157,6 +157,7 @@ if (G.debug) {
   window.__spaceStats = spaceStats;
   window.__forceEvent = forceEvent;
   window.__devourer = () => spawnDevourer();
+  window.__arenaBoss = (id) => debugArenaBoss(id);
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }

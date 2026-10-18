@@ -46,12 +46,13 @@ function arenaBot({ seconds }) {
   return { mode: G.mode, time: a.time, hp: a.hp, level: a.level, kills: a.kills, ups, weapons: a.weapons };
 }
 
-async function startArena(page, ship = 'viper', seed = 11) {
-  await page.addInitScript(([k, s]) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 5, ship: s, ships: [s] })), [SAVE, ship]);
+async function startArena(page, ship = 'viper', seed = 11, map = 'grid', arena = {}) {
+  await page.addInitScript(([k, s, ar]) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 5, ship: s, ships: [s], arena: ar })), [SAVE, ship, arena]);
   await page.goto(`/?debug&nosw&seed=${seed}`);
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
   await page.locator('#btnArena').click();
+  await page.locator(`#arenaMaps [data-map="${map}"]`).click();
   await page.waitForFunction(() => window.G.mode === 'arena');
 }
 
@@ -125,4 +126,113 @@ test('arena: rendimiento con 300 enemigos', async ({ page }) => {
   });
   console.log(`ARENA paso medio con 300 enemigos: ${ms.toFixed(2)} ms`);
   expect(ms).toBeLessThan(8);
+});
+
+test('mapas: se abren por logros; en el Cinturón las rocas paran la nave y las balas', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 5, arena: { best: 320, kills: 0, wins: 0 } })), SAVE);
+  await page.goto('/?debug&nosw&seed=11');
+  await page.waitForFunction(() => !!window.G);
+  await page.locator('#btnArena').click();
+  await expect(page.locator('#arenaMaps [data-map="belt"]')).not.toBeDisabled();
+  await expect(page.locator('#arenaMaps [data-map="forge"]')).toBeDisabled();
+  await expect(page.locator('#arenaMaps [data-map="void"]')).toContainText('Gana la Arena');
+  await page.evaluate(() => { window.G.manual = true; });
+  await page.locator('#arenaMaps [data-map="belt"]').click();
+  await page.waitForFunction(() => window.G.mode === 'arena');
+  const r = await page.evaluate(() => {
+    const a = window.G.arena, k = a.feat.rocks[0];
+    // ponte junto a la roca y empuja contra ella
+    a.x = k.x + k.r + 40; a.y = k.y; a.enemies = [];
+    a.input = { x: -1, y: 0 };
+    for (let i = 0; i < 60; i++) window.D.step(1 / 60, false);
+    const inside = Math.hypot(a.x - k.x, a.y - k.y) < k.r;
+    // una bala tuya contra la roca desaparece
+    a.bullets = [{ x: k.x + k.r + 4, y: k.y, vx: -400, vy: 0, r: 4, dmg: 1, life: 2, pierce: 1, probe: true }];
+    window.D.step(1 / 30, false);
+    window.D.step(1 / 30, false);
+    const probe = a.bullets.some((b) => b.probe);
+    // y nadie sale del círculo
+    a.input = { x: 0, y: 0 };
+    a.x = 5000; a.y = 0;
+    window.D.step(1 / 60, false);
+    return { inside, probe, x: a.x, R: a.M.radius, map: window.__save.arena.map };
+  });
+  expect(r.inside).toBe(false);
+  expect(r.probe).toBe(false);
+  expect(r.x).toBeLessThanOrEqual(r.R);
+  expect(r.map).toBe('belt');
+  expect(errors).toEqual([]);
+});
+
+test('Forja: la lava quema', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startArena(page, 'viper', 11, 'forge', { best: 600, kills: 0, wins: 1, bossBest: 2 });
+  const lava = await page.evaluate(() => {
+    const a = window.G.arena, p = a.feat.pools[0];
+    a.enemies = []; a.x = p.x; a.y = p.y; a.input = { x: 0, y: 0 };
+    const hp0 = a.hp;
+    window.D.step(1 / 30, false);
+    return hp0 - a.hp;
+  });
+  expect(lava).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test('Vacío: los agujeros negros te atraen', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startArena(page, 'viper', 11, 'void', { best: 600, kills: 0, wins: 1, bossBest: 2 });
+  const hole = await page.evaluate(async () => {
+    const { holePos } = await import('/js/arena.js');
+    const a = window.G.arena, c = holePos(a, a.feat.holes[0]);
+    a.enemies = [];
+    window.G.god = true;
+    a.x = c.x + 300; a.y = c.y; a.input = { x: 0, y: 0 };
+    window.D.step(0.5, false);
+    const c2 = holePos(a, a.feat.holes[0]);
+    return Math.hypot(a.x - c2.x, a.y - c2.y);
+  });
+  expect(hole).toBeLessThan(300);
+  expect(errors).toEqual([]);
+});
+
+test('jefes: cada uno con sus ataques y su fase 2; la Colmena es inmune con sus crías', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startArena(page);
+  for (const id of ['coloso', 'colmena', 'tejedora', 'nucleo', 'devorador']) {
+    const r = await page.evaluate((bid) => {
+      const a = window.G.arena;
+      window.G.god = true;
+      a.enemies = []; a.ebullets = []; a.ring = null;
+      window.__arenaBoss(bid);
+      const b = a.enemies.find((e) => e.boss);
+      b.x = a.x + 200; b.y = a.y;
+      for (let i = 0; i < 240; i++) window.D.step(1 / 60, false);
+      const out = { bid: b.bid, shots: a.ebullets.length, lasers: !!b.lasersOn, charged: b.cds.charge !== undefined, kids: a.enemies.filter((e) => e.kid === b && e.alive).length, shield: !!b.shield };
+      // con escudo, ni un golpe enorme le entra
+      const hp0 = b.hp;
+      if (b.shield) {
+        a.bullets.push({ x: b.x, y: b.y, vx: 0, vy: 0, r: 30, dmg: 99999, life: 0.5, pierce: 1 });
+        window.D.step(1 / 60, false);
+        out.immune = b.alive && b.hp === hp0;
+      }
+      // a media vida, fase 2
+      for (const e of a.enemies) if (e.kid === b) e.alive = false;
+      b.shield = false;
+      b.hp = b.max * 0.51;
+      a.bullets.push({ x: b.x, y: b.y, vx: 0, vy: 0, r: 30, dmg: b.max * 0.03, life: 0.5, pierce: 1 });
+      window.D.step(1 / 60, false);
+      out.p2 = b.p2;
+      b.alive = false;
+      window.D.step(1 / 60, false);
+      return out;
+    }, id);
+    expect(r.bid).toBe(id);
+    expect(r.p2).toBe(true);
+    if (id === 'tejedora') expect(r.lasers).toBe(true);
+    else if (id === 'colmena') { expect(r.kids).toBeGreaterThanOrEqual(4); expect(r.shield).toBe(true); expect(r.immune).toBe(true); }
+    else if (id === 'coloso') expect(r.charged).toBe(true);
+    else expect(r.shots).toBeGreaterThan(0);
+  }
+  expect(errors).toEqual([]);
 });
