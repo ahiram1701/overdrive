@@ -17,6 +17,7 @@ import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
 import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { chapterLabel } from './story.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
@@ -1645,7 +1646,7 @@ export const ui = {
     } else {
       const rows = [];
       const ch = storyChapter();
-      if (ch) rows.push(`<div class="gi-mis story"><span>📖</span><div><b>${ch.title}</b><small>${ch.goal.text}${ch.goal.sys !== undefined ? ` · ${ch.goal.sys === s.sysId ? 'aquí' : jumps(ch.goal.sys)}` : ''}</small></div></div>`);
+      if (ch) rows.push(`<div class="gi-mis story"><span>📖</span><div><b>${chapterLabel(save)} · ${ch.title}</b><small>${ch.goal.text}${ch.goal.sys !== undefined ? ` · ${ch.goal.sys === s.sysId ? 'aquí' : jumps(ch.goal.sys)}` : ''}</small></div></div>`);
       const bo = save.bounties.active;
       if (bo) rows.push(`<div class="gi-mis bounty"><span>🎯</span><div><b>${bo.name} · nivel ${bo.level}</b><small>${TRAITS[bo.trait].icon} ${TRAITS[bo.trait].name} · visto en ${where(bo.sys)} · +${fmt(bo.reward)} 💰</small></div></div>`);
       if (s.event && !s.event.done && s.objective?.kind === 'event') rows.push(`<div class="gi-mis event"><span>⚡</span><div><b>Suceso en ${GAL[s.sysId].name}</b><small>${s.objective.text}</small></div></div>`);

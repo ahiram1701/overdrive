@@ -135,6 +135,11 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
     3. FURIA, con anillos de balas.
   - El premio: la nave **Errante**, para todos los modos.
   - Los capítulos se ven en el ATLAS.
+  - **Acto II · El Enjambre** (8 capítulos más, en otros sistemas): sin el Devorador, su colmena despierta con una **Reina**. Llega **Vex**, un pirata desertor, y decides quién lo protege.
+    - Objetivos nuevos: **vender** mineral en un sistema (cuenta por unidades) y **escanear** una baliza corrupta (5 s a su lado).
+    - Jefe **🐝 La Reina del Enjambre**: pone drones y, mientras la protejan 3, su escudo lo aguanta todo. Abate a sus hijas y ataca antes de que las reponga.
+    - Premio: 8.000 💰, 3 núcleos y el logro **La Reina caída** (con su estilo exclusivo).
+  - El HUD y el panel 🎒 dicen dónde vas: «Acto II · 3/8».
 - **🪐 ORBITAR planetas:** al acercarte a uno aparece ORBITAR. Cada planeta tiene nombre, tipo e historia; el primer sobrevuelo paga y cada uno compra un mineral a ×1,5.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:
