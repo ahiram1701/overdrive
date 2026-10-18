@@ -139,7 +139,10 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
     - Objetivos nuevos: **vender** mineral en un sistema (cuenta por unidades) y **escanear** una baliza corrupta (5 s a su lado).
     - Jefe **🐝 La Reina del Enjambre**: pone drones y, mientras la protejan 3, su escudo lo aguanta todo. Abate a sus hijas y ataca antes de que las reponga.
     - Premio: 8.000 💰, 3 núcleos y el logro **La Reina caída** (con su estilo exclusivo).
-  - El HUD y el panel 🎒 dicen dónde vas: «Acto II · 3/8».
+  - **Acto III · El Origen** (8 capítulos): la Señal no era una víctima. Vuelven Ilen, Brak y Vex; el **Heraldo renacido** (con el doble de vida) y el jefe final **🌑 El Devorador Primordial**, con 4 ojos, más vida y dos anillos de balas en la furia.
+    - Premio: 15.000 💰, el logro **Origen** y el chasis **🌌 Errante Mk II** (solo por la historia; en el astillero aparece como «📖 Acto III» hasta ganarlo): lo mejor de todos los chasis, 3 + 3 huecos.
+  - **📜 La Crónica** (sin fin): tras el Acto III siguen capítulos generados: balizas, escaneos, entregas, ventas, cazas y bases por toda la galaxia, cada vez más duros y mejor pagados. Cada 5, un jefe (ecos del Heraldo y de la Reina, más fuertes en cada vuelta). Logro **Cronista** por 10.
+  - El HUD y el panel 🎒 dicen dónde vas: «Acto II · 3/8» o «Crónica #12».
 - **🪐 ORBITAR planetas:** al acercarte a uno aparece ORBITAR. Cada planeta tiene nombre, tipo e historia; el primer sobrevuelo paga y cada uno compra un mineral a ×1,5.
 - **Minar:** dispara a los asteroides. Los grandes se parten en dos y sueltan mineral, que el imán lleva a tu bodega.
 - **Estación:** al acercarte aparece 🛰️ ATRACAR. Dentro:

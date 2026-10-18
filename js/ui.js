@@ -1358,6 +1358,7 @@ export const ui = {
     yard.innerHTML = '';
     for (const [id, c] of Object.entries(CHASSIS)) {
       const own = g.hulls.includes(id), cur = g.chassis === id;
+      if (c.story && !own) { yard.append(el('div', 'st-up locked', `<span class="su-icon">${c.icon}</span><span class="su-body"><b>${c.name}</b><small>${c.desc}</small></span><span class="su-cost">📖 Acto III</span>`)); continue; }
       const mm = Object.entries(c.mult).map(([k, v]) => `${{ speed: 'velocidad', turn: 'giro', hull: 'casco', shield: 'escudo', cargo: 'bodega', dmg: 'daño' }[k]} ${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`).join(' · ');
       const b = el('button', `st-up${cur ? ' on' : !own && g.credits >= c.cost ? ' afford' : ''}`, `<span class="su-icon">${c.icon}</span>
         <span class="su-body"><b>${c.name} <em>🔫${c.slots.w} ⚙️${c.slots.m}</em></b><small>${c.desc}</small>${mm ? `<small class="cr-cost">${mm}</small>` : ''}</span>

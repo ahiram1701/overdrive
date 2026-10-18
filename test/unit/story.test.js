@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { genGalaxy } from '../../js/galaxy.js';
 import { loadFrom } from '../../js/save.js';
 import { GEAR, MATS, SLOTS, addMat, canCraft, craft, equipGear, gear, hasGear, dropsOf } from '../../js/crafting.js';
-import { chapters, storySystems, storyEvent, storyState, currentChapter, storyDone, CAST, ACT_LEN, chapterLabel } from '../../js/story.js';
+import { chapters, storySystems, storyEvent, storyState, currentChapter, storyDone, CAST, ACT_LEN, chapterLabel, genChapter } from '../../js/story.js';
+import { ownerOf } from '../../js/factions.js';
 
 const gal = genGalaxy();
 
@@ -28,8 +29,8 @@ test('fabricar: cuesta créditos y materiales, se monta solo y respeta los hueco
 
 test('historia: actos de 8 capítulos, sistemas cada vez más lejos y que se puede acabar', () => {
   const chs = chapters(gal);
-  assert.equal(chs.length, 2 * ACT_LEN);
-  assert.deepEqual([...new Set(chs.map((c) => c.act))], [1, 2]);
+  assert.equal(chs.length, 3 * ACT_LEN);
+  assert.deepEqual([...new Set(chs.map((c) => c.act))], [1, 2, 3]);
   for (const c of chs) if (c.goal.sys !== undefined) assert.ok(gal[c.goal.sys], `${c.title}: sistema válido`);
   const S = storySystems(gal);
   assert.ok(gal[S.a].danger < gal[S.c].danger && gal[S.c].danger < gal[S.f].danger);
@@ -49,6 +50,8 @@ test('historia: actos de 8 capítulos, sistemas cada vez más lejos y que se pue
   assert.equal(chs[ACT_LEN - 1].reward.ship, 'wanderer');
   assert.equal(chs[2 * ACT_LEN - 1].goal.boss, 'queen');
   assert.equal(chs[2 * ACT_LEN - 1].end, 'act2');
+  assert.equal(chs[3 * ACT_LEN - 1].goal.boss, 'primordial');
+  assert.equal(chs[3 * ACT_LEN - 1].reward.chassis, 'errante2');
 });
 
 test('historia: el Acto II usa otros sistemas, se nombra "Acto II · n/8" y vender cuenta por unidades', () => {
@@ -65,4 +68,29 @@ test('historia: el Acto II usa otros sistemas, se nombra "Acto II · n/8" y vend
   assert.equal(storyState(s).n, 12);
   assert.ok(storyEvent(s, gal, { type: 'sell', sys: g.sys, amount: 9 }), 'con 21 ≥ 20 se completa');
   assert.equal(storyEvent(s, gal, { type: 'reach', sys: 0 }), null, 'lo de otro capítulo no cuenta');
+});
+
+test('la Crónica: tras el Acto III la historia no se acaba; capítulos deterministas y cada vez más duros', () => {
+  const s = loadFrom(null);
+  storyState(s).ch = 3 * ACT_LEN;
+  assert.equal(chapterLabel(s), 'Crónica #1');
+  assert.equal(currentChapter(s, gal).chronicle, 1, 'después del último capítulo escrito, la Crónica');
+  assert.deepEqual(genChapter(gal, 7), genChapter(gal, 7), 'el mismo número da el mismo capítulo');
+  let last = 0;
+  for (let i = 0; i < 40; i++) {
+    const c = genChapter(gal, i), g = c.goal;
+    assert.ok(gal[g.sys], `crónica ${i}: sistema válido`);
+    if (['dock', 'sell'].includes(g.kind)) assert.notEqual(ownerOf(gal[g.sys]), 'pir', 'nunca atracar en un sistema pirata');
+    assert.equal(g.kind === 'boss', i % 5 === 4, 'un jefe cada 5');
+    for (const [who] of [...c.intro, ...c.outro]) assert.ok(CAST[who], who);
+    assert.ok(c.reward.credits > last, 'cada una paga más');
+    last = c.reward.credits;
+  }
+  assert.ok(genChapter(gal, 29).goal.hpMul > genChapter(gal, 4).goal.hpMul, 'los jefes de la Crónica crecen');
+  // se completa con su suceso y pasa a la siguiente
+  const g = currentChapter(s, gal).goal;
+  let done = null;
+  for (let i = 0; i < g.n; i++) done = storyEvent(s, gal, { type: g.kind, sys: g.sys, boss: g.boss });
+  assert.equal(done?.chronicle, 1);
+  assert.equal(chapterLabel(s), 'Crónica #2');
 });

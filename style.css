@@ -1016,3 +1016,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .am-body small { color: var(--muted); font-size: 12px; }
 .am-body em { font-style: normal; font-size: 11px; color: var(--am); font-weight: 800; letter-spacing: .5px; }
 .am-rec { font: 900 13px var(--font); color: var(--yellow); white-space: nowrap; }
+
+/* ---------- Historia: chasis que solo da el Acto III ---------- */
+#stShipyard .st-up.locked { opacity: .6; border-style: dashed; }
+#stShipyard .st-up.locked .su-cost { color: #bf5af2; font-size: 12px; }
