@@ -43,6 +43,9 @@ export const PALETTES = [
   ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#30d158'], ['raptor', '#ff9f0a'],
     ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d'], ['falcon', '#7dffb0'], ['chimera', '#ff4fd8']].map(([ship, c]) => (
     { id: `m-${ship}`, name: 'Maestro', hull: '#0a0a0a', alt: '#2a2000', pattern: 'fade', edge: c, glow: '#ffd60a', ship, unlock: { mastery: ship } })),
+  // de FACCIÓN (se compran con créditos en sus estaciones al ser Amigo/Aliado)
+  { id: 'f-liga', name: 'Liga Minera', hull: '#061a0a', alt: '#2a2400', pattern: 'stripes', edge: '#30d158', glow: '#ffd60a', unlock: { faction: 'liga' } },
+  { id: 'f-coal', name: 'Coalición Solar', hull: '#06101e', alt: '#1e1a06', pattern: 'split', edge: '#00e5ff', glow: '#ffcc66', unlock: { faction: 'coal' } },
   // exclusivos de COFRE (solo salen al abrir cofres de suministros)
   { id: 'c-nebula', name: 'Nebulosa', hull: '#12002a', alt: '#002a3a', pattern: 'fade', edge: '#ff2bd6', glow: '#7df9ff', unlock: { crate: 'legendary' } },
   { id: 'c-carbon', name: 'Carbono', hull: '#111114', alt: '#26262c', pattern: 'stripes', edge: '#9aa0a6', glow: '#ff3b30', unlock: { crate: 'epic' } },
@@ -108,6 +111,8 @@ export const ENGINES = [
   { id: 'e-orange', name: 'Naranja', color: '#ff9f0a', unlock: { gems: 60 } },
   { id: 'e-lime', name: 'Lima', color: '#a6ff00', unlock: { gems: 70 } },
   { id: 'e-ice', name: 'Hielo azul', color: '#bff6ff', unlock: { rank: 13 } },
+  { id: 'f-liga-e', name: 'Llama minera', color: '#b6ff3d', unlock: { faction: 'liga' } },
+  { id: 'f-coal-e', name: 'Llama solar', color: '#ffcc66', unlock: { faction: 'coal' } },
   { id: 'c-e-gold', name: 'Oro fundido', color: '#ffd60a', unlock: { crate: 'epic' } },
   { id: 'c-e-mint', name: 'Menta', color: '#7dffb0', unlock: { crate: 'rare' } },
   { id: 'c-e-void', name: 'Antimateria', color: '#7a5cff', unlock: { crate: 'legendary' } },
@@ -226,6 +231,7 @@ export function isUnlocked(item, save, ship = save.ship) {
   if (u.stat) return shipStat(save, ship, u.stat) >= u.n;
   if (u.crate) return (save.crates?.owned || []).includes(item.id);
   if (u.mastery) return !!save.shipLvl?.[u.mastery]?.m;
+  if (u.faction) return (save.crates?.owned || []).includes(item.id);
   return false;
 }
 
@@ -238,6 +244,7 @@ export function lockText(item, save = null, ship = null) {
   if (u.stat) return save ? `${Math.min(u.n, shipStat(save, ship, u.stat))}/${u.n} ${STAT_TEXT[u.stat]}` : `${u.n} ${STAT_TEXT[u.stat]}`;
   if (u.crate) return '🎁 cofre';
   if (u.mastery) return '★ maestría';
+  if (u.faction) return u.faction === 'liga' ? '⛏️ Liga Minera' : '☀️ Coalición';
   return '';
 }
 

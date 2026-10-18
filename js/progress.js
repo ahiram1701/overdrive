@@ -138,6 +138,11 @@ export const ACHIEVEMENTS = [
   { id: 'galRescue', kind: 'rescue', mode: 'sum', n: 3, tier: 'bronze', name: 'Socorrista', desc: 'Rescata 3 cápsulas en la GALAXIA' },
   { id: 'galPlanet', kind: 'planet', mode: 'sum', n: 10, tier: 'silver', name: 'Astronauta', desc: 'Orbita 10 planetas distintos' },
   { id: 'galWorm', kind: 'wormhole', mode: 'sum', n: 1, tier: 'bronze', name: 'Atajo cósmico', desc: 'Cruza un agujero de gusano' },
+  { id: 'lib1', kind: 'liberate', mode: 'sum', n: 1, tier: 'silver', name: 'Libertador', desc: 'Libera un sistema pirata' },
+  { id: 'lib5', kind: 'liberate', mode: 'sum', n: 5, tier: 'gold', name: 'Reconquista', desc: 'Libera 5 sistemas piratas' },
+  { id: 'bounty1', kind: 'bounty', mode: 'sum', n: 1, tier: 'bronze', name: 'Cazarrecompensas', desc: 'Abate a un pirata buscado' },
+  { id: 'bounty10', kind: 'bounty', mode: 'sum', n: 10, tier: 'gold', name: 'Leyenda del gatillo', desc: 'Abate a 10 piratas buscados' },
+  { id: 'siege1', kind: 'siege', mode: 'sum', n: 1, tier: 'silver', name: 'Muralla', desc: 'Repele un asedio pirata' },
 ];
 export const ACH_GEMS = T;
 

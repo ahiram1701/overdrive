@@ -14,9 +14,10 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
 import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
 import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
@@ -1216,7 +1217,7 @@ export const ui = {
     const box = $('stUpgrades');
     box.innerHTML = '';
     for (const [id, u] of Object.entries(SP_UP)) {
-      const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
+      const lvl = g.up[id] || 0, c = stationUpCost(id, lvl);
       const b = el('button', `st-up${c !== null && g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">${u.icon}</span>
         <span class="su-body"><b>${u.name}</b><small>${u.desc}</small><i>${'●'.repeat(lvl)}${'○'.repeat(MAX_UP - lvl)}</i></span>
         <span class="su-cost">${c === null ? 'MÁX' : `${c} 💰`}</span>`);
@@ -1228,6 +1229,43 @@ export const ui = {
         ui.showStation(s);
       });
       box.append(b);
+    }
+    // FACCIÓN de la estación: reputación, ventajas y su tienda (con créditos)
+    const own = sysOwner(s.sysId), F = FACTIONS[own], rp = repOf(save, own), lvR = repLevel(rp);
+    const fb = $('stFaction');
+    fb.innerHTML = `<h3>${F.icon} ${F.name}</h3><small>${F.desc}</small>
+      <div class="rep"><div class="m-bar"><i style="transform:scaleX(${((rp + 100) / 200).toFixed(3)});background:${F.color}"></i></div><b>${lvR.name} · ${rp}</b></div>
+      <small>${lvR.sell > 1 ? `Te pagan el mineral un ${Math.round((lvR.sell - 1) * 100)}% más · taller y reparación −${Math.round((1 - lvR.disc) * 100)}%` : 'Sube la reputación con sus misiones y cazando piratas: Amigo (20) y Aliado (60) tienen ventajas.'}</small>`;
+    for (const it of FACTION_SHOP.filter((x) => x.faction === own)) {
+      const item = GROUPS.palette.find((x) => x.id === it.id) || GROUPS.engine.find((x) => x.id === it.id);
+      const has = (save.crates.owned || []).includes(it.id), okLvl = lvlAtLeast(rp, it.minLvl);
+      const b = el('button', `st-up${!has && okLvl && g.credits >= it.cost ? ' afford' : ''}`, `<span class="su-icon">${item.hull ? '🎨' : '🔥'}</span>
+        <span class="su-body"><b>${item.name}</b><small>${item.hull ? 'Pintura' : 'Motor'} de la facción · para todas tus naves</small></span>
+        <span class="su-cost">${has ? '✔' : okLvl ? `${fmt(it.cost)} 💰` : `🔒 ${it.minLvl === 'amigo' ? 'Amigo' : 'Aliado'}`}</span>`);
+      b.dataset.fshop = it.id;
+      b.disabled = has || !okLvl;
+      tap(b, () => { if (buyFactionItem(it)) { toast(`🎨 ${item.name} desbloqueado`); ui.showStation(s); } });
+      fb.append(b);
+    }
+    // SE BUSCA: piratas con nombre; uno activo a la vez
+    const bBox = $('stBounties');
+    bBox.innerHTML = '';
+    const act = save.bounties.active;
+    if (act) {
+      const row = el('div', 'st-mis active', `<span>🎯</span><div><b>${act.name} · nivel ${act.level}</b><small>${TRAITS[act.trait].icon} ${TRAITS[act.trait].name} · visto en ${GAL[act.sys].name} · +${fmt(act.reward)} 💰 · +${act.gems} 💎</small></div>`);
+      const x = el('button', 'btn ghost', '✕');
+      tap(x, () => { abandonBounty(); ui.showStation(s); });
+      row.append(x);
+      bBox.append(row);
+    } else {
+      for (const b of bountyBoardNow(s)) {
+        const row = el('div', 'st-mis', `<span>🎯</span><div><b>${b.name} · nivel ${b.level}</b><small>${TRAITS[b.trait].icon} ${TRAITS[b.trait].desc} · en ${GAL[b.sys].name} · +${fmt(b.reward)} 💰 · +${b.gems} 💎</small></div>`);
+        const ok = el('button', 'btn', 'CAZAR');
+        ok.dataset.bounty = b.id;
+        tap(ok, () => { acceptBounty(b); ui.showStation(s); });
+        row.append(ok);
+        bBox.append(row);
+      }
     }
     // TABLÓN: misiones activas (con su progreso) y ofertas de esta estación
     const mBox = $('stMissions');
@@ -1291,7 +1329,9 @@ export const ui = {
       const here = a.id === s.sysId, lock = !canJump(a, g.up.jump || 0);
       svg += `<g class="gm-node${here ? ' here' : ''}${a.id === sel ? ' sel' : ''}${visited ? '' : ' unknown'}" data-sys="${a.id}">
         <circle cx="${a.x}" cy="${a.y - 10}" r="44" fill="transparent" class="hit"/>
+        ${visited ? `<circle cx="${a.x}" cy="${a.y}" r="${here ? 31 : 25}" class="fac" style="fill:none;stroke:${FACTIONS[sysOwner(a.id)].color};stroke-width:5"/>` : ''}
         <circle cx="${a.x}" cy="${a.y}" r="${here ? 22 : 16}" fill="${visited ? dcol(a.danger) : '#333'}"/>
+        ${save.bounties.active?.sys === a.id ? `<text x="${a.x + 24}" y="${a.y + 6}" class="gm-bounty">🎯</text>` : ''}
         <text x="${a.x}" y="${a.y - 26}">${visited ? a.name : '???'}${lock ? ' 🔒' : ''}${a.id === (g.home ?? 0) ? ' 🏠' : ''}</text></g>`;
     }
     $('gmSvg').innerHTML = svg;
@@ -1306,7 +1346,7 @@ export const ui = {
       const a = GAL[sel], visited = g.visited.includes(sel);
       const r = route(GAL, s.sysId, sel);
       info.innerHTML = `<b>${visited ? a.name : 'Sistema sin explorar'}</b>
-        <small>${visited ? `Peligro ${'☠'.repeat(a.danger) || 'ninguno'} · mineral ${ORES[a.ore].icon} ${ORES[a.ore].name}` : 'Se ve desde un sistema vecino'} · ${r ? r.length - 1 : '?'} saltos</small>
+        <small>${visited ? `${FACTIONS[sysOwner(sel)].icon} ${FACTIONS[sysOwner(sel)].name} · peligro ${'☠'.repeat(a.danger) || 'ninguno'} · mineral ${ORES[a.ore].icon} ${ORES[a.ore].name}` : 'Se ve desde un sistema vecino'} · ${r ? r.length - 1 : '?'} saltos</small>
         ${!canJump(a, g.up.jump || 0) ? `<small class="warn">🔒 Necesitas Salto ${jumpNeeded(a)}</small>` : ''}`;
       if (sel !== s.sysId) {
         const go = el('button', 'btn', '🧭 TRAZAR RUTA');
@@ -1314,7 +1354,8 @@ export const ui = {
         tap(go, () => { setRoute(sel); G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
         info.append(go);
       }
-    } else info.innerHTML = `<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas.</small>`;
+    } else info.innerHTML = `<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas · 🏳️ liberados ${liberatedCount(save.territory)}/${pirateSystemsTotal(GAL)}</small>
+      <small class="gm-legend">${Object.values(FACTIONS).map((f) => `<i style="border-color:${f.color}"></i>${f.name}`).join(' ')}</small>`;
     ui.showSpaceHUD(false);
     show('galMap');
   },

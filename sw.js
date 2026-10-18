@@ -45,6 +45,7 @@ const ASSETS = [
   './js/galaxyMissions.js',
   './js/galaxyEvents.js',
   './js/economy.js',
+  './js/factions.js',
   './js/spaceGame.js',
   './js/spaceRender.js',
 ];

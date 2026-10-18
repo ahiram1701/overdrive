@@ -15,6 +15,7 @@ import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
+import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 
 const S = () => G.space;
@@ -37,6 +38,11 @@ const stats = () => {
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };
+
+// ---------- Facciones ----------
+export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], save.territory);
+const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
+const B = () => { save.bounties.done ||= {}; return save.bounties; };
 
 // La orientación manda (cuaternión); yaw/pitch se derivan para lo que solo necesita una dirección
 function syncAngles(sh) {
@@ -111,20 +117,104 @@ function enterSystem(s, id, fromId) {
   for (let i = 0; i < def.pirates; i++) spawnPirate(s, false);
   if (def.boss && !save.galaxyBoss[id]) spawnPirate(s, true);
   if (fromId !== null) {
-    const back = s.sys.gates.find((gt) => gt.to === fromId);
+    // por la puerta del sistema de origen; si no hay (agujero de gusano a un sistema lejano), por la primera
+    const back = s.sys.gates.find((gt) => gt.to === fromId) || s.sys.gates[0];
     const inward = norm(scale(back.pos, -1));
     s.ship.pos = add(back.pos, scale(inward, 90));
     face(s.ship, lookAngles(s.ship.pos, add(s.ship.pos, inward)).yaw);
     s.cam = null;
   } else undockPose(s);
+  // FACCIÓN del sistema: en los piratas hay base y más piratas (libéralo); en los liberados, asedios
+  s.owner = sysOwner(id);
+  s.libKills = 0;
+  s.pirWarned = false;
+  if (s.owner === 'pir') {
+    spawnBase(s);
+    fx.notice(`🏴‍☠️ ${def.name} es pirata: destruye su base y ${LIBERATE_KILLS} piratas para liberarlo`, '#ff2d55');
+  }
   // SUCESO al llegar por una puerta (o un agujero de gusano)
   if (fromId !== null) {
     g.jumps = (g.jumps || 0) + 1;
-    const ev = eventFor(id, g.jumps, def.danger);
-    if (ev) startEvent(s, ev);
+    const bo = B().active;
+    if (bo) bo.sys = moveBounty(GAL, bo, g.jumps);
+    if (save.territory[id] && makeRng(hashString(`siege-${id}-${g.jumps}`)).next() < 0.25) startEvent(s, { kind: 'siege', id: `siege-${id}-${g.jumps}` });
+    else {
+      const ev = eventFor(id, g.jumps, def.danger);
+      if (ev && !(ev.kind === 'assault' && s.base)) startEvent(s, ev);
+    }
   }
+  spawnBounty(s);
   persist();
 }
+
+// ---------- Cazarrecompensas ----------
+function spawnBounty(s) {
+  const b = B().active;
+  if (!b || b.sys !== s.sysId || s.pirates.some((p) => p.bounty)) return;
+  const st = bountyStats(b);
+  const a = s.rng.range(0, Math.PI * 2);
+  const pos = { x: Math.cos(a) * 1000, y: s.rng.range(-100, 100), z: Math.sin(a) * 1000 };
+  if (dist(pos, s.sys.station.pos) < SAFE_R + 300) { pos.x = -pos.x; pos.z = -pos.z; }
+  s.pirates.push({
+    pos, yaw: 0, pitch: 0, hp: st.hp, max: st.hp, boss: false, alive: true, flash: 0, state: 'attack', t: 0, kind: 'fighter', size: st.size,
+    speed: st.speed, turn: st.turn, fireCd: 1, dmg: st.dmg, missileCd: 0, mesh: 'chimera', off: { x: 0, y: 0, z: 0 }, bounty: b.id, name: b.name, flees: b.trait === 'escurridizo',
+  });
+  for (let i = 0; i < st.drones; i++) spawnPirate(s, false, 'drone', add(pos, { x: 40 * (i - 1.5), y: 10, z: 30 }));
+  fx.banner(`🎯 ${b.name.toUpperCase()}`, `nivel ${b.level} · ${TRAITS[b.trait].icon} ${TRAITS[b.trait].name} · está en este sistema`, '#ff9f0a', true);
+}
+export const bountyBoardNow = (s = S()) => bountyBoard(GAL, s.sysId, B().seq || 0, B().done);
+export function acceptBounty(b) {
+  if (B().active) return false;
+  B().active = { ...b };
+  persist();
+  sfx.card();
+  return true;
+}
+export function abandonBounty() {
+  B().active = null;
+  persist();
+}
+function bountyKilled(s, p) {
+  const b = B().active;
+  if (!b || b.id !== p.bounty) return;
+  const g = gal();
+  g.credits += b.reward;
+  save.gems += b.gems;
+  B().done[b.id] = true;
+  B().active = null;
+  B().seq = (B().seq || 0) + 1;
+  addRep(save, sysOwner(b.from), 5);
+  fx.banner(`🎯 ${b.name.toUpperCase()} ABATIDO`, `+${b.reward} 💰 · +${b.gems} 💎`, '#ffe600', true);
+  progress('bounty');
+  persist();
+}
+
+// ---------- Territorio ----------
+function checkLiberation(s) {
+  if (s.owner !== 'pir' || s.base || s.libKills < LIBERATE_KILLS || save.territory[s.sysId]) return;
+  const f = bestAlly(save);
+  save.territory[s.sysId] = f;
+  s.owner = f;
+  addRep(save, f, 15);
+  addRep(save, 'pir', -10);
+  fx.banner(`🏳️ ${GAL[s.sysId].name} LIBERADO`, `ahora es de la ${FACTIONS[f].name} · su estación te abre`, FACTIONS[f].color, true);
+  fx.flash(FACTIONS[f].color, 0.5);
+  sfx.milestone();
+  progress('liberate');
+  persist();
+}
+
+// Tienda de facción: estilos exclusivos con créditos según tu reputación
+export function buyFactionItem(it) {
+  const g = gal();
+  if ((save.crates.owned || []).includes(it.id) || !lvlAtLeast(repOf(save, it.faction), it.minLvl) || g.credits < it.cost) return false;
+  g.credits -= it.cost;
+  save.crates.owned = [...(save.crates.owned || []), it.id];
+  persist();
+  sfx.chest();
+  return true;
+}
+export { FACTION_SHOP };
 
 // colocarse fuera de la estación, mirando hacia fuera del sol: el cinturón está más allá
 function undockPose(s) {
@@ -168,7 +258,7 @@ function updatePirates(s, dt) {
     const d = dist(p.pos, sh.pos);
     const playerSafe = dist(sh.pos, st) < SAFE_R;
     // estados: atacar (pasada), evadir tras cruzarse, huir con poca vida, merodear si estás a salvo
-    if (!p.boss && p.hp < p.max * 0.25 && p.state !== 'flee') { p.state = 'flee'; p.t = 0; }
+    if (!p.boss && p.hp < p.max * (p.flees ? 0.5 : 0.25) && p.state !== 'flee') { p.state = 'flee'; p.t = 0; }
     if (p.state === 'attack' && d < 70) { p.state = 'evade'; p.t = 0; }
     if (p.state === 'evade' && p.t > 1.4) p.state = 'attack';
     if (playerSafe && p.state === 'attack') p.state = 'patrol';
@@ -273,6 +363,21 @@ function killPirate(s, p) {
     progress('pirateBoss');
   }
   progress('pirate');
+  if (s.owner !== 'pir') addRep(save, s.owner, 1);
+  addRep(save, 'pir', -1);
+  if (s.owner === 'pir') { s.libKills++; checkLiberation(s); }
+  if (p.bounty) bountyKilled(s, p);
+  if (p.siege && s.event?.kind === 'siege' && !s.event.done) {
+    s.event.left--;
+    if (s.event.left <= 0) {
+      s.event.done = true;
+      const c = 300 + GAL[s.sysId].danger * 80;
+      gal().credits += c;
+      addRep(save, s.owner, 10);
+      fx.banner('⚔️ ASEDIO REPELIDO', `+${c} 💰 · la ${FACTIONS[s.owner]?.name || 'estación'} te lo agradece`, '#30d158', true);
+      progress('siege');
+    }
+  }
   missionEvent(s, { type: 'kill', sys: s.sysId });
 }
 
@@ -338,6 +443,7 @@ function killBase(s) {
   fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo · +3 💎`, '#ffe600', true);
   if (s.event?.kind === 'assault') s.event.done = true;
   progress('pirateBase');
+  checkLiberation(s);
   persist();
 }
 
@@ -354,6 +460,15 @@ function startEvent(s, ev) {
     s.event.ships = [0, 1, 2].map((i) => ({ pos: add(start, scale(dir, -i * 45)), dir, yaw: Math.atan2(dir.x, dir.z) }));
   } else if (ev.kind === 'wormhole') s.event.pos = ahead(rng.range(450, 650), rng.range(-200, 200), rng.range(-80, 80));
   else if (ev.kind === 'assault') spawnBase(s);
+  else if (ev.kind === 'siege') {
+    s.event.left = 5;
+    const st = s.sys.station.pos;
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2;
+      spawnPirate(s, false, i % 2 ? 'interceptor' : 'fighter', add(st, { x: Math.cos(a) * (SAFE_R + 160), y: 20, z: Math.sin(a) * (SAFE_R + 160) }));
+      s.pirates[s.pirates.length - 1].siege = true;
+    }
+  }
 }
 function updateEvent(s, dt) {
   const e = s.event;
@@ -545,6 +660,7 @@ export function sellAll() {
     g.cargo[k] = 0;
   }
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
+  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell); // facción: Amigo/Aliado pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -568,10 +684,16 @@ export function buyOre(ore, n = 1) {
   return k;
 }
 
+// precio de una mejora: atracado en una estación amiga, con descuento
+export function stationUpCost(id, lvl) {
+  const c = upgradeCost(id, lvl);
+  return c === null ? null : G.mode === 'station' && S() ? Math.round(c * repBonus(S().sysId).disc) : c;
+}
+
 export function buyUpgrade(id) {
   const g = gal();
   const lvl = g.up[id] || 0;
-  const c = upgradeCost(id, lvl);
+  const c = stationUpCost(id, lvl);
   if (c === null || g.credits < c) return false;
   g.credits -= c;
   g.up[id] = lvl + 1;
@@ -584,7 +706,7 @@ export function buyUpgrade(id) {
 
 export function repair() {
   const s = S(), g = gal(), st = stats();
-  const c = Math.ceil(repairCost(s.ship.hull, st.hull) * (hasTalent(save, 'g4') ? 0.5 : 1));
+  const c = Math.ceil(repairCost(s.ship.hull, st.hull) * (hasTalent(save, 'g4') ? 0.5 : 1) * repBonus(s.sysId).disc);
   if (!c || g.credits < c) return false;
   g.credits -= c;
   s.ship.hull = st.hull;
@@ -631,7 +753,8 @@ function missionEvent(s, ev) {
     save.gems += m.gems;
     addXp(save, m.reward / 2);
     g.boardSeq = (g.boardSeq || 0) + 1;
-    fx.banner(`✔ MISIÓN: ${MISSION_KINDS[m.kind].name.toUpperCase()}`, `+${m.reward} 💰 · +${m.gems} 💎`, '#30d158', true);
+    addRep(save, sysOwner(m.from ?? s.sysId), 8);
+    fx.banner(`✔ MISIÓN: ${MISSION_KINDS[m.kind].name.toUpperCase()}`, `+${m.reward} 💰 · +${m.gems} 💎 · reputación +8`, '#30d158', true);
     sfx.milestone();
     progress('gmission');
   }
@@ -732,6 +855,12 @@ function hurt(s, dmg) {
 // Relajado: te remolcan a tu estación base; pierdes la carga, no el progreso
 function respawn(s) {
   const g = gal();
+  // NÉMESIS: si el objetivo de tu caza te ha destruido, sube de nivel (y paga más)
+  const bo = B().active;
+  if (bo && s.pirates.some((p) => p.bounty === bo.id && p.alive)) {
+    B().active = nemesisUp(bo);
+    fx.notice(`🎯 ${bo.name} sube a nivel ${B().active.level} (y su recompensa también)`, '#ff9f0a');
+  }
   for (const k of Object.keys(g.cargo)) g.cargo[k] = 0;
   const st = stats();
   s.ship.hull = st.hull;
@@ -997,6 +1126,10 @@ export function updateSpace(dt) {
   // estación: gira y deja atracar si estás cerca
   s.sys.station.spin += dt * 0.25;
   s.canDock = dist(sh.pos, s.sys.station.pos) < DOCK_R;
+  if (s.canDock && s.owner === 'pir') {
+    s.canDock = false;
+    if (!s.pirWarned) { s.pirWarned = true; fx.notice('🏴‍☠️ Estación pirata: libera el sistema para atracar', '#ff2d55'); }
+  }
   if (s.canDock && s.act?.kind === 'orbit') s.act = null; // junto a la estación manda ATRACAR
 
   // PUERTAS DE SALTO: atravesarlas te lleva al sistema vecino (si tu Salto da)
@@ -1052,12 +1185,31 @@ function updateObjective(s) {
     } else if (e.kind === 'rescue') { text = e.held ? '🆘 Lleva la cápsula a la estación' : '🆘 Recoge la cápsula de rescate'; t = e.held ? s.sys.station.pos : e.pod.pos; }
     else if (e.kind === 'convoy') { text = '🚚 Alcanza al convoy y comercia (+40%)'; t = e.ships[0].pos; }
     else if (e.kind === 'wormhole') { text = '🌀 Entra en el agujero de gusano (destino al azar)'; t = e.pos; }
+    else if (e.kind === 'siege') { text = `⚔️ Defiende ${GAL[s.sysId].name}: quedan ${e.left} piratas`; t = s.pirates.find((p) => p.siege)?.pos; }
     else if (e.kind === 'assault' && s.base) { text = `🏴‍☠️ Destruye la base pirata (${Math.ceil((s.base.hp / s.base.max) * 100)}%)`; t = s.base.pos; }
     if (t) {
       s.objective = { kind: 'event', text };
       s.target = t;
       return;
     }
+  }
+  // CAZA activa: al sistema del objetivo y, allí, a por él
+  const bo = B().active;
+  if (bo) {
+    if (bo.sys !== s.sysId) {
+      const path = route(GAL, s.sysId, bo.sys);
+      const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
+      if (gate) { s.objective = { kind: 'bounty', text: `🎯 Caza a ${bo.name} · está en ${GAL[bo.sys].name}` }; s.target = gate.pos; return; }
+    } else {
+      const tp = s.pirates.find((p) => p.bounty === bo.id);
+      if (tp) { s.objective = { kind: 'bounty', text: `🎯 Abate a ${bo.name} (nivel ${bo.level})` }; s.target = tp.pos; return; }
+    }
+  }
+  // SISTEMA PIRATA: cómo liberarlo
+  if (s.owner === 'pir' && !save.territory[s.sysId]) {
+    s.objective = { kind: 'liberate', text: s.base ? `🏴‍☠️ Libera ${GAL[s.sysId].name}: destruye la base pirata` : `🏴‍☠️ Libera ${GAL[s.sysId].name}: abate ${Math.max(0, LIBERATE_KILLS - s.libKills)} piratas más` };
+    s.target = s.base ? s.base.pos : s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || null;
+    if (s.target) return;
   }
   // MISIÓN activa: te lleva al sistema y, allí, a su objetivo
   const m = g.missions.find((x) => x.progress < x.n);
