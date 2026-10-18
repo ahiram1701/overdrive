@@ -58,3 +58,12 @@ test('v5: cartera de monedas propia con regalo de bienvenida; los créditos no s
   assert.equal(s.galaxy.credits, 900);
   assert.equal(loadFrom(JSON.stringify(s)).coins, 500, 'el regalo es una sola vez');
 });
+
+test('v6: nivelar la nave viene apagado, también en guardados antiguos', () => {
+  assert.equal(loadFrom(null).settings.autoLevel, false);
+  const old = loadFrom(JSON.stringify({ v: 5, settings: { sound: false, autoLevel: true } }));
+  assert.equal(old.settings.autoLevel, false);
+  assert.equal(old.settings.sound, false, 'lo demás se respeta');
+  const mine = loadFrom(JSON.stringify({ v: 6, settings: { autoLevel: true } }));
+  assert.equal(mine.settings.autoLevel, true, 'si luego lo enciendes, se queda encendido');
+});

@@ -89,7 +89,7 @@ Cada 3 tramos aparece un jefe. Hay 5, cada uno con su forma, sus ataques y una *
 Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia que se explora a tu ritmo.
 - **Vuelo libre:** la nave gira en **sus propios ejes**, así que puedes dar **rizos completos**, volar boca abajo y alabear.
   - **Joystick** donde apoyes el dedo: arriba/abajo = cabeceo sin tope, a los lados = giro.
-  - **↺ ↻** para alabear sobre ti misma. Con la **nivelación automática** (en Ajustes) el ala vuelve sola a la horizontal.
+  - **↺ ↻** para alabear sobre ti misma. Si activas la **nivelación automática** en Ajustes (viene apagada), el ala vuelve sola a la horizontal.
   - **Palanca MOTOR** (izquierda): de **marcha atrás** (−40%) a **parado** y **a tope**. ⏩ da un impulso aparte.
     - Tiene una **muesca en el 0** (la raya verde): cerca del 0 se engancha en **PARADO**, vibra al llegar y no se escapa sin querer.
     - La nave **frena suave** en unas décimas.
