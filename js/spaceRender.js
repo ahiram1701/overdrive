@@ -642,8 +642,9 @@ export function renderSpace(dt) {
     const b = s.base, p = project(cam, b.pos, 1);
     if (p) {
       draws.push({ z: p.z, fn: () => {
-        drawMesh3D(ctx, cam, 'titan', b.pos, b.spin, 0, b.r * 0.8, { hull: '#1a0008', edge: '#ff2d55', glow: '#ff9f0a' }, b.flash > 0);
-        ctx.strokeStyle = '#ff2d55';
+        const bc = b.nest ? '#ffd60a' : '#ff2d55'; // el NIDO del enjambre, en amarillo
+        drawMesh3D(ctx, cam, 'titan', b.pos, b.spin, 0, b.r * 0.8, b.nest ? { hull: '#1a1400', edge: '#ffd60a', glow: '#ff9f0a' } : { hull: '#1a0008', edge: '#ff2d55', glow: '#ff9f0a' }, b.flash > 0);
+        ctx.strokeStyle = bc;
         ctx.lineWidth = Math.max(2, p.s * 3);
         ctx.beginPath();
         for (let i = 0; i <= 24; i++) {
@@ -663,12 +664,12 @@ export function renderSpace(dt) {
         const bw = Math.max(40, Math.min(120, p.s * 80));
         ctx.fillStyle = 'rgba(0,0,0,.6)';
         ctx.fillRect(p.x - bw / 2, p.y - p.s * 50 - 12, bw, 5);
-        ctx.fillStyle = '#ff2d55';
+        ctx.fillStyle = bc;
         ctx.fillRect(p.x - bw / 2, p.y - p.s * 50 - 12, bw * Math.max(0, b.hp / b.max), 5);
-        ctx.fillStyle = '#ff2d55';
+        ctx.fillStyle = bc;
         ctx.font = 'italic 900 12px system-ui';
         ctx.textAlign = 'center';
-        ctx.fillText('🏴‍☠️ BASE PIRATA', p.x, p.y - p.s * 50 - 18);
+        ctx.fillText(b.nest ? '🐝 NIDO DEL ENJAMBRE' : '🏴‍☠️ BASE PIRATA', p.x, p.y - p.s * 50 - 18);
       } });
     }
   }

@@ -16,6 +16,7 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
+import { world, worldTerritory, tickWorld, warHere, infected, priceMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
@@ -46,7 +47,8 @@ const stats = () => {
 };
 
 // ---------- Facciones ----------
-export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], save.territory);
+const fmtK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
+export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], worldTerritory(save)); // con lo perdido en las ofensivas
 const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
 const B = () => { save.bounties.done ||= {}; return save.bounties; };
 
@@ -141,6 +143,8 @@ function enterSystem(s, id, fromId) {
   // SUCESO al llegar por una puerta (o un agujero de gusano)
   if (fromId !== null) {
     g.jumps = (g.jumps || 0) + 1;
+    // SUCESOS DE LA GALAXIA: ofensivas y enjambre avanzan con cada salto
+    for (const t of tickWorld(save, GAL, g.jumps)) fx.notice(`📰 ${t}`, '#ffd60a');
     const bo = B().active;
     if (bo) bo.sys = moveBounty(GAL, bo, g.jumps);
     if (save.territory[id] && makeRng(hashString(`siege-${id}-${g.jumps}`)).next() < 0.25) startEvent(s, { kind: 'siege', id: `siege-${id}-${g.jumps}` });
@@ -152,6 +156,7 @@ function enterSystem(s, id, fromId) {
   spawnBounty(s);
   placeOutpost(s);
   storyBase(s);
+  worldArrive(s);
   s.devourer = null;
   s.markerT = 0;
   spawnStoryBoss(s);
@@ -354,6 +359,24 @@ function updateStoryMarker(s, dt) {
   } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
 }
 
+// ---------- Sucesos de la galaxia: ofensivas y enjambre ----------
+function worldArrive(s) {
+  const war = warHere(save, s.sysId);
+  if (war) {
+    // la oleada del ataque y su comandante
+    for (let i = 0; i < 3; i++) spawnPirate(s, false);
+    spawnPirate(s, true);
+    s.pirates[s.pirates.length - 1].name = 'COMANDANTE PIRATA';
+    fx.banner('⚔️ OFENSIVA PIRATA', `defiende ${GAL[s.sysId].name}: abate ${war.need - war.kills} piratas`, '#ff2d55', true);
+  }
+  if (infected(save, s.sysId) && !s.base) {
+    spawnBase(s);
+    s.base.nest = true;
+    for (let i = 0; i < 2; i++) spawnPirate(s, false, 'drone');
+    fx.banner('🐝 SISTEMA INFECTADO', 'destruye el nido del enjambre', '#ffd60a', true);
+  }
+}
+
 // ---------- Puesto avanzado ----------
 // tu estación propia: más allá de la del sistema, en la línea que sale del sol (nunca cae en él)
 function placeOutpost(s) {
@@ -431,6 +454,7 @@ function checkLiberation(s) {
   if (s.owner !== 'pir' || s.base || s.libKills < LIBERATE_KILLS || save.territory[s.sysId]) return;
   const f = bestAlly(save);
   save.territory[s.sysId] = f;
+  reclaim(save, s.sysId); // si lo perdiste en una ofensiva, vuelve a ser tuyo
   s.owner = f;
   addRep(save, f, 15);
   addRep(save, 'pir', -10);
@@ -611,6 +635,14 @@ function killPirate(s, p) {
   addRep(save, 'pir', -1);
   if (s.owner === 'pir') { s.libKills++; checkLiberation(s); }
   if (p.bounty) bountyKilled(s, p);
+  if (defendKill(save, s.sysId, gal().jumps, GAL) === 'saved') {
+    const c = 1500 + GAL[s.sysId].danger * 250;
+    gal().credits += c;
+    addRep(save, s.owner, 12);
+    fx.banner('🛡️ OFENSIVA RECHAZADA', `${GAL[s.sysId].name} resiste · +${fmtK(c)} 💰`, '#30d158', true);
+    progress('defend', world(save).saved);
+    persist();
+  }
   if (p.siege && s.event?.kind === 'siege' && !s.event.done) {
     s.event.left--;
     if (s.event.left <= 0) {
@@ -683,7 +715,13 @@ function killBase(s) {
   sfx.boom();
   const value = 680 + d * 200;
   s.loot.push({ pos: { ...b.pos }, credits: value, life: 90 });
-  fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo`, '#ffe600', true);
+  if (b.nest) {
+    const res = clearNest(save, s.sysId, gal().jumps, GAL);
+    const bonus = res === 'wiped' ? 4000 : 1200;
+    gal().credits += bonus;
+    if (res === 'wiped') { addRep(save, s.owner, 15); progress('exterminio'); }
+    fx.banner(res === 'wiped' ? '✨ ENJAMBRE EXTERMINADO' : '🔥 NIDO DESTRUIDO', `+${fmtK(bonus)} 💰${res === 'wiped' ? ' · la galaxia respira' : ''}`, '#ffd60a', true);
+  } else fx.banner('🏴‍☠️ BASE PIRATA DESTRUIDA', `+${value} 💰 al recogerlo`, '#ffe600', true);
   if (s.event?.kind === 'assault') s.event.done = true;
   progress('pirateBase');
   gainMats(s, dropsOf('base', { base: true }));
@@ -946,9 +984,9 @@ export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.2);
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
-export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore]);
+export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId));
 // lo que pagaría por n unidades (cada una algo menos)
-export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore]);
+export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId));
 
 export function sellAll() {
   const g = gal(), sys = S()?.sysId ?? 0;
@@ -1598,6 +1636,18 @@ function updateObjective(s) {
     s.objective = { kind: 'liberate', text: s.base ? `🏴‍☠️ Libera ${GAL[s.sysId].name}: destruye la base pirata` : `🏴‍☠️ Libera ${GAL[s.sysId].name}: abate ${Math.max(0, LIBERATE_KILLS - s.libKills)} piratas más` };
     s.target = s.base ? s.base.pos : s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || null;
     if (s.target) return;
+  }
+  // OFENSIVA PIRATA aquí: defiéndelo
+  const war = warHere(save, s.sysId);
+  if (war) {
+    s.objective = { kind: 'war', text: `⚔️ Defiende ${GAL[s.sysId].name}: abate ${war.need - war.kills} piratas más` };
+    s.target = s.pirates.filter((p) => p.alive).sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || null;
+    if (s.target) return;
+  }
+  if (s.base?.nest) {
+    s.objective = { kind: 'nest', text: `🐝 Destruye el nido del enjambre en ${GAL[s.sysId].name}` };
+    s.target = s.base.pos;
+    return;
   }
   // HISTORIA: el capítulo actual (después de lo que eliges tú: caza y liberar este sistema)
   const ch = storyChapter();

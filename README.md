@@ -170,6 +170,10 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **Corsario** (60K): +4 misiles, fija antes, impulso rapidísimo.
 - **Mejoras sin techo:** cada mejora de la nave sigue del nivel 5 al **Mk 10** (◆ naranja). Cada Mk es más caro y pide materiales, y rinde la mitad que un nivel normal. El **Salto** Mk 6+ abarata los peajes.
 - **Equipo con niveles:** cada pieza fabricada sube de nivel 1 a 5 con créditos y materiales (+12% por nivel: más daño, más cadencia, más alcance…).
+- **📰 Sucesos de la galaxia** (avanzan con cada salto; mira la pestaña **NOTICIAS** del panel 🎒 y el mapa):
+  - **⚔️ Ofensivas piratas:** cada ~10 saltos atacan un sistema aliado que linda con los suyos. Tienes **5 saltos** para llegar y abatir a 6 piratas (con su comandante). Si lo salvas, buen premio y reputación; si no, **cae en manos piratas** hasta que lo liberes otra vez.
+  - **🐝 Invasión del enjambre:** una colmena infecta un sistema y **se extiende** a un vecino cada 3 saltos (hasta 4). En un sistema infectado el mineral se paga a un 70 % y hay un **nido** amarillo: destrúyelo. Acabar con el último extermina la invasión (+4.000 💰).
+  - Logros **Defensor** (5 ofensivas rechazadas) y **Exterminador**.
 - **🏗️ Puestos avanzados:** en un sistema que **liberaste**, funda tu propia estación por **20K** (verde, con su nombre; 🏗️ en el mapa). Atraca en ella o en la del sistema para ampliarla con **módulos de 3 niveles** (6K–30K cada uno):
   - 🔧 **Taller**: fabricar y subir equipo allí sale un 20–40% más barato;
   - 📦 **Almacén**: guarda 100–300 de carga y materiales a salvo;

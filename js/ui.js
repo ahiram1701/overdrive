@@ -18,6 +18,7 @@ import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveS
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
+import { world, WAR_TIME } from './galaxyWorld.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
@@ -1689,6 +1690,15 @@ export const ui = {
           return id ? `<div class="gi-row"><span>${GEAR[id].icon} ${GEAR[id].name}</span><small>${GEAR[id].desc}</small></div>` : `<div class="gi-row empty"><span>${sl === 'w' ? '🔫 arma' : '⚙️ módulo'} libre</span><small>se fabrica en el taller de las estaciones</small></div>`;
         }).join('')).join('')}</div>
         <div class="gi-block"><h3>⬆️ Mejoras</h3>${Object.entries(SP_UP).map(([id, u]) => `<div class="gi-row"><span>${u.icon} ${u.name}</span><b class="dots">${ui.upDots(g.up[id] || 0)}</b></div>`).join('')}</div>`;
+    } else if (tab === 'news') {
+      // NOTICIAS: lo que pasa en la galaxia (ofensivas, enjambre) y los últimos titulares
+      const w = world(save), rows = [];
+      if (w.war) rows.push(`<div class="gi-mis war"><span>⚔️</span><div><b>Ofensiva pirata en ${GAL[w.war.sys].name}</b><small>${where(w.war.sys)} · cae en ${Math.max(0, w.war.until - g.jumps)} saltos · abatidos ${w.war.kills}/${w.war.need}</small></div></div>`);
+      if (w.swarm) rows.push(`<div class="gi-mis swarm"><span>🐝</span><div><b>Enjambre en ${w.swarm.systems.length} sistema${w.swarm.systems.length > 1 ? 's' : ''}</b><small>${w.swarm.systems.map((id) => GAL[id].name).join(' · ')} · se extiende en ${Math.max(0, w.swarm.nextSpread - g.jumps)} saltos</small></div></div>`);
+      if (!rows.length) rows.push(`<small>Todo en calma… por ahora. Cada pocos saltos los piratas lanzan una ofensiva (tienes ${WAR_TIME} saltos para defenderla) y el enjambre busca nuevos sistemas.</small>`);
+      rows.push(`<div class="gi-block"><h3>📰 Titulares</h3><div class="gi-news">${w.news.length ? w.news.map((n) => `<div><small>salto ${n.j}</small><span>${n.text}</span></div>`).join('') : '<small>Sin noticias todavía.</small>'}</div></div>`);
+      rows.push(`<small>🛡️ Sistemas defendidos: ${w.saved} · ✨ enjambres exterminados: ${w.wiped}</small>`);
+      body.innerHTML = rows.join('');
     } else {
       const rows = [];
       const ch = storyChapter();
@@ -1743,6 +1753,8 @@ export const ui = {
         <circle cx="${a.x}" cy="${a.y}" r="${here ? 22 : 16}" fill="${visited ? dcol(a.danger) : '#333'}"/>
         ${save.bounties.active?.sys === a.id ? `<text x="${a.x + 24}" y="${a.y + 6}" class="gm-bounty">🎯</text>` : ''}
         ${outpostAt(save, a.id) ? `<text x="${a.x - 34}" y="${a.y + 6}" class="gm-bounty">🏗️</text>` : ''}
+        ${world(save).war?.sys === a.id ? `<text x="${a.x - 8}" y="${a.y - 30}" class="gm-bounty">⚔️</text>` : ''}
+        ${world(save).swarm?.systems.includes(a.id) ? `<text x="${a.x + 12}" y="${a.y - 28}" class="gm-bounty">🐝</text>` : ''}
         <text x="${a.x}" y="${a.y - 26}">${visited ? a.name : '???'}${lock ? ' 🔒' : ''}${a.id === (g.home ?? 0) ? ' 🏠' : ''}</text></g>`;
     }
     $('gmSvg').innerHTML = svg;
