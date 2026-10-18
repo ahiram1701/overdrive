@@ -6,7 +6,7 @@ import { unlockAudio } from './audio.js';
 import { fx } from './fx.js';
 import { moveLane, jump, slide, dash } from './player.js';
 import { update, useAbility } from './game.js';
-import { ui } from './ui.js';
+import { ui, dialogPaused } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility, debugArenaBoss } from './arena.js';
 import { renderArena } from './arenaRender.js';
 import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem } from './spaceGame.js';
@@ -19,6 +19,7 @@ const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 
 const inArena = () => G.mode.startsWith('arena');
 // un paso de simulación del modo que toque
 function simStep(dt) {
+  if (dialogPaused()) return; // leyendo la GUÍA o la historia: el mundo se para
   if (inSpace()) {
     const s = G.space;
     if (s && G.mode === 'galaxy') {
@@ -57,10 +58,10 @@ ui.showMenu();
 
 initInput({
   any: unlockAudio,
-  enabled: () => G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy',
+  enabled: () => !dialogPaused() && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy'),
   // ARENA: el dedo mueve la nave como un joystick (60 px = velocidad máxima)
   stick: {
-    enabled: () => G.mode === 'arena' || G.mode === 'galaxy',
+    enabled: () => !dialogPaused() && (G.mode === 'arena' || G.mode === 'galaxy'),
     // en la arena y en la galaxia el dedo es un joystick: allí mueve, aquí vira
     target: () => (G.mode === 'galaxy' ? G.space : G.arena),
     start(x, y) { const t = this.target(); if (t) t.stick = true; if (G.mode === 'galaxy') ui.stickVis(x, y, 0, 0); },
@@ -87,6 +88,7 @@ initInput({
   },
   ability: () => (G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {
+    if (dialogPaused()) return;
     if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();
     else if (G.mode === 'paused' || G.mode === 'arenaPaused' || G.mode === 'galaxyPaused') document.getElementById('btnResume').click();
   },

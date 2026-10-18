@@ -87,8 +87,17 @@ function el(tag, cls, html) {
   return e;
 }
 
+// ¿Hay un diálogo abierto que pausa la partida? Se cura solo: si el diálogo ya no se ve (otra
+// pantalla lo tapó), deja de pausar, así la partida nunca se queda congelada sin él.
+export function dialogPaused() {
+  if (G.dialogPause && $('dialog').classList.contains('hidden')) G.dialogPause = false;
+  return !!G.dialogPause;
+}
+
 function tap(node, fn) {
   node.addEventListener('click', (e) => {
+    // con un diálogo abierto, los botones de la partida (DASH, habilidad, disparo…) no hacen nada
+    if (dialogPaused() && !node.closest('#dialog') && node.closest('#hud, #spaceHud, #arenaHud')) return;
     e.stopPropagation();
     unlockAudio();
     sfx.ui();
@@ -237,6 +246,7 @@ export const ui = {
     $('arenaAbility').addEventListener('pointerdown', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      if (dialogPaused()) return;
       unlockAudio();
       useArenaAbility();
     });
@@ -1615,13 +1625,16 @@ export const ui = {
     if (!lines?.length) return;
     const box = $('dialog');
     let i = 0;
-    const PAUSE = { play: 'paused', galaxy: 'galaxyPaused', arena: 'arenaPaused' };
-    const was = G.mode;
-    const paused = opts.pause && PAUSE[was];
-    if (paused) G.mode = PAUSE[was];
+    // PAUSA mientras se lee (la GUÍA y la historia): no depende de G.mode, que otras partes del juego
+    // cambian solas (acabar un salto, elegir carta…). En los tests (?debug) solo con ?tips.
+    const pauses = opts.pause !== false && (!G.debug || new URLSearchParams(location.search).has('tips'));
+    if (pauses) { G.dialogPause = true; musicDuck(true); }
     const close = () => {
       box.classList.add('hidden');
-      if (paused && G.mode === PAUSE[was]) G.mode = was;
+      if (pauses) {
+        G.dialogPause = false;
+        if (['play', 'galaxy', 'arena'].includes(G.mode)) musicDuck(false);
+      }
       opts.onClose?.();
     };
     const draw = () => {
@@ -1637,7 +1650,7 @@ export const ui = {
         for (const [pick, label] of choice) {
           const b = el('button', 'btn', label);
           b.dataset.pick = pick;
-          tap(b, () => { box.classList.add('hidden'); storyChoose(pick); });
+          tap(b, () => { close(); storyChoose(pick); });
           acts.append(b);
         }
       } else {
@@ -1658,7 +1671,7 @@ export const ui = {
     if (G.debug && !new URLSearchParams(location.search).has('tips')) return false;
     markTip(save, id);
     persist();
-    ui.showDialog(TIPS[id], null, { pause: true, onClose });
+    ui.showDialog(TIPS[id], null, { onClose });
     return true;
   },
 

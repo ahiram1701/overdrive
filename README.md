@@ -25,7 +25,7 @@
 La vibración solo funciona en Android; iOS no soporta `navigator.vibrate`.
 
 ## 🤖 Primeros pasos
-La **GUÍA** te explica cada juego la primera vez que entras (Runner, Galaxia y Arena) y lo nuevo la primera vez que aparece: tu primer jefe, subir de nivel y evolucionar en la Arena, atracar, un sistema pirata, la Expedición, las Carreras, la Campaña, las reliquias y los sucesos de la galaxia. Mientras lees, la partida se pausa. Cada consejo sale una vez; en **⚙️ Ajustes → Repetir los consejos de la GUÍA** vuelven todos.
+La **GUÍA** te explica cada juego la primera vez que entras (Runner, Galaxia y Arena) y lo nuevo la primera vez que aparece: tu primer jefe, subir de nivel y evolucionar en la Arena, atracar, un sistema pirata, la Expedición, las Carreras, la Campaña, las reliquias y los sucesos de la galaxia. Mientras lees (la GUÍA o los diálogos de la historia), **la partida se para de verdad**: nada se mueve hasta que cierras. Cada consejo sale una vez; en **⚙️ Ajustes → Repetir los consejos de la GUÍA** vuelven todos.
 
 ## 🎮 Controles
 
