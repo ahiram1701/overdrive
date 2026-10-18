@@ -147,6 +147,7 @@ function enterSystem(s, id, fromId) {
   s.libKills = 0;
   s.pirWarned = false;
   if (s.owner === 'pir') {
+    ui.showTip?.('pirate');
     spawnBase(s);
     fx.notice(`🏴‍☠️ ${def.name} es pirata: destruye su base y ${LIBERATE_KILLS} piratas para liberarlo`, '#ff2d55');
   }
@@ -154,7 +155,7 @@ function enterSystem(s, id, fromId) {
   if (fromId !== null) {
     g.jumps = (g.jumps || 0) + 1;
     // SUCESOS DE LA GALAXIA: ofensivas y enjambre avanzan con cada salto
-    for (const t of tickWorld(save, GAL, g.jumps)) fx.notice(`📰 ${t}`, '#ffd60a');
+    for (const t of tickWorld(save, GAL, g.jumps)) { fx.notice(`📰 ${t}`, '#ffd60a'); ui.showTip?.('worldEvent'); }
     const bo = B().active;
     if (bo) bo.sys = moveBounty(GAL, bo, g.jumps);
     if (save.territory[id] && makeRng(hashString(`siege-${id}-${g.jumps}`)).next() < 0.25) startEvent(s, { kind: 'siege', id: `siege-${id}-${g.jumps}` });
@@ -210,6 +211,7 @@ export function storyChoose(pick) {
 }
 // diálogo de entrada si no se ha visto (al despegar en la galaxia)
 export function storyIntro() {
+  if (ui.showTip?.('galaxy', storyIntro)) return;
   const ch = storyChapter(), st = storyState(save);
   if (!ch || st.seen[st.ch]) return;
   st.seen[st.ch] = true;
