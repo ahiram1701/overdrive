@@ -18,7 +18,7 @@ import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
-import { currentChapter, storyEvent, storyState, markerPos } from './story.js';
+import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 
@@ -151,6 +151,7 @@ function enterSystem(s, id, fromId) {
   }
   spawnBounty(s);
   placeOutpost(s);
+  storyBase(s);
   s.devourer = null;
   s.markerT = 0;
   spawnStoryBoss(s);
@@ -177,6 +178,7 @@ function storyHit(s, ev) {
   sfx.milestone();
   progress('chapter');
   if (r.ship) progress('storyEnd');
+  if (done.end) progress(done.end); // fin de acto
   persist();
   // diálogo de cierre y, si hay, el del capítulo siguiente
   const next = storyChapter();
@@ -207,6 +209,37 @@ function spawnStoryBoss(s) {
     fx.banner('👁️ EL HERALDO', 'te estaba esperando', '#ff2d55', true);
   }
   if (ch.goal.boss === 'devourer' && !s.devourer) spawnDevourer(s);
+  if (ch.goal.boss === 'queen' && !s.pirates.some((p) => p.alive && p.story === 'queen')) {
+    spawnPirate(s, true);
+    const q = s.pirates[s.pirates.length - 1];
+    Object.assign(q, { story: 'queen', name: 'LA REINA DEL ENJAMBRE', hp: 2600, max: 2600, mesh: 'kaiju', size: 18, speed: 80, dmg: 12, broodT: 2,
+      pal: { hull: '#2a2000', edge: '#ffd60a', glow: '#ff9f0a' } });
+    fx.banner('🐝 LA REINA DEL ENJAMBRE', 'sus drones la protegen', '#ffd60a', true);
+  }
+}
+// capítulos "base": si ya liberaste ese sistema, la base vuelve para la historia (si no, se atascaría)
+function storyBase(s) {
+  const ch = storyChapter();
+  if (ch && ch.goal.kind === 'base' && ch.goal.sys === s.sysId && !s.base) spawnBase(s);
+}
+
+// LA REINA DEL ENJAMBRE: pone drones; mientras la protejan 3 o más, su escudo lo aguanta todo
+function updateQueen(s, dt) {
+  const q = s.pirates.find((p) => p.alive && p.story === 'queen');
+  if (!q) return;
+  const kids = () => s.pirates.filter((p) => p.alive && p.queenKid).length;
+  q.broodT -= dt;
+  if (kids() < 3 && q.broodT <= 0) {
+    q.broodT = 9;
+    const n0 = s.pirates.length;
+    spawnPirate(s, false, 'drone', add(q.pos, { x: 40, y: 10, z: -40 }));
+    for (const p of s.pirates.slice(n0)) p.queenKid = true;
+    fx.notice('🐝 La Reina pone nuevos drones', '#ffd60a');
+  }
+  const shield = kids() >= 3;
+  if (shield && !q.shield) q.shieldHp = q.hp;
+  q.shield = shield;
+  if (shield) q.hp = Math.max(q.hp, q.shieldHp);
 }
 
 // EL DEVORADOR DE ESTRELLAS: fase 1, tres ojos (el núcleo es invulnerable); fase 2, núcleo al
@@ -301,11 +334,12 @@ function killDevourer(s) {
 // BALIZA de la historia: quédate cerca 2 s
 function updateStoryMarker(s, dt) {
   const ch = storyChapter();
-  if (!ch || ch.goal.kind !== 'reach' || ch.goal.sys !== s.sysId) { s.storyMarker = null; return; }
+  if (!ch || !['reach', 'scan'].includes(ch.goal.kind) || ch.goal.sys !== s.sysId) { s.storyMarker = null; return; }
   s.storyMarker = markerPos(s.sysId);
   if (dist(s.storyMarker, s.ship.pos) < 70) {
     s.markerT = (s.markerT || 0) + dt;
-    if (s.markerT >= 2) { s.markerT = 0; storyHit(s, { type: 'reach', sys: s.sysId }); }
+    if (ch.goal.kind === 'scan') s.scanStory = Math.min(1, s.markerT / markerTime('scan'));
+    if (s.markerT >= markerTime(ch.goal.kind)) { s.markerT = 0; s.scanStory = 0; storyHit(s, { type: ch.goal.kind, sys: s.sysId }); }
   } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
 }
 
@@ -540,6 +574,7 @@ function updatePirates(s, dt) {
 }
 
 function killPirate(s, p) {
+  if (p.shield) { p.hp = p.shieldHp; return; }
   p.alive = false;
   const pp = s.cam && project(s.cam, p.pos);
   if (pp) {
@@ -906,13 +941,15 @@ export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, 
 
 export function sellAll() {
   const g = gal(), sys = S()?.sysId ?? 0;
-  let got = 0;
+  let got = 0, units = 0;
   for (const [k, n] of Object.entries(g.cargo)) {
     if (!n) continue;
     got += marketValue(k, n, sys);
     recordSale(save, sys, k, n);
+    units += n;
     g.cargo[k] = 0;
   }
+  if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
   got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys)); // facción y Mercado propio pagan más
   if (!got) return 0;
@@ -1397,6 +1434,7 @@ export function updateSpace(dt) {
   s.sys.asteroids = s.sys.asteroids.filter((a) => a.alive);
 
   updatePirates(s, dt);
+  updateQueen(s, dt);
   updateItems(s, dt);
   updateOutpost(s, dt);
   updateBase(s, dt);
@@ -1542,8 +1580,10 @@ function updateObjective(s) {
       if (tp) { s.objective = { kind: 'bounty', text: `🎯 Abate a ${bo.name} (nivel ${bo.level})` }; s.target = tp.pos; return; }
     }
   }
-  // SISTEMA PIRATA: cómo liberarlo
-  if (s.owner === 'pir' && !save.territory[s.sysId]) {
+  // SISTEMA PIRATA: cómo liberarlo (salvo que aquí te espere un jefe o una base de la historia)
+  const chHere = storyChapter();
+  const storyFight = chHere && chHere.goal.sys === s.sysId && ['boss', 'base'].includes(chHere.goal.kind);
+  if (s.owner === 'pir' && !save.territory[s.sysId] && !storyFight) {
     s.objective = { kind: 'liberate', text: s.base ? `🏴‍☠️ Libera ${GAL[s.sysId].name}: destruye la base pirata` : `🏴‍☠️ Libera ${GAL[s.sysId].name}: abate ${Math.max(0, LIBERATE_KILLS - s.libKills)} piratas más` };
     s.target = s.base ? s.base.pos : s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || null;
     if (s.target) return;
@@ -1552,15 +1592,15 @@ function updateObjective(s) {
   const ch = storyChapter();
   if (ch && ch.goal.kind !== 'choice') {
     const gsys = ch.goal.sys;
-    const text = `📖 Cap. ${storyState(save).ch + 1} · ${ch.goal.text}${ch.goal.n > 1 ? ` (${storyState(save).n}/${ch.goal.n})` : ''}`;
+    const text = `📖 ${chapterLabel(save)} · ${ch.goal.text}${ch.goal.n > 1 ? ` (${storyState(save).n}/${ch.goal.n})` : ''}${ch.goal.kind === 'scan' && s.scanStory ? ` · ${Math.round(s.scanStory * 100)}%` : ''}`;
     if (gsys !== s.sysId) {
       const path = route(GAL, s.sysId, gsys);
       const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
       if (gate && canJump(GAL[path[1]], g.up.jump || 0)) { s.objective = { kind: 'story', text }; s.target = gate.pos; return; }
     } else {
       let t = null;
-      if (ch.goal.kind === 'reach') t = s.storyMarker;
-      else if (ch.goal.kind === 'dock') t = s.sys.station.pos;
+      if (ch.goal.kind === 'reach' || ch.goal.kind === 'scan') t = s.storyMarker;
+      else if (ch.goal.kind === 'dock' || ch.goal.kind === 'sell') t = s.sys.station.pos;
       else if (ch.goal.kind === 'base') t = s.base?.pos;
       else if (ch.goal.kind === 'boss') t = s.devourer ? (s.devourer.eyes.find((ey) => ey.alive)?.pos || s.devourer.pos) : s.pirates.find((p) => p.story)?.pos;
       else if (ch.goal.kind === 'kill') t = s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos;

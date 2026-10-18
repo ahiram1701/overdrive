@@ -151,6 +151,8 @@ export const ACHIEVEMENTS = [
   { id: 'mk10', kind: 'mk10', mode: 'sum', n: 1, tier: 'gold', name: 'Sin techo', desc: 'Sube una mejora espacial al Mk 10' },
   { id: 'outpost1', kind: 'outpost', mode: 'sum', n: 1, tier: 'silver', name: 'Colono', desc: 'Funda un puesto avanzado' },
   { id: 'outpostMax', kind: 'outpostLvl', mode: 'best', n: 15, tier: 'gold', name: 'Gobernador', desc: 'Todos los módulos de un puesto al nivel 3' },
+  // (siempre al final: el estilo de cada logro depende de su posición)
+  { id: 'act2', kind: 'act2', mode: 'sum', n: 1, tier: 'gold', name: 'La Reina caída', desc: 'Termina el Acto II: derrota a la Reina del Enjambre' },
 ];
 export const ACH_GEMS = T;
 

@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { genGalaxy } from '../../js/galaxy.js';
 import { loadFrom } from '../../js/save.js';
 import { GEAR, MATS, SLOTS, addMat, canCraft, craft, equipGear, gear, hasGear, dropsOf } from '../../js/crafting.js';
-import { chapters, storySystems, storyEvent, storyState, currentChapter, storyDone, CAST } from '../../js/story.js';
+import { chapters, storySystems, storyEvent, storyState, currentChapter, storyDone, CAST, ACT_LEN, chapterLabel } from '../../js/story.js';
 
 const gal = genGalaxy();
 
@@ -26,9 +26,11 @@ test('fabricar: cuesta créditos y materiales, se monta solo y respeta los hueco
   assert.ok(dropsOf('base', { base: true }).nucleos > 0 && dropsOf('drone').circuitos > 0);
 });
 
-test('historia: 8 capítulos, sistemas cada vez más lejos y que se puede acabar', () => {
+test('historia: actos de 8 capítulos, sistemas cada vez más lejos y que se puede acabar', () => {
   const chs = chapters(gal);
-  assert.equal(chs.length, 8);
+  assert.equal(chs.length, 2 * ACT_LEN);
+  assert.deepEqual([...new Set(chs.map((c) => c.act))], [1, 2]);
+  for (const c of chs) if (c.goal.sys !== undefined) assert.ok(gal[c.goal.sys], `${c.title}: sistema válido`);
   const S = storySystems(gal);
   assert.ok(gal[S.a].danger < gal[S.c].danger && gal[S.c].danger < gal[S.f].danger);
   for (const c of chs) for (const [who] of [...c.intro, ...c.outro]) assert.ok(CAST[who], who);
@@ -44,5 +46,23 @@ test('historia: 8 capítulos, sistemas cada vez más lejos y que se puede acabar
   }
   assert.ok(storyDone(s, gal));
   assert.equal(storyState(s).choice, 'liga');
-  assert.equal(chs.at(-1).reward.ship, 'wanderer');
+  assert.equal(chs[ACT_LEN - 1].reward.ship, 'wanderer');
+  assert.equal(chs[2 * ACT_LEN - 1].goal.boss, 'queen');
+  assert.equal(chs[2 * ACT_LEN - 1].end, 'act2');
+});
+
+test('historia: el Acto II usa otros sistemas, se nombra "Acto II · n/8" y vender cuenta por unidades', () => {
+  const A1 = storySystems(gal, 1), A2 = storySystems(gal, 2);
+  assert.notDeepEqual([A1.a, A1.b, A1.c], [A2.a, A2.b, A2.c], 'sistemas distintos');
+  const s = loadFrom(null);
+  storyState(s).ch = ACT_LEN; // partida que ya acabó el Acto I
+  assert.equal(chapterLabel(s), 'Acto II · 1/8');
+  assert.equal(currentChapter(s, gal).act, 2);
+  const sell = chapters(gal).findIndex((c) => c.goal.kind === 'sell');
+  storyState(s).ch = sell;
+  const g = currentChapter(s, gal).goal;
+  assert.equal(storyEvent(s, gal, { type: 'sell', sys: g.sys, amount: 12 }), null);
+  assert.equal(storyState(s).n, 12);
+  assert.ok(storyEvent(s, gal, { type: 'sell', sys: g.sys, amount: 9 }), 'con 21 ≥ 20 se completa');
+  assert.equal(storyEvent(s, gal, { type: 'reach', sys: 0 }), null, 'lo de otro capítulo no cuenta');
 });

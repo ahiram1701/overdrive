@@ -368,8 +368,16 @@ export function renderSpace(dt) {
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
     draws.push({ z: p.z, fn: () => {
       const size = pr.size || (pr.boss ? 13 : 6);
-      const pal = pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : KIND_PAL[pr.kind] || KIND_PAL.fighter;
+      const pal = pr.pal || (pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : KIND_PAL[pr.kind] || KIND_PAL.fighter);
       drawMesh3D(ctx, cam, pr.mesh, pr.pos, pr.yaw, pr.pitch, size, pal, pr.flash > 0);
+      // escudo de la Reina (mientras la protegen sus drones)
+      if (pr.shield) {
+        ctx.strokeStyle = 'rgba(255,214,10,.75)';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, Math.max(18, p.s * size * 1.9), 0, Math.PI * 2);
+        ctx.stroke();
+      }
       // corchetes rojos de objetivo: siempre se ve dónde está cada pirata, aunque esté lejos
       const R = Math.max(14, p.s * size * 1.3), c = R * 0.45;
       ctx.strokeStyle = pr.boss ? '#ffe600' : '#ff2d55';
@@ -391,7 +399,7 @@ export function renderSpace(dt) {
           ctx.fillStyle = pr.name ? '#ff9f0a' : '#ffe600';
           ctx.font = 'italic 900 11px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(pr.name ? `🎯 ${pr.name}` : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+          ctx.fillText(pr.name ? (pr.story ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
         }
       }
     } });
