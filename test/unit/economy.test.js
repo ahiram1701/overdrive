@@ -78,3 +78,44 @@ test('las monedas que sobran pasan a créditos', () => {
   assert.equal(bankCoins(s, 34.7), 34);
   assert.equal(s.galaxy.credits, 34);
 });
+
+test('mazo: las cartas nuevas salen solo si las tienes; la maestría sube su peso', async () => {
+  const { buyCard, upgradeCard, cardLvl } = await import('../../js/economy.js');
+  const { CARDS, availableCards, CARD_LVL_W, baseStats } = await import('../../js/upgrades.js');
+  const { makeRng } = await import('../../js/rng.js');
+  const locked = CARDS.filter((c) => c.locked);
+  assert.equal(locked.length, 8);
+  const fake = (deck) => ({ rng: makeRng(1), stats: baseStats(), cards: {}, synergies: new Set(), shields: 0, dashCharges: 1, blockedLane: null, luck: 1, player: { lane: 0 }, deck });
+  assert.ok(!availableCards(fake({ owned: {}, lvl: {} })).some((c) => c.locked));
+  const s = loadFrom(null);
+  s.gems = 1000;
+  assert.ok(buyCard(s, 'turbo'));
+  assert.equal(buyCard(s, 'turbo'), false, 'no se compra dos veces');
+  assert.equal(buyCard(s, 'iman'), false, 'las de siempre no se compran');
+  assert.ok(availableCards(fake({ owned: s.cardsOwned, lvl: {} })).some((c) => c.id === 'turbo'));
+  assert.equal(upgradeCard(s, 'tesoro'), false, 'no subes una carta que no tienes');
+  for (let i = 0; i < 3; i++) assert.ok(upgradeCard(s, 'iman'));
+  assert.equal(upgradeCard(s, 'iman'), false, 'máximo 3');
+  assert.equal(cardLvl(s, 'iman'), 3);
+  assert.ok(CARD_LVL_W[3] > CARD_LVL_W[0]);
+});
+
+test('arsenal de la arena: las armas nuevas solo se ofrecen desbloqueadas', async () => {
+  const { buyWeapon } = await import('../../js/economy.js');
+  const { WEAPONS, offerUpgrades } = await import('../../js/arenaData.js');
+  const { makeRng } = await import('../../js/rng.js');
+  const locked = Object.keys(WEAPONS).filter((id) => WEAPONS[id].locked);
+  assert.equal(locked.length, 4);
+  const st = (unlocked) => ({ weapons: { blaster: 1 }, passives: {}, evolved: {}, unlocked });
+  const seen = (unlocked) => {
+    const ids = new Set();
+    const rng = makeRng(3);
+    for (let i = 0; i < 300; i++) for (const u of offerUpgrades(st(unlocked), rng)) ids.add(u.id);
+    return ids;
+  };
+  assert.ok(!locked.some((id) => seen({}).has(id)));
+  const s = loadFrom(null);
+  s.gems = 1000;
+  assert.ok(buyWeapon(s, 'mines'));
+  assert.ok(seen(s.arenaWeapons).has('mines'));
+});

@@ -100,6 +100,7 @@ export function newRun(opts = false) {
   // TALENTOS del runner y POTENCIADORES elegidos (no en carreras ni en el reto diario: son justos)
   if (hasTalent(save, 'r1')) addShields(r, 1);
   if (hasTalent(save, 'r3')) r.coins += 60;
+  r.deck = { owned: { ...save.cardsOwned }, lvl: { ...save.cardLvl } };
   r.boosts = track || daily ? [] : takeBoosts(save, (id) => id !== 'start' || opts.mode === 'endless');
   if (r.boosts.includes('shield')) addShields(r, 1);
   if (r.boosts.includes('magnet')) r.stats.magnet += 1;
@@ -148,6 +149,13 @@ export function newRun(opts = false) {
 function startSection() {
   const r = run();
   r.section++;
+  // cartas del mazo que actúan al empezar cada tramo
+  r.bumperUsed = false;
+  if (r.cards.chatarrero && r.section > 0) r.coins += 15 * r.cards.chatarrero;
+  if (r.cards.mecanico && r.section > 0) {
+    r.cleanSec = (r.cleanSec || 0) + 1;
+    if (r.cleanSec >= 3) { r.cleanSec = 0; gainShield(1, '🔧 MECÁNICO: +1 🛡️'); }
+  }
   const lv = r.camp?.level;
   const node = r.exp ? nodeById(r.exp.map, r.exp.at) : null;
   // JEFAZOS: un jefe cada 2 tramos (en vez de cada 3)
@@ -367,6 +375,17 @@ export function onHit(o) {
   if (G.god) return breakObj(o, 'dash');
   r.hitsTaken++;
   if (G.debug) (G.hits ||= []).push({ type: o.type, x: +o.x.toFixed(2), px: +p.x.toFixed(2), lane: p.lane, py: +p.y.toFixed(2), slide: p.slide > 0, sec: r.section, t: Math.round(r.time), ev: r.event?.id, hunter: !!o.hunter, boss: !!r.boss });
+  // PARACHOQUES (carta): el primer golpe de cada tramo no quita escudo, pero sí combo y overdrive
+  if (r.cards.parachoques && !r.bumperUsed && !o.hunter) {
+    r.bumperUsed = true;
+    p.invuln = 0.8;
+    breakObj(o, 'shield');
+    r.od *= 0.5;
+    resetChain();
+    fx.notice('🧱 ¡PARACHOQUES!', '#ff9f0a');
+    sfx.shield();
+    return;
+  }
   // BURBUJA (Manta): absorbe el golpe (sin gastar escudo) y estalla
   if (isActive(r.ability, 'bubble')) {
     const a = r.ability;
@@ -387,6 +406,7 @@ export function onHit(o) {
   if (r.shields > 0) {
     // un golpe siempre CUESTA: escudo, medio overdrive y el combo. Nunca da premios.
     r.shields--;
+    r.cleanSec = 0; // MECÁNICO: la racha sin perder escudos vuelve a cero
     // ventana corta para no perder dos escudos con la misma fila; ninguna contra el Cazador
     p.invuln = o.hunter ? 0.05 : r.stats.hitInvuln;
     breakObj(o, 'shield');
@@ -450,6 +470,7 @@ export function hunterEscaped() {
   // premio decreciente y sin combo: escapar no debe compensar más que jugar (antes se farmeaba)
   addScore(2000 / Math.max(1, r.hunters), '¡ESCAPASTE!', ps.x, ps.y - 60, '#ff3b6b');
   progress('hunter');
+  if (r.cards.trofeo) gainShield(1, '🎯 TROFEO: +1 🛡️');
   fx.banner('¡ESCAPASTE!', 'el Cazador se retira', '#ff3b6b');
   fx.flash('#fff', 0.35);
   sfx.milestone();
@@ -558,6 +579,24 @@ export function useAbility() {
       fx.slowmo(0.5, 0.15);
       if (a.mut === 'land') sweep(Math.max(10, runSpeed() * 0.25));
       sfx.dash();
+      break;
+    }
+    case 'barrier': {
+      gainShield(1, '🔰 +1 🛡️');
+      if (a.pow > 1) p.invuln = Math.max(p.invuln, 1); // nivel 2
+      if (a.mut === 'wave') sweep(Math.max(12, runSpeed() * 0.3));
+      fx.ring(ps.x, ps.y, '#7dffb0', 260, 0.45, 14);
+      sfx.shield();
+      break;
+    }
+    case 'chaos': {
+      const n = sweep(40 * a.pow);
+      r.coins += n * 5;
+      if (a.mut === 'magnet') for (const o of r.objects) if (o.alive && o.type === 'coin') o.mag = true;
+      fx.ring(ps.x, ps.y - 40, '#ff4fd8', 500, 0.5, 20);
+      fx.shake(16);
+      sfx.boom();
+      if (n) fx.notice(`🌀 ${n} destruidos · +${n * 5} 🪙`, '#ff4fd8');
       break;
     }
     case 'hammer': {
@@ -1027,6 +1066,7 @@ function die() {
   // + 1 gema por cada 2 tramos: con el árbol de mejoras hay mucho más en lo que gastarlas
   let gems = Math.floor(Math.sqrt(r.score) / 40) + r.bosses * 5 + Math.max(0, r.section) + Math.floor(Math.max(0, r.section) / 2);
   if (r.daily) gems = Math.ceil(gems * 1.5);
+  if (r.cards.tesoro) gems = Math.ceil(gems * 1.5); // carta TESORO
   if (r.exp) {
     gems += r.exp.acts * 15;
     const pr = progressOf(r.exp.act, nodeById(r.exp.map, r.exp.at).row);

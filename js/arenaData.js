@@ -18,10 +18,15 @@ export const WEAPONS = {
   flame: { name: 'Lanzallamas', icon: '🔥', desc: 'Cono de fuego continuo hacia delante.', cd: 0.12, dmg: 3, lvl: (n) => ({ dmg: 3 + n * 0.8, range: 110 + n * 12 }) },
   missile: { name: 'Misiles', icon: '🚀', desc: 'Misiles teledirigidos que explotan.', cd: 1.6, dmg: 20, lvl: (n) => ({ shots: Math.min(4, n), dmg: 20 + n * 4 }) },
   orbs: { name: 'Orbes', icon: '🔮', desc: 'Orbes que giran a tu alrededor.', cd: 0, dmg: 8, lvl: (n) => ({ count: 1 + n, dmg: 8 + n * 2 }) },
+  // ARSENAL: se desbloquean con gemas (Tienda -> Talentos) para que salgan en las mejoras
+  twin: { name: 'Rayo gemelo', icon: '🔱', locked: true, cost: 250, desc: 'Dos rayos en V que atraviesan.', cd: 1.2, dmg: 16, lvl: (n) => ({ dmg: 16 + n * 5, width: 8 + n }) },
+  storm: { name: 'Relámpago', icon: '🌩️', locked: true, cost: 300, desc: 'Rayos del cielo sobre enemigos al azar.', cd: 1.0, dmg: 18, lvl: (n) => ({ strikes: 1 + Math.floor(n / 2), dmg: 18 + n * 5 }) },
+  mines: { name: 'Minas', icon: '💣', locked: true, cost: 250, desc: 'Sueltas minas que estallan al tocarlas.', cd: 1.5, dmg: 30, lvl: (n) => ({ dmg: 30 + n * 8, n: 1 + Math.floor(n / 3) }) },
+  boomer: { name: 'Bumerán', icon: '🪃', locked: true, cost: 300, desc: 'Va, atraviesa todo y vuelve.', cd: 1.3, dmg: 14, lvl: (n) => ({ dmg: 14 + n * 4, n: 1 + Math.floor(n / 3) }) },
 };
 
 // Arma inicial de cada nave
-export const SHIP_WEAPON = { viper: 'blaster', brick: 'shotgun', ghost: 'beam', nova: 'pulse', kaiju: 'flame', raptor: 'missile', comet: 'orbs', manta: 'pulse', spectra: 'beam', titan: 'shotgun' };
+export const SHIP_WEAPON = { viper: 'blaster', brick: 'shotgun', ghost: 'beam', nova: 'pulse', kaiju: 'flame', raptor: 'missile', comet: 'orbs', manta: 'pulse', spectra: 'beam', titan: 'shotgun', falcon: 'twin', chimera: 'storm' };
 
 // Lo que cada nave cambia en la arena (vida, velocidad)
 export const SHIP_ARENA = {
@@ -35,6 +40,8 @@ export const SHIP_ARENA = {
   manta: { hp: 120, speed: 1 },
   spectra: { hp: 85, speed: 1.15 },
   titan: { hp: 170, speed: 0.8 },
+  falcon: { hp: 95, speed: 1.12 },
+  chimera: { hp: 110, speed: 1 },
 };
 
 // ---------- Pasivas ----------
@@ -73,6 +80,10 @@ export const EVOLUTIONS = {
   flame: { needs: 'area', name: 'Infierno', icon: '🌋', desc: 'Fuego en los cuatro sentidos.' },
   missile: { needs: 'haste', name: 'Enjambre', icon: '🐝', desc: 'Lluvia constante de misiles.' },
   orbs: { needs: 'speed', name: 'Anillo de Saturno', icon: '🪐', desc: 'Ocho orbes que giran más rápido y lejos.' },
+  twin: { needs: 'might', name: 'Tridente', icon: '🔱', desc: 'Tres rayos el doble de anchos.' },
+  storm: { needs: 'area', name: 'Tempestad', icon: '⛈️', desc: 'El doble de rayos y con onda.' },
+  mines: { needs: 'armor', name: 'Campo minado', icon: '🧨', desc: 'Tres minas enormes cada vez.' },
+  boomer: { needs: 'speed', name: 'Huracán', icon: '🌀', desc: 'Tres bumeranes en abanico.' },
 };
 
 export const canEvolve = (st, id) => (st.weapons[id] || 0) >= MAX_LVL && !st.evolved[id] && (st.passives[EVOLUTIONS[id].needs] || 0) >= 1;
@@ -86,6 +97,7 @@ export function offerUpgrades(st, rng, n = 3) {
     const l = st.weapons[id] || 0;
     if (l >= MAX_LVL) continue;
     if (!l && Object.keys(st.weapons).length >= MAX_WEAPONS) continue;
+    if (!l && WEAPONS[id].locked && !st.unlocked?.[id]) continue; // arsenal sin desbloquear
     pool.push({ kind: 'weapon', id, lvl: l + 1, w: l ? 3 : 1.5 });
   }
   for (const id of Object.keys(PASSIVES)) {

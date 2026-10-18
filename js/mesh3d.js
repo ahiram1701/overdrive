@@ -51,6 +51,8 @@ export const MESHES = {
   comet: hull({ L: 0.95, W: 0.7, wz: 0.1, H: 0.32, R: 0.38, T: 0.25, F: 0.2 }),
   manta: hull({ L: 0.75, W: 1.25, wz: 0.45, H: 0.16, R: 0.3, T: 0.3 }), // ala volante, plana y ancha
   spectra: hull({ L: 1.45, W: 0.55, wz: 0.2, H: 0.15, R: 0.18, T: 0.5, tw: 1 }), // aguja con alas gemelas
+  falcon: hull({ L: 1.25, W: 1.15, wz: 0.6, H: 0.17, R: 0.22, T: 0.45, F: 0.25 }), // alas en flecha muy abiertas
+  chimera: hull({ L: 1.0, W: 0.95, wz: -0.05, H: 0.3, R: 0.45, T: 0.35, tw: 1, F: 0.3 }), // garras delante y aleta
   titan: hull({ L: 0.8, W: 0.95, wz: 0.1, H: 0.5, R: 0.6, T: 0.55, F: 0.3 }), // bloque blindado
 };
 

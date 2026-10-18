@@ -186,7 +186,7 @@ export function renderArena(dt) {
   const shotCol = equipped(save, save.ship).shot.color || DEFAULT_SHOT;
   for (const b of a.bullets) {
     if (!onScreen(b.x, b.y, 12)) continue;
-    const col = b.kind === 'missile' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : shotCol;
+    const col = b.kind === 'missile' || b.kind === 'mine' ? '#ff9f0a' : b.kind === 'pellet' ? '#ffe600' : b.kind === 'boomer' ? '#7dffb0' : shotCol;
     ctx.fillStyle = col;
     ctx.beginPath();
     ctx.arc(sx(b.x), sy(b.y), b.r * z, 0, Math.PI * 2);

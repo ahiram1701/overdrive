@@ -56,7 +56,21 @@ export const CARDS = [
   { id: 'seguro', name: 'Seguro de combo', icon: '🧷', rarity: 'common', max: 1, desc: 'Perder un escudo no reinicia tu combo.', apply: (r) => { r.stats.insurance = true; } },
   { id: 'recarga', name: 'Recarga rápida', icon: '⏱️', rarity: 'common', max: 3, desc: 'El DASH recarga un 20% más rápido.', descN: (n) => `El DASH recarga un ${Math.round((1 - stackValue(STACKS.recarga, n)) * 100)}% más rápido.`, apply: (r) => { r.stats.dashRecharge *= stackValue(STACKS.recarga, r.cards.recarga); } },
   { id: 'agil', name: 'Ágil', icon: '🪶', rarity: 'common', max: 2, desc: 'Cambias de carril y saltas más rápido.', apply: (r) => { r.stats.laneTime *= 0.75; r.stats.gravity *= 1.12; r.stats.jumpV *= 1.06; } },
+  // MAZO: cartas nuevas que se desbloquean con gemas (Colección -> Mazo)
+  { id: 'turbo', name: 'Turbo', icon: '🏎️', rarity: 'common', max: 2, locked: true, cost: 60, desc: '+10% de velocidad y +10% de puntos.', apply: (r) => { r.stats.speedMult *= 1.1; r.stats.scoreMult *= 1.1; } },
+  { id: 'chatarrero', name: 'Chatarrero', icon: '🔩', rarity: 'common', max: 2, locked: true, cost: 60, desc: '+15 🪙 al empezar cada tramo. Se acumula.', apply: () => {} },
+  { id: 'fortuna', name: 'Fortuna', icon: '🍀', rarity: 'common', max: 2, locked: true, cost: 60, desc: 'Más cartas raras y épicas en las elecciones.', apply: (r) => { r.luck += 0.4; } },
+  { id: 'aero', name: 'Aerodinámica', icon: '🪁', rarity: 'common', max: 2, locked: true, cost: 60, desc: 'Saltas más alto y caes más despacio.', apply: (r) => { r.stats.jumpV *= 1.08; r.stats.gravity *= 0.92; } },
+  { id: 'trofeo', name: 'Trofeo', icon: '🎯', rarity: 'rare', max: 1, locked: true, cost: 100, desc: 'Escapar del Cazador te da 1 escudo.', apply: () => {} },
+  { id: 'mecanico', name: 'Mecánico', icon: '🔧', rarity: 'rare', max: 1, locked: true, cost: 100, desc: 'Cada 3 tramos sin perder escudos, ganas 1.', apply: () => {} },
+  { id: 'parachoques', name: 'Parachoques', icon: '🧱', rarity: 'epic', max: 1, locked: true, cost: 160, desc: 'El primer golpe de cada tramo no te quita escudo (sí combo y overdrive).', apply: () => {} },
+  { id: 'tesoro', name: 'Tesoro', icon: '💰', rarity: 'epic', max: 1, locked: true, cost: 160, desc: 'x1,5 gemas al acabar la partida.', apply: () => {} },
 ];
+
+// Maestría de carta (Mazo): cada nivel la hace salir más a menudo
+export const CARD_LVL_COST = [40, 80, 150];
+export const CARD_LVL_W = [1, 1.5, 2, 3];
+export const MAX_CARD_LVL = 3;
 
 export const CARD_BY_ID = Object.fromEntries(CARDS.map((c) => [c.id, c]));
 
@@ -101,6 +115,7 @@ export function applyCard(run, id) {
 // Cartas que se pueden ofrecer ahora mismo (sin tirar del RNG).
 export function availableCards(run, minRarity = null) {
   return CARDS.filter((c) => (run.cards[c.id] || 0) < c.max)
+    .filter((c) => !c.locked || run.deck?.owned?.[c.id]) // las del mazo, solo si las tienes
     .filter((c) => !(c.id === 'cristal' && run.blockedLane !== null))
     .filter((c) => !(c.id === 'seguro' && run.stats.insurance)) // ya lo da el árbol
     .filter((c) => !(c.id === 'escudo' && run.shields >= shieldCap(run))) // con escudos llenos sería una carta muerta
@@ -110,7 +125,7 @@ export function availableCards(run, minRarity = null) {
 
 export function offerCards(run, n = 3, minRarity = null) {
   const avail = availableCards(run, minRarity);
-  const pool = avail.map((c) => ({ c, w: RARITY[c.rarity].w * (c.rarity === 'common' ? 1 : run.luck || 1) }));
+  const pool = avail.map((c) => ({ c, w: RARITY[c.rarity].w * (c.rarity === 'common' ? 1 : run.luck || 1) * CARD_LVL_W[run.deck?.lvl?.[c.id] || 0] }));
   const out = [];
   while (out.length < n && pool.length) {
     const pick = (run.lootRng || run.rng).weighted(pool);
@@ -131,6 +146,8 @@ export const SHIPS = [
   { id: 'manta', name: 'Manta', cost: 800, color: '#64d2ff', ability: 'bubble', desc: 'Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe.', apply: (r) => { r.stats.nearWin += 0.15; r.stats.hitInvuln *= 1.2; } },
   { id: 'spectra', name: 'Spectra', cost: 950, color: '#ffe600', ability: 'blink', desc: 'Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento.', apply: (r) => { r.stats.laneTime *= 0.85; r.stats.scoreMult *= 1.1; r.stats.dashRecharge *= 1.2; } },
   { id: 'titan', name: 'Titán', cost: 1100, color: '#ff6b3d', ability: 'hammer', desc: 'Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.4; r.stats.scoreMult *= 0.85; } },
+  { id: 'falcon', name: 'Halcón', cost: 1300, color: '#7dffb0', ability: 'barrier', desc: 'Ligera: el DASH recarga un 10% antes, pero x0.95 puntos.', apply: (r) => { r.stats.dashRecharge *= 0.9; r.stats.scoreMult *= 0.95; } },
+  { id: 'chimera', name: 'Quimera', cost: 1500, color: '#ff4fd8', ability: 'chaos', desc: 'Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento.', apply: (r) => { r.stats.scoreMult *= 1.2; r.stats.dashRecharge *= 1.15; } },
 ];
 
 // ---------- Árbol de mejoras por nave (hangar) ----------
@@ -160,6 +177,8 @@ export const ABILITY_TREE = {
   bubble: { lvl2: '+30% de duración', mut: 'pop', lvl3: 'Al estallar, la BURBUJA arrasa lo cercano' },
   blink: { lvl2: '+30% de distancia', mut: 'land', lvl3: 'Al aparecer, rompes lo que tienes delante' },
   hammer: { lvl2: '+30% de alcance', mut: 'triple', lvl3: 'El MARTILLO golpea los 3 carriles' },
+  barrier: { lvl2: 'Al activarla, 1 s invulnerable', mut: 'wave', lvl3: 'Al activarla, una onda rompe lo cercano' },
+  chaos: { lvl2: '+30% de alcance', mut: 'magnet', lvl3: 'CAOS atrae todas las monedas de la pista' },
 };
 
 export const emptyLvls = () => ({ a: 0, b: 0, c: 0, m: 0 });
