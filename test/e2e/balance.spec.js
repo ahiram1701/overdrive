@@ -3,7 +3,7 @@ import { trackErrors, botInPage } from './helpers.js';
 
 const SAVE = 'overdrive-save-v1';
 const SHIPS = ['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan'];
-const MAX_TREE = Object.fromEntries(SHIPS.map((s) => [s, { a: 3, b: 3, c: 3 }]));
+const MAX_TREE = Object.fromEntries(SHIPS.map((s) => [s, { a: 5, b: 5, c: 5, m: 1 }]));
 // la build "rota": todo lo que alarga y recarga el overdrive y el dash, y Vampiro
 const BROKEN = ['cargador', 'cargador', 'cargador', 'odplus', 'odplus', 'odplus', 'carga', 'carga', 'recarga', 'recarga', 'recarga', 'adrenalina', 'vampiro'];
 

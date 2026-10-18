@@ -197,10 +197,13 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
 
 ## ⚡ Habilidades y hangar
 - **Cada nave tiene una habilidad activa propia.** Se lanza con el botón ⚡ (abajo a la derecha) o con **E**/**Q** en el teclado. Tiene un tiempo de recarga, que se ve en el anillo del botón, y **cada near-miss lo recorta 0,15 s**.
-- **Árbol de mejoras por nave** en el hangar: 3 ramas de 3 niveles que se compran con gemas.
-  - 🛡️ **BLINDAJE:** escudo inicial, más invulnerabilidad y ÚLTIMO ALIENTO.
-  - ⚙️ **MOTOR:** agilidad, una carga extra de DASH y más OVERDRIVE.
-  - **La rama de la habilidad:** recarga, potencia y, en el nivel 3, una **mutación** que cambia cómo funciona.
+- **Árbol de mejoras por nave** en el hangar (pestaña MEJORAS): 3 ramas de **5 niveles** que se compran con gemas, en orden.
+  - 🛡️ **BLINDAJE:** escudo inicial, más invulnerabilidad, ÚLTIMO ALIENTO, SEGURO de combo y ÚLTIMO ALIENTO doble.
+  - ⚙️ **MOTOR:** agilidad, una carga extra de DASH, más OVERDRIVE, DASH que recarga antes y aún más agilidad.
+  - **La rama de la habilidad:** recarga, duración y, en el nivel 3, una **mutación** que cambia cómo funciona; los niveles 4 y 5 dan potencia.
+  - **★ MAESTRÍA:** con las 3 ramas completas: +10% de puntos, habilidad más fuerte y la **pintura de maestro** exclusiva de la nave.
+  - **Ficha antes de comprar:** tocar un nodo muestra las 6 barras antes → después y lo que cambia la habilidad; se paga con MEJORAR.
+  - **↺ Reiniciar árbol:** devuelve todas las gemas de esa nave (gratis la primera vez, luego 💎 50).
 - **Ficha de cada nave:** 6 barras (velocidad, agilidad, DASH, overdrive, defensa y puntos), calculadas con las reglas reales del juego y comparadas con tu nave equipada (▲ mejor, ▼ peor).
 - **Hangar por pestañas:** NAVE (ficha y compra), MEJORAS (árbol), ESTILO (personalización) y **GALAXIA**.
   - **GALAXIA:** cómo vuela cada nave en la Galaxia (cada una tiene su perfil: el Titán aguanta más, la Spectra corre más…) y las mejoras de la nave espacial, compradas con créditos sin salir del hangar.
@@ -318,7 +321,7 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. | RUGIDO te da 1 escudo |
 | **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). | Dispara en los 3 carriles |
 | **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. | El GANCHO arrasa lo que tienes delante |
-| **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +1 de imán, pero cambia de carril más lento. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
+| **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
 | **Spectra** | 💎 950 | Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento. | ⚡ **SALTO CORTO** (12 s): Te teletransporta 35 m adelante (no con un jefe delante). | Al aparecer, rompes lo que tienes delante |
 | **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
 <!-- CARDS:END -->

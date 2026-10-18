@@ -33,6 +33,10 @@ export const PALETTES = [
   { id: 'x-raptor2', name: 'Depredador', hull: '#1a0000', edge: '#ff1744', glow: '#ff8a80', ...X('raptor', 'bosses', 5) },
   { id: 'x-comet1', name: 'Cola de hielo', hull: '#04121e', edge: '#7fd8ff', glow: '#ffffff', ...X('comet', 'sections', 30) },
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
+  // MAESTRÍA: una por nave, al completar su árbol entero
+  ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#30d158'], ['raptor', '#ff9f0a'],
+    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d']].map(([ship, c]) => (
+    { id: `m-${ship}`, name: 'Maestro', hull: '#0a0a0a', alt: '#2a2000', pattern: 'fade', edge: c, glow: '#ffd60a', ship, unlock: { mastery: ship } })),
   // exclusivos de COFRE (solo salen al abrir cofres de suministros)
   { id: 'c-nebula', name: 'Nebulosa', hull: '#12002a', alt: '#002a3a', pattern: 'fade', edge: '#ff2bd6', glow: '#7df9ff', unlock: { crate: 'legendary' } },
   { id: 'c-carbon', name: 'Carbono', hull: '#111114', alt: '#26262c', pattern: 'stripes', edge: '#9aa0a6', glow: '#ff3b30', unlock: { crate: 'epic' } },
@@ -155,6 +159,7 @@ export function isUnlocked(item, save, ship = save.ship) {
   if (u.ach) return !!save.ach[u.ach]?.done;
   if (u.stat) return shipStat(save, ship, u.stat) >= u.n;
   if (u.crate) return (save.crates?.owned || []).includes(item.id);
+  if (u.mastery) return !!save.shipLvl?.[u.mastery]?.m;
   return false;
 }
 
@@ -166,6 +171,7 @@ export function lockText(item, save = null, ship = null) {
   if (u.prestige) return `✨ PRESTIGIO ${u.prestige}`;
   if (u.stat) return save ? `${Math.min(u.n, shipStat(save, ship, u.stat))}/${u.n} ${STAT_TEXT[u.stat]}` : `${u.n} ${STAT_TEXT[u.stat]}`;
   if (u.crate) return '🎁 cofre';
+  if (u.mastery) return '★ maestría';
   return '';
 }
 
