@@ -310,3 +310,51 @@ test('puesto avanzado: fundarlo en un sistema liberado, módulos, almacén y atr
   await expect(page.locator('#stTitle')).toContainText('🏗️');
   expect(errors).toEqual([]);
 });
+
+test('sucesos: defender un sistema de una ofensiva y destruir el último nido del enjambre', async ({ page }) => {
+  const errors = trackErrors(page);
+  // ofensiva en LIGA (sistema 4) a falta de un pirata, con la nave allí
+  await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 1000, sys: 4, home: 4, visited: [0, 4], jumps: 7 }, galaxyWorld: { war: { sys: 4, until: 99, kills: 5, need: 6 }, nextWar: 99, nextSwarm: 99 } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await expect(page.locator('#shObjective')).toContainText('Defiende');
+  const war = await page.evaluate(() => {
+    const s = window.G.space, p = s.pirates.find((x) => x.alive);
+    window.G.god = true;
+    const c0 = window.__save.galaxy.credits;
+    s.bolts.push({ pos: { ...p.pos }, vel: { x: 0, y: 0, z: 0 }, life: 0.5, dmg: 99999 });
+    window.D.step(1 / 30, false);
+    return { war: window.__save.galaxyWorld.war, saved: window.__save.galaxyWorld.saved, gained: window.__save.galaxy.credits - c0 };
+  });
+  expect(war.war).toBe(null);
+  expect(war.saved).toBe(1);
+  expect(war.gained).toBeGreaterThan(1000);
+  expect(errors).toEqual([]);
+});
+
+test('sucesos: el nido del enjambre (precios hundidos) y exterminarlo', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 1000, sys: 4, home: 4, visited: [0, 4], jumps: 7, cargo: { iron: 5 } }, galaxyWorld: { swarm: { systems: [4], nextSpread: 99 }, nextWar: 99, nextSwarm: 99 } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  const r = await page.evaluate(async () => {
+    const { marketPrice, stationPrices } = await import('/js/spaceGame.js');
+    const s = window.G.space;
+    const nest = !!s.base?.nest;
+    const low = marketPrice('iron', 4) < stationPrices(4).iron;
+    window.G.god = true;
+    const c0 = window.__save.galaxy.credits;
+    s.bolts.push({ pos: { ...s.base.pos }, vel: { x: 0, y: 0, z: 0 }, life: 0.5, dmg: 1e7 });
+    window.D.step(1 / 30, false);
+    return { nest, low, swarm: window.__save.galaxyWorld.swarm, wiped: window.__save.galaxyWorld.wiped, gained: window.__save.galaxy.credits - c0, ach: !!window.__save.ach.exterminio?.done };
+  });
+  expect(r.nest).toBe(true);
+  expect(r.low).toBe(true);
+  expect(r.swarm).toBe(null);
+  expect(r.wiped).toBe(1);
+  expect(r.gained).toBeGreaterThanOrEqual(4000);
+  expect(r.ach).toBe(true);
+  // las noticias, en el panel 🎒
+  await page.locator('#btnInv').click();
+  await page.locator('#giTabs [data-tab="news"]').click();
+  await expect(page.locator('#giBody')).toContainText('exterminado');
+  expect(errors).toEqual([]);
+});

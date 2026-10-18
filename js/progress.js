@@ -160,6 +160,8 @@ export const ACHIEVEMENTS = [
   { id: 'leviatan', kind: 'leviatan', mode: 'sum', n: 1, tier: 'gold', name: 'Deshielo', desc: 'Derrota al Leviatán de hielo del GLACIAR' },
   { id: 'tt5', kind: 'ttGold', mode: 'best', n: 5, tier: 'gold', name: 'Cronómetro', desc: 'Gana 5 oros en CONTRARRELOJ' },
   { id: 'exp4', kind: 'exp4', mode: 'sum', n: 1, tier: 'gold', name: 'Del abismo', desc: 'Completa una EXPEDICIÓN de 4 actos' },
+  { id: 'defender', kind: 'defend', mode: 'best', n: 5, tier: 'gold', name: 'Defensor', desc: 'Rechaza 5 ofensivas piratas en la GALAXIA' },
+  { id: 'exterminio', kind: 'exterminio', mode: 'sum', n: 1, tier: 'gold', name: 'Exterminador', desc: 'Acaba con una invasión del enjambre' },
 ];
 export const ACH_GEMS = T;
 

@@ -948,7 +948,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .hub-stats .wallet { flex: 1; }
 
 /* ---------- Panel de vuelo: inventario y misiones ---------- */
-.gi-tabs { grid-template-columns: repeat(2, 1fr) !important; }
+.gi-tabs { grid-template-columns: repeat(3, 1fr) !important; }
 .gi-body { width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--sp-2); }
 .gi-block { padding: var(--sp-3); border-radius: var(--r-2); background: var(--panel); border: 1px solid rgba(255,255,255,.12); text-align: left; }
 .gi-block h3 { margin: 0 0 6px; text-align: left; }
@@ -1041,3 +1041,10 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 /* ---------- Expedición: reliquias y forja ---------- */
 .em-relics { letter-spacing: 2px; }
 .em-node.t-forge small { color: #ff9f0a; }
+
+/* ---------- Galaxia: sucesos y noticias ---------- */
+.gi-mis.war { border-color: #ff2d55; }
+.gi-mis.swarm { border-color: #ffd60a; }
+.gi-news { display: flex; flex-direction: column; gap: 6px; }
+.gi-news div { display: flex; gap: 8px; align-items: baseline; font-size: 13px; }
+.gi-news small { color: var(--muted); white-space: nowrap; }
