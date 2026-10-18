@@ -149,6 +149,8 @@ export const ACHIEVEMENTS = [
   { id: 'hull2', kind: 'chassis', mode: 'best', n: 2, tier: 'silver', name: 'Astillero', desc: 'Compra un chasis espacial' },
   { id: 'hull5', kind: 'chassis', mode: 'best', n: 5, tier: 'gold', name: 'Flota completa', desc: 'Ten los 5 chasis espaciales' },
   { id: 'mk10', kind: 'mk10', mode: 'sum', n: 1, tier: 'gold', name: 'Sin techo', desc: 'Sube una mejora espacial al Mk 10' },
+  { id: 'outpost1', kind: 'outpost', mode: 'sum', n: 1, tier: 'silver', name: 'Colono', desc: 'Funda un puesto avanzado' },
+  { id: 'outpostMax', kind: 'outpostLvl', mode: 'best', n: 15, tier: 'gold', name: 'Gobernador', desc: 'Todos los módulos de un puesto al nivel 3' },
 ];
 export const ACH_GEMS = T;
 

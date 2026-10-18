@@ -28,14 +28,14 @@ export function gearUpCost(id, lvl) {
   const c = GEAR[id].cost;
   return { credits: Math.round(c.credits * 0.6 * lvl / 10) * 10, chatarra: 4 * lvl, circuitos: 2 * lvl, ...(lvl >= 3 ? { nucleos: lvl - 2 } : {}) };
 }
-export function canUpgradeGear(save, id) {
+export function canUpgradeGear(save, id, disc = 1) {
   const c = gearUpCost(id, gearLvl(save, id));
-  return !!c && owns(save, id) && Object.entries(c).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
+  return !!c && owns(save, id) && Object.entries(discCost(c, disc)).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
 }
-export function upgradeGear(save, id) {
-  if (!canUpgradeGear(save, id)) return false;
+export function upgradeGear(save, id, disc = 1) {
+  if (!canUpgradeGear(save, id, disc)) return false;
   const l = gearLvl(save, id);
-  for (const [k, n] of Object.entries(gearUpCost(id, l))) {
+  for (const [k, n] of Object.entries(discCost(gearUpCost(id, l), disc))) {
     if (k === 'credits') save.galaxy.credits -= n;
     else save.galaxyMats[k] -= n;
   }
@@ -72,15 +72,17 @@ export const owns = (save, id) => !!gear(save).owned[id];
 export const equippedGear = (save) => [...gear(save).w, ...gear(save).m];
 export const hasGear = (save, id) => equippedGear(save).includes(id);
 
-export function canCraft(save, id) {
+// disc: descuento en créditos (el Taller de un puesto avanzado)
+export const discCost = (c, disc = 1) => Object.fromEntries(Object.entries(c).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n]));
+export function canCraft(save, id, disc = 1) {
   const it = GEAR[id];
   if (!it || owns(save, id)) return false;
-  return Object.entries(it.cost).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
+  return Object.entries(discCost(it.cost, disc)).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
 }
 
-export function craft(save, id) {
-  if (!canCraft(save, id)) return false;
-  for (const [k, n] of Object.entries(GEAR[id].cost)) {
+export function craft(save, id, disc = 1) {
+  if (!canCraft(save, id, disc)) return false;
+  for (const [k, n] of Object.entries(discCost(GEAR[id].cost, disc))) {
     if (k === 'credits') save.galaxy.credits -= n;
     else save.galaxyMats[k] -= n;
   }

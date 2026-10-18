@@ -73,7 +73,7 @@ function stationFaces(st) {
     const a0 = (i / N) * Math.PI * 2, a1 = ((i + 1) / N) * Math.PI * 2;
     const P = (a, r, y) => rot({ x: Math.cos(a) * r, y, z: Math.sin(a) * r });
     // cara exterior y superior del anillo
-    faces.push({ pts: [P(a0, R + w, -h), P(a1, R + w, -h), P(a1, R + w, h), P(a0, R + w, h)], col: i % 3 === 0 ? '#ffe600' : '#7d8597' });
+    faces.push({ pts: [P(a0, R + w, -h), P(a1, R + w, -h), P(a1, R + w, h), P(a0, R + w, h)], col: i % 3 === 0 ? st.accent || '#ffe600' : '#7d8597' });
     faces.push({ pts: [P(a0, R - w, h), P(a1, R - w, h), P(a1, R + w, h), P(a0, R + w, h)], col: '#a7b0bf' });
     // radios cada 3 segmentos
     if (i % 3 === 0) faces.push({ pts: [P(a0, 4, -2), P(a0 + 0.08, 4, 2), P(a0 + 0.04, R - w, 2), P(a0 - 0.04, R - w, -2)], col: '#59606e' });
@@ -295,6 +295,32 @@ export function renderSpace(dt) {
         ctx.arc(stP.x, stP.y, Math.max(3, s.sys.station.r * stP.s * 0.15), 0, Math.PI * 2);
         ctx.fill();
       }
+    } });
+  }
+
+  // TU PUESTO AVANZADO: la misma estructura, en verde, con su nombre
+  if (s.outpost) {
+    const op = { ...s.outpost, accent: '#30d158' };
+    const c = project(cam, op.pos, 1);
+    if (c) draws.push({ z: c.z, fn: () => {
+      const faces = stationFaces(op).map((fc) => {
+        const pts = fc.pts.map((q) => project(cam, q, 0.5));
+        return pts.some((q) => !q) ? null : { pts, z: pts.reduce((a, q) => a + q.z, 0) / pts.length, col: fc.col };
+      }).filter(Boolean).sort((a, b) => b.z - a.z);
+      for (const fc of faces) {
+        ctx.fillStyle = fc.col;
+        ctx.beginPath();
+        fc.pts.forEach((q, i) => (i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y)));
+        ctx.closePath();
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(48,209,88,.4)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+      ctx.fillStyle = '#30d158';
+      ctx.font = 'italic 900 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`🏗️ ${op.name}`, c.x, c.y - op.r * c.s * 1.6 - 8);
     } });
   }
 

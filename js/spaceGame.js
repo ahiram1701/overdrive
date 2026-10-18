@@ -16,6 +16,7 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
+import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
@@ -149,6 +150,7 @@ function enterSystem(s, id, fromId) {
     }
   }
   spawnBounty(s);
+  placeOutpost(s);
   s.devourer = null;
   s.markerT = 0;
   spawnStoryBoss(s);
@@ -305,6 +307,37 @@ function updateStoryMarker(s, dt) {
     s.markerT = (s.markerT || 0) + dt;
     if (s.markerT >= 2) { s.markerT = 0; storyHit(s, { type: 'reach', sys: s.sysId }); }
   } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
+}
+
+// ---------- Puesto avanzado ----------
+// tu estación propia: más allá de la del sistema, en la línea que sale del sol (nunca cae en él)
+function placeOutpost(s) {
+  const o = outpostAt(save, s.sysId), st = s.sys.station.pos;
+  s.outpost = o ? { pos: add(add(st, scale(norm(sub(st, s.sys.sun.pos)), 480)), { x: 0, y: 70, z: 0 }), r: 26, spin: 0, name: o.name } : null;
+}
+export function foundOutpost(name) {
+  const s = S();
+  if (!s || !found(save, s.sysId, name || `Puesto ${GAL[s.sysId].name}`)) return false;
+  placeOutpost(s);
+  progress('outpost');
+  sfx.milestone();
+  persist();
+  return true;
+}
+export { canFound, FOUND_COST };
+function updateOutpost(s, dt) {
+  const o = s.outpost;
+  if (!o) return;
+  o.spin += dt * 0.3;
+  // TORRETAS: disparan solas a los piratas cercanos
+  const lv = modLvl(save, s.sysId, 'turrets');
+  if (!lv) return;
+  o.fireT = (o.fireT || 0) - dt;
+  if (o.fireT > 0) return;
+  const t = s.pirates.filter((p) => p.alive && dist(p.pos, o.pos) < 700).sort((a, b) => dist(a.pos, o.pos) - dist(b.pos, o.pos))[0];
+  if (!t) return;
+  o.fireT = 1.2 / lv;
+  s.bolts.push({ pos: { ...o.pos }, vel: scale(norm(sub(t.pos, o.pos)), 900), life: 0.9, dmg: 20 + 15 * lv });
 }
 
 // ---------- Cazarrecompensas ----------
@@ -828,6 +861,7 @@ export function dock() {
   const s = S();
   if (!s || G.mode !== 'galaxy' || !s.canDock) return;
   G.mode = 'station';
+  s.atOutpost = !!s.atOutpostRange;
   musicDuck(true);
   sfx.chest();
   const g = gal();
@@ -880,7 +914,7 @@ export function sellAll() {
     g.cargo[k] = 0;
   }
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
-  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell); // facción: Amigo/Aliado pagan más
+  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys)); // facción y Mercado propio pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -1200,7 +1234,7 @@ export function updateSpace(dt) {
   sh.speed = Math.abs(speed) < 0.5 && want === 0 ? 0 : speed;
   const b = { f: sh.f, r: sh.r, u: sh.u };
   sh.pos = add(sh.pos, scale(b.f, sh.speed * dt));
-  recoverMarket(save, dt);
+  recoverMarket(save, dt, (sys) => marketRate(save, sys)); // el Mercado propio de un puesto lo acelera
   // estela del motor en el mundo (cinta 3D)
   s.trailT = (s.trailT || 0) + dt;
   if (s.trailT > 0.025) {
@@ -1364,6 +1398,7 @@ export function updateSpace(dt) {
 
   updatePirates(s, dt);
   updateItems(s, dt);
+  updateOutpost(s, dt);
   updateBase(s, dt);
   updateDevourer(s, dt);
   updateStoryMarker(s, dt);
@@ -1427,6 +1462,8 @@ export function updateSpace(dt) {
     s.canDock = false;
     if (!s.pirWarned) { s.pirWarned = true; fx.notice('🏴‍☠️ Estación pirata: libera el sistema para atracar', '#ff2d55'); }
   }
+  s.atOutpostRange = !!(s.outpost && dist(sh.pos, s.outpost.pos) < DOCK_R);
+  if (s.atOutpostRange) s.canDock = true; // tu puesto: siempre puedes atracar
   if (s.canDock && s.act?.kind === 'orbit') s.act = null; // junto a la estación manda ATRACAR
 
   // PUERTAS DE SALTO: atravesarlas te lleva al sistema vecino (si tu Salto da)
