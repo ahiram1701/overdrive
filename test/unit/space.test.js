@@ -106,3 +106,15 @@ test('cámara de persecución boca abajo: sigue el "arriba" de la nave', () => {
 });
 
 function quat0() { return quatFromYawPitch(0, 0); }
+
+test('acelerador: la muesca del 0 engancha fácil y no se escapa sin querer', async () => {
+  const { snapThrottle, THR_OUT } = await import('../../js/galaxyData.js');
+  // entrar: de −12% a +15% es PARADO
+  for (const v of [0.1, -0.1, 0.14, -0.11, 0]) assert.equal(snapThrottle(v, false), 0, `${v}`);
+  for (const v of [0.2, -0.2, 1, -0.4]) assert.equal(snapThrottle(v, false), v);
+  // salir: estando parado hay que pasar de ±22%
+  for (const v of [0.18, -0.2, 0.22]) assert.equal(snapThrottle(v, true), 0, `${v} no se escapa`);
+  assert.equal(snapThrottle(0.25, true), 0.25);
+  assert.equal(snapThrottle(-0.3, true), -0.3);
+  assert.ok(THR_OUT > 0.15);
+});

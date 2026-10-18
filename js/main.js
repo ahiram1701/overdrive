@@ -13,7 +13,7 @@ import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEven
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 
-const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap' || G.mode === 'planet';
+const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap' || G.mode === 'planet' || G.mode === 'galaxyInv';
 
 const inArena = () => G.mode.startsWith('arena');
 // un paso de simulación del modo que toque
@@ -30,7 +30,13 @@ function simStep(dt) {
       const kr = (held.has('e') || held.has('E') ? 1 : 0) - (held.has('q') || held.has('Q') ? 1 : 0);
       s.ship.rollIn = kr || s.rollBtn || 0;
       const kt = (held.has('r') || held.has('R') ? 1 : 0) - (held.has('f') || held.has('F') ? 1 : 0);
-      if (kt) s.ship.throttle = Math.max(-0.4, Math.min(1, (s.ship.throttle ?? 1) + kt * dt * 0.9));
+      // al cruzar el 0 se queda PARADO hasta soltar la tecla (la misma muesca que la palanca)
+      if (kt && !s.thrHold) {
+        const t0 = s.ship.throttle ?? 1;
+        let t1 = Math.max(-0.4, Math.min(1, t0 + kt * dt * 0.9));
+        if (t0 !== 0 && Math.sign(t1) !== Math.sign(t0)) { t1 = 0; s.thrHold = true; fx.vibe(15); }
+        s.ship.throttle = t1;
+      } else if (!kt) s.thrHold = false;
     }
     updateSpace(dt);
   } else if (inArena()) {
@@ -73,7 +79,7 @@ initInput({
   },
   // doble toque (o Shift): DASH en el runner y la arena. En la galaxia, doble toque = TONEL y Shift = impulso
   double: () => (G.mode === 'galaxy' ? (held.has('Shift') ? spaceBoost() : held.has(' ') ? null : spaceRoll()) : G.mode === 'arena' ? arenaDash() : dash()),
-  extra: (k) => { if (G.mode === 'galaxy') (k === 'x' ? spaceRoll() : spaceMissile()); },
+  extra: (k) => { if (G.mode !== 'galaxy') return; if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else spaceMissile(); },
   ability: () => (G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {
     if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();

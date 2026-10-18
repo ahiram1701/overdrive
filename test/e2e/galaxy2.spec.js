@@ -172,3 +172,35 @@ test('rendimiento: nebulosa, base y 8 enemigos de todos los tipos por debajo de 
   console.log(`GALAXIA+ fotograma medio: ${ms.toFixed(2)} ms`);
   expect(ms).toBeLessThan(16);
 });
+
+test('🎒 panel de vuelo: inventario y misiones activas; pausa la partida y se abandona desde ahí', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { ...BASE, galaxyMats: { chatarra: 7 }, story: { ch: 1, n: 0, seen: { 0: true, 1: true } } });
+  // una misión aceptada y una caza activa
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  await page.locator('[data-mission]').first().click();
+  await page.locator('#stBounties [data-bounty]').first().click();
+  await page.evaluate(() => document.getElementById('btnUndock').click());
+  await page.waitForFunction(() => window.G.mode === 'galaxy');
+  await page.locator('#btnInv').click();
+  await expect(page.locator('#galInv')).toBeVisible();
+  expect(await page.evaluate(() => window.G.mode)).toBe('galaxyInv');
+  // pausa: la nave no se mueve
+  const moved = await page.evaluate(() => { const sh = window.G.space.ship, p0 = { ...sh.pos }; window.D.step(0.5, false); return Math.hypot(sh.pos.x - p0.x, sh.pos.z - p0.z); });
+  expect(moved).toBe(0);
+  await expect(page.locator('#giBody')).toContainText('Bodega · 10/');
+  await expect(page.locator('#giBody')).toContainText('Chatarra');
+  await page.locator('#giTabs [data-tab="mis"]').click();
+  await expect(page.locator('.gi-mis.story')).toContainText('Ecos');
+  await expect(page.locator('.gi-mis.bounty')).toHaveCount(1);
+  await expect(page.locator('[data-abandon]')).toHaveCount(1);
+  await page.locator('[data-abandon]').click();
+  await page.locator('[data-abandon]').click();
+  await expect(page.locator('[data-abandon]')).toHaveCount(0);
+  expect(await page.evaluate(() => window.__save.galaxy.missions.length)).toBe(0);
+  await page.locator('#galInv .scr-back').click();
+  await expect(page.locator('#spaceHud')).toBeVisible();
+  expect(await page.evaluate(() => window.G.mode)).toBe('galaxy');
+  expect(errors).toEqual([]);
+});

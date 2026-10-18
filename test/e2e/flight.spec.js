@@ -88,3 +88,46 @@ test('alabeo con ↺ y Q/E; la nivelación automática endereza la nave', async 
   expect(Math.abs(level)).toBeLessThan(0.1);
   expect(errors).toEqual([]);
 });
+
+test('palanca con muesca: cerca del 0 se para (frenando suave), y R se detiene en el 0', async ({ page }) => {
+  const errors = trackErrors(page);
+  await fly(page);
+  // +10% y −10% caen en la muesca: PARADO
+  for (const v of ['10', '-10']) {
+    await page.locator('#throttle').fill('60');
+    await page.locator('#throttle').fill(v);
+    expect(await page.evaluate(() => window.G.space.ship.throttle)).toBe(0);
+  }
+  // frena en unas décimas (no de golpe) y luego no se mueve
+  const brake = await page.evaluate(() => {
+    const sh = window.G.space.ship;
+    sh.throttle = 1;
+    for (let i = 0; i < 30; i++) window.D.step(1 / 60, false);
+    sh.throttle = 0;
+    window.D.step(1 / 60, false);
+    const early = Math.abs(sh.speed);
+    for (let i = 0; i < 60; i++) window.D.step(1 / 60, false);
+    const p0 = { ...sh.pos };
+    for (let i = 0; i < 30; i++) window.D.step(1 / 60, false);
+    return { early, moved: Math.hypot(sh.pos.x - p0.x, sh.pos.y - p0.y, sh.pos.z - p0.z) };
+  });
+  expect(brake.early).toBeGreaterThan(10); // aún frenando
+  expect(brake.moved).toBeLessThan(0.01); // ya parada
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await expect(page.locator('#throttleBox')).toHaveClass(/stop/);
+  await expect(page.locator('#thrVal')).toHaveText('PARADO');
+  // +30% sí avanza
+  await page.locator('#throttle').fill('30');
+  expect(await page.evaluate(() => window.G.space.ship.throttle)).toBeCloseTo(0.3);
+  // con F mantenida desde +30% se queda en 0 hasta soltar
+  await page.keyboard.down('f');
+  await page.evaluate(() => { for (let i = 0; i < 120; i++) window.D.step(1 / 60, false); });
+  expect(await page.evaluate(() => window.G.space.ship.throttle)).toBe(0);
+  await page.keyboard.up('f');
+  await page.evaluate(() => window.D.step(1 / 60, false)); // un fotograma con la tecla suelta
+  await page.keyboard.down('f');
+  await page.evaluate(() => { for (let i = 0; i < 20; i++) window.D.step(1 / 60, false); });
+  await page.keyboard.up('f');
+  expect(await page.evaluate(() => window.G.space.ship.throttle)).toBeLessThan(0); // otra pulsación: marcha atrás
+  expect(errors).toEqual([]);
+});

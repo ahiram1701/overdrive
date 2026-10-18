@@ -90,7 +90,13 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **Vuelo libre:** la nave gira en **sus propios ejes**, así que puedes dar **rizos completos**, volar boca abajo y alabear.
   - **Joystick** donde apoyes el dedo: arriba/abajo = cabeceo sin tope, a los lados = giro.
   - **↺ ↻** para alabear sobre ti misma. Con la **nivelación automática** (en Ajustes) el ala vuelve sola a la horizontal.
-  - **Palanca MOTOR** (izquierda): de **marcha atrás** (−40%) a **parado** y **a tope**. Puedes pararte junto a la estación o un asteroide. ⏩ da un impulso aparte.
+  - **Palanca MOTOR** (izquierda): de **marcha atrás** (−40%) a **parado** y **a tope**. ⏩ da un impulso aparte.
+    - Tiene una **muesca en el 0** (la raya verde): cerca del 0 se engancha en **PARADO**, vibra al llegar y no se escapa sin querer.
+    - La nave **frena suave** en unas décimas.
+    - Con el teclado, R/F se paran en el 0 hasta que sueltas la tecla.
+  - **🎒 Panel de vuelo** (botón bajo el mapa, o **I**), que pausa la partida:
+    - **inventario:** bodega con su valor aquí, materiales, misiles, equipo montado y mejoras;
+    - **misiones activas:** capítulo de la historia, caza, misiones de las estaciones (con su progreso, a cuántos saltos están y ✕ para abandonar), el suceso del sistema y la liberación.
   - 🔫 dispara, con autoapuntado suave hacia lo que tengas delante.
   - En teclado: **WASD**/flechas = cabeceo y giro, **Q/E** = alabeo, **R/F** = acelerador, espacio = disparar, Shift = impulso.
   - Sensibilidad y eje vertical invertido, en ⚙️ Ajustes.
