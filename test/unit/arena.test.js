@@ -5,6 +5,7 @@ import {
   WEAPONS, PASSIVES, EVOLUTIONS, SHIP_WEAPON, SHIP_ARENA, ENEMIES, waveAt, offerUpgrades, applyUpgrade, canEvolve, xpNeed,
   passiveStats, arenaRewards, MAX_WEAPONS, MAX_LVL,
   ARENA_MAPS, MAP_KEYS, mapUnlocked, mapFeatures, ARENA_BOSSES, BOSS_ATTACKS, bossOf,
+  nextBossTime, ENDLESS_EVERY, ARENA_UPS, arenaUpCost, buyArenaUp, arenaUpLvl, ARENA_UP_MAX,
 } from '../../js/arenaData.js';
 import { loadFrom } from '../../js/save.js';
 import { SHIPS } from '../../js/upgrades.js';
@@ -94,4 +95,37 @@ test('jefes de la arena: 2 fases con ataques conocidos; cada mapa trae los suyos
   }
   assert.equal(bossOf('belt', 0), 'colmena');
   assert.equal(bossOf('belt', 1), 'coloso');
+});
+
+test('sin fin: tras el jefe final, uno cada 3:00 (y sin sin fin, ninguno más)', () => {
+  assert.equal(nextBossTime(0, false), 300);
+  assert.equal(nextBossTime(1, false), 600);
+  assert.equal(nextBossTime(2, false), Infinity);
+  assert.equal(nextBossTime(2, true), 600 + ENDLESS_EVERY);
+  assert.equal(nextBossTime(4, true), 600 + 3 * ENDLESS_EVERY);
+  assert.ok(waveAt(3600).cap <= 420, 'tope de enemigos');
+});
+
+test('taller de la arena: 5 niveles con 🪙, coste creciente; cambiar y vetar', () => {
+  const s = loadFrom(null);
+  s.coins = 1e6;
+  for (const id of Object.keys(ARENA_UPS)) {
+    let last = 0;
+    for (let l = 0; l < ARENA_UP_MAX; l++) {
+      const c = arenaUpCost(id, l);
+      assert.ok(c > last);
+      last = c;
+      assert.ok(buyArenaUp(s, id));
+    }
+    assert.equal(arenaUpLvl(s, id), ARENA_UP_MAX);
+    assert.equal(buyArenaUp(s, id), false, 'no pasa de 5');
+  }
+  assert.equal(loadFrom(JSON.stringify(s)).arenaUp.reroll, 5, 'arenaUp está en MAPS');
+  const poor = loadFrom(null);
+  assert.equal(buyArenaUp(poor, 'hp'), false);
+  // una mejora vetada ya no sale
+  const st = { weapons: { blaster: 1 }, passives: {}, evolved: {}, banned: { 'passive:speed': true, 'weapon:blaster': true } };
+  for (let i = 0; i < 40; i++) {
+    for (const o of offerUpgrades(st, makeRng(i))) assert.ok(!(o.id === 'speed' && o.kind === 'passive') && !(o.id === 'blaster' && o.kind === 'weapon'));
+  }
 });

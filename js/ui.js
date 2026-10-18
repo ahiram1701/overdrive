@@ -27,13 +27,13 @@ import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCos
 import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
-import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime } from './arena.js';
-import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed, ARENA_MAPS, MAP_KEYS, mapUnlocked, ARENA_BOSSES } from './arenaData.js';
+import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime, arenaContinue, arenaStop, arenaReroll, arenaBanish } from './arena.js';
+import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed, ARENA_MAPS, MAP_KEYS, mapUnlocked, ARENA_BOSSES, ARENA_UPS, arenaUpLvl, arenaUpCost, buyArenaUp, nextBossTime } from './arenaData.js';
 import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, wallet, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -219,6 +219,10 @@ export const ui = {
     tap($('btnRestCard'), () => expRest('card'));
     tap($('btnArenaRetry'), () => newArena({ map: save.arena.map }));
     tap($('btnArenaMenu'), () => ui.showArenaHub());
+    tap($('btnEndless'), () => arenaContinue());
+    tap($('btnArenaStop'), () => arenaStop());
+    tap($('btnAuReroll'), () => { ui.auBanish = false; arenaReroll(); });
+    tap($('btnAuBanish'), () => { if (!G.arena?.banishes) return; ui.auBanish = !ui.auBanish; ui.showArenaUp(G.arena); });
     tap($('arenaPause'), () => ui.pause());
     $('arenaAbility').addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -1208,6 +1212,23 @@ export const ui = {
         });
         body.append(col);
       }
+      // TALLER DE LA ARENA: mejoras permanentes con 🪙 (5 niveles cada una)
+      const shop = el('div', 'tal-tree', '<h3>🛠️ TALLER DE LA ARENA</h3>');
+      for (const [id, U] of Object.entries(ARENA_UPS)) {
+        const l = arenaUpLvl(save, id), c = arenaUpCost(id, l);
+        const node = el('button', `tal-node${c === null ? ' bought' : ' next'}${c !== null && save.coins >= c ? ' afford' : ''}`,
+          `<small>${U.icon}</small><b>${U.name} ${'●'.repeat(l)}${'○'.repeat(5 - l)}</b><span>${U.desc(Math.max(1, l + (c === null ? 0 : 1)))}</span><em>${c === null ? 'MÁX' : `🪙 ${fmt(c)}`}</em>`);
+        node.dataset.arenaUp = id;
+        tap(node, () => {
+          if (!buyArenaUp(save, id)) { fx.vibe(50); return; }
+          persist();
+          sfx.chest();
+          toast(`${U.icon} ${U.name} nivel ${l + 1}`);
+          ui.showStore();
+        });
+        shop.append(node);
+      }
+      body.append(shop);
       // ARSENAL: armas de la Arena que se desbloquean para que te salgan al subir de nivel
       const ars = el('div', 'tal-tree', '<h3>🔱 ARSENAL DE LA ARENA</h3>');
       for (const [id, W] of Object.entries(WEAPONS)) {
@@ -1872,7 +1893,7 @@ export const ui = {
     const a = G.arena;
     if (!a || $('arenaHud').classList.contains('hidden')) return;
     setText('ahTime', fmtTime(a.time));
-    setText('ahGoal', a.time < ARENA_TIME ? `sobrevive ${fmtTime(ARENA_TIME)}` : '¡JEFE FINAL!');
+    setText('ahGoal', a.endless ? `♾️ jefe en ${fmtTime(Math.max(0, nextBossTime(a.bossIdx, true) - a.time))}` : a.time < ARENA_TIME ? `sobrevive ${fmtTime(ARENA_TIME)}` : '¡JEFE FINAL!');
     setText('ahLvl', String(a.level));
     setText('ahKills', fmt(a.kills));
     $('arenaHud').querySelector('.ah-xp i').style.transform = `scaleX(${Math.min(1, a.xp / Math.max(1, xpNeed(a.level))).toFixed(3)})`;
@@ -1886,6 +1907,13 @@ export const ui = {
 
   showArenaUp(a) {
     setText('auTitle', `¡NIVEL ${a.level}!`);
+    setText('auHint', ui.auBanish ? '🚫 Toca la mejora que no quieres volver a ver' : 'Elige una mejora');
+    setText('auRerolls', String(a.rerolls || 0));
+    setText('auBanishes', String(a.banishes || 0));
+    $('btnAuReroll').classList.toggle('hidden', !a.rerolls);
+    $('btnAuBanish').classList.toggle('hidden', !a.banishes);
+    $('btnAuBanish').classList.toggle('on', !!ui.auBanish);
+    if (!a.banishes) ui.auBanish = false;
     const box = $('auOptions');
     box.innerHTML = '';
     a.offers.forEach((up, i) => {
@@ -1893,22 +1921,28 @@ export const ui = {
       const tag = up.kind === 'evolve' ? '✨ EVOLUCIÓN' : up.kind === 'weapon' ? (up.lvl === 1 ? 'ARMA NUEVA' : `ARMA · NIV ${up.lvl}`) : up.kind === 'passive' ? (up.lvl === 1 ? 'PASIVA NUEVA' : `PASIVA · NIV ${up.lvl}`) : 'CURA';
       const b = el('button', `au-opt k-${up.kind}`, `<span class="au-icon">${info.icon}</span><span class="au-body"><small>${tag}</small><b>${info.name}</b><em>${info.desc}</em></span>`);
       b.dataset.i = i;
-      tap(b, () => pickArenaUpgrade(i));
+      tap(b, () => { if (ui.auBanish) { ui.auBanish = false; arenaBanish(i); } else pickArenaUpgrade(i); });
+      if (ui.auBanish && !['weapon', 'passive'].includes(up.kind)) b.disabled = true;
       box.append(b);
     });
     show('arenaUp');
   },
 
+  // ganaste: ¿seguir en el modo sin fin o cobrar?
+  showArenaChoice() {
+    show('arenaChoice');
+  },
+
   showArenaEnd(res) {
     ui.deathAt = performance.now();
-    setText('aeTitle', res.won ? '¡ARENA SUPERADA!' : 'DESTRUIDO');
+    setText('aeTitle', res.endless ? '♾️ SIN FIN' : res.won ? '¡ARENA SUPERADA!' : 'DESTRUIDO');
     $('aeTitle').className = res.won ? 'won' : 'dead';
     $('aeNew').classList.toggle('hidden', !res.isBest);
     setText('aeTime', fmtTime(res.time));
     const cells = [['Bajas', fmt(res.kills)], ['Nivel', res.level], ['Jefes', res.bosses], ['Récord', fmtTime(res.best)]];
     $('aeGrid').innerHTML = cells.map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     $('aeBuild').innerHTML = arenaBuild({ weapons: res.weapons, passives: {}, evolved: res.evolved });
-    $('aeGems').innerHTML = `+${res.gems} 💎 <small>(total ${fmt(save.gems)})</small>`;
+    $('aeGems').innerHTML = `+${res.gems} 💎 · +${fmt(res.coins || 0)} 🪙 <small>(total ${fmt(save.gems)} 💎 · ${fmt(save.coins)} 🪙)</small>`;
     const ups = res.rankUps.map((u) => `<div class="rank-up">⬆ ¡RANGO ${u.rank}! <b>+${u.gems} 💎</b></div>`).join('');
     $('aeXp').innerHTML = `<div class="xp-gain">+${fmt(res.xp)} XP</div>${rankHTML(save.xp, res.rankUps.length ? null : res.xpBefore)}${ups}`;
     show('arenaEnd');

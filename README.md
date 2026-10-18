@@ -213,7 +213,11 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - **Tejedora**: láseres que giran (finos un momento antes de quemar);
   - **Núcleo**: espirales de balas que cambian de sentido;
   - **Devorador**: te atrae (el DASH te suelta) y siembra minas.
-- Gemas y XP para el hangar y el rango. Récord, logros y misiones propias.
+- **♾️ Modo SIN FIN:** al vencer al jefe final eliges **SEGUIR** o cobrar. Si sigues, llega otro jefe cada 3:00 (de todos los mapas, cada vez más fuerte) y caer cuenta como victoria. Logros **Sin fin** (15:00) y **Conquistador** (gana en los 4 mapas).
+- **🛠️ Taller de la Arena** (Tienda → Talentos, con 🪙): mejoras permanentes de 5 niveles: Casco reforzado (vida), Munición pesada (daño), Propulsores, Imán, Estudio (XP), y dos que cambian el juego al subir de nivel:
+  - 🎲 **Cambios**: vuelve a sacar las 3 ofertas;
+  - 🚫 **Vetos**: elige una mejora que no quieres volver a ver en esa partida.
+- Gemas, 🪙 y XP para el hangar, la tienda y el rango (la pantalla final dice cuántas de cada). Récord, logros y misiones propias.
 
 ## 🗺️ Modo EXPEDICIÓN
 El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).

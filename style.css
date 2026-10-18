@@ -1020,3 +1020,11 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 /* ---------- Historia: chasis que solo da el Acto III ---------- */
 #stShipyard .st-up.locked { opacity: .6; border-style: dashed; }
 #stShipyard .st-up.locked .su-cost { color: #bf5af2; font-size: 12px; }
+
+/* ---------- Arena: sin fin, cambiar y vetar ---------- */
+.au-tools { display: flex; gap: 8px; width: min(400px, 100%); }
+.au-tools .btn { flex: 1; padding: 10px; font-size: 13px; }
+.au-tools .btn.on { border-color: #ff2d55; color: #ff2d55; box-shadow: 0 0 12px rgba(255,45,85,.5); }
+.au-tools .hidden { display: none; }
+#arenaChoice h2.won { color: var(--yellow); text-shadow: 0 0 18px var(--yellow); }
+#arenaChoice .btn { width: min(360px, 100%); }

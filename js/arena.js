@@ -16,10 +16,11 @@ import { ui } from './ui.js';
 import {
   WEAPONS, SHIP_WEAPON, SHIP_ARENA, passiveStats, EVOLUTIONS, offerUpgrades, applyUpgrade, xpNeed,
   ENEMIES, waveAt, ELITE_EVERY, BOSS_TIMES, ARENA_TIME, arenaRewards,
-  ARENA_MAPS, mapFeatures, mapUnlocked, ARENA_BOSSES, BOSS_ATTACKS, bossOf,
+  ARENA_MAPS, mapFeatures, mapUnlocked, ARENA_BOSSES, BOSS_ATTACKS, bossOf, nextBossTime, arenaUpLvl,
 } from './arenaData.js';
 
 const A = () => G.arena;
+const BOSS_IDS = Object.keys(ARENA_BOSSES);
 const BASE_SPEED = 210;
 const PLAYER_R = 14;
 const CELL = 80;
@@ -57,6 +58,16 @@ export function newArena(opts = {}) {
   if (hasTalent(save, 'a4')) a.weapons[SHIP_WEAPON[ship.id]] = 2;
   a.phoenix = hasTalent(save, 'a5') ? 1 : 0;
   a.unlocked = { ...save.arenaWeapons };
+  // TALLER DE LA ARENA (mejoras permanentes)
+  const U = (k) => arenaUpLvl(save, k);
+  a.maxHpBase += U('hp') * 10;
+  a.dmgMul *= 1 + U('dmg') * 0.04;
+  a.speedMul *= 1 + U('speed') * 0.03;
+  a.magMul *= 1 + U('magnet') * 0.1;
+  a.xpMul = 1 + U('xp') * 0.05;
+  a.rerolls = U('reroll');
+  a.banishes = U('banish');
+  a.banned = {};
   a.hp = a.maxHpBase;
   G.arena = a;
   G.run = null;
@@ -138,10 +149,11 @@ function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
 }
 
 function spawnBoss(a, forced = null) {
-  const bid = forced || bossOf(a.map, a.bossIdx);
+  const extra = a.bossIdx - BOSS_TIMES.length; // ≥ 0 en el modo sin fin
+  const bid = forced || (extra >= 0 ? BOSS_IDS[extra % BOSS_IDS.length] : bossOf(a.map, a.bossIdx));
   const def = ARENA_BOSSES[bid];
   const final = !forced && a.bossIdx === BOSS_TIMES.length - 1;
-  const hp = (final ? 2400 : 900) * waveAt(a.time).hpMul;
+  const hp = (final || extra >= 0 ? 2400 : 900) * waveAt(a.time).hpMul * (extra >= 0 ? 1 + 0.25 * (extra + 1) : 1);
   const ang = a.rng.range(0, Math.PI * 2);
   const pos = { x: a.x + Math.cos(ang) * 320, y: a.y + Math.sin(ang) * 320 };
   if (a.M.radius) keepIn(a, pos, 46);
@@ -612,7 +624,7 @@ function updatePickups(a, dt) {
     }
     if (d < PLAYER_R + 6) {
       g.alive = false;
-      a.xp += g.v;
+      a.xp += g.v * (a.xpMul || 1);
       sfx.coin(Math.min(11, a.level % 12));
     }
   }
@@ -722,7 +734,7 @@ export function updateArena(dt) {
     spawnEnemy(a, a.rng.weighted(w.weights).id, { elite: true });
     fx.notice('☠ ÉLITE: suelta un cofre', '#ff9f0a');
   }
-  if (a.bossIdx < BOSS_TIMES.length && a.time >= BOSS_TIMES[a.bossIdx]) spawnBoss(a);
+  if (a.time >= nextBossTime(a.bossIdx, a.endless)) spawnBoss(a);
 
   buildGrid(a);
   fireWeapons(a, dt);
@@ -756,10 +768,11 @@ function finish(a, won) {
   save.arena.bossBest = Math.max(save.arena.bossBest || 0, a.bosses);
   const mr = save.arenaMaps[a.map] || { best: 0, wins: 0 };
   save.arenaMaps[a.map] = { best: Math.max(mr.best, Math.floor(a.time)), wins: mr.wins + (won ? 1 : 0) };
+  progress('arenaMapsWon', Object.values(save.arenaMaps).filter((m) => m.wins > 0).length);
   progress('arenaTime', Math.floor(a.time));
   progress('arenaKills', a.kills);
   persist();
-  a.result = { map: a.map, won, time: a.time, kills: a.kills, level: a.level, bosses: a.bosses, gems, xp: rw.xp, xpBefore, rankUps, best: save.arena.best, isBest: a.time > prev, weapons: { ...a.weapons }, evolved: { ...a.evolved } };
+  a.result = { map: a.map, endless: !!a.endless, coins: rw.coins, won, time: a.time, kills: a.kills, level: a.level, bosses: a.bosses, gems, xp: rw.xp, xpBefore, rankUps, best: save.arena.best, isBest: a.time > prev, weapons: { ...a.weapons }, evolved: { ...a.evolved } };
   G.mode = 'arenaEnd';
   a.endT = won ? 1.6 : 1.1;
   musicStop();
@@ -782,12 +795,46 @@ function loseArena(a) {
   boomFx(fx, eq.boom.id, sp.x, sp.y, eq.palette.edge || a.ship.color, '#ff2bd6');
   fx.shake(30);
   sfx.die();
-  finish(a, false);
+  finish(a, !!a.endless);
 }
 
 function winArena(a) {
   sfx.milestone();
-  finish(a, true);
+  if (a.endless) return;
+  // ¿SEGUIR? El modo sin fin: un jefe cada 3:00, cada vez más fuerte
+  G.mode = 'arenaChoice';
+  ui.showArenaChoice(a);
+}
+export function arenaContinue() {
+  const a = A();
+  if (!a || G.mode !== 'arenaChoice') return;
+  a.endless = true;
+  a.ring = null;
+  G.mode = 'arena';
+  ui.hideAll();
+  ui.showArenaHUD(true);
+  fx.banner('♾️ SIN FIN', 'un jefe cada 3:00, cada vez más fuerte', '#bf5af2', true);
+}
+export function arenaStop() {
+  const a = A();
+  if (a && G.mode === 'arenaChoice') finish(a, true);
+}
+// cambiar las 3 ofertas (🎲) o vetar una para el resto de la partida (🚫)
+export function arenaReroll() {
+  const a = A();
+  if (!a || G.mode !== 'arenaUp' || a.rerolls <= 0) return;
+  a.rerolls--;
+  a.offers = offerUpgrades(a, a.rng);
+  ui.showArenaUp(a);
+}
+export function arenaBanish(i) {
+  const a = A();
+  const up = a?.offers?.[i];
+  if (!up || G.mode !== 'arenaUp' || a.banishes <= 0 || !['weapon', 'passive'].includes(up.kind)) return;
+  a.banishes--;
+  a.banned[`${up.kind}:${up.id}`] = true;
+  a.offers = offerUpgrades(a, a.rng);
+  ui.showArenaUp(a);
 }
 
 // coordenadas de pantalla de un punto del mundo (para efectos de fx)

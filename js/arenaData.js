@@ -99,12 +99,14 @@ export function offerUpgrades(st, rng, n = 3) {
     if (l >= MAX_LVL) continue;
     if (!l && Object.keys(st.weapons).length >= MAX_WEAPONS) continue;
     if (!l && WEAPONS[id].locked && !st.unlocked?.[id]) continue; // arsenal sin desbloquear
+    if (st.banned?.[`weapon:${id}`]) continue; // vetada
     pool.push({ kind: 'weapon', id, lvl: l + 1, w: l ? 3 : 1.5 });
   }
   for (const id of Object.keys(PASSIVES)) {
     const l = st.passives[id] || 0;
     if (l >= MAX_LVL) continue;
     if (!l && Object.keys(st.passives).length >= MAX_PASSIVES) continue;
+    if (st.banned?.[`passive:${id}`]) continue;
     pool.push({ kind: 'passive', id, lvl: l + 1, w: l ? 2.5 : 1.5 });
   }
   const out = [];
@@ -151,7 +153,7 @@ export function waveAt(t) {
   if (m >= 2.5) weights.push({ id: 'shooter', w: 2.5 + m * 0.3 });
   if (m >= 3.5) weights.push({ id: 'splitter', w: 2 + m * 0.3 });
   if (m >= 4.5) weights.push({ id: 'tank', w: 1.5 + m * 0.3 });
-  return { rate, weights, hpMul: 1 + m * 0.28 + Math.pow(m, 2) * 0.022, cap: Math.round(90 + m * 30) };
+  return { rate, weights, hpMul: 1 + m * 0.28 + Math.pow(m, 2) * 0.022, cap: Math.min(420, Math.round(90 + m * 30)) }; // tope: el modo sin fin no hunde los fps
 }
 
 // ¿Toca élite? Uno por minuto (más vida, más grande, suelta un cofre con una mejora gratis)
@@ -208,6 +210,35 @@ export const bossOf = (mapId, idx) => {
   const list = (ARENA_MAPS[mapId] || ARENA_MAPS.grid).bosses;
   return list[idx % list.length];
 };
+
+// ---------- Sin fin ----------
+// tras vencer al jefe final puedes seguir: un jefe cada 3:00, cada vez más duro
+export const ENDLESS_EVERY = 180;
+export function nextBossTime(idx, endless) {
+  if (idx < BOSS_TIMES.length) return BOSS_TIMES[idx];
+  return endless ? BOSS_TIMES[BOSS_TIMES.length - 1] + ENDLESS_EVERY * (idx - BOSS_TIMES.length + 1) : Infinity;
+}
+
+// ---------- Taller de la Arena (mejoras permanentes con 🪙) ----------
+export const ARENA_UP_MAX = 5;
+export const ARENA_UPS = {
+  hp: { icon: '❤️', name: 'Casco reforzado', desc: (l) => `+${l * 10} de vida`, base: 400 },
+  dmg: { icon: '💥', name: 'Munición pesada', desc: (l) => `+${l * 4}% de daño`, base: 600 },
+  speed: { icon: '👟', name: 'Propulsores', desc: (l) => `+${l * 3}% de velocidad`, base: 500 },
+  magnet: { icon: '🧲', name: 'Imán', desc: (l) => `+${l * 10}% de alcance`, base: 300 },
+  xp: { icon: '📈', name: 'Estudio', desc: (l) => `+${l * 5}% de XP`, base: 700 },
+  reroll: { icon: '🎲', name: 'Cambios', desc: (l) => `${l} cambio${l === 1 ? '' : 's'} de ofertas por partida`, base: 800 },
+  banish: { icon: '🚫', name: 'Vetos', desc: (l) => `${l} veto${l === 1 ? '' : 's'} por partida: esa mejora ya no sale`, base: 900 },
+};
+export const arenaUpLvl = (save, id) => save.arenaUp?.[id] || 0;
+export const arenaUpCost = (id, l) => (l >= ARENA_UP_MAX ? null : Math.round((ARENA_UPS[id].base * Math.pow(1.6, l)) / 10) * 10);
+export function buyArenaUp(save, id) {
+  const l = arenaUpLvl(save, id), c = arenaUpCost(id, l);
+  if (!ARENA_UPS[id] || c === null || save.coins < c) return false;
+  save.coins -= c;
+  save.arenaUp = { ...save.arenaUp, [id]: l + 1 };
+  return true;
+}
 
 // Recompensas al acabar: gemas y XP de rango
 export function arenaRewards({ time, kills, bosses, won }) {
