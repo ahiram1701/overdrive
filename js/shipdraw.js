@@ -79,8 +79,19 @@ const crossV = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], 
 // (radio s·GLYPH_R) quepa dentro del círculo inscrito con margen: nunca se sale de la cara.
 // v = "arriba" del emblema (hacia el morro; en caras verticales, hacia arriba); u = su derecha.
 // flip: la otra cara del triángulo (para la aleta, que se ve por los dos lados).
-export function decalFrame(mesh, tri, flip = false) {
-  const [A, B, C] = tri.map((i) => mesh.v[i]);
+// Con cabina o rayas, el emblema no puede ir junto al lomo: se coloca en la parte de la cara que da
+// al ala (los dos vértices del lomo se acercan un KEEP_OUT hacia el tercero) y así nunca se pisan.
+export const KEEP_OUT = 0.42;
+export const SPINE_EDGES = [[0, 1], [1, 8]];
+const lerp3 = (p, q, t) => p.map((k, i) => k + (q[i] - k) * t);
+export function decalFrame(mesh, tri, flip = false, keep = false) {
+  let pts = tri.map((i) => mesh.v[i]);
+  const spine = keep && SPINE_EDGES.find(([p, q]) => tri.includes(p) && tri.includes(q));
+  if (spine) {
+    const side = tri.find((i) => !spine.includes(i));
+    pts = tri.map((i) => (i === side ? mesh.v[i] : lerp3(mesh.v[i], mesh.v[side], KEEP_OUT)));
+  }
+  const [A, B, C] = pts;
   const a = Math.hypot(...sub(B, C)), b = Math.hypot(...sub(C, A)), cc = Math.hypot(...sub(A, B));
   const per = a + b + cc;
   const c = [0, 1, 2].map((k) => (a * A[k] + b * B[k] + cc * C[k]) / per);
@@ -99,10 +110,10 @@ export function decalFrame(mesh, tri, flip = false) {
 
 // Emblema sobre una cara: marco local proyectado como transformación afín del trazo, recortado
 // al triángulo proyectado (con perspectiva, ni un píxel fuera de la cara)
-function drawDecal(ctx, mesh, tri, clipPts, rot, x, y, size, focal, squash, color, alpha, id, twoSided) {
+function drawDecal(ctx, mesh, tri, clipPts, rot, x, y, size, focal, squash, color, alpha, id, twoSided, keep = false) {
   const p = path2d(id);
   if (!p) return;
-  let fr = decalFrame(mesh, tri);
+  let fr = decalFrame(mesh, tri, false, keep);
   // de cara a la cámara (que está en z = -focal)?
   const facing = (f) => {
     const cr = rotate(f.c, rot), nr = rotate(f.n, rot);
@@ -110,7 +121,7 @@ function drawDecal(ctx, mesh, tri, clipPts, rot, x, y, size, focal, squash, colo
   };
   if (!facing(fr)) {
     if (!twoSided) return;
-    fr = decalFrame(mesh, tri, true);
+    fr = decalFrame(mesh, tri, true, keep);
   }
   const { c, u, v, s } = fr;
   const proj = (q) => {
@@ -234,7 +245,7 @@ export function drawShip(ctx, meshId, pal, x, y, size, rot, opts = {}) {
     const d = decals.find((dd) => same(dd, f.vi));
     if (d) {
       const two = mesh.twoSided.some((t) => same(t, d));
-      drawDecal(ctx, mesh, d, pts, rot, x, y, size, 4, squash, opts.emblemColor || pal.glow, ctx.globalAlpha, opts.emblem, two);
+      drawDecal(ctx, mesh, d, pts, rot, x, y, size, 4, squash, opts.emblemColor || pal.glow, ctx.globalAlpha, opts.emblem, two, !!(opts.stripe || opts.cockpit));
     }
   }
   ctx.restore();
