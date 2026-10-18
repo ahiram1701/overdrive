@@ -8,7 +8,7 @@ import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
 import { trailFx, auraFx } from './cosfx.js';
 import { project, projectDir, norm, sub, scale, basis, dist } from './space3d.js';
 import { ORES } from './galaxyData.js';
-import { shipDef, GAL, turretPos } from './spaceGame.js';
+import { shipDef, GAL, turretPos, CHASSIS } from './spaceGame.js';
 import { MESHES } from './mesh3d.js';
 import { canJump, jumpNeeded } from './galaxy.js';
 import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
@@ -761,7 +761,7 @@ export function renderSpace(dt) {
     draws.push({ z: shp.z, fn: () => {
       const eq = equipped(save, save.ship);
       const pal = eq.palette, def = shipDef();
-      const size = Math.max(18, shp.s * 4.2);
+      const size = Math.max(18, shp.s * 4.2) * (CHASSIS[save.galaxy.chassis]?.scale ?? 1);
       // ESTELA 3D: cinta en el mundo, con el color del motor
       if (s.trail.length > 2) {
         ctx.save();

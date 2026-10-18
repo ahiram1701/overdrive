@@ -14,14 +14,14 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
-import { MATS, GEAR, SLOTS, matOf, owns, canCraft, craft, equipGear, gear } from './crafting.js';
+import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
 import { FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
-import { UPGRADES as SP_UP, MAX_UP, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
+import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
 import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
@@ -694,7 +694,7 @@ export const ui = {
 
   renderGalTab(view) {
     const g = save.galaxy;
-    const st = galStats(g.up, view.id), cur = galStats(g.up, save.ship);
+    const st = galStats(g.up, view.id, g.chassis), cur = galStats(g.up, save.ship, g.chassis);
     const top = {}; // máximo posible de cada stat (todas las naves, todo mejorado)
     const full = Object.fromEntries(Object.keys(SP_UP).map((k) => [k, MAX_UP]));
     for (const sh of SHIPS) { const m = galStats(full, sh.id); for (const [k] of GAL_KEYS) top[k] = Math.max(top[k] || 0, m[k]); }
@@ -715,7 +715,7 @@ export const ui = {
       const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
       const row = el('button', `item${c === null ? ' sel' : g.credits < c ? ' locked' : ''}`);
       row.dataset.up = id;
-      row.innerHTML = `<span class="i-icon">${u.icon}</span><span class="i-body"><b>${u.name} · ${lvl}/${MAX_UP}</b><small>${u.desc}</small></span>
+      row.innerHTML = `<span class="i-icon">${u.icon}</span><span class="i-body"><b>${u.name} · ${lvl >= BASE_UP ? `Mk ${lvl}` : lvl}/${MAX_UP}</b><small>${u.desc}</small></span>
         <span class="i-act">${c === null ? '✔ MAX' : `💰 ${fmt(c)}`}</span>`;
       tap(row, () => {
         if (!buyUpgrade(id)) { fx.vibe(40); return; }
@@ -1301,9 +1301,10 @@ export const ui = {
     box.innerHTML = '';
     for (const [id, u] of Object.entries(SP_UP)) {
       const lvl = g.up[id] || 0, c = stationUpCost(id, lvl);
-      const b = el('button', `st-up${c !== null && g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">${u.icon}</span>
-        <span class="su-body"><b>${u.name}</b><small>${u.desc}</small><i>${'●'.repeat(lvl)}${'○'.repeat(MAX_UP - lvl)}</i></span>
-        <span class="su-cost">${c === null ? 'MÁX' : `${c} 💰`}</span>`);
+      const mats = upgradeMats(lvl), okM = Object.entries(mats).every(([k, n]) => matOf(save, k) >= n);
+      const b = el('button', `st-up${c !== null && g.credits >= c && okM ? ' afford' : ''}`, `<span class="su-icon">${u.icon}</span>
+        <span class="su-body"><b>${u.name}${lvl >= BASE_UP ? ` <em class="mk">Mk ${Math.min(lvl + 1, MAX_UP)}</em>` : ''}</b><small>${u.desc}</small><i>${ui.upDots(lvl)}</i>${c !== null && lvl >= BASE_UP ? `<small class="cr-cost">+ ${ui.costText(mats)}</small>` : ''}</span>
+        <span class="su-cost">${c === null ? 'MÁX' : `${fmt(c)} 💰`}</span>`);
       b.dataset.up = id;
       b.disabled = c === null;
       tap(b, () => {
@@ -1312,6 +1313,22 @@ export const ui = {
         ui.showStation(s);
       });
       box.append(b);
+    }
+    // ASTILLERO: chasis espaciales
+    const yard = $('stShipyard');
+    yard.innerHTML = '';
+    for (const [id, c] of Object.entries(CHASSIS)) {
+      const own = g.hulls.includes(id), cur = g.chassis === id;
+      const mm = Object.entries(c.mult).map(([k, v]) => `${{ speed: 'velocidad', turn: 'giro', hull: 'casco', shield: 'escudo', cargo: 'bodega', dmg: 'daño' }[k]} ${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`).join(' · ');
+      const b = el('button', `st-up${cur ? ' on' : !own && g.credits >= c.cost ? ' afford' : ''}`, `<span class="su-icon">${c.icon}</span>
+        <span class="su-body"><b>${c.name} <em>🔫${c.slots.w} ⚙️${c.slots.m}</em></b><small>${c.desc}</small>${mm ? `<small class="cr-cost">${mm}</small>` : ''}</span>
+        <span class="su-cost">${cur ? 'EN USO' : own ? 'USAR' : `${fmt(c.cost)} 💰`}</span>`);
+      b.dataset.chassis = id;
+      b.disabled = cur;
+      tap(b, () => {
+        if (own ? useChassis(id) : buyChassis(id)) { toast(`${c.icon} ${c.name}${own ? '' : ' comprado'}`); ui.showStation(s); } else fx.vibe(50);
+      });
+      yard.append(b);
     }
     ui.renderCraft(() => ui.showStation(s));
     // SUMINISTROS: recargar misiles (de pago) y consumibles de vuelo
@@ -1418,11 +1435,20 @@ export const ui = {
     show('station');
   },
 
+  // texto de un coste { credits, chatarra… }
+  costText(c) {
+    return Object.entries(c).map(([k, n]) => (k === 'credits' ? `${fmt(n)} 💰` : `${n} ${MATS[k].icon}`)).join(' · ');
+  },
+  // puntos de nivel de una mejora: ● normales, ◆ los Mk 6-10
+  upDots(lvl) {
+    return Array.from({ length: MAX_UP }, (_, i) => (i < BASE_UP ? (i < lvl ? '●' : '○') : `<b class="mk${i < lvl ? ' on' : ''}">◆</b>`)).join('');
+  },
+
   // TALLER de fabricación: materiales, huecos montados y recetas (créditos + materiales)
   renderCraft(again) {
     const g = gear(save);
     $('stMats').innerHTML = Object.entries(MATS).map(([k, m]) => `<span title="${m.desc}">${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('');
-    const slotHtml = (slot, label) => Array.from({ length: SLOTS[slot] }, (_, i) => {
+    const slotHtml = (slot, label) => Array.from({ length: slotsOf(save)[slot] }, (_, i) => {
       const id = g[slot][i];
       return `<span class="slot${id ? ' full' : ''}">${id ? `${GEAR[id].icon} ${GEAR[id].name}` : `${label} libre`}</span>`;
     }).join('');
@@ -1436,6 +1462,14 @@ export const ui = {
         <span class="su-body"><b>${it.name} <em>${it.slot === 'w' ? 'arma' : 'módulo'}</em></b><small>${it.desc}</small><small class="cr-cost">${has ? (on ? '✔ MONTADO · toca para quitar' : 'fabricado · toca para montar') : cost}</small></span>
         <span class="su-cost">${has ? (on ? '✔' : '＋') : 'FABRICAR'}</span>`);
       b.dataset.gear = id;
+      // NIVELES del equipo fabricado (1-5)
+      if (has) {
+        const lv = gearLvl(save, id), uc = gearUpCost(id, lv);
+        const up = el('span', `gear-up${uc && canUpgradeGear(save, id) ? ' afford' : ''}`, `Nv ${lv}/${GEAR_MAX}${uc ? ` · ⬆ ${ui.costText(uc)}` : ' · MÁX'}`);
+        up.dataset.gearUp = id;
+        if (uc) tap(up, () => { if (upgradeGear(save, id)) { persist(); sfx.chest(); toast(`${it.icon} ${it.name} nivel ${lv + 1}`); again(); } else fx.vibe(40); });
+        b.querySelector('.su-body').append(up);
+      }
       tap(b, () => {
         if (has) { equipGear(save, id); persist(); again(); return; }
         if (!craft(save, id)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
@@ -1538,11 +1572,11 @@ export const ui = {
         <div class="gi-block"><h3>🔧 Materiales</h3><div class="gi-mats">${Object.entries(MATS).map(([k, m]) => `<span>${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('')}</div></div>
         ${g.up.missile ? `<div class="gi-block"><h3>🚀 Misiles · ${g.missiles || 0}/${missileMax()}</h3><small>Se recargan (pagando) en los Suministros de las estaciones.</small></div>` : ''}
         <div class="gi-block"><h3>🧰 Consumibles</h3><div class="gi-mats">${ITEM_KEYS.map((id) => `<span>${ITEMS[id].icon} <b>${itemCount(save, id)}</b> <small>${ITEMS[id].name}</small></span>`).join('')}</div></div>
-        <div class="gi-block"><h3>🛠️ Equipo montado</h3>${['w', 'm'].map((sl) => Array.from({ length: SLOTS[sl] }, (_, i) => {
+        <div class="gi-block"><h3>🛠️ Equipo montado · ${CHASSIS[g.chassis].icon} ${CHASSIS[g.chassis].name}</h3>${['w', 'm'].map((sl) => Array.from({ length: slotsOf(save)[sl] }, (_, i) => {
           const id = gear(save)[sl][i];
           return id ? `<div class="gi-row"><span>${GEAR[id].icon} ${GEAR[id].name}</span><small>${GEAR[id].desc}</small></div>` : `<div class="gi-row empty"><span>${sl === 'w' ? '🔫 arma' : '⚙️ módulo'} libre</span><small>se fabrica en el taller de las estaciones</small></div>`;
         }).join('')).join('')}</div>
-        <div class="gi-block"><h3>⬆️ Mejoras</h3>${Object.entries(SP_UP).map(([id, u]) => `<div class="gi-row"><span>${u.icon} ${u.name}</span><b class="dots">${'●'.repeat(g.up[id] || 0)}${'○'.repeat(MAX_UP - (g.up[id] || 0))}</b></div>`).join('')}</div>`;
+        <div class="gi-block"><h3>⬆️ Mejoras</h3>${Object.entries(SP_UP).map(([id, u]) => `<div class="gi-row"><span>${u.icon} ${u.name}</span><b class="dots">${ui.upDots(g.up[id] || 0)}</b></div>`).join('')}</div>`;
     } else {
       const rows = [];
       const ch = storyChapter();

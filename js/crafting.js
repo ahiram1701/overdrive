@@ -9,7 +9,41 @@ export const MATS = {
   artefactos: { icon: '🗿', name: 'Artefactos', desc: 'Al descubrir puntos de interés y en la historia.' },
 };
 
-export const SLOTS = { w: 2, m: 2 };
+import { CHASSIS } from './galaxyData.js';
+
+export const SLOTS = { w: 2, m: 2 }; // los del Explorador; cada chasis tiene los suyos
+export const slotsOf = (save) => (CHASSIS[save.galaxy?.chassis] || CHASSIS.explorer).slots;
+// si el chasis nuevo tiene menos huecos, se desmonta lo que sobra
+export function fitSlots(save) {
+  const g = gear(save), sl = slotsOf(save);
+  g.w = g.w.slice(0, sl.w);
+  g.m = g.m.slice(0, sl.m);
+}
+
+// ---------- Niveles del equipo (1-5) ----------
+export const GEAR_MAX = 5;
+export const gearLvl = (save, id) => (owns(save, id) ? gear(save).lvl?.[id] || 1 : 0);
+export function gearUpCost(id, lvl) {
+  if (lvl >= GEAR_MAX) return null;
+  const c = GEAR[id].cost;
+  return { credits: Math.round(c.credits * 0.6 * lvl / 10) * 10, chatarra: 4 * lvl, circuitos: 2 * lvl, ...(lvl >= 3 ? { nucleos: lvl - 2 } : {}) };
+}
+export function canUpgradeGear(save, id) {
+  const c = gearUpCost(id, gearLvl(save, id));
+  return !!c && owns(save, id) && Object.entries(c).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
+}
+export function upgradeGear(save, id) {
+  if (!canUpgradeGear(save, id)) return false;
+  const l = gearLvl(save, id);
+  for (const [k, n] of Object.entries(gearUpCost(id, l))) {
+    if (k === 'credits') save.galaxy.credits -= n;
+    else save.galaxyMats[k] -= n;
+  }
+  gear(save).lvl = { ...gear(save).lvl, [id]: l + 1 };
+  return true;
+}
+// cuánto más rinde una pieza por nivel (1 = base)
+export const gearBoost = (save, id) => 1 + 0.12 * (gearLvl(save, id) - 1);
 
 export const GEAR = {
   // armas
@@ -62,7 +96,8 @@ export function equipGear(save, id) {
   const g = gear(save), slot = g[it.slot];
   const i = slot.indexOf(id);
   if (i >= 0) { slot.splice(i, 1); return false; }
-  if (slot.length >= SLOTS[it.slot]) slot.pop();
+  if (slot.length >= slotsOf(save)[it.slot]) slot.pop();
+  if (!slotsOf(save)[it.slot]) return false;
   slot.push(id);
   return true;
 }

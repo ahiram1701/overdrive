@@ -118,3 +118,45 @@ test('acelerador: la muesca del 0 engancha fácil y no se escapa sin querer', as
   assert.equal(snapThrottle(-0.3, true), -0.3);
   assert.ok(THR_OUT > 0.15);
 });
+
+test('Mk 6-10: más caros, piden materiales y rinden menos que los niveles normales', async () => {
+  const { upgradeMats, effLvl, BASE_UP, CHASSIS } = await import('../../js/galaxyData.js');
+  for (const id of Object.keys(UPGRADES)) {
+    for (let l = 1; l < MAX_UP; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1), `${id} ${l}`);
+    assert.equal(upgradeCost(id, MAX_UP), null);
+  }
+  assert.equal(MAX_UP, 10);
+  assert.deepEqual(upgradeMats(BASE_UP - 1), {}, 'los normales no piden materiales');
+  assert.ok(upgradeMats(BASE_UP).chatarra > 0 && upgradeMats(9).nucleos > 0);
+  assert.ok(effLvl(10) - effLvl(5) < 5, 'rendimientos decrecientes');
+  const a = shipStats({ engine: 5 }), b = shipStats({ engine: 10 });
+  assert.ok(b.speed > a.speed && b.speed - a.speed < a.speed - shipStats({}).speed);
+  // chasis: el carguero lleva más, el interceptor corre más, el acorazado aguanta más
+  const ex = shipStats({}, 'viper', 'explorer');
+  assert.ok(shipStats({}, 'viper', 'hauler').cargo > ex.cargo * 2);
+  assert.ok(shipStats({}, 'viper', 'interceptor').speed > ex.speed);
+  assert.ok(shipStats({}, 'viper', 'warship').hull > ex.hull * 1.5);
+  for (const c of Object.values(CHASSIS)) assert.ok(c.slots.w >= 1 && c.slots.m >= 1 && c.cost >= 0);
+});
+
+test('equipo: niveles 1-5 con créditos y materiales; los huecos dependen del chasis', async () => {
+  const { loadFrom } = await import('../../js/save.js');
+  const { craft, upgradeGear, gearLvl, gearBoost, GEAR_MAX, equipGear, gear, fitSlots, slotsOf, addMat } = await import('../../js/crafting.js');
+  const s = loadFrom(null);
+  s.galaxy.credits = 1e6;
+  for (const k of ['chatarra', 'circuitos', 'nucleos', 'artefactos']) addMat(s, k, 500);
+  assert.ok(craft(s, 'laser2') && craft(s, 'flak'));
+  assert.equal(gearLvl(s, 'laser2'), 1);
+  for (let i = 1; i < GEAR_MAX; i++) assert.ok(upgradeGear(s, 'laser2'));
+  assert.equal(upgradeGear(s, 'laser2'), false, 'máximo 5');
+  assert.ok(gearBoost(s, 'laser2') > gearBoost(s, 'flak'));
+  // interceptor: 3 armas; carguero: 1 (lo que sobra se desmonta)
+  s.galaxy.chassis = 'interceptor';
+  assert.ok(craft(s, 'plasma'));
+  assert.equal(gear(s).w.length, 3);
+  s.galaxy.chassis = 'hauler';
+  fitSlots(s);
+  assert.equal(gear(s).w.length, slotsOf(s).w);
+  equipGear(s, 'plasma');
+  assert.ok(gear(s).w.length <= 1);
+});

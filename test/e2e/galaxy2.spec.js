@@ -247,3 +247,31 @@ test('mercado y mantenimiento: vender mucho baja el precio, peaje al saltar, kit
   expect(cg.after).toBeLessThan(cg.before);
   expect(errors).toEqual([]);
 });
+
+test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 60000, up: { engine: 5 } }, galaxyMats: { chatarra: 40, circuitos: 20, nucleos: 4 }, galaxyGear: { owned: { laser2: true }, w: ['laser2'], m: [] } });
+  await page.evaluate(() => window.D.step(1 / 30, false));
+  await page.locator('#btnDock').click();
+  // chasis Carguero: más bodega y menos huecos de arma
+  const cargo0 = await page.evaluate(() => window.__spaceStats().cargo);
+  await page.locator('[data-chassis="hauler"]').click();
+  await expect(page.locator('[data-chassis="hauler"]')).toContainText('EN USO');
+  const after = await page.evaluate(() => ({ cargo: window.__spaceStats().cargo, c: window.__save.galaxy.credits, ch: window.__save.galaxy.chassis }));
+  expect(after.ch).toBe('hauler');
+  expect(after.cargo).toBeGreaterThan(cargo0 * 2);
+  expect(after.c).toBe(60000 - 15000);
+  await expect(page.locator('#stSlots .slot')).toHaveCount(4); // 1 arma + 3 módulos
+  // Mk 6 del motor: créditos y materiales
+  const m0 = await page.evaluate(() => window.__save.galaxyMats.chatarra);
+  await page.locator('#stUpgrades [data-up="engine"]').click();
+  expect(await page.evaluate(() => window.__save.galaxy.up.engine)).toBe(6);
+  expect(await page.evaluate(() => window.__save.galaxyMats.chatarra)).toBeLessThan(m0);
+  // nivel 2 del láser doble
+  await page.locator('[data-gear-up="laser2"]').click();
+  expect(await page.evaluate(() => window.__save.galaxyGear.lvl.laser2)).toBe(2);
+  // volver al Explorador (gratis)
+  await page.locator('[data-chassis="explorer"]').click();
+  expect(await page.evaluate(() => window.__save.galaxy.chassis)).toBe('explorer');
+  expect(errors).toEqual([]);
+});

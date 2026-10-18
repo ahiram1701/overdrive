@@ -146,6 +146,9 @@ export const ACHIEVEMENTS = [
   { id: 'craft3', kind: 'craft', mode: 'sum', n: 3, tier: 'bronze', name: 'Manitas', desc: 'Fabrica 3 piezas en el taller' },
   { id: 'story4', kind: 'chapter', mode: 'sum', n: 4, tier: 'silver', name: 'A medio camino', desc: 'Completa 4 capítulos de LA SEÑAL' },
   { id: 'storyEnd', kind: 'storyEnd', mode: 'sum', n: 1, tier: 'gold', name: 'Silencio', desc: 'Derrota al Devorador de Estrellas' },
+  { id: 'hull2', kind: 'chassis', mode: 'best', n: 2, tier: 'silver', name: 'Astillero', desc: 'Compra un chasis espacial' },
+  { id: 'hull5', kind: 'chassis', mode: 'best', n: 5, tier: 'gold', name: 'Flota completa', desc: 'Ten los 5 chasis espaciales' },
+  { id: 'mk10', kind: 'mk10', mode: 'sum', n: 1, tier: 'gold', name: 'Sin techo', desc: 'Sube una mejora espacial al Mk 10' },
 ];
 export const ACH_GEMS = T;
 
