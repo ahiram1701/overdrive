@@ -70,7 +70,7 @@ export function initInput(h) {
     else if (k === 'ArrowDown' || k === 's') h.swipe('down');
     else if (k === ' ' || k === 'Shift') h.double();
     else if (k === 'e' || k === 'q') h.ability?.();
-    else if (k === 'x' || k === 'm') h.extra?.(k);
+    else if (k === 'x' || k === 'm' || k === 'i') h.extra?.(k);
     else return;
     e.preventDefault();
   });

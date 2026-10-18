@@ -7,7 +7,7 @@ import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
-import { shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
+import { snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
 import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS } from './galaxyMissions.js';
 import { addXp } from './progress.js';
@@ -1090,10 +1090,15 @@ export function updateSpace(dt) {
   sh.throttle = Math.max(-0.4, Math.min(1, sh.throttle ?? 1));
   const turning = Math.min(1, Math.hypot(ix, iy));
   const thr = sh.boostT > 0 ? st.boost : sh.throttle;
-  const speed = st.speed * thr * (1 - 0.55 * turning);
-  sh.speed = speed;
+  const want = st.speed * thr * (1 - 0.55 * turning);
+  // FRENADA SUAVE: al bajar (o al cambiar de sentido) la nave frena en ~0,4 s en vez de clavarse;
+  // al acelerar responde al momento
+  const cur = sh.speed ?? want;
+  const slowing = Math.abs(want) < Math.abs(cur) || Math.sign(want) !== Math.sign(cur);
+  const speed = slowing ? cur + (want - cur) * Math.min(1, dt * 7) : want;
+  sh.speed = Math.abs(speed) < 0.5 && want === 0 ? 0 : speed;
   const b = { f: sh.f, r: sh.r, u: sh.u };
-  sh.pos = add(sh.pos, scale(b.f, speed * dt));
+  sh.pos = add(sh.pos, scale(b.f, sh.speed * dt));
   // estela del motor en el mundo (cinta 3D)
   s.trailT = (s.trailT || 0) + dt;
   if (s.trailT > 0.025) {
@@ -1488,6 +1493,7 @@ function breakAsteroid(s, a) {
   progress('asteroid');
 }
 
+export { snapThrottle };
 export const shipDef = () => SHIPS.find((x) => x.id === save.ship) || SHIPS[0];
 export { UPGRADES, upgradeCost, repairCost, stats as spaceStats };
 

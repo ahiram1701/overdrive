@@ -224,6 +224,7 @@
     <div id="shObjective" class="sh-obj"></div>
     <div id="shSystem" class="sh-sys"></div>
     <button id="btnGalMap" aria-label="Mapa galáctico">🗺️</button>
+    <button id="btnInv" aria-label="Inventario y misiones">🎒</button>
     <button id="spacePause" aria-label="Pausa">❚❚</button>
     <button id="btnDock" class="hidden">🛰️ ATRACAR</button>
     <button id="btnBoost" aria-label="Impulso">⏩</button>
@@ -234,7 +235,10 @@
     <button id="btnRollR" class="roll-btn r" aria-label="Alabear a la derecha">↻</button>
     <div class="throttle" id="throttleBox">
       <small>MOTOR</small>
-      <input type="range" id="throttle" min="-40" max="100" step="5" value="100" aria-label="Acelerador">
+      <div class="thr-track">
+        <input type="range" id="throttle" min="-40" max="100" step="1" value="100" aria-label="Acelerador">
+        <i class="thr-notch" aria-hidden="true"></i>
+      </div>
       <b id="thrVal">100%</b>
     </div>
     <div id="stickVis" class="stick-vis hidden"><i></i></div>
@@ -288,6 +292,14 @@
     <div id="atStory" class="at-story"></div>
     <div id="atPerks" class="at-perks"></div>
     <div id="atList" class="list"></div>
+  </section>
+
+  <section id="galInv" class="overlay hidden">
+    <div class="h-tabs gi-tabs" id="giTabs" role="tablist">
+      <button data-tab="inv" role="tab">🎒 INVENTARIO</button>
+      <button data-tab="mis" role="tab">📋 MISIONES</button>
+    </div>
+    <div id="giBody" class="gi-body"></div>
   </section>
 
   <section id="galMap" class="overlay hidden">

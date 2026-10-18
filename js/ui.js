@@ -14,7 +14,7 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { MATS, GEAR, SLOTS, matOf, owns, canCraft, craft, equipGear, gear } from './crafting.js';
@@ -30,7 +30,7 @@ import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTale
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -192,11 +192,18 @@ export const ui = {
       for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) b.addEventListener(ev, () => { if (G.space) G.space.rollBtn = 0; });
     }
     // acelerador: de −40% (marcha atrás) a 100%; con un "clic" en el 0 para poder pararse
+    // la MUESCA del 0 engancha (y avisa con un toque al llegar)
     $('throttle').addEventListener('input', (e) => {
-      let v = Number(e.target.value);
-      if (Math.abs(v) <= 5) v = 0;
-      if (G.space) G.space.ship.throttle = v / 100;
+      const sh = G.space?.ship;
+      if (!sh) return;
+      const was = sh.throttle === 0;
+      sh.throttle = snapThrottle(Number(e.target.value) / 100, was);
+      if (sh.throttle === 0 && !was) { fx.vibe(15); sfx.ui(); }
     });
+    // al soltar, la palanca se coloca donde manda (en la muesca si está parada)
+    $('throttle').addEventListener('change', () => { if (G.space) $('throttle').value = Math.round(G.space.ship.throttle * 100); });
+    tap($('btnInv'), () => ui.showGalInv());
+    for (const b of $('giTabs').querySelectorAll('button')) tap(b, () => ui.showGalInv(b.dataset.tab));
     tap($('btnExpedition'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpAgain'), () => newRun({ mode: 'expedition' }));
     tap($('btnExpMenu'), () => ui.showMenu());
@@ -254,6 +261,7 @@ export const ui = {
     screenHeader('mods', '⚙️ MODIFICADORES', () => ui.showRunnerHub());
     screenHeader('raceCups', '🏆 CARRERAS', () => ui.showRunnerHub());
     screenHeader('atlas', '📖 ATLAS', () => ui.showStation(G.space));
+    screenHeader('galInv', '🎒 TU NAVE', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     screenHeader('galMap', '🗺️ MAPA GALÁCTICO', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     BACK.hangar = () => { ui.preview = null; ui.showMenu(); };
     // atrás del móvil / Esc: cierra la pantalla actual; en partida, pausa
@@ -1209,6 +1217,7 @@ export const ui = {
     if (document.activeElement !== $('throttle')) $('throttle').value = thr;
     setText('thrVal', thr === 0 ? 'PARADO' : thr < 0 ? `◀ ${-thr}%` : `${thr}%`);
     $('throttleBox').classList.toggle('rev', thr < 0);
+    $('throttleBox').classList.toggle('stop', thr === 0);
     // misiles (si tienes la mejora) y botón de contexto (COMERCIAR / ORBITAR)
     const hasMis = (g.up.missile || 0) > 0;
     $('btnMissile').classList.toggle('hidden', !hasMis);
@@ -1431,6 +1440,62 @@ export const ui = {
       ? found.map((p) => `<div class="item"><span class="i-icon">${POI_KINDS[p.kind].icon}</span><span class="i-body"><b>${POI_KINDS[p.kind].name} · ${GAL[p.sys].name}</b><small>${p.lore}</small></span></div>`).join('')
       : '<small>Aún no has descubierto nada. Busca los marcadores en cada sistema y vuela cerca para escanearlos.</small>';
     show('atlas');
+  },
+
+  // 🎒 PANEL de vuelo: inventario y misiones activas (la partida se pausa mientras está abierto)
+  showGalInv(tab = ui.giTab || 'inv') {
+    const s = G.space;
+    if (!s) return;
+    if (G.mode === 'galaxy') { G.mode = 'galaxyInv'; musicDuck(true); s.fireHeld = false; s.rollBtn = 0; }
+    ui.giTab = tab;
+    for (const b of $('giTabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.tab === tab);
+    const g = save.galaxy, st = spaceStats(), body = $('giBody');
+    const hops = (to) => { const r = route(GAL, s.sysId, to); return r ? r.length - 1 : '?'; };
+    const jumps = (to) => { const h = hops(to); return h === 1 ? '1 salto' : `${h} saltos`; };
+    const where = (to) => (to === s.sysId ? 'aquí' : `${GAL[to].name} · ${jumps(to)}`);
+    body.innerHTML = '';
+    if (tab === 'inv') {
+      const n = cargoCount(g.cargo), prices = stationPrices(s.sysId);
+      const ores = Object.entries(g.cargo).filter(([, k]) => k > 0);
+      const value = ores.reduce((a, [k, q]) => a + q * prices[k], 0);
+      body.innerHTML = `
+        <div class="gi-block"><h3>💰 ${fmt(g.credits)} créditos</h3></div>
+        <div class="gi-block"><h3>📦 Bodega · ${n}/${st.cargo}</h3><div class="m-bar"><i style="transform:scaleX(${Math.min(1, n / st.cargo).toFixed(3)})"></i></div>
+          ${ores.length ? ores.map(([k, q]) => `<div class="gi-row"><span>${ORES[k].icon} ${ORES[k].name}</span><b>×${q}</b><small>${prices[k]} 💰/u aquí</small></div>`).join('')
+            + `<div class="gi-row total"><span>Valor en ${GAL[s.sysId].name}</span><b>${fmt(value)} 💰</b></div>` : '<small>Vacía. Dispara a los asteroides para minar.</small>'}</div>
+        <div class="gi-block"><h3>🔧 Materiales</h3><div class="gi-mats">${Object.entries(MATS).map(([k, m]) => `<span>${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('')}</div></div>
+        ${g.up.missile ? `<div class="gi-block"><h3>🚀 Misiles · ${g.missiles || 0}</h3><small>Se recargan al atracar.</small></div>` : ''}
+        <div class="gi-block"><h3>🛠️ Equipo montado</h3>${['w', 'm'].map((sl) => Array.from({ length: SLOTS[sl] }, (_, i) => {
+          const id = gear(save)[sl][i];
+          return id ? `<div class="gi-row"><span>${GEAR[id].icon} ${GEAR[id].name}</span><small>${GEAR[id].desc}</small></div>` : `<div class="gi-row empty"><span>${sl === 'w' ? '🔫 arma' : '⚙️ módulo'} libre</span><small>se fabrica en el taller de las estaciones</small></div>`;
+        }).join('')).join('')}</div>
+        <div class="gi-block"><h3>⬆️ Mejoras</h3>${Object.entries(SP_UP).map(([id, u]) => `<div class="gi-row"><span>${u.icon} ${u.name}</span><b class="dots">${'●'.repeat(g.up[id] || 0)}${'○'.repeat(MAX_UP - (g.up[id] || 0))}</b></div>`).join('')}</div>`;
+    } else {
+      const rows = [];
+      const ch = storyChapter();
+      if (ch) rows.push(`<div class="gi-mis story"><span>📖</span><div><b>${ch.title}</b><small>${ch.goal.text}${ch.goal.sys !== undefined ? ` · ${ch.goal.sys === s.sysId ? 'aquí' : jumps(ch.goal.sys)}` : ''}</small></div></div>`);
+      const bo = save.bounties.active;
+      if (bo) rows.push(`<div class="gi-mis bounty"><span>🎯</span><div><b>${bo.name} · nivel ${bo.level}</b><small>${TRAITS[bo.trait].icon} ${TRAITS[bo.trait].name} · visto en ${where(bo.sys)} · +${fmt(bo.reward)} 💰</small></div></div>`);
+      if (s.event && !s.event.done && s.objective?.kind === 'event') rows.push(`<div class="gi-mis event"><span>⚡</span><div><b>Suceso en ${GAL[s.sysId].name}</b><small>${s.objective.text}</small></div></div>`);
+      if (sysOwner(s.sysId) === 'pir') rows.push(`<div class="gi-mis lib"><span>🏴‍☠️</span><div><b>Libera ${GAL[s.sysId].name}</b><small>destruye su base y 4 piratas</small></div></div>`);
+      body.innerHTML = rows.join('');
+      for (const m of g.missions) {
+        const row = el('div', 'gi-mis', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>${m.n > 1 ? `${m.progress}/${m.n} · ` : ''}${where(m.sys)} · +${fmt(m.reward)} 💰</small></div>`);
+        const x = el('button', 'btn ghost gi-x', '✕');
+        x.title = 'Abandonar';
+        x.dataset.abandon = m.id;
+        tap(x, () => {
+          if (!x.dataset.sure) { x.dataset.sure = '1'; x.textContent = '¿Seguro?'; return; }
+          abandonMission(m.id);
+          ui.showGalInv('mis');
+        });
+        row.append(x);
+        body.append(row);
+      }
+      if (!body.children.length) body.innerHTML = '<p class="hint">No tienes misiones activas: los tablones están en las estaciones (y los carteles de 🎯 SE BUSCA).</p>';
+    }
+    ui.showSpaceHUD(false);
+    show('galInv');
   },
 
   // Mapa galáctico: los sistemas conocidos (visitados y sus vecinos), rutas y peligro

@@ -104,3 +104,13 @@ export function objective(st) {
   if (st.sold && st.credits >= cheapest) return { kind: 'upgrade', text: 'Tienes créditos: mejora tu nave en la estación' };
   return { kind: 'mine', text: n ? 'Sigue minando en el cinturón' : 'Dispara a los asteroides del cinturón para minar' };
 }
+
+// ---------- Acelerador ----------
+// MUESCA en el 0: entrar es fácil (de −12% a +15%) y salir pide pasar de ±22%, para que el dedo
+// no se escape del "parado" sin querer. v y el resultado van de −0.4 a 1.
+export const THR_IN = [-0.12, 0.15];
+export const THR_OUT = 0.22;
+export function snapThrottle(v, wasZero) {
+  if (wasZero) return Math.abs(v) > THR_OUT ? v : 0;
+  return v > THR_IN[0] && v < THR_IN[1] ? 0 : v;
+}
