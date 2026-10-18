@@ -114,12 +114,12 @@ test('ajustes: los interruptores y la Galaxia se guardan; las misiones se despli
   await page.locator('#setSens').fill('1.4');
   const st = await page.evaluate(() => window.__save.settings);
   expect(st.invertY).toBe(true);
-  expect(st.autoLevel).toBe(false);
+  expect(st.autoLevel).toBe(true); // viene apagado: un toque lo enciende
   expect(st.sens).toBeCloseTo(1.4);
   await page.reload();
   await page.locator('#btnSettings').click();
   await expect(page.locator('#tgInvert')).not.toHaveClass(/off/);
-  await expect(page.locator('#tgLevel')).toHaveClass(/off/);
+  await expect(page.locator('#tgLevel')).not.toHaveClass(/off/);
   await page.locator('#settings .scr-back').click();
   await expect(page.locator('#mMissions')).toBeHidden();
   await page.locator('#btnMissions').click();

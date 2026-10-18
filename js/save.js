@@ -1,7 +1,7 @@
 // Guardado persistente. localStorage puede fallar (modo privado), así que todo va en try/catch.
 // La clave de almacenamiento NO cambia entre versiones: el formato se versiona con el campo `v`.
 const KEY = 'overdrive-save-v1';
-export const SAVE_VERSION = 5;
+export const SAVE_VERSION = 6;
 
 const reducedMotion = (() => {
   try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch { return false; }
@@ -30,7 +30,7 @@ const DEFAULTS = {
   galaxyGear: {},   // fabricado y montado { owned: { laser2: true }, w: ['laser2'], m: [] }
   story: {},        // historia LA SEÑAL { ch, n, seen, choice }
   crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
-  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: true },
+  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: false },
   runs: 0,
   missions: { key: '', list: [] },
   // v2: progreso para la expansión (se reservan ya para no migrar en cada fase)
@@ -108,6 +108,11 @@ export function migrate(data) {
     // v5: las monedas que sobraban se convertían en créditos de la Galaxia; ahora tienen su propia
     // cartera. No se puede saber qué créditos venían del Runner: un regalo de bienvenida.
     data.coins = (data.coins || 0) + 500;
+  }
+  if (v < 6 && data.settings) {
+    // v6: "Nivelar la nave sola" pasa a venir apagado (vuelo libre de verdad); se aplica también a
+    // los guardados de antes, que lo tenían encendido por defecto
+    data.settings.autoLevel = false;
   }
   data.v = SAVE_VERSION;
   return data;
