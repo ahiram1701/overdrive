@@ -38,8 +38,8 @@ test('hub: cada pantalla se abre y su ← vuelve al menú', async ({ page }) => 
   }
   await page.locator('#runnerHub .scr-back').click();
   await expect(page.locator('#menu')).toBeVisible();
-  // el menú tiene los 3 juegos y ya no hay reto diario
-  await expect(page.locator('#menu .game-card')).toHaveCount(3);
+  // el menú tiene los 4 juegos y ya no hay reto diario
+  await expect(page.locator('#menu .game-card')).toHaveCount(4);
   await expect(page.locator('#btnDaily')).toHaveCount(0);
   // el hangar desde la barra inferior, y la barra marca dónde estás
   await page.locator('#btnHangar').click();
@@ -73,9 +73,9 @@ test('hub: ningún botón se solapa con otro ni se sale de la pantalla a 375×81
     }
   }
   expect(bad).toEqual([]);
-  // la última tarjeta (ARENA) se ve entera, sin quedar tapada por la barra inferior
-  await page.locator('#btnArena').scrollIntoViewIfNeeded();
-  const ar = await page.locator('#btnArena').boundingBox();
+  // la última tarjeta (PECIOS) se ve entera, sin quedar tapada por la barra inferior
+  await page.locator('#btnPecio').scrollIntoViewIfNeeded();
+  const ar = await page.locator('#btnPecio').boundingBox();
   const nav = await page.locator('#bottomNav').boundingBox();
   expect(ar.y + ar.height).toBeLessThanOrEqual(nav.y + 1);
   // pantalla RUNNER: tampoco se solapa nada

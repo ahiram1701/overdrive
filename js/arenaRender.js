@@ -32,7 +32,7 @@ function shapePath(c, shape, r) {
   c.closePath();
 }
 // sprite con brillo, una vez por (forma, color, tamaño)
-function sprite(shape, color, r) {
+export function sprite(shape, color, r) {
   const k = `${shape}|${color}|${Math.round(r)}`;
   let s = sprites.get(k);
   if (s) return s;

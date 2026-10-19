@@ -21,6 +21,8 @@ import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
+import { newPecio, pecioAim, pecioAbility, pecioWait, pecioBuy, pecioPray } from './pecioGame.js';
+import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -37,7 +39,7 @@ import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTale
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'pecioHub', 'pecioShop', 'pecioEnd', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -192,6 +194,15 @@ export const ui = {
     tap($('btnPlay'), () => newRun(false));
     tap($('btnMods'), () => ui.showMods());
     tap($('btnArena'), () => ui.showArenaHub());
+    tap($('btnPecio'), () => ui.showPecioHub());
+    tap($('btnPecioPlay'), () => newPecio());
+    tap($('btnPecioRetry'), () => newPecio());
+    tap($('btnPecioMenu'), () => { G.pecio = null; ui.showPecioHub(); });
+    tap($('btnPecioShopClose'), () => { G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); });
+    tap($('pcShoot'), () => pecioAim());
+    tap($('pcAbility'), () => pecioAbility());
+    tap($('pcWait'), () => pecioWait());
+    tap($('pcPause'), () => ui.pause());
     tap($('btnGalaxy'), () => newSpace());
     tap($('btnDock'), () => dock());
     tap($('btnUndock'), () => undock());
@@ -279,6 +290,7 @@ export const ui = {
     tap($('btnTipsReset'), () => { resetTips(save); persist(); toast('🔁 Los consejos volverán a salir'); });
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
     screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
+    screenHeader('pecioHub', '🏚️ PECIOS', () => ui.showMenu());
     tap($('btnRunner'), () => ui.showRunnerHub());
     screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
     tap($('btnCrateOk'), () => ui.showStore());
@@ -312,9 +324,10 @@ export const ui = {
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
     tap($('btnResume'), () => {
       if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
+      else if (G.mode === 'pecioPaused') { G.mode = 'pecio'; musicDuck(false); ui.hideAll(); ui.showPecioHUD(true); }
       else if (G.mode === 'galaxyPaused') { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); } else resume();
     });
-    tap($('btnQuit'), () => { if (G.space) leaveSpace(); musicStop(); G.arena = null; ui.showArenaHUD(false); ui.showMenu(); });
+    tap($('btnQuit'), () => { if (G.space) leaveSpace(); musicStop(); G.arena = null; G.pecio = null; ui.showArenaHUD(false); ui.showPecioHUD(false); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
     // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
     $('abilityBtn').addEventListener('pointerdown', (e) => {
@@ -424,6 +437,7 @@ export const ui = {
     setText('mCredits', `💰 ${fmt(save.galaxy.credits)}`);
     setText('mGalaxy', save.galaxy.started ? `en ${GAL[save.galaxy.sys ?? 0].name}` : 'explora, mina, comercia y lucha');
     setText('mArena', save.arena.best ? `récord ${fmtTime(save.arena.best)}` : 'sobrevive 10:00');
+    setText('mPecio', `🔩 ${fmt(save.pecio.piezas || 0)}${save.pecio.best ? ` · planta ${save.pecio.best}` : ''}`);
     const bs = save.boostSel.filter((id) => boostCount(save, id) > 0);
     setText('mBoosts', bs.length ? bs.map((id) => BOOSTS[id].icon).join('') : '');
     const golds = Object.values(save.raceCups).filter((m) => m === 0).length;
@@ -2139,6 +2153,77 @@ export const ui = {
   },
 
   // ---------- ARENA ----------
+  // ---------- PECIOS ----------
+  showPecioHub() {
+    G.mode = 'hangar'; // pantalla estática
+    G.pecio = null;
+    ui.showHUD(false);
+    ui.showPecioHUD(false);
+    const P = save.pecio;
+    setText('phRecord', P.best ? `récord: planta ${P.best}${P.wins ? ` · 🏆 ${P.wins}` : ''} · ${P.runs} partidas` : 'tu nave entra en pecios abandonados');
+    setText('phPiezas', fmt(P.piezas || 0));
+    $('phInfo').innerHTML = `
+      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Cada paso tuyo es un turno de los enemigos. Desliza (o toca una casilla al lado) para moverte; choca para golpear; ⚡ y una dirección para disparar. Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
+      <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
+      <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>`;
+    show('pecioHub');
+  },
+  showPecioHUD(on) {
+    $('pecioHud').classList.toggle('hidden', !on);
+    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
+  },
+  updatePecioHUD() {
+    const s = G.pecio;
+    if (!s || $h('pecioHud').classList.contains('hidden')) return;
+    const p = s.player;
+    setText('pcFloor', `PLANTA ${s.depth}`);
+    setText('pcTheme', s.floor.theme.name);
+    setText('pcHearts', '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, p.max - p.hp)) + (p.shield ? ` 🫧${p.shield}` : ''));
+    setText('pcKeys', String(p.keys));
+    setText('pcPiezas', String(p.piezas));
+    setText('pcShootTxt', p.shotCd ? `${p.shotCd} turno${p.shotCd > 1 ? 's' : ''}` : s.aim ? '¿HACIA DÓNDE?' : 'DISPARO');
+    tgl($h('pcShoot'), 'cool', p.shotCd > 0);
+    tgl($h('pcShoot'), 'on', !!s.aim);
+    const AB = PECIO_AB[p.ability] || PECIO_AB.phase;
+    setText('pcAbTxt', p.abCd ? `${p.abCd} turnos` : AB.name.toUpperCase());
+    tgl($h('pcAbility'), 'cool', p.abCd > 0);
+  },
+  showPecioShop(s) {
+    setText('psTitle', '🛒 TIENDA DEL PECIO');
+    setText('psText', `Tienes ${s.player.piezas} 🔩 de esta partida.`);
+    const box = $('psItems');
+    box.innerHTML = '';
+    for (const [item, icon, name, desc] of [['repair', '🧰', 'Reparación', '+3 de vida'], ['key', '🗝️', 'Llave', 'abre un cofre']]) {
+      const c = shopCost(s, item);
+      const b = el('button', `st-up${s.player.piezas >= c ? ' afford' : ''}`, `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">${c} 🔩</span>`);
+      b.dataset.buy = item;
+      tap(b, () => pecioBuy(item));
+      box.append(b);
+    }
+    show('pecioShop');
+  },
+  showPecioShrine() {
+    setText('psTitle', '✨ ALTAR');
+    setText('psText', 'Una luz antigua te ofrece una bendición. Solo una.');
+    const box = $('psItems');
+    box.innerHTML = '';
+    for (const [pick, icon, name, desc] of [['hp', '❤️', 'Vitalidad', '+2 de vida máxima'], ['dmg', '⚡', 'Potencia', '+1 de daño del disparo']]) {
+      const b = el('button', 'st-up afford', `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">ELEGIR</span>`);
+      b.dataset.pray = pick;
+      tap(b, () => pecioPray(pick));
+      box.append(b);
+    }
+    show('pecioShop');
+  },
+  showPecioEnd(r) {
+    setText('peTitle', r.won ? '🏆 ¡HAS SALIDO!' : 'DESTRUIDO');
+    $('peTitle').className = r.won ? 'won' : 'dead';
+    setText('peDepth', `PLANTA ${r.depth}`);
+    $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
+    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>`;
+    show('pecioEnd');
+  },
+
   showArenaHUD(on) {
     $('arenaHud').classList.toggle('hidden', !on);
     if (on) $('hud').classList.add('hidden');
@@ -2234,6 +2319,13 @@ export const ui = {
   },
 
   pause() {
+    if (G.mode === 'pecio') {
+      G.mode = 'pecioPaused';
+      musicDuck(true);
+      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>`;
+      show('pause');
+      return;
+    }
     if (G.mode === 'galaxy') {
       G.mode = 'galaxyPaused';
       musicDuck(true);

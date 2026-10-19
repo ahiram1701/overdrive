@@ -1072,3 +1072,26 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 
 /* ---------- Galaxia: amenaza y búsqueda ---------- */
 .sh-wanted { font-size: 13px; letter-spacing: -1px; text-align: right; text-shadow: 0 0 8px #ff2d55; min-height: 0; }
+
+/* ---------- PECIOS ---------- */
+.game-card.g-pecio { --gc: #c8d6e5; }
+#pecioHud { position: fixed; inset: 0; pointer-events: none; z-index: 2; }
+#pecioHud button { pointer-events: auto; }
+.pc-top { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 10px); left: 12px; right: 112px; display: flex; flex-direction: column; gap: 4px; }
+.pc-top b { font: italic 900 18px var(--font); color: #fff; }
+.pc-top small { display: block; color: var(--muted); font: 800 11px var(--font); letter-spacing: 1px; }
+.pc-hearts { font-size: 15px; letter-spacing: -1px; }
+.pc-bag { display: flex; gap: 12px; font: 900 14px var(--font); color: #fff; }
+.pc-btns { position: absolute; left: 10px; right: 10px; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.pc-btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 2px; border-radius: 14px; border: 1px solid rgba(125,249,255,.45); background: rgba(5,3,11,.8); color: #fff; font-family: var(--font); }
+.pc-btn span { font-size: 22px; line-height: 1; }
+.pc-btn small { font: 900 10px var(--font); letter-spacing: .5px; color: var(--muted); white-space: nowrap; }
+.pc-btn.cool { opacity: .5; }
+.pc-btn.on { border-color: var(--yellow); box-shadow: 0 0 14px rgba(255,230,0,.55); }
+.pc-btn.on small { color: var(--yellow); }
+#pecioHub .hero-card.pecio { width: min(440px, 100%); min-height: 110px; flex-direction: row; align-items: center; gap: var(--sp-3); padding: var(--sp-4); border: 2px solid #c8d6e5; background: linear-gradient(140deg, rgba(200,214,229,.18), rgba(90,200,250,.18)); box-shadow: 0 0 22px rgba(200,214,229,.3); }
+#pecioHub .hero-card .hc-icon { font-size: 42px; }
+#pecioHub .hero-card b { font-size: 26px; }
+.ph-wallet { margin: 0; }
+.ph-info { width: min(440px, 100%); display: flex; flex-direction: column; gap: 10px; }
+.ps-items { width: min(400px, 100%); display: flex; flex-direction: column; gap: 8px; }
