@@ -50,6 +50,7 @@ const DEFAULTS = {
   shipStats: {},    // { viper: { runs, sections, bosses } }: desbloquea los exclusivos de cada nave
   campaign: {},     // { '1-1': 3 }
   arena: { best: 0, kills: 0, wins: 0, bossBest: 0, map: 'grid' },
+  pecio: { best: 0, runs: 0, piezas: 0, wins: 0 }, // PECIOS: planta más honda, partidas y 🔩 (su moneda)
   arenaUp: {},      // taller de la ARENA { hp: 2, reroll: 1 }
   arenaMaps: {},    // { belt: { best: 412, wins: 1 } } récord y victorias de cada mapa de la ARENA
   expedition: { best: 0, wins: 0 },

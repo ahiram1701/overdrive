@@ -239,6 +239,15 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - 🚫 **Vetos**: elige una mejora que no quieres volver a ver en esa partida.
 - Gemas, 🪙 y XP para el hangar, la tienda y el rango (la pantalla final dice cuántas de cada). Récord, logros y misiones propias.
 
+## 🏚️ Modo PECIOS (nuevo)
+El 4.º juego: **mazmorras por turnos** con tu nave en miniatura, dentro de pecios y estaciones abandonadas. Roguelite: cada partida, plantas nuevas.
+- **Turnos:** cada paso tuyo (deslizar, flechas o tocar una casilla al lado) es un turno; después actúan los enemigos. **Chocar con un enemigo = golpe cuerpo a cuerpo.** Tocar tu nave (o `.`/`Z`) = esperar.
+- **⚡ Disparo** en línea recta (botón o `X`, luego la dirección), con recarga en turnos. **✨ Habilidad** de tu nave, versión por turnos.
+- **Salas:** ⚔️ combate (las puertas se cierran hasta limpiarla, y al limpiarla reparas 1 ❤️), 🎁 tesoro (el cofre pide 🗝️), ⚠️ trampas (pozos, minas, suelo eléctrico), 🛒 tienda, ✨ altar (vida máxima o daño) y 🚪 salida con la escotilla ⬇️.
+- **Enemigos, con su intención a la vista:** Dron (te persigue), Torreta (marca en rojo la línea y dispara al turno siguiente), Bomba (cuenta 2 y estalla en 3×3), Escudo (lento; para los disparos de frente, pero cuerpo a cuerpo le entra).
+- **9 plantas** en 3 ambientes: Pecio de carga, Estación médica y Reactor. Minimapa arriba a la derecha.
+- **🔩 Piezas**, su moneda propia (solo de Pecios): si caes te llevas más cuanto más hondo llegaste; si sales, todas.
+
 ## 🗺️ Modo EXPEDICIÓN
 El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).
 - **Nodos:**

@@ -63,6 +63,7 @@
       <button class="game-card g-runner" id="btnRunner"><span class="gc-icon">🏁</span><span class="gc-text"><b>RUNNER</b><small>esquiva a toda velocidad · 5 modos</small><em id="mBest">récord 0</em></span><span class="gc-go">›</span></button>
       <button class="game-card g-galaxy" id="btnGalaxy"><span class="gc-icon">🌌</span><span class="gc-text"><b>GALAXIA</b><small id="mGalaxy">explora, mina, comercia y lucha</small><em id="mCredits">💰 0</em></span><span class="gc-go">›</span></button>
       <button class="game-card g-arena" id="btnArena"><span class="gc-icon">⚔️</span><span class="gc-text"><b>ARENA</b><small>sobrevive a las oleadas</small><em id="mArena">sobrevive 10:00</em></span><span class="gc-go">›</span></button>
+      <button class="game-card g-pecio" id="btnPecio"><span class="gc-icon">🏚️</span><span class="gc-text"><b>PECIOS</b><small>mazmorras por turnos con tu nave</small><em id="mPecio">🔩 0</em></span><span class="gc-go">›</span></button>
     </div>
 
     <button class="mission-chip" id="btnMissions">🎯 Misiones de hoy <b id="mMisCount">0/3</b><span class="chev">▾</span></button>
@@ -89,6 +90,28 @@
   <section id="arenaHub" class="overlay hidden">
     <p class="hint">Sobrevive a las oleadas: tu nave dispara sola. Elige dónde luchar.</p>
     <div id="arenaMaps" class="arena-maps"></div>
+  </section>
+
+  <section id="pecioHub" class="overlay hidden">
+    <button class="hero-card pecio" id="btnPecioPlay"><span class="hc-icon">🏚️</span><span class="hc-text"><b>EXPLORAR</b><small>9 plantas de pecio por turnos</small><small id="phRecord"></small></span></button>
+    <p class="gems ph-wallet">🔩 <b id="phPiezas">0</b> <small>piezas</small></p>
+    <div id="phInfo" class="ph-info"></div>
+  </section>
+
+  <section id="pecioShop" class="overlay hidden">
+    <h2 id="psTitle">🛒 TIENDA</h2>
+    <p class="hint" id="psText"></p>
+    <div id="psItems" class="ps-items"></div>
+    <button class="btn ghost" id="btnPecioShopClose">SEGUIR</button>
+  </section>
+
+  <section id="pecioEnd" class="overlay hidden">
+    <h2 id="peTitle" class="dead">DESTRUIDO</h2>
+    <div id="peDepth" class="bigscore">PLANTA 1</div>
+    <div id="peGrid" class="grid"></div>
+    <div id="pePiezas" class="gems"></div>
+    <button class="btn big" id="btnPecioRetry">REINTENTAR</button>
+    <button class="btn ghost" id="btnPecioMenu">SALIR</button>
   </section>
 
   <section id="settings" class="overlay hidden">
@@ -215,6 +238,20 @@
     <button id="arenaPause" aria-label="Pausa">❚❚</button>
     <button id="arenaAbility" aria-label="Habilidad"><span id="arenaAbilityIcon">⚡</span></button>
     <div id="ahHint" class="ah-hint">Arrastra para moverte · doble toque = DASH</div>
+  </div>
+
+  <div id="pecioHud" class="hidden">
+    <div class="pc-top">
+      <div><b id="pcFloor">PLANTA 1</b><small id="pcTheme"></small></div>
+      <div id="pcHearts" class="pc-hearts"></div>
+      <div class="pc-bag"><span>🗝️ <b id="pcKeys">0</b></span><span>🔩 <b id="pcPiezas">0</b></span></div>
+    </div>
+    <div class="pc-btns">
+      <button id="pcShoot" class="pc-btn" aria-label="Disparar"><span>⚡</span><small id="pcShootTxt">DISPARO</small></button>
+      <button id="pcAbility" class="pc-btn" aria-label="Habilidad"><span id="pcAbIcon">✨</span><small id="pcAbTxt">HABILIDAD</small></button>
+      <button id="pcWait" class="pc-btn" aria-label="Esperar"><span>⏳</span><small>ESPERAR</small></button>
+      <button id="pcPause" class="pc-btn" aria-label="Pausa"><span>❚❚</span><small>PAUSA</small></button>
+    </div>
   </div>
 
   <div id="spaceHud" class="hidden">
