@@ -240,11 +240,11 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
 - Gemas, 🪙 y XP para el hangar, la tienda y el rango (la pantalla final dice cuántas de cada). Récord, logros y misiones propias.
 
 ## 🏚️ Modo PECIOS (nuevo)
-El 4.º juego: **mazmorras por turnos** con tu nave en miniatura, dentro de pecios y estaciones abandonadas. Roguelite: cada partida, plantas nuevas.
-- **Turnos:** cada paso tuyo (deslizar, flechas o tocar una casilla al lado) es un turno; después actúan los enemigos. **Chocar con un enemigo = golpe cuerpo a cuerpo.** Tocar tu nave (o `.`/`Z`) = esperar.
-- **⚡ Disparo** en línea recta (botón o `X`, luego la dirección), con recarga en turnos. **✨ Habilidad** de tu nave, versión por turnos.
-- **Salas:** ⚔️ combate (las puertas se cierran hasta limpiarla, y al limpiarla reparas 1 ❤️), 🎁 tesoro (el cofre pide 🗝️), ⚠️ trampas (pozos, minas, suelo eléctrico), 🛒 tienda, ✨ altar (vida máxima o daño) y 🚪 salida con la escotilla ⬇️.
-- **Enemigos, con su intención a la vista:** Dron (te persigue), Torreta (marca en rojo la línea y dispara al turno siguiente), Bomba (cuenta 2 y estalla en 3×3), Escudo (lento; para los disparos de frente, pero cuerpo a cuerpo le entra).
+El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con la **cámara detrás de tu nave** (como en la Galaxia, pero por salas con techo y paredes). Roguelite: cada partida, plantas nuevas.
+- **Controles:** apoya el dedo donde quieras y deslízalo: **arriba avanzas, a los lados giras** (teclado: flechas o WASD). Tu nave **dispara sola** al enemigo más cercano que vea.
+- **💨 Esquive** (botón, doble toque o Espacio): un acelerón intocable que además **salta los pozos**. **⚡ Habilidad** de tu nave (botón o E), con su versión para los pecios.
+- **Salas:** ⚔️ combate (las puertas se cierran hasta limpiarla, y al limpiarla reparas 1 ❤️), 🎁 tesoro (el cofre pide 🗝️), ⚠️ trampas (pozos, minas y suelo eléctrico que se enciende a ratos), 🛒 tienda, ✨ altar (vida máxima o daño) y 🚪 salida con la escotilla ⬇️.
+- **Enemigos, siempre avisan:** Dron (te persigue y embiste), Torreta (marca en rojo la línea del láser y dispara un instante después: apártate), Bomba (corre hacia ti, parpadea y estalla alrededor), Escudo (para lo que le llega de frente y gira despacio: rodéalo).
 - **9 plantas** en 3 ambientes: Pecio de carga, Estación médica y Reactor. Minimapa arriba a la derecha.
 - **🔩 Piezas**, su moneda propia (solo de Pecios): si caes te llevas más cuanto más hondo llegaste; si sales, todas.
 

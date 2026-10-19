@@ -47,7 +47,6 @@ export function initInput(h) {
     if (stick) { stick = false; h.stick.end(); }
     if (swiped || moved > 18 || performance.now() - st > TAP_MS) return;
     const now = performance.now();
-    h.tap?.(e.clientX, e.clientY); // toque suelto (PECIOS: moverte a la casilla tocada)
     if (now - lastTap < DOUBLE_MS) {
       lastTap = 0;
       h.double();
@@ -72,7 +71,6 @@ export function initInput(h) {
     else if (k === ' ' || k === 'Shift') h.double();
     else if (k === 'e' || k === 'q') h.ability?.();
     else if (k === 'x' || k === 'm' || k === 'i' || '12345'.includes(k)) h.extra?.(k);
-    else if (k === '.' || k === 'z') h.wait?.();
     else return;
     e.preventDefault();
   });

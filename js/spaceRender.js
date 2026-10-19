@@ -92,7 +92,7 @@ function rgb(hex) {
   const n = parseInt(hex.slice(1), 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
-function drawMesh3D(ctx, cam, meshId, pos, yaw, pitch, size, pal, flash) {
+export function drawMesh3D(ctx, cam, meshId, pos, yaw, pitch, size, pal, flash, near = 0.5) {
   const mesh = MESHES[meshId] || MESHES.viper;
   const b = basis(yaw, pitch);
   const world = mesh.v.map(([x, y, z]) => ({
@@ -100,7 +100,7 @@ function drawMesh3D(ctx, cam, meshId, pos, yaw, pitch, size, pal, flash) {
     y: pos.y + (b.r.y * x + b.u.y * y + b.f.y * z) * size,
     z: pos.z + (b.r.z * x + b.u.z * y + b.f.z * z) * size,
   }));
-  const scr = world.map((w) => project(cam, w, 0.5));
+  const scr = world.map((w) => project(cam, w, near));
   if (scr.some((q) => !q)) return;
   const light = norm({ x: -pos.x, y: 300 - pos.y, z: -pos.z }); // hacia el sol (en el origen) y algo de arriba
   const [er, eg, eb] = rgb(pal.edge), [hr, hg, hb] = rgb(pal.hull);

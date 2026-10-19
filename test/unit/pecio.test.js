@@ -1,8 +1,23 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  genFloor, genRoom, newRun, act, roomOf, botAction, locked, keptPiezas, chargeLine, COLS, ROWS, MID_C, MID_R, DIRS, OPP, LAST_FLOOR, themeOf, ENEMY,
+  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash,
+  COLS, ROWS, MID_C, MID_R, OPP, LAST_FLOOR, themeOf, ENEMY, DOOR_TILE,
 } from '../../js/pecio.js';
+
+const DT = 1 / 30;
+// una sala vacía de paredes con el jugador en el centro y los enemigos que se le pongan
+function arena(s, ...enemies) {
+  const room = roomOf(s);
+  room.tiles = Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (__, c) => (r === 0 || c === 0 || r === ROWS - 1 || c === COLS - 1 ? '#' : '.')));
+  room.type = 'combat';
+  room.wake = 0;
+  room.cleared = false;
+  room.enemies = enemies.map(([kind, x, y, extra = {}], i) => ({ id: `t${i}`, kind, x, y, ang: Math.PI, hp: ENEMY[kind].hp, max: ENEMY[kind].hp, r: ENEMY[kind].r, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, ...extra }));
+  Object.assign(s.player, { x: MID_C + 0.5, y: MID_R + 0.5, ang: 0, fireCd: 99, inv: 0 });
+  return room;
+}
+const run = (s, sec, input = { x: 0, y: 0 }) => { const ev = []; for (let t = 0; t < sec; t += DT) ev.push(...updateRun(s, DT, input)); return ev; };
 
 test('plantas: deterministas, todas las salas alcanzables, una entrada y una salida lejos', () => {
   for (let seed = 1; seed <= 30; seed++) {
@@ -13,11 +28,9 @@ test('plantas: deterministas, todas las salas alcanzables, una entrada y una sal
       assert.ok(ids.length >= 6 && ids.length <= 9);
       assert.equal(ids.filter((id) => f.rooms[id].type === 'exit').length, 1);
       assert.equal(f.rooms[f.start].type, 'start');
-      // alcanzables desde la entrada
       const seen = new Set([f.start]), q = [f.start];
       while (q.length) for (const n of Object.values(f.rooms[q.shift()].doors)) if (!seen.has(n)) { seen.add(n); q.push(n); }
       assert.equal(seen.size, ids.length);
-      // las puertas van en los dos sentidos
       for (const r of Object.values(f.rooms)) for (const [k, n] of Object.entries(r.doors)) assert.equal(f.rooms[n].doors[OPP[k]], r.id);
       assert.ok(ids.filter((id) => f.rooms[id].type === 'combat').length >= 2, 'al menos 2 salas de combate');
     }
@@ -27,7 +40,7 @@ test('plantas: deterministas, todas las salas alcanzables, una entrada y una sal
   assert.equal(themeOf(9).id, 'reactor');
 });
 
-test('salas: la cruz central siempre libre (todas las puertas se comunican) y los enemigos lejos de las puertas', () => {
+test('salas: la cruz central siempre libre y los enemigos sobre suelo, lejos de las puertas', () => {
   for (let seed = 1; seed <= 20; seed++) {
     const f = genFloor(seed, 4);
     for (const id of Object.keys(f.rooms)) {
@@ -35,79 +48,138 @@ test('salas: la cruz central siempre libre (todas las puertas se comunican) y lo
       assert.equal(r.tiles.length, ROWS);
       assert.equal(r.tiles[0].length, COLS);
       for (let c = 1; c < COLS - 1; c++) assert.ok(!['#', 'P', 'M', 'E'].includes(r.tiles[MID_R][c]), `fila central libre en ${id}`);
-      for (let rr = 1; rr < ROWS - 1; rr++) assert.ok(!['#', 'P', 'M', 'E'].includes(r.tiles[rr][MID_C]) || r.tiles[rr][MID_C] === 'X', `columna central libre en ${id}`);
-      for (const e of r.enemies) assert.ok(r.tiles[e.y][e.x] === '.');
-      if (r.type === 'exit') assert.equal(r.tiles[MID_R][MID_C], 'X');
+      for (let rr = 1; rr < ROWS - 1; rr++) assert.ok(!['#', 'P', 'M', 'E'].includes(r.tiles[rr][MID_C]), `columna central libre en ${id}`);
+      for (const e of r.enemies) {
+        assert.equal(r.tiles[Math.floor(e.y)][Math.floor(e.x)], '.');
+        for (const [dc, dr] of Object.values(DOOR_TILE)) assert.ok(Math.abs(dc - Math.floor(e.x)) + Math.abs(dr - Math.floor(e.y)) >= 3);
+      }
       if (r.type === 'traps') assert.equal(r.enemies.length, 0, 'las trampas no se cierran');
     }
   }
 });
 
-test('turnos: chocar con una pared no gasta turno; moverse sí; las puertas se cierran hasta limpiar', () => {
-  const s = newRun(3, { hp: 6 });
-  const t0 = s.turn;
-  s.player.x = 1; s.player.y = 1;
-  assert.deepEqual(act(s, { type: 'move', dir: 'left' }).map((e) => e.type), ['bump']);
-  assert.equal(s.turn, t0);
-  act(s, { type: 'move', dir: 'down' });
-  assert.equal(s.turn, t0 + 1);
-  // una sala de combate con enemigos: cerrada
-  const room = roomOf(s, Object.keys(s.floor.rooms).find((id) => s.floor.rooms[id].type === 'combat'));
-  assert.ok(room.enemies.length > 0 && locked(room));
-  for (const e of room.enemies) e.alive = false;
-  assert.equal(locked(room), false);
+test('movimiento: arriba avanza, a los lados gira, y nunca atraviesas paredes ni bloques', () => {
+  const s = newRun(3, { hp: 99 });
+  const room = arena(s);
+  room.tiles[2][MID_C] = '#';
+  const y0 = s.player.y;
+  run(s, 0.5, { x: 0, y: -1 });
+  assert.ok(s.player.y < y0 - 0.8, 'avanza hacia la fila 0');
+  // sigue empujando contra el bloque: se queda delante, sin meterse
+  run(s, 3, { x: 0, y: -1 });
+  assert.ok(!hitsWall(room, s.player.x, s.player.y, s.player.r));
+  assert.ok(s.player.y >= 3 + s.player.r - 1e-6, 'para en el bloque');
+  // girar
+  const a0 = s.player.ang;
+  run(s, 0.3, { x: 1, y: 0 });
+  assert.ok(s.player.ang > a0 + 0.5);
+  // contra la pared de la sala en todas direcciones, mucho rato
+  for (let k = 0; k < 12; k++) { run(s, 0.4, { x: 0.3, y: -1 }); assert.ok(!hitsWall(room, s.player.x, s.player.y, s.player.r)); }
 });
 
-test('enemigos: el dron golpea al lado, la torreta avisa antes de disparar, la bomba cuenta 2 y estalla, el escudo para los disparos de frente', () => {
-  const s = newRun(5, { hp: 20 });
-  const room = roomOf(s);
-  room.tiles = room.tiles.map((row) => row.map((t) => (t === 'D' ? '#' : t)));
-  const add = (kind, x, y, extra = {}) => { const e = { id: kind, kind, x, y, hp: ENEMY[kind].hp, max: ENEMY[kind].hp, facing: 'down', fuse: null, charge: null, cd: 0, stun: 0, alive: true, ...extra }; room.enemies = [e]; return e; };
-  // DRON al lado: te golpea
-  s.player.x = 4; s.player.y = 5;
-  add('drone', 5, 5);
+test('disparo automático: solo al que se ve, y daña', () => {
+  const s = newRun(4, { hp: 99 });
+  const room = arena(s, ['drone', MID_C + 0.5, 2.5, { cd: 99 }]);
+  room.enemies[0].stun = 99; // quieto para el test
+  s.player.fireCd = 0;
+  assert.equal(nearestTarget(s), room.enemies[0]);
+  run(s, 1);
+  assert.ok(room.enemies[0].hp < ENEMY.drone.hp, 'le dio');
+  // con una pared en medio no se ve: no se dispara
+  room.tiles[4][MID_C] = '#';
+  room.enemies[0].hp = ENEMY.drone.hp;
+  assert.equal(canSee(room, s.player, room.enemies[0]), false);
+  assert.equal(nearestTarget(s), null);
+  run(s, 1);
+  assert.equal(room.enemies[0].hp, ENEMY.drone.hp);
+});
+
+test('enemigos: torreta avisa y falla si te apartas, bomba estalla alrededor, escudo para lo de frente, dron embiste', () => {
+  // TORRETA: marca la línea antes de disparar; si te apartas, no te da
+  let s = newRun(5, { hp: 20 });
+  let room = arena(s, ['turret', MID_C + 0.5, 1.5]);
+  run(s, 0.1);
+  const tur = room.enemies[0];
+  assert.ok(tur.charge > 0 && chargeLine(room, tur), 'apuntando');
   let hp = s.player.hp;
-  act(s, { type: 'wait' });
-  assert.equal(s.player.hp, hp - 1);
-  // TORRETA alineada: primero marca la línea, al turno siguiente dispara (si te apartas, falla)
-  const tur = add('turret', 4, 1);
-  act(s, { type: 'wait' });
-  assert.equal(tur.charge, 'down');
-  assert.ok(chargeLine(room, tur).some(([x, y]) => x === 4 && y === 5));
-  hp = s.player.hp;
-  act(s, { type: 'move', dir: 'right' });
+  run(s, 0.4, { x: 0, y: 0 });
+  s.player.x += 1.5; // fuera de la línea
+  run(s, 0.6);
   assert.equal(s.player.hp, hp, 'te apartaste: falla');
-  // BOMBA: al lado se arma y estalla a los 2 turnos
-  s.player.x = 4; s.player.y = 5;
-  const bomb = add('bomb', 4, 6);
-  act(s, { type: 'wait' });
-  assert.equal(bomb.fuse, 2);
+  // si te quedas en la línea, te da
+  s = newRun(5, { hp: 20 });
+  arena(s, ['turret', MID_C + 0.5, 1.5]);
   hp = s.player.hp;
-  act(s, { type: 'wait' });
-  act(s, { type: 'wait' });
-  assert.equal(bomb.alive, false);
-  assert.equal(s.player.hp, hp - ENEMY.bomb.dmg);
-  // ESCUDO: tu disparo de frente rebota; cuerpo a cuerpo le entra
-  s.player.x = 4; s.player.y = 5; s.player.shotCd = 0;
-  const sh = add('shield', 4, 3, { facing: 'down' });
-  const ev = act(s, { type: 'shoot', dir: 'up' });
-  assert.ok(ev.some((e) => e.type === 'blocked'));
-  assert.equal(sh.hp, ENEMY.shield.hp);
-  s.player.x = 4; s.player.y = 4;
-  act(s, { type: 'move', dir: 'up' });
-  assert.ok(sh.hp < ENEMY.shield.hp);
+  run(s, 1.2);
+  assert.equal(s.player.hp, hp - ENEMY.turret.dmg);
+  // BOMBA: corre hacia ti, se arma y estalla; te alcanza si sigues cerca
+  s = newRun(6, { hp: 20 });
+  room = arena(s, ['bomb', MID_C + 0.5, MID_R - 2.5]);
+  hp = s.player.hp;
+  const ev = run(s, 2.5);
+  assert.ok(ev.some((e) => e.type === 'armed'));
+  assert.ok(ev.some((e) => e.type === 'boom'));
+  assert.equal(room.enemies[0].alive, false);
+  assert.ok(ev.some((e) => e.type === 'hurt' && e.src === 'bomba' && e.dmg === ENEMY.bomb.dmg), 'te alcanzó');
+  assert.equal(s.player.hp, hp - ENEMY.bomb.dmg + 1, 'y al quedar la sala limpia, +1 ❤️');
+  // ESCUDO: de frente rebota; por la espalda le entra
+  s = newRun(7, { hp: 99 });
+  room = arena(s, ['shield', MID_C + 0.5, 2.5, { ang: Math.PI, stun: 99 }]); // mira hacia ti (abajo)
+  s.player.fireCd = 0;
+  let evs = run(s, 1);
+  assert.ok(evs.some((e) => e.type === 'blocked'));
+  assert.equal(room.enemies[0].hp, ENEMY.shield.hp);
+  room.enemies[0].ang = 0; // de espaldas
+  run(s, 1);
+  assert.ok(room.enemies[0].hp < ENEMY.shield.hp);
+  // DRON: te persigue y te embiste
+  s = newRun(8, { hp: 20 });
+  arena(s, ['drone', MID_C + 0.5, 2.5]);
+  hp = s.player.hp;
+  run(s, 2.5);
+  assert.ok(s.player.hp < hp);
 });
 
-test('el bot (sin trampas) termina las primeras plantas con la nave básica y nunca se atasca', () => {
+test('puertas cerradas hasta limpiar; esquive intocable; habilidades', () => {
+  const s = newRun(9, { hp: 20, ability: 'nova' });
+  const room = arena(s, ['drone', MID_C + 0.5, MID_R - 1.5, { stun: 99 }], ['drone', MID_C - 0.5, MID_R + 1.5, { stun: 99 }]);
+  room.tiles[0][MID_C] = 'D';
+  assert.ok(locked(room));
+  assert.ok(hitsWall(room, MID_C + 0.5, 0.9, 0.3), 'la puerta cerrada frena');
+  // la onda le da a los dos
+  useAbility(s);
+  assert.ok(room.enemies.every((e) => e.hp < ENEMY.drone.hp));
+  assert.ok(s.player.abCd > 0);
+  for (const e of room.enemies) e.alive = false;
+  const ev = run(s, 0.1);
+  assert.ok(ev.some((e) => e.type === 'cleared'));
+  assert.equal(locked(room), false);
+  // esquive: durante el acelerón nada te hace daño
+  const hp = s.player.hp;
+  dash(s);
+  assert.ok(s.player.dashT > 0);
+  assert.deepEqual(dash(s).map((e) => e.type), ['cooldown']);
+  assert.equal(s.player.hp, hp);
+});
+
+test('el bot vuela solo, baja plantas y nunca se atasca', () => {
   let floors = 0;
-  for (let seed = 1; seed <= 40; seed++) {
+  for (let seed = 1; seed <= 24; seed++) {
     const s = newRun(seed, { hp: 6, ability: 'nova' });
-    let i = 0;
-    for (; i < 8000 && !s.over; i++) act(s, botAction(s));
-    assert.ok(s.over, `semilla ${seed}: la partida termina (no se atasca)`);
+    let prog = '', last = 0, i = 0;
+    for (; i < 30 * 60 * 20 && !s.over; i++) {
+      const inp = botInput(s);
+      if (inp.ability) useAbility(s);
+      if (inp.dash) dash(s);
+      updateRun(s, DT, inp);
+      const pr = `${s.depth}|${s.at}|${s.kills}`;
+      if (pr !== prog) { prog = pr; last = i; }
+      assert.ok(i - last < 30 * 45, `semilla ${seed}: sin progreso en la sala ${s.at} (planta ${s.depth})`);
+    }
+    assert.ok(s.over, `semilla ${seed}: la partida termina`);
     floors += s.depth;
   }
-  assert.ok(floors / 40 >= 3, `de media llega a la planta ${(floors / 40).toFixed(1)}`);
+  assert.ok(floors / 24 >= 2.5, `de media llega a la planta ${(floors / 24).toFixed(1)}`);
 });
 
 test('🔩: si caes te llevas más cuanto más hondo; si sales, todas', () => {
@@ -119,5 +191,4 @@ test('🔩: si caes te llevas más cuanto más hondo; si sales, todas', () => {
   assert.equal(keptPiezas(s), 100);
   s.depth = LAST_FLOOR + 1; s.won = true;
   assert.equal(keptPiezas(s), 100);
-  assert.ok(DIRS.up && MID_C === 4);
 });
