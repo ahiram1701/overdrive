@@ -13,7 +13,7 @@ import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEven
 import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
-import { updatePecio, pecioMove, pecioWait, pecioAbility, pecioAim, pecioTap, pecioBotSteps } from './pecioGame.js';
+import { updatePecio, pecioStep, pecioDash, pecioAbility, pecioBotSteps } from './pecioGame.js';
 import { renderPecio } from './pecioRender.js';
 
 const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap' || G.mode === 'planet' || G.mode === 'galaxyInv';
@@ -52,6 +52,16 @@ function simStep(dt) {
       else if (!G.arena.stick) G.arena.input = G.arena.botInput || { x: 0, y: 0 };
     }
     updateArena(dt);
+  } else if (inPecio()) {
+    const s = G.pecio;
+    if (s && G.mode === 'pecio') {
+      // flechas o WASD: arriba avanza, a los lados gira (el joystick hace lo mismo en el móvil)
+      const kx = (held.has('ArrowRight') || held.has('d') ? 1 : 0) - (held.has('ArrowLeft') || held.has('a') ? 1 : 0);
+      const ky = (held.has('ArrowDown') || held.has('s') ? 1 : 0) - (held.has('ArrowUp') || held.has('w') ? 1 : 0);
+      if (kx || ky) s.input = { x: kx, y: ky };
+      else if (!s.stick) s.input = s.botInput || { x: 0, y: 0 };
+    }
+    pecioStep(dt);
   } else update(dt);
 }
 
@@ -62,23 +72,21 @@ ui.showMenu();
 initInput({
   any: unlockAudio,
   enabled: () => !dialogPaused() && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio'),
-  tap: (x, y) => { if (G.mode === 'pecio' && !dialogPaused()) pecioTap(x, y); },
-  wait: () => { if (G.mode === 'pecio') pecioWait(); },
   // ARENA: el dedo mueve la nave como un joystick (60 px = velocidad máxima)
   stick: {
-    enabled: () => !dialogPaused() && (G.mode === 'arena' || G.mode === 'galaxy'),
-    // en la arena y en la galaxia el dedo es un joystick: allí mueve, aquí vira
-    target: () => (G.mode === 'galaxy' ? G.space : G.arena),
-    start(x, y) { const t = this.target(); if (t) t.stick = true; if (G.mode === 'galaxy') ui.stickVis(x, y, 0, 0); },
+    enabled: () => !dialogPaused() && (G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio'),
+    // en la arena, la galaxia y los pecios el dedo es un joystick: en la arena mueve; en los otros, arriba avanza y a los lados vira
+    target: () => (G.mode === 'galaxy' ? G.space : G.mode === 'pecio' ? G.pecio : G.arena),
+    start(x, y) { const t = this.target(); if (t) t.stick = true; if (G.mode === 'galaxy' || G.mode === 'pecio') ui.stickVis(x, y, 0, 0); },
     move(dx, dy) {
       const t = this.target();
       if (t) t.input = { x: Math.max(-1, Math.min(1, dx / 60)), y: Math.max(-1, Math.min(1, dy / 60)) };
-      if (G.mode === 'galaxy') ui.stickVis(null, null, dx, dy);
+      if (G.mode === 'galaxy' || G.mode === 'pecio') ui.stickVis(null, null, dx, dy);
     },
     end() { const t = this.target(); if (t) { t.stick = false; t.input = { x: 0, y: 0 }; } ui.stickVis(); },
   },
   swipe(dir) {
-    if (G.mode === 'pecio') return pecioMove(dir);
+    if (G.mode === 'pecio') return;
     if (G.mode === 'arena' || G.mode === 'galaxy') return;
     if (dir === 'left') moveLane(-1);
     else if (dir === 'right') moveLane(1);
@@ -86,9 +94,9 @@ initInput({
     else slide();
   },
   // doble toque (o Shift): DASH en el runner y la arena. En la galaxia, doble toque = TONEL y Shift = impulso
-  double: () => (G.mode === 'pecio' ? null : G.mode === 'galaxy' ? (held.has('Shift') ? spaceBoost() : held.has(' ') ? null : spaceRoll()) : G.mode === 'arena' ? arenaDash() : dash()),
+  double: () => (G.mode === 'pecio' ? pecioDash() : G.mode === 'galaxy' ? (held.has('Shift') ? spaceBoost() : held.has(' ') ? null : spaceRoll()) : G.mode === 'arena' ? arenaDash() : dash()),
   extra: (k) => {
-    if (G.mode === 'pecio') { if (k === 'x') pecioAim(); return; }
+    if (G.mode === 'pecio') { if (k === 'x') pecioDash(); return; }
     if (G.mode !== 'galaxy') return;
     if ('12345'.includes(k)) useItem(ITEM_KEYS[Number(k) - 1]); // consumibles
     else if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else spaceMissile();
@@ -102,7 +110,7 @@ initInput({
 });
 
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy')) ui.pause();
+  if (document.hidden && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio')) ui.pause();
 });
 
 const STEP = 1 / 120;
@@ -172,12 +180,12 @@ if (G.debug) {
   window.__devourer = () => spawnDevourer();
   window.__arenaBoss = (id) => debugArenaBoss(id);
   window.__pirate = (kind, trait, ahead) => debugPirate(kind, trait, ahead);
-  window.__pecioBot = (n) => pecioBotSteps(n);
+  window.__pecioBot = (sec) => pecioBotSteps(sec);
   window.D = {
     step(sec, draw = true) {
       for (let t = 0; t < sec; t += STEP) { simStep(STEP); fx.update(STEP); }
       if (draw) {
-        if (inSpace()) { renderSpace(STEP); ui.updateSpaceHUD(); } else if (inArena()) { renderArena(STEP); ui.updateArenaHUD(); } else { render(STEP); ui.updateHUD(1); }
+        if (inSpace()) { renderSpace(STEP); ui.updateSpaceHUD(); } else if (inArena()) { renderArena(STEP); ui.updateArenaHUD(); } else if (inPecio()) { updatePecio(STEP); renderPecio(STEP); ui.updatePecioHUD(); } else { render(STEP); ui.updateHUD(1); }
       }
       return { mode: G.mode, section: G.run?.section, score: Math.round(G.run?.score), mult: G.run?.mult, speed: G.run?.speed };
     },

@@ -18,9 +18,9 @@ export const TIPS = {
     ['guia', 'Sobrevive 10:00: en el 5:00 y el 10:00 llega un jefe. Doble toque = DASH para salir de un apuro.'],
   ],
   pecio: [
-    ['guia', 'PECIOS va por TURNOS: cada vez que te mueves (desliza o toca una casilla al lado), los enemigos se mueven una vez.'],
-    ['guia', 'Choca con un enemigo para golpearlo. ⚡ DISPARO y luego una dirección dispara en línea recta. Toca tu nave (o ⏳) para esperar un turno.'],
-    ['guia', 'Mira sus intenciones: la línea roja de la torreta es por donde va a disparar, la bomba cuenta 2-1. Limpia cada sala para abrir sus puertas y busca la escotilla ⬇️.'],
+    ['guia', 'PECIOS: vuelas por dentro del pecio. Apoya el dedo y deslízalo: arriba avanzas, a los lados giras. Tu nave dispara SOLA al enemigo más cercano que vea.'],
+    ['guia', '💨 ESQUIVE (o Espacio): un acelerón en el que nada te toca, y saltas los pozos. ⚡ es la habilidad de tu nave.'],
+    ['guia', 'Mira sus avisos: la línea roja de la torreta es por donde va a disparar (apártate), la bomba parpadea antes de estallar y el Escudo para lo que le llega de frente: rodéalo. Limpia cada sala y busca la escotilla ⬇️.'],
   ],
   // la primera vez que pasa algo
   boss: [['guia', '¡Un JEFE! Esquiva sus ataques (siempre deja un carril libre) y pasa por su NÚCLEO brillante para dañarlo. Con DASH, doble daño.']],

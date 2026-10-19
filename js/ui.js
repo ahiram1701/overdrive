@@ -21,7 +21,7 @@ import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
-import { newPecio, pecioAim, pecioAbility, pecioWait, pecioBuy, pecioPray } from './pecioGame.js';
+import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray } from './pecioGame.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
@@ -199,9 +199,8 @@ export const ui = {
     tap($('btnPecioRetry'), () => newPecio());
     tap($('btnPecioMenu'), () => { G.pecio = null; ui.showPecioHub(); });
     tap($('btnPecioShopClose'), () => { G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); });
-    tap($('pcShoot'), () => pecioAim());
+    tap($('pcDash'), () => pecioDash());
     tap($('pcAbility'), () => pecioAbility());
-    tap($('pcWait'), () => pecioWait());
     tap($('pcPause'), () => ui.pause());
     tap($('btnGalaxy'), () => newSpace());
     tap($('btnDock'), () => dock());
@@ -2163,7 +2162,7 @@ export const ui = {
     setText('phRecord', P.best ? `récord: planta ${P.best}${P.wins ? ` · 🏆 ${P.wins}` : ''} · ${P.runs} partidas` : 'tu nave entra en pecios abandonados');
     setText('phPiezas', fmt(P.piezas || 0));
     $('phInfo').innerHTML = `
-      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Cada paso tuyo es un turno de los enemigos. Desliza (o toca una casilla al lado) para moverte; choca para golpear; ⚡ y una dirección para disparar. Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
+      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
       <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
       <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>`;
     show('pecioHub');
@@ -2181,11 +2180,10 @@ export const ui = {
     setText('pcHearts', '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, p.max - p.hp)) + (p.shield ? ` 🫧${p.shield}` : ''));
     setText('pcKeys', String(p.keys));
     setText('pcPiezas', String(p.piezas));
-    setText('pcShootTxt', p.shotCd ? `${p.shotCd} turno${p.shotCd > 1 ? 's' : ''}` : s.aim ? '¿HACIA DÓNDE?' : 'DISPARO');
-    tgl($h('pcShoot'), 'cool', p.shotCd > 0);
-    tgl($h('pcShoot'), 'on', !!s.aim);
+    setText('pcDashTxt', p.dashCd > 0 ? `${p.dashCd.toFixed(1)} s` : 'ESQUIVE');
+    tgl($h('pcDash'), 'cool', p.dashCd > 0);
     const AB = PECIO_AB[p.ability] || PECIO_AB.phase;
-    setText('pcAbTxt', p.abCd ? `${p.abCd} turnos` : AB.name.toUpperCase());
+    setText('pcAbTxt', p.abCd > 0 ? `${Math.ceil(p.abCd)} s` : AB.name.toUpperCase());
     tgl($h('pcAbility'), 'cool', p.abCd > 0);
   },
   showPecioShop(s) {
