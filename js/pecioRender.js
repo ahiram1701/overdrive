@@ -10,7 +10,8 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors } from './pecio.js';
+import { RARITY, CONS, itemIcon } from './pecioLoot.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
 const DOOR_H = 1.3, WALL_H = 2.1, SHIP_Y = 0.38, NEAR = 0.08, BACK = 2.3, CAM_Y = 1.3;
@@ -19,6 +20,7 @@ const ENEMY_LOOK = {
   turret: { mesh: 'titan', pal: { hull: '#00141a', edge: '#00e5ff', glow: '#ff2d55' }, y: 0.32 },
   bomb: { mesh: 'nova', pal: { hull: '#1a0a00', edge: '#ff9f0a', glow: '#ffe600' }, y: 0.3 },
   shield: { mesh: 'brick', pal: { hull: '#0b2a14', edge: '#30d158', glow: '#7dffb0' }, y: 0.36 },
+  mimic: { mesh: 'kaiju', pal: { hull: '#2a1a00', edge: '#ffcc00', glow: '#ff2d55' }, y: 0.36 },
 };
 
 // ---------- Cámara de persecución (sin alabeo ni cabeceo): se acerca si una pared se mete en medio ----------
@@ -91,7 +93,7 @@ export function renderPecio(dt) {
   // fondo del mismo tono que la pared en la niebla: si el recorte junto a la cámara deja algún píxel, parece sombra y no un hueco
   ctx.fillStyle = th.fog;
   ctx.fillRect(-20, -20, W + 40, H + 40);
-  const shut = locked(room), on = energyOn(s);
+  const shut = locked(room), on = energyOn(s, room), scan = !!s.player.mods?.hasScanner;
 
   // SUELO (siempre debajo de todo: se dibuja primero, de lejos a cerca)
   const ground = [];
@@ -106,6 +108,7 @@ export function renderPecio(dt) {
       const q = [[c, 0, -r], [c + 1, 0, -r], [c + 1, 0, -r - 1], [c, 0, -r - 1]];
       const base = (r + c) % 2 ? th.floor : shade(th.floor, 9);
       if (k === 'P') poly(cam, ground, q, '#000', 'rgba(255,255,255,.18)', 1);
+      else if (k === 'S' || k === 's') poly(cam, ground, q, k === 'S' ? `rgba(255,230,0,${0.25 + 0.15 * Math.sin(t * 5)})` : 'rgba(255,255,255,.05)', k === 'S' ? '#ffe600' : 'rgba(255,255,255,.2)', 2, { base, glyph: k === 'S' ? '🔌' : null, gsize: 20 });
       else if (k === 'E') poly(cam, ground, q, on ? `rgba(255,230,0,${0.28 + 0.18 * Math.sin(t * 10 + c + r)})` : null, on ? '#ffe600' : 'rgba(255,230,0,.3)', 1, { base });
       else if (k === 'D') poly(cam, ground, q, shut ? 'rgba(255,45,85,.35)' : 'rgba(48,209,88,.3)', shut ? '#ff2d55' : '#30d158', 1.5, { base });
       else if (k === 'X') poly(cam, ground, q, hexA(th.accent, 0.25), th.accent, 2.5, { base, glyph: shut ? '🔒' : '⬇️' });
@@ -146,8 +149,14 @@ export function renderPecio(dt) {
   for (const f of wallFaces(room, shut)) {
     const [ax, az] = f.a, [bx, bz] = f.b;
     if (!facing(f.n[0], f.n[1], ax, az)) continue;
-    const o = ord(f.c, f.r), col = f.door ? '#3a0010' : '#0d0a18', edge = f.door ? '#ff2d55' : th.wall;
-    poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, WALL_H, bz], [ax, WALL_H, az]], col, edge, 1.4, { fogc: true, o });
+    const o = ord(f.c, f.r), col = f.door ? '#3a0010' : f.crack ? '#16131c' : '#0d0a18';
+    const edge = f.door ? '#ff2d55' : f.crack ? (scan ? `rgba(255,204,0,${0.6 + 0.4 * Math.sin(t * 6)})` : '#8e8e93') : th.wall;
+    poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, WALL_H, bz], [ax, WALL_H, az]], col, f.crack ? th.wall : edge, 1.4, { fogc: true, o });
+    if (f.crack) {
+      // grietas: un zigzag por la cara
+      const P = (k, y) => [ax + (bx - ax) * k, y, az + (bz - az) * k];
+      poly(cam, list, [P(0.5, 0.15), P(0.38, 0.6), P(0.6, 0.95), P(0.42, 1.4), P(0.55, 1.85), P(0.58, 1.85), P(0.46, 1.4), P(0.64, 0.95), P(0.42, 0.6), P(0.54, 0.15)], null, edge, scan ? 2.5 : 1.6, { o, bias: 0.3 });
+    }
     // franja de neón: va justo después de su cara (misma casilla, algo más cerca)
     poly(cam, list, [[ax, 0.42, az], [bx, 0.42, bz], [bx, 0.5, bz], [ax, 0.5, az]], hexA(edge, 0.7), null, 1, { bias: 0.25, o });
   }
@@ -176,7 +185,7 @@ export function renderPecio(dt) {
         if (facing(-1, 0, x0, z0)) poly(cam, list, [[x0, 0, z1], [x0, 0, z0], [x0, h, z0], [x0, h, z1]], col, edge, 1.5, { o });
         if (facing(1, 0, x1, z0)) poly(cam, list, [[x1, 0, z0], [x1, 0, z1], [x1, h, z1], [x1, h, z0]], col, edge, 1.5, { o });
         poly(cam, list, [[x0, h, z0], [x1, h, z0], [x1, h, z1], [x0, h, z1]], shade(col, 14), edge, 1.5, { o, bias: 0.2 });
-        const g = k === 'C' ? (room.opened ? '📭' : '🎁') : k === 'T' ? '🛒' : room.used ? '🕯️' : '✨';
+        const g = k === 'C' ? (room.opened ? '📭' : room.mimic && scan ? '😈' : room.freeChest ? '💎' : '🎁') : k === 'T' ? '🛒' : room.used ? '🕯️' : '✨';
         point(cam, list, c + 0.5, h + 0.35, -r - 0.5, (q) => glyph(ctx, g, q.x, q.y + Math.sin(t * 3) * 2, Math.max(10, q.s * 0.5)), o, -1);
       }
     }
@@ -205,6 +214,17 @@ export function renderPecio(dt) {
       const f = fwd(e.ang), cx = e.x + f.x * 0.48, cy = e.y + f.y * 0.48, nx = -f.y * 0.42, ny = f.x * 0.42;
       poly(cam, list, [[cx + nx, 0.08, -(cy + ny)], [cx - nx, 0.08, -(cy - ny)], [cx - nx, 0.72, -(cy - ny)], [cx + nx, 0.72, -(cy + ny)]], 'rgba(48,209,88,.28)', '#7dffb0', 2.5, { o: ordAt(e.x, e.y) });
     }
+  }
+  // BOTÍN EN EL SUELO: objetos (con el color de su rareza y, los buenos, un haz de luz) y consumibles
+  for (const pk of room.pickups || []) {
+    const col = pk.kind === 'item' ? RARITY[pk.item.tier].color : '#7df9ff', o = ordAt(pk.x, pk.y);
+    poly(cam, list, ring(pk.x, 0.015, -pk.y, 0.32, 14), hexA(col, 0.18), col, 2, { o, bias: -0.6 }); // (el suelo ya está pintado: va en la lista, detrás de lo de su casilla)
+    if (pk.kind === 'item' && pk.item.tier >= 2) {
+      const w = 0.08;
+      poly(cam, list, [[pk.x - w, 0, -pk.y], [pk.x + w, 0, -pk.y], [pk.x + w, WALL_H, -pk.y], [pk.x - w, WALL_H, -pk.y]], hexA(col, 0.22 + 0.1 * Math.sin(t * 4)), null, 1, { o, bias: 0.1 });
+    }
+    const g = pk.kind === 'item' ? itemIcon(pk.item) : CONS[pk.cons].icon;
+    point(cam, list, pk.x, 0.45 + Math.sin(t * 3 + pk.x) * 0.06, -pk.y, (q) => glyph(ctx, g, q.x, q.y, Math.max(12, q.s * 0.42)), o);
   }
   // TUS BALAS
   for (const b of s.shots) {
@@ -317,7 +337,7 @@ function minimap(ctx, s, W) {
   const cell = 15, gap = 3, size = 5 * (cell + gap), x0 = W - size - 12, y0 = 64;
   const rooms = s.floor.rooms;
   const known = new Set(s.visited);
-  for (const id of s.visited) for (const n of Object.values(rooms[id].doors)) known.add(n);
+  for (const id of s.visited) for (const n of Object.values(openDoors(s, id))) known.add(n);
   ctx.fillStyle = 'rgba(0,0,0,.35)';
   ctx.fillRect(x0 - 4, y0 - 4, size + 5, size + 5);
   for (const id of known) {

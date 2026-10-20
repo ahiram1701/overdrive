@@ -6,7 +6,8 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { newRun, updateRun, keptPiezas, ROOM_TYPES, botInput, dash, useAbility, buy, pray } from './pecio.js';
+import { newRun, updateRun, keptPiezas, ROOM_TYPES, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons } from './pecio.js';
+import { CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
 
@@ -18,7 +19,10 @@ export function newPecio(seedOverride = null) {
   const seed = seedOverride ?? (forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0);
   const ship = SHIPS.find((x) => x.id === save.ship) || SHIPS[0];
   const hp = 6 + Math.round(((SHIP_ARENA[ship.id]?.hp || 100) - 100) / 25);
-  const s = newRun(seed, { hp, ability: ship.ability });
+  // LA BÓVEDA: el objeto que guardaste en la partida anterior sale contigo (y la bóveda queda vacía)
+  const vault = save.pecio.vault;
+  save.pecio.vault = null;
+  const s = newRun(seed, { hp, ability: ship.ability, gear: vault ? [vault] : [] });
   Object.assign(s, { ship, flashes: [], endT: 0, fade: 0, input: { x: 0, y: 0 }, stick: false, camSnap: true, turnIn: 0 });
   G.pecio = s;
   G.run = null;
@@ -35,6 +39,7 @@ export function newPecio(seedOverride = null) {
   progress('pecio');
   // el cartel de la planta espera a que se cierre la GUÍA (si no, se acaba debajo de ella)
   s.introBanner = [`🏚️ ${s.floor.theme.name}`, 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
+  if (vault) fx.notice(`🔐 De la bóveda: ${itemIcon(vault)} ${itemName(vault)}`, RARITY[vault.tier].color);
   ui.showTip?.('pecio');
 }
 
@@ -59,6 +64,37 @@ export function pecioAbility() {
 }
 export function pecioBuy(item) { const s = P(); if (s && G.mode === 'pecioShop') handle(s, buy(s, item)); }
 export function pecioPray(pick) { const s = P(); if (s && G.mode === 'pecioShop') handle(s, pray(s, pick)); }
+// BOTÍN: ponértelo ('equip' / 'mod1' / 'mod2') o dejarlo en el suelo ('leave'); y vuelta a la partida
+export function pecioTakeOffer(choice) {
+  const s = P();
+  if (!s || !s.offer) return;
+  handle(s, takeOffer(s, choice));
+  G.mode = 'pecio';
+  ui.hideAll();
+  ui.showPecioHUD(true);
+}
+// MOCHILA
+export function pecioUseCons(k) {
+  const s = P();
+  if (!s || G.mode !== 'pecio') return;
+  handle(s, useCons(s, k));
+}
+// BÓVEDA: desde la pantalla final, guardas uno de los objetos que llevabas para la próxima partida
+export function pecioVaultStore(slot) {
+  const s = P(), it = s?.result?.gear?.[slot];
+  if (!it || !save.pecio.vaultOpen) return false;
+  save.pecio.vault = it;
+  persist();
+  return true;
+}
+export const VAULT_COST = 150;
+export function pecioVaultUnlock() {
+  if (save.pecio.vaultOpen || save.pecio.piezas < VAULT_COST) return false;
+  save.pecio.piezas -= VAULT_COST;
+  save.pecio.vaultOpen = true;
+  persist();
+  return true;
+}
 
 // Eventos → sonido, avisos y destellos para el dibujo
 function handle(s, ev) {
@@ -90,7 +126,21 @@ function handle(s, ev) {
       case 'shrine': G.mode = 'pecioShop'; ui.showPecioShrine(s); break;
       case 'bought': sfx.coin(6); ui.showPecioShop(s); break;
       case 'poor': fx.notice('Te faltan 🔩', '#ff2d55'); break;
-      case 'blessed': sfx.chest(); fx.banner('✨ BENDICIÓN', e.pick === 'hp' ? '+2 de vida máxima' : '+1 de daño del disparo', '#bf5af2', false, 2); G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); break;
+      case 'blessed': sfx.chest(); fx.banner(e.pick === 'pact' ? '🩸 PACTO' : '✨ BENDICIÓN', { hp: '+2 de vida máxima', dmg: '+1 de daño del disparo', pact: '−1 de vida máxima… a cambio de esto' }[e.pick], '#bf5af2', false, 2); G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); break;
+      case 'weak': fx.notice('🩸 Estás demasiado débil para un pacto', '#ff2d55'); break;
+      case 'offer': G.mode = 'pecioShop'; ui.showPecioOffer(s); sfx.chest(); break;
+      case 'equip': fx.notice(`${itemIcon(e.item)} ${itemName(e.item)} equipado`, RARITY[e.item.tier].color); sfx.milestone(); break;
+      case 'left': fx.notice('Lo dejas en el suelo', '#c8d6e5'); break;
+      case 'drop': if (e.kind === 'item') { fx.notice('✨ ¡Botín en el suelo!', '#ffcc00'); sfx.chest(); } break;
+      case 'pickup': fx.notice(`${CONS[e.cons].icon} +1 ${CONS[e.cons].name}`, '#7df9ff'); sfx.coin(3); break;
+      case 'bagFull': fx.notice(`${CONS[e.cons].icon} Ya llevas 3`, '#ff9f0a'); break;
+      case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
+      case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
+      case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
+      case 'mimic': fx.banner('😈 ¡MÍMICO!', 'el cofre muerde: véncelo y suelta su botín', '#ffcc00', true, 1.8); fx.shake(14); sfx.alarm?.(); break;
+      case 'secret': fx.banner('💎 ¡SALA OCULTA!', 'la pared agrietada escondía una puerta', '#7df9ff', true, 2); sfx.milestone(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.8, t: 0.4, max: 0.4 }); break;
+      case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5'); break;
+      case 'switch': fx.notice('🔌 Suelo eléctrico apagado', '#ffe600'); sfx.milestone(); break;
       case 'boom': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: e.r, t: 0.35, max: 0.35 }); sfx.boom(); fx.shake(e.mine ? 6 : 10); break;
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
@@ -112,7 +162,9 @@ function finish(s) {
   if (s.won) save.pecio.wins = (save.pecio.wins || 0) + 1;
   progress('pecioDepth', s.depth);
   persist();
-  s.result = { won: s.won, depth: Math.min(s.depth, 9), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best };
+  const gear = {};
+  for (const k of SLOTS) if (s.player.gear[k]) gear[k] = s.player.gear[k];
+  s.result = { won: s.won, depth: Math.min(s.depth, 9), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best };
   G.mode = 'pecioEnd';
   s.endT = s.won ? 1.6 : 1.1;
   musicStop();
@@ -139,10 +191,17 @@ export function updatePecio(dt) {
 // (tests) el bot juega `sec` segundos
 export function pecioBotSteps(sec = 1) {
   const s = P();
-  for (let t = 0; t < sec && s && G.mode === 'pecio'; t += 1 / 30) {
+  for (let t = 0; t < sec && s && (G.mode === 'pecio' || G.mode === 'pecioShop'); t += 1 / 30) {
+    // las pantallas que se abren solas (botín, tienda, altar): el bot elige o las cierra
+    if (G.mode === 'pecioShop') {
+      if (s.offer) pecioTakeOffer(botOffer(s));
+      else { G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); }
+      continue;
+    }
     const inp = botInput(s);
     if (inp.ability) pecioAbility();
     if (inp.dash) pecioDash();
+    if (inp.cons) pecioUseCons(inp.cons);
     pecioStep(1 / 30, inp);
   }
   return s && { depth: s.depth, at: s.at, hp: s.player.hp, over: s.over, mode: G.mode, kills: s.kills };

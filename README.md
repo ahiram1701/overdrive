@@ -247,6 +247,10 @@ El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con 
 - **Enemigos, siempre avisan:** Dron (te persigue y embiste), Torreta (marca en rojo la línea del láser y dispara un instante después: apártate), Bomba (corre hacia ti, parpadea y estalla alrededor), Escudo (para lo que le llega de frente y gira despacio: rodéalo).
 - **9 plantas** en 3 ambientes: Pecio de carga, Estación médica y Reactor. Minimapa arriba a la derecha.
 - **🔩 Piezas**, su moneda propia (solo de Pecios): si caes te llevas más cuanto más hondo llegaste; si sales, todas.
+- **🎁 Botín con rareza** (<span>común · raro · épico · legendario</span>): **arma** (🔱 Abanico, 🗡️ Perforador, 🪃 Rebote, 💥 Estallido, 🔥 Ráfaga: cambian tu disparo), **blindaje** (vida máxima y, los buenos, escudo al entrar en cada sala) y **2 módulos** (🩸 Sanguijuela, 🗝️ Llavero, 🔍 Escáner, 🧲 Imán, 💨 Reflejos, 🔋 Sobrecarga). Caen de enemigos, cofres y mímicos; al tocarlos ves **lo nuevo frente a lo que llevas** y eliges (lo que sueltas queda en el suelo). Más hondo, mejor botín.
+- **🎒 Mochila** (hasta 3 de cada, con su botón): 🧰 Kit de reparación, 📡 Pulso EMP (aturde a toda la sala) y 🌀 Teletransporte (a la entrada de la planta).
+- **Explorar:** algunos cofres son **😈 mímicos** (muerden y cierran la sala, pero sueltan buen botín; el 🔍 Escáner los delata). Las **paredes agrietadas** esconden una **💎 sala oculta**: embístelas con 💨. En las salas de trampas, el **🔌 interruptor** apaga el suelo eléctrico. La tienda vende consumibles y la 📦 caja misteriosa; el altar ofrece también un 🩸 **pacto** (−1 de vida máxima por un objeto épico o mejor).
+- **🔐 Bóveda** (150 🔩, para siempre): al acabar una partida guardas 1 objeto y empiezas la siguiente con él puesto.
 
 ## 🗺️ Modo EXPEDICIÓN
 El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).
