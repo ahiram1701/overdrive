@@ -247,3 +247,39 @@ test('pecios P2: botín con su pantalla, mochila desde su botón y la bóveda en
   expect(await page.evaluate(() => ({ pl: window.G.pecio.player.gear.plating?.slot, vault: window.__save.pecio.vault }))).toEqual({ pl: 'plating', vault: null });
   expect(errors).toEqual([]);
 });
+
+test('pecios P3: el taller mejora la nave al empezar, y tras la planta 9 se elige seguir en el modo sin fin', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript(([k]) => { if (sessionStorage.getItem('s')) return; sessionStorage.setItem('s', '1'); localStorage.setItem(k, JSON.stringify({ v: 6, runs: 5, settings: { sound: false }, pecio: { best: 3, runs: 2, piezas: 500, wins: 0, vault: null, vaultOpen: false } })); }, [SAVE]);
+  await page.goto('/?debug&nosw&seed=7');
+  await page.waitForFunction(() => !!window.G);
+  await page.locator('#btnPecio').click();
+  // taller: casco (+1 vida) y llavero (1 llave)
+  await page.locator('[data-pup="hull"]').click();
+  await page.locator('[data-pup="keys"]').click();
+  expect(await page.evaluate(() => ({ up: window.__save.pecioUp, piezas: window.__save.pecio.piezas }))).toEqual({ up: { hull: 1, keys: 1 }, piezas: 400 });
+  const base = await page.evaluate(async () => {
+    const { SHIPS } = await import('/js/upgrades.js');
+    const { SHIP_ARENA } = await import('/js/arenaData.js');
+    const ship = SHIPS.find((x) => x.id === window.__save.ship) || SHIPS[0];
+    return 6 + Math.round(((SHIP_ARENA[ship.id]?.hp || 100) - 100) / 25);
+  });
+  await page.locator('#btnPecioPlay').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(await page.evaluate(() => ({ max: window.G.pecio.player.max, keys: window.G.pecio.player.keys }))).toEqual({ max: base + 1, keys: 1 });
+  // planta 9 con la escotilla a los pies: sale la elección
+  await page.evaluate(() => {
+    const s = window.G.pecio;
+    s.depth = 9;
+    const room = s.rooms[s.at];
+    room.enemies = [];
+    room.tiles[5][4] = 'X';
+    Object.assign(s.player, { x: 4.5, y: 5.5 });
+  });
+  await expect(page.locator('#psTitle')).toHaveText('🏆 ¡PLANTA 9 SUPERADA!');
+  await page.locator('[data-exit="continue"]').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(await page.evaluate(() => ({ depth: window.G.pecio.depth, endless: window.G.pecio.endless }))).toEqual({ depth: 10, endless: true });
+  expect(await page.evaluate(() => window.__save.ach.pecioWin?.done)).toBe(true);
+  expect(errors).toEqual([]);
+});

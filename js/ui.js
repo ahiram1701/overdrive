@@ -21,9 +21,9 @@ import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
-import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST } from './pecioGame.js';
+import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, itemIcon, itemName, itemLines, currentFor } from './pecioLoot.js';
-import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS } from './pecio.js';
+import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -2175,12 +2175,43 @@ export const ui = {
     setText('phPiezas', fmt(P.piezas || 0));
     $('phInfo').innerHTML = `
       <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
-      <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
+      <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
       <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
       <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>
+      <div class="gi-block"><h3>💀 Jefes (cada 3 plantas)</h3>${Object.values(BOSSES).map((b, i) => `<div class="gi-row"><span style="color:${b.color}">■ ${b.name}</span><small>planta ${(i + 1) * 3}: ${b.tip}</small></div>`).join('')}<small>Tras la planta 9 eliges: salir con todo o seguir en el ♾️ modo sin fin.</small></div>
+      <div class="gi-block"><h3>🛠️ Taller</h3><small>Mejoras para siempre, con 🔩.</small><div id="phWorkshop" class="ps-items"></div></div>
       <div class="gi-block"><h3>🔐 Bóveda</h3><div id="phVault"></div></div>`;
     ui.renderPecioVault();
+    ui.renderPecioWorkshop();
     show('pecioHub');
+  },
+  renderPecioWorkshop() {
+    const box = $('phWorkshop');
+    if (!box) return;
+    box.innerHTML = '';
+    for (const w of WORKSHOP) {
+      const lv = workshopLevel(save.pecioUp, w.id), c = workshopCost(save.pecioUp, w.id), max = c === null;
+      const b = el('button', `st-up${!max && save.pecio.piezas >= c ? ' afford' : ''}${max ? ' maxed' : ''}`, `<span class="su-icon">${w.icon}</span><span class="su-body"><b>${w.name} <small>${'●'.repeat(lv)}${'○'.repeat(w.cost.length - lv)}</small></b><small>${w.desc(Math.max(1, max ? lv : lv + 1))}</small></span><span class="su-cost">${max ? 'MÁX' : `${c} 🔩`}</span>`);
+      b.dataset.pup = w.id;
+      tap(b, () => { if (pecioWorkshopBuy(w.id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } });
+      box.append(b);
+    }
+  },
+  // PLANTA 9 superada: salir con todo o seguir en el modo sin fin
+  showPecioExit(s) {
+    ui.showPecioHUD(false);
+    setText('psTitle', '🏆 ¡PLANTA 9 SUPERADA!');
+    $('psText').innerHTML = `Llevas <b>${s.player.piezas} 🔩</b>. Ya cuenta como victoria: si sigues, ya no pierdes 🔩 al caer.`;
+    $('btnPecioShopClose').classList.add('hidden');
+    const box = $('psItems');
+    box.innerHTML = '';
+    for (const [pick, icon, name, desc] of [['leave', '🚀', 'SALIR', 'te llevas todas las 🔩'], ['continue', '♾️', 'SEGUIR', 'modo sin fin: los jefes vuelven, más duros; ¿hasta qué planta llegas?']]) {
+      const b = el('button', 'st-up afford', `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span>`);
+      b.dataset.exit = pick;
+      tap(b, () => pecioChooseExit(pick));
+      box.append(b);
+    }
+    show('pecioShop');
   },
   renderPecioVault() {
     const P = save.pecio, box = $('phVault');
@@ -2283,10 +2314,10 @@ export const ui = {
     show('pecioShop');
   },
   showPecioEnd(r) {
-    setText('peTitle', r.won ? '🏆 ¡HAS SALIDO!' : 'DESTRUIDO');
-    $('peTitle').className = r.won ? 'won' : 'dead';
+    setText('peTitle', r.won ? '🏆 ¡HAS SALIDO!' : r.endless ? '♾️ FIN DEL VIAJE' : 'DESTRUIDO');
+    $('peTitle').className = r.won || r.endless ? 'won' : 'dead';
     setText('peDepth', `PLANTA ${r.depth}`);
-    $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
+    $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Jefes', r.bosses || 0], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>`;
     // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
     const vb = $('peVault');
