@@ -192,3 +192,58 @@ for (const vp of [{ width: 320, height: 568 }, { width: 360, height: 640 }]) {
     }
   });
 }
+
+test('pecios P2: botín con su pantalla, mochila desde su botón y la bóveda entre partidas', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startPecio(page, { pecio: { best: 2, runs: 1, piezas: 300, wins: 0, vault: null, vaultOpen: false } });
+  // un objeto legendario en el suelo, justo delante: al tocarlo se abre la pantalla de comparar
+  await page.evaluate(async () => {
+    const { genItem } = await import('/js/pecioLoot.js');
+    const { makeRng } = await import('/js/rng.js');
+    const s = window.G.pecio;
+    s.rooms[s.at].pickups.push({ id: 'x', kind: 'item', item: genItem(makeRng(5), 9, { slot: 'weapon', minTier: 3 }), x: s.player.x, y: s.player.y - 0.2 });
+    s.player.bag.kit = 1;
+    s.player.hp = 2;
+  });
+  await expect(page.locator('#pecioShop')).toBeVisible();
+  await expect(page.locator('#psTitle')).toHaveText('🎁 BOTÍN');
+  await expect(page.locator('#pecioHud')).toBeHidden(); // los botones de la partida no tapan los de la pantalla
+  await page.locator('[data-offer="equip"]').click();
+  await expect(page.locator('#pecioShop')).toBeHidden();
+  expect(await page.evaluate(() => ({ w: window.G.pecio.player.gear.weapon?.tier, mode: window.G.mode }))).toEqual({ w: 3, mode: 'pecio' });
+  await expect(page.locator('#pcGear .pg-it')).toHaveCount(1);
+  // la mochila: su botón usa el kit
+  await page.locator('[data-cons="kit"]').click();
+  expect(await page.evaluate(() => window.G.pecio.player.hp)).toBe(5);
+  // fin de la partida (sin bóveda abierta: solo el aviso)
+  await page.evaluate(() => { const s = window.G.pecio; s.player.hp = 1; s.player.inv = 0; s.rooms[s.at].wake = 0; s.rooms[s.at].enemies = [{ id: 'k', kind: 'drone', x: s.player.x + 0.6, y: s.player.y, ang: 0, hp: 999, max: 999, r: 0.32, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true }]; s.player.shield = 0; });
+  await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('#peVault')).toContainText('Abre la bóveda');
+  // abrir la bóveda en el menú de Pecios (150 🔩)
+  await page.locator('#btnPecioMenu').click();
+  await page.locator('#btnPecioVault').click();
+  expect(await page.evaluate(() => window.__save.pecio.vaultOpen)).toBe(true);
+  // otra partida: equipar y caer; ahora sí se guarda en la bóveda
+  await page.locator('#btnPecioPlay').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  await page.evaluate(async () => {
+    const { genItem } = await import('/js/pecioLoot.js');
+    const { makeRng } = await import('/js/rng.js');
+    const { pecioTakeOffer } = await import('/js/pecioGame.js');
+    const s = window.G.pecio;
+    s.offer = { item: genItem(makeRng(9), 9, { slot: 'plating', minTier: 2 }), pk: null };
+    pecioTakeOffer('equip');
+    s.player.hp = 1; s.player.inv = 0; s.rooms[s.at].wake = 0;
+    s.player.shield = 0;
+    s.rooms[s.at].enemies = [{ id: 'k', kind: 'drone', x: s.player.x + 0.6, y: s.player.y, ang: 0, hp: 999, max: 999, r: 0.32, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true }];
+  });
+  await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 8000 });
+  await page.locator('[data-vault="plating"]').click();
+  await expect(page.locator('#peVault')).toContainText('Guardado');
+  expect(await page.evaluate(() => window.__save.pecio.vault?.slot)).toBe('plating');
+  // la siguiente partida empieza con él puesto, y la bóveda queda vacía
+  await page.locator('#btnPecioRetry').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(await page.evaluate(() => ({ pl: window.G.pecio.player.gear.plating?.slot, vault: window.__save.pecio.vault }))).toEqual({ pl: 'plating', vault: null });
+  expect(errors).toEqual([]);
+});

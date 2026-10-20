@@ -21,8 +21,9 @@ import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
-import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray } from './pecioGame.js';
-import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost } from './pecio.js';
+import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST } from './pecioGame.js';
+import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, itemIcon, itemName, itemLines, currentFor } from './pecioLoot.js';
+import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -93,6 +94,12 @@ function el(tag, cls, html) {
 
 // ¿Hay un diálogo abierto que pausa la partida? Se cura solo: si el diálogo ya no se ve (otra
 // pantalla lo tapó), deja de pausar, así la partida nunca se queda congelada sin él.
+// Tarjeta de un objeto de Pecios (icono, nombre, rareza y lo que hace)
+function lootCard(it) {
+  const R = LOOT_RAR[it.tier];
+  return `<div class="loot-card" style="--rc:${R.color}"><span class="lc-icon">${itemIcon(it)}</span><b>${itemName(it)}</b><small class="lc-rar">${R.name}</small>${itemLines(it).map((l) => `<small>${l}</small>`).join('')}</div>`;
+}
+
 export function dialogPaused() {
   if (G.dialogPause && $('dialog').classList.contains('hidden')) G.dialogPause = false;
   return !!G.dialogPause;
@@ -2169,8 +2176,22 @@ export const ui = {
     $('phInfo').innerHTML = `
       <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
       <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
-      <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>`;
+      <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
+      <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>
+      <div class="gi-block"><h3>🔐 Bóveda</h3><div id="phVault"></div></div>`;
+    ui.renderPecioVault();
     show('pecioHub');
+  },
+  renderPecioVault() {
+    const P = save.pecio, box = $('phVault');
+    if (!box) return;
+    if (!P.vaultOpen) {
+      box.innerHTML = `<small>Guarda 1 objeto al acabar una partida y empiezas la siguiente con él puesto.</small>`;
+      const b = el('button', `st-up${P.piezas >= VAULT_COST ? ' afford' : ''}`, `<span class="su-icon">🔐</span><span class="su-body"><b>Abrir la bóveda</b><small>para siempre</small></span><span class="su-cost">${VAULT_COST} 🔩</span>`);
+      b.id = 'btnPecioVault';
+      tap(b, () => { if (pecioVaultUnlock()) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioVault(); } });
+      box.append(b);
+    } else box.innerHTML = P.vault ? `<small>Guardado para la próxima partida:</small>${lootCard(P.vault)}` : '<small>Vacía. Al acabar una partida, elige qué objeto guardar.</small>';
   },
   showPecioHUD(on) {
     $('pecioHud').classList.toggle('hidden', !on);
@@ -2191,13 +2212,53 @@ export const ui = {
     const AB = PECIO_AB[p.ability] || PECIO_AB.phase;
     setText('pcAbTxt', p.abCd > 0 ? `${Math.ceil(p.abCd)} s` : AB.name.toUpperCase());
     tgl($h('pcAbility'), 'cool', p.abCd > 0);
+    // equipo (iconos con el color de su rareza) y mochila (un botón por consumible que lleves): solo si cambian
+    const sig = SLOTS.map((k) => p.gear[k]?.id || '-').join() + '|' + CONS_KEYS.map((k) => p.bag[k]).join();
+    if (s.hudSig !== sig) {
+      s.hudSig = sig;
+      $('pcGear').innerHTML = SLOTS.filter((k) => p.gear[k]).map((k) => `<span class="pg-it" style="--rc:${LOOT_RAR[p.gear[k].tier].color}" title="${itemName(p.gear[k])}">${itemIcon(p.gear[k])}</span>`).join('');
+      const bar = $('pcBagBar');
+      bar.innerHTML = '';
+      for (const k of CONS_KEYS) {
+        if (!p.bag[k]) continue;
+        const b = el('button', 'pc-cons', `<span>${CONS[k].icon}</span><b>${p.bag[k]}</b>`);
+        b.dataset.cons = k;
+        b.setAttribute('aria-label', CONS[k].name);
+        tap(b, () => pecioUseCons(k));
+        bar.append(b);
+      }
+    }
+  },
+  // BOTÍN: lo nuevo frente a lo que llevas, y elegir
+  showPecioOffer(s) {
+    const it = s.offer.item, p = s.player, cur = currentFor(p, it);
+    setText('psTitle', '🎁 BOTÍN');
+    $('psText').innerHTML = `<b style="color:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`;
+    const box = $('psItems');
+    box.innerHTML = `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>`;
+    const opts = it.slot === 'mod' && p.gear.mod1 && p.gear.mod2
+      ? [['mod1', `CAMBIAR POR ${itemIcon(p.gear.mod1)} ${itemName(p.gear.mod1).toUpperCase()}`], ['mod2', `CAMBIAR POR ${itemIcon(p.gear.mod2)} ${itemName(p.gear.mod2).toUpperCase()}`]]
+      : [['equip', cur ? 'CAMBIAR' : 'EQUIPAR']];
+    for (const [choice, txt] of [...opts, ['leave', 'DEJARLO EN EL SUELO']]) {
+      const b = el('button', `btn${choice === 'leave' ? ' ghost' : ''}`, txt);
+      b.dataset.offer = choice;
+      tap(b, () => pecioTakeOffer(choice));
+      box.append(b);
+    }
+    ui.showPecioHUD(false); // los botones de la partida no tapan los de esta pantalla
+    $('btnPecioShopClose').classList.add('hidden'); // hay que elegir
+    show('pecioShop');
   },
   showPecioShop(s) {
     setText('psTitle', '🛒 TIENDA DEL PECIO');
     setText('psText', `Tienes ${s.player.piezas} 🔩 de esta partida.`);
+    ui.showPecioHUD(false); // los botones de la partida no tapan los de esta pantalla
+    $('btnPecioShopClose').classList.remove('hidden');
     const box = $('psItems');
     box.innerHTML = '';
-    for (const [item, icon, name, desc] of [['repair', '🧰', 'Reparación', '+3 de vida'], ['key', '🗝️', 'Llave', 'abre un cofre']]) {
+    const INFO = { repair: ['🔧', 'Reparación', '+3 de vida ahora'], key: ['🗝️', 'Llave', 'abre un cofre'], box: ['📦', 'Caja misteriosa', 'un objeto, al menos raro'] };
+    for (const item of SHOP_ITEMS) {
+      const [icon, name, desc] = INFO[item] || [CONS[item].icon, CONS[item].name, `${CONS[item].desc} · llevas ${s.player.bag[item]}/3`];
       const c = shopCost(s, item);
       const b = el('button', `st-up${s.player.piezas >= c ? ' afford' : ''}`, `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">${c} 🔩</span>`);
       b.dataset.buy = item;
@@ -2208,10 +2269,12 @@ export const ui = {
   },
   showPecioShrine() {
     setText('psTitle', '✨ ALTAR');
+    ui.showPecioHUD(false); // los botones de la partida no tapan los de esta pantalla
     setText('psText', 'Una luz antigua te ofrece una bendición. Solo una.');
+    $('btnPecioShopClose').classList.remove('hidden');
     const box = $('psItems');
     box.innerHTML = '';
-    for (const [pick, icon, name, desc] of [['hp', '❤️', 'Vitalidad', '+2 de vida máxima'], ['dmg', '⚡', 'Potencia', '+1 de daño del disparo']]) {
+    for (const [pick, icon, name, desc] of [['hp', '❤️', 'Vitalidad', '+2 de vida máxima'], ['dmg', '⚡', 'Potencia', '+1 de daño del disparo'], ['pact', '🩸', 'Pacto', '−1 de vida máxima a cambio de un objeto épico o mejor']]) {
       const b = el('button', 'st-up afford', `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">ELEGIR</span>`);
       b.dataset.pray = pick;
       tap(b, () => pecioPray(pick));
@@ -2225,6 +2288,23 @@ export const ui = {
     setText('peDepth', `PLANTA ${r.depth}`);
     $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
     $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>`;
+    // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
+    const vb = $('peVault');
+    vb.innerHTML = '';
+    const kept = Object.entries(r.gear || {});
+    if (kept.length && save.pecio.vaultOpen) {
+      vb.innerHTML = `<small>🔐 Guarda 1 objeto en la bóveda para la próxima partida${save.pecio.vault ? ' (sustituye al que hay)' : ''}:</small>`;
+      const row = el('div', 'pe-vault-row', '');
+      for (const [slot, it] of kept) {
+        const b = el('button', 'pg-it big', itemIcon(it));
+        b.style.setProperty('--rc', LOOT_RAR[it.tier].color);
+        b.dataset.vault = slot;
+        b.title = itemName(it);
+        tap(b, () => { if (pecioVaultStore(slot)) vb.innerHTML = `<small>🔐 Guardado: ${itemIcon(it)} ${itemName(it)} (${LOOT_RAR[it.tier].name})</small>`; });
+        row.append(b);
+      }
+      vb.append(row);
+    } else if (kept.length) vb.innerHTML = `<small>🔐 Abre la bóveda en el menú de Pecios (${VAULT_COST} 🔩) para guardar un objeto entre partidas.</small>`;
     show('pecioEnd');
   },
 
@@ -2326,7 +2406,7 @@ export const ui = {
     if (G.mode === 'pecio') {
       G.mode = 'pecioPaused';
       musicDuck(true);
-      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>`;
+      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>` + SLOTS.filter((k) => G.pecio.player.gear[k]).map((k) => lootCard(G.pecio.player.gear[k])).join('');
       show('pause');
       return;
     }
