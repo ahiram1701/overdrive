@@ -209,3 +209,30 @@ test('patrones de pintura y estilo del emblema', () => {
   assert.equal(equipped(again, 'viper').emblemColor, 'cyan');
   assert.equal(equipped(again, 'brick').emblemAt, 'alas', 'por nave');
 });
+
+test('en cada nave, nada se ve igual con distinto nombre: colores distinguibles y nombres únicos', async () => {
+  const { itemsFor, lookGap, GROUPS } = await import('../../js/cosmetics.js');
+  const { SHIPS } = await import('../../js/upgrades.js');
+  for (const ship of SHIPS.map((x) => x.id)) {
+    for (const g of ['palette', 'engine', 'shot', 'stripe', 'cockpit', 'aura']) {
+      const it = itemsFor(g, ship);
+      for (let i = 0; i < it.length; i++) {
+        for (let j = i + 1; j < it.length; j++) {
+          const d = lookGap(g, it[i], it[j]);
+          assert.ok(d >= 90, `${ship} · ${g}: «${it[i].name}» y «${it[j].name}» se parecen demasiado (${d.toFixed(0)})`);
+        }
+      }
+    }
+    for (const g of Object.keys(GROUPS)) {
+      const names = itemsFor(g, ship).map((x) => x.name);
+      assert.equal(new Set(names).size, names.length, `${ship} · ${g}: nombres repetidos`);
+    }
+  }
+});
+
+test('los estilos de logro conservan su id (nadie pierde lo que tenía)', async () => {
+  const { ACH_STYLES, achStyle } = await import('../../js/cosmetics.js');
+  const { ACHIEVEMENTS } = await import('../../js/progress.js');
+  assert.equal(ACH_STYLES.length, ACHIEVEMENTS.length);
+  for (const a of ACHIEVEMENTS) assert.equal(achStyle(a.id)?.id, `ach-${a.id}`);
+});

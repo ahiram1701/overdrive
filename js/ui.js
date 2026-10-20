@@ -94,6 +94,16 @@ function el(tag, cls, html) {
 
 // ¿Hay un diálogo abierto que pausa la partida? Se cura solo: si el diálogo ya no se ve (otra
 // pantalla lo tapó), deja de pausar, así la partida nunca se queda congelada sin él.
+// HANGAR · ESTILO: filtro de la lista (recordado en el dispositivo; si no hay almacenamiento, "todo")
+const COS_FILTERS = [['all', 'TODO'], ['mine', 'MÍO'], ['locked', 'POR CONSEGUIR']];
+let cosFilterMem = 'all';
+function cosFilter(v) {
+  if (v) { cosFilterMem = v; try { localStorage.setItem('od-cos-filter', v); } catch { /* sin almacenamiento */ } return v; }
+  try { cosFilterMem = localStorage.getItem('od-cos-filter') || cosFilterMem; } catch { /* sin almacenamiento */ }
+  return COS_FILTERS.some(([k]) => k === cosFilterMem) ? cosFilterMem : 'all';
+}
+const TRAIL_ICON = { sparks: '✨', ribbon: '🎀', pixels: '👾', rainbow: '🌈', comet: '☄️', smoke: '💨', lightning: '⚡', prism: '🔮' };
+const BOOM_ICON = { classic: '💥', pixel: '🧱', confetti: '🎊', supernova: '🌟', glitch: '📺', blackhole: '🕳️', fireworks: '🎆', singularity: '🌀' };
 // Tarjeta de un objeto de Pecios (icono, nombre, rareza y lo que hace)
 function lootCard(it) {
   const R = LOOT_RAR[it.tier];
@@ -647,24 +657,37 @@ export const ui = {
     const groups = [['palette', '🎨 Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['stripe', '🏁 Rayas'], ['cockpit', '🪟 Cabina'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
+    // FILTRO: todo, lo que ya puedes usar o lo que te falta (se recuerda en este dispositivo)
+    const filt = cosFilter();
+    const seg = el('div', 'seg cos-filter', COS_FILTERS.map(([k, name]) => `<button data-f="${k}" class="${filt === k ? 'on' : ''}">${name}</button>`).join(''));
+    for (const b of seg.querySelectorAll('button')) tap(b, () => { cosFilter(b.dataset.f); ui.showHangar(); });
+    cosm.appendChild(seg);
     for (const [g, label] of groups) {
-      const row = el('div', 'cos-row', `<small>${label}</small>`);
+      const all = itemsFor(g, view.id), isOpen = (it) => isUnlocked(it, save, view.id);
+      const mine = all.filter(isOpen).length;
+      // orden: lo equipado, luego lo tuyo y al final lo bloqueado
+      const rank = (it) => (eq[g].id === it.id ? 0 : isOpen(it) ? 1 : 2);
+      const list = all.map((it, k) => [it, k]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([it]) => it)
+        .filter((it) => filt === 'all' || (filt === 'mine' ? isOpen(it) : !isOpen(it)) || eq[g].id === it.id);
+      const row = el('div', 'cos-row', `<small>${label} <i class="cos-count">${mine}/${all.length}</i></small>`);
       const chips = el('div', 'cos-chips');
       chips.dataset.group = g;
-      for (const it of itemsFor(g, view.id)) {
-        const open = isUnlocked(it, save, view.id);
+      for (const it of list) {
+        const open = isOpen(it);
         const on = eq[g].id === it.id;
         const trying = pv && pv.group === g && pv.id === it.id;
         let icon = '';
-        if (g === 'palette') {
-          const fill = it.alt ? `linear-gradient(90deg, ${it.hull} 50%, ${it.alt} 50%)` : it.hull;
-          icon = `<i style="background:${fill};box-shadow:0 0 0 2px ${it.edge || view.color}"></i>`;
+        if (g === 'palette') { // casco (y su segundo color), borde y brillo: las 3 a la vista
+          const e = it.edge || view.color;
+          const fill = it.alt ? `linear-gradient(135deg, ${it.hull} 0 26%, ${it.alt} 26% 46%, ${e} 46% 68%, ${it.glow} 68%)` : `linear-gradient(135deg, ${it.hull} 0 40%, ${e} 40% 66%, ${it.glow} 66%)`;
+          icon = `<i class="sw-pal" style="background:${fill}"></i>`;
         }
+        if (g === 'trail' || g === 'boom') icon = `<i class="sw-emo">${(g === 'trail' ? TRAIL_ICON : BOOM_ICON)[it.id] || '✨'}</i>`;
         if (g === 'stripe') icon = it.style === 'none' ? '<i class="sw-stripe none"></i>' : `<i class="sw-stripe s-${it.style}" style="--c:${it.color}"></i>`;
         if (g === 'cockpit') icon = `<i class="sw-cockpit" style="--c:${it.color || '#7df9ff'}"></i>`;
         if (g === 'engine' || g === 'shot' || g === 'aura') {
           const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : g === 'shot' ? DEFAULT_SHOT : 'transparent');
-          icon = `<i class="sw-${g}" style="--c:${c0}"></i>`;
+          icon = `<i class="sw-${g}${it.id === 'a-rainbow' ? ' rainbow' : ''}" style="--c:${c0}"></i>`;
         }
         if (g === 'emblem') {
           const d = emblemPath(it.id);
@@ -691,6 +714,7 @@ export const ui = {
         });
         chips.appendChild(c);
       }
+      if (!list.length) chips.appendChild(el('small', 'cos-empty', filt === 'mine' ? 'Aún no tienes ninguno' : '¡Los tienes todos!'));
       row.appendChild(chips);
       cosm.appendChild(row);
       if (g === 'emblem' && eq.emblem.id !== 'none' && owned) {
@@ -742,7 +766,7 @@ export const ui = {
     const dots = {
       nave: !owned && save.gems >= view.cost,
       mejoras: treeBuy,
-      estilo: false,
+      estilo: owned && ['palette', 'engine', 'trail', 'aura', 'shot', 'stripe', 'cockpit', 'boom', 'emblem'].some((g) => itemsFor(g, view.id).some((it) => it.unlock?.gems && !isUnlocked(it, save, view.id) && save.gems >= it.unlock.gems)),
       galaxia: Object.keys(SP_UP).some((k) => { const c = spUpCost(k, save.galaxy.up[k] || 0); return c !== null && save.galaxy.credits >= c; }),
     };
     for (const b of $('hTabs').querySelectorAll('button')) {

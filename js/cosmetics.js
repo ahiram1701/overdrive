@@ -33,15 +33,15 @@ export const PALETTES = [
   { id: 'x-ghost2', name: 'Espectro', hull: '#0d0618', edge: '#e0d0ff', glow: '#9d7bff', ...X('ghost', 'bosses', 5) },
   { id: 'x-nova1', name: 'Púlsar', hull: '#0a0420', edge: '#ff4fd8', glow: '#7df9ff', ...X('nova', 'sections', 30) },
   { id: 'x-nova2', name: 'Gigante roja', hull: '#200402', edge: '#ff3b1f', glow: '#ffcc00', ...X('nova', 'bosses', 5) },
-  { id: 'x-kaiju1', name: 'Magma', hull: '#1a0500', edge: '#ff5a00', glow: '#ffd60a', ...X('kaiju', 'sections', 30) },
+  { id: 'x-kaiju1', name: 'Magma', hull: '#2a0300', edge: '#ff2d00', glow: '#ff8a00', ...X('kaiju', 'sections', 30) },
   { id: 'x-kaiju2', name: 'Fósil', hull: '#2a2418', edge: '#e8dcc0', glow: '#9cff6a', ...X('kaiju', 'bosses', 5) },
   { id: 'x-raptor1', name: 'Camuflaje', hull: '#121a0c', edge: '#8fbf4a', glow: '#ffd60a', ...X('raptor', 'sections', 30) },
   { id: 'x-raptor2', name: 'Depredador', hull: '#1a0000', edge: '#ff1744', glow: '#ff8a80', ...X('raptor', 'bosses', 5) },
   { id: 'x-comet1', name: 'Cola de hielo', hull: '#04121e', edge: '#7fd8ff', glow: '#ffffff', ...X('comet', 'sections', 30) },
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
   // MAESTRÍA: una por nave, al completar su árbol entero
-  ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#30d158'], ['raptor', '#ff9f0a'],
-    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d'], ['falcon', '#7dffb0'], ['chimera', '#ff4fd8'], ['wanderer', '#c58cff'], ['centella', '#ff2d55'], ['gladiador', '#ff9f0a'], ['carronero', '#8fd14f']].map(([ship, c]) => (
+  ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#00ff9c'], ['raptor', '#ff9f0a'],
+    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff3d8a'], ['falcon', '#7dffb0'], ['chimera', '#7dffea'], ['wanderer', '#c58cff'], ['centella', '#ff2d55'], ['gladiador', '#b8c4d6'], ['carronero', '#8fd14f']].map(([ship, c]) => (
     { id: `m-${ship}`, name: 'Maestro', hull: '#0a0a0a', alt: '#2a2000', pattern: 'fade', edge: c, glow: '#ffd60a', ship, unlock: { mastery: ship } })),
   // de FACCIÓN (se compran con créditos en sus estaciones al ser Amigo/Aliado)
   { id: 'f-liga', name: 'Liga Minera', hull: '#061a0a', alt: '#2a2400', pattern: 'stripes', edge: '#30d158', glow: '#ffd60a', unlock: { faction: 'liga' } },
@@ -54,17 +54,17 @@ export const PALETTES = [
   { id: 'x-manta2', name: 'Coral', hull: '#1e0610', edge: '#ff7aa8', glow: '#ffd1e0', ...X('manta', 'bosses', 5) },
   { id: 'x-spectra1', name: 'Tormenta', hull: '#0c0c18', edge: '#fff04a', glow: '#ffffff', ...X('spectra', 'sections', 30) },
   { id: 'x-spectra2', name: 'Prisma roto', hull: '#140020', edge: '#7df9ff', glow: '#ff2bd6', ...X('spectra', 'bosses', 5) },
-  { id: 'x-titan1', name: 'Forja', hull: '#1a0c04', edge: '#ff8c3d', glow: '#ffd60a', ...X('titan', 'sections', 30) },
-  { id: 'x-titan2', name: 'Obsidiana', hull: '#050505', edge: '#9a9aa8', glow: '#ff3b30', ...X('titan', 'bosses', 5) },
-  { id: 'x-falcon1', name: 'Plumaje', hull: '#0a1a10', edge: '#7dffb0', glow: '#ffffff', ...X('falcon', 'sections', 30) },
+  { id: 'x-titan1', name: 'Forja', hull: '#1a0a04', edge: '#d9824a', glow: '#ff3d1f', ...X('titan', 'sections', 30) },
+  { id: 'x-titan2', name: 'Obsidiana', hull: '#08040f', edge: '#a87cff', glow: '#ff3b30', ...X('titan', 'bosses', 5) },
+  { id: 'x-falcon1', name: 'Plumaje', hull: '#0a1220', edge: '#d8ecff', glow: '#7fb8ff', ...X('falcon', 'sections', 30) },
   { id: 'x-falcon2', name: 'Peregrino', hull: '#1a1406', edge: '#ffcf6b', glow: '#7dffb0', ...X('falcon', 'bosses', 5) },
   { id: 'x-wanderer1', name: 'Polvo de estrellas', hull: '#0a0618', edge: '#c58cff', glow: '#ffffff', ...X('wanderer', 'sections', 30) },
   { id: 'x-wanderer2', name: 'Silencio', hull: '#000000', edge: '#7a5cff', glow: '#00e5ff', ...X('wanderer', 'bosses', 5) },
   { id: 'x-centella1', name: 'Rayo rojo', hull: '#1a0004', edge: '#ff2d55', glow: '#ffffff', ...X('centella', 'sections', 30) },
   { id: 'x-centella2', name: 'Meteoro', hull: '#140800', edge: '#ffb340', glow: '#ff2d55', ...X('centella', 'bosses', 5) },
   { id: 'x-gladiador1', name: 'Arena', hull: '#1a1006', edge: '#ffcf6b', glow: '#ff9f0a', ...X('gladiador', 'sections', 30) },
-  { id: 'x-gladiador2', name: 'Campeón', hull: '#0a0a0a', edge: '#ff9f0a', glow: '#ffe600', ...X('gladiador', 'bosses', 5) },
-  { id: 'x-carronero1', name: 'Óxido', hull: '#1a0e06', edge: '#c8743a', glow: '#8fd14f', ...X('carronero', 'sections', 30) },
+  { id: 'x-gladiador2', name: 'Campeón', hull: '#1a1200', alt: '#3a0006', pattern: 'split', edge: '#ffe14a', glow: '#ff3b30', ...X('gladiador', 'bosses', 5) },
+  { id: 'x-carronero1', name: 'Herrumbre', hull: '#1a0e06', edge: '#c8743a', glow: '#8fd14f', ...X('carronero', 'sections', 30) },
   { id: 'x-carronero2', name: 'Chatarra', hull: '#0c0c0c', edge: '#8e8e93', glow: '#8fd14f', ...X('carronero', 'bosses', 5) },
   { id: 'x-chimera1', name: 'Escamas', hull: '#1a0618', edge: '#ff4fd8', glow: '#ffe600', ...X('chimera', 'sections', 30) },
   { id: 'x-chimera2', name: 'Tres cabezas', hull: '#060a1a', edge: '#ff9f0a', glow: '#ff4fd8', ...X('chimera', 'bosses', 5) },
@@ -94,6 +94,7 @@ export const BOOMS = [
 
 // Emblemas: se dibujan sobre las alas (trazos vectoriales en shipdraw.js, no emoji). 'sil' es la
 // silueta de la propia nave: exclusivo de cada una.
+const SHIP_LABEL = { viper: 'Viper', brick: 'Brick', ghost: 'Ghost', nova: 'Nova', kaiju: 'Kaiju', raptor: 'Raptor', comet: 'Comet', manta: 'Manta', spectra: 'Spectra', titan: 'Titán', falcon: 'Falcon', chimera: 'Quimera', wanderer: 'Errante', centella: 'Centella', gladiador: 'Gladiador', carronero: 'Carroñero' };
 export const EMBLEMS = [
   { id: 'none', name: 'Ninguno' },
   { id: 'bolt', name: 'Rayo', unlock: { gems: 60 } },
@@ -104,7 +105,7 @@ export const EMBLEMS = [
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
   { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
-  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer', 'centella', 'gladiador', 'carronero'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
+  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer', 'centella', 'gladiador', 'carronero'].map((s) => ({ id: `sil-${s}`, name: `Insignia ${SHIP_LABEL[s] || s}`, ...X(s, 'runs', 20) })),
 ];
 
 // Color del motor (llama y estela). null = el brillo de la pintura
@@ -148,7 +149,7 @@ export const SHOTS = [
   { id: 's-orange', name: 'Naranja', color: '#ff9f0a', unlock: { gems: 60 } },
   { id: 's-lime', name: 'Lima', color: '#a6ff00', unlock: { rank: 15 } },
   { id: 'c-s-violet', name: 'Violeta', color: '#bf5af2', unlock: { crate: 'rare' } },
-  { id: 'c-s-plasma', name: 'Plasma', color: '#ff9f0a', unlock: { crate: 'epic' } },
+  { id: 'c-s-plasma', name: 'Plasma', color: '#7a5cff', unlock: { crate: 'epic' } },
 ];
 
 // RAYAS de carreras a lo largo del lomo y color de la CABINA (shipdraw los pinta en el casco)
@@ -159,7 +160,7 @@ export const STRIPES = [
   { id: 'st-double-y', name: 'Doble amarilla', style: 'double', color: '#ffe600', unlock: { gems: 90 } },
   { id: 'st-wide-c', name: 'Ancha cian', style: 'wide', color: '#00e5ff', unlock: { gems: 130 } },
   { id: 'st-wide-k', name: 'Ancha negra', style: 'wide', color: '#050508', unlock: { rank: 11 } },
-  { id: 'st-gold', name: 'Filete de oro', style: 'double', color: '#ffd60a', unlock: { crate: 'epic' } },
+  { id: 'st-gold', name: 'Filete de oro', style: 'single', color: '#ffd60a', unlock: { crate: 'epic' } },
 ];
 export const COCKPITS = [
   { id: 'ck-stock', name: 'De serie', color: null },
@@ -171,28 +172,76 @@ export const COCKPITS = [
 ];
 
 // ---------- ESTILOS DE LOGRO: cada logro desbloquea uno propio (para todas las naves) ----------
-// El color sale del id del logro (determinista); el tipo, de su rareza: los de oro dan pinturas con
-// patrón, los de plata rayas, motores o pinturas, y los de bronce disparos, cabinas o motores.
+// El tipo sale de su rareza (los de oro dan pinturas con patrón; los de plata rayas, motores o
+// pinturas; los de bronce disparos, cabinas o motores). El COLOR se elige para que no se parezca a
+// nada de su grupo: entre muchos candidatos, el más alejado de lo que ya hay (determinista).
 function hsl2hex(h, s, l) {
   s /= 100; l /= 100;
   const k = (n) => (n + h / 30) % 12, a = s * Math.min(l, 1 - l);
   const f = (n) => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1))))).toString(16).padStart(2, '0');
   return `#${f(0)}${f(8)}${f(4)}`;
 }
-const hueOf = (id) => { let h = 7; for (const ch of id) h = (h * 31 + ch.charCodeAt(0)) >>> 0; return h % 360; };
+const rgbOf = (h) => { h = h.replace('#', ''); if (h.length === 3) h = [...h].map((c) => c + c).join(''); return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16)); };
+// diferencia de color tal como la ve el ojo ("redmean": barata y suficiente)
+export function colorGap(a, b) {
+  if (!a || !b) return a === b ? 0 : 999;
+  const [r1, g1, b1] = rgbOf(a), [r2, g2, b2] = rgbOf(b), rm = (r1 + r2) / 2;
+  return Math.sqrt((2 + rm / 256) * (r1 - r2) ** 2 + 4 * (g1 - g2) ** 2 + (2 + (255 - rm) / 256) * (b1 - b2) ** 2);
+}
+// cuánto se distinguen dos objetos de un mismo grupo (pinturas: borde, brillo, casco y patrón)
+export function lookGap(group, a, b) {
+  if (group === 'palette') {
+    return Math.sqrt(colorGap(a.edge || '#00e5ff', b.edge || '#00e5ff') ** 2 + 0.6 * colorGap(a.glow, b.glow) ** 2 + 0.4 * colorGap(a.hull, b.hull) ** 2 + (a.pattern !== b.pattern ? 3600 : 0));
+  }
+  if (group === 'stripe') return colorGap(a.color || '#000000', b.color || '#000000') + (a.style !== b.style ? 90 : 0);
+  return colorGap(a.color, b.color);
+}
 const ACH_KIND = { bronze: ['shot', 'cockpit', 'engine'], silver: ['stripe', 'engine', 'palette'], gold: ['palette'] };
 const KIND_NAME = { palette: 'Pintura', stripe: 'Rayas', engine: 'Motor', shot: 'Disparo', cockpit: 'Cabina' };
+const TIER_NAME = { bronze: 'de bronce', silver: 'de plata', gold: 'de oro' };
+const HAND = { palette: PALETTES, stripe: STRIPES, engine: ENGINES, shot: SHOTS, cockpit: COCKPITS };
+const HUES = Array.from({ length: 72 }, (_, i) => i * 5);
+function farthest(cands, group, placed) {
+  let best = cands[0], bestD = -1;
+  for (const c of cands) {
+    let d = 1e9;
+    for (const o of placed) { d = Math.min(d, lookGap(group, c, o)); if (d <= bestD) break; }
+    if (d > bestD) { bestD = d; best = c; }
+  }
+  return best;
+}
+const usedNames = new Set();
 export const ACH_STYLES = ACHIEVEMENTS.map((a, i) => {
   const group = ACH_KIND[a.tier][i % ACH_KIND[a.tier].length];
-  const h = hueOf(a.id), c = hsl2hex(h, 100, 60), c2 = hsl2hex((h + 50) % 360, 100, 70);
-  const base = { id: `ach-${a.id}`, name: `${KIND_NAME[group]} ${a.name}`, group, achId: a.id, unlock: { ach: a.id } };
-  if (group === 'palette') {
-    const gold = a.tier === 'gold';
-    return { ...base, hull: hsl2hex(h, 60, 9), ...(gold ? { alt: hsl2hex((h + 180) % 360, 55, 14), pattern: ['fade', 'split', 'stripes'][i % 3] } : {}), edge: c, glow: c2 };
-  }
-  if (group === 'stripe') return { ...base, style: ['double', 'wide', 'single'][i % 3], color: c };
-  return { ...base, color: c };
+  let name = `${KIND_NAME[group]} ${a.name}`;
+  if (usedNames.has(name)) name = `${name} ${TIER_NAME[a.tier]}`; // logros con el mismo nombre: no se confunden
+  for (let n = 2; usedNames.has(name); n++) name = `${KIND_NAME[group]} ${a.name} ${n}`;
+  usedNames.add(name);
+  return { id: `ach-${a.id}`, name, group, achId: a.id, tier: a.tier, unlock: { ach: a.id }, i };
 });
+// colores: grupo a grupo, cada uno frente a lo hecho a mano y a los de logro ya colocados
+for (const group of Object.keys(HAND)) {
+  const placed = [...HAND[group]].filter((x) => x.color !== null || group === 'palette');
+  for (const it of ACH_STYLES.filter((x) => x.group === group)) {
+    let pick;
+    if (group === 'palette') {
+      const gold = it.tier === 'gold', pattern = gold ? ['fade', 'split', 'stripes'][it.i % 3] : undefined;
+      const cands = [];
+      for (const h of HUES) for (const l of [55, 66]) for (const off of [50, 150, 210]) {
+        cands.push({ hull: hsl2hex(h, 55, 17), ...(gold ? { alt: hsl2hex((h + 180) % 360, 55, 22), pattern } : {}), edge: hsl2hex(h, 100, l), glow: hsl2hex((h + off) % 360, 100, 70) });
+      }
+      pick = farthest(cands, group, placed);
+    } else {
+      const style = group === 'stripe' ? ['double', 'wide', 'single'][it.i % 3] : undefined;
+      const cands = [];
+      for (const h of HUES) for (const [sat, l] of [[100, 50], [100, 62], [100, 74], [70, 58]]) cands.push({ ...(style ? { style } : {}), color: hsl2hex(h, sat, l) });
+      pick = farthest(cands, group, placed);
+    }
+    Object.assign(it, pick);
+    placed.push(it);
+  }
+}
+for (const it of ACH_STYLES) { delete it.i; delete it.tier; }
 export const achStyle = (achId) => ACH_STYLES.find((x) => x.achId === achId);
 const byGroup = (g) => ACH_STYLES.filter((x) => x.group === g);
 PALETTES.push(...byGroup('palette'));

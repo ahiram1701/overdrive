@@ -124,3 +124,25 @@ test('hangar: nombre propio, motor/aura/disparo y la EXPOSICIÓN con COMPARAR', 
   await expect(page.locator('#hangar')).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('ESTILO: filtro TODO / MÍO / POR CONSEGUIR y aviso cuando puedes comprar algo', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => { try { localStorage.removeItem('od-cos-filter'); } catch { /* */ } localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, ship: 'viper', ships: ['viper'], gems: 500 })); }, SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => document.getElementById('btnHangar').click());
+  await expect(page.locator('#hTabs [data-tab="estilo"]')).toHaveClass(/dot/);
+  await page.evaluate(() => document.querySelector('#hTabs [data-tab="estilo"]').click());
+  const count = () => page.evaluate(() => ({ all: document.querySelectorAll('#cosmetics .cos').length, locked: document.querySelectorAll('#cosmetics .cos.locked').length }));
+  const all = await count();
+  expect(all.locked).toBeGreaterThan(0);
+  await page.evaluate(() => document.querySelector('.cos-filter [data-f="mine"]').click());
+  const mine = await count();
+  expect(mine.locked).toBe(0);
+  expect(mine.all).toBeLessThan(all.all);
+  await page.evaluate(() => document.querySelector('.cos-filter [data-f="locked"]').click());
+  const lockedOnly = await count();
+  // solo lo bloqueado (más lo equipado de cada grupo, que siempre se ve)
+  expect(lockedOnly.all - lockedOnly.locked).toBeLessThanOrEqual(9);
+  expect(errors).toEqual([]);
+});
