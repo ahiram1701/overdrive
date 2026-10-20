@@ -15,6 +15,7 @@ const ASSETS = [
   './js/save.js',
   './js/audio.js',
   './js/fx.js',
+  './js/textfix.js',
   './js/upgrades.js',
   './js/player.js',
   './js/world.js',

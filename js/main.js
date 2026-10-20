@@ -1,4 +1,5 @@
 // Arranque y bucle principal.
+import './textfix.js'; // lo primero: centra bien los textos con emojis en iPhone (ver el módulo)
 import { G } from './state.js';
 import { initRender, render } from './render.js';
 import { initInput, held } from './input.js';
