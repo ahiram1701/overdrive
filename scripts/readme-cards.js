@@ -23,7 +23,7 @@ const ships = rows(
   '| Nave | Coste | Pasiva | Habilidad activa ⚡ | ★ Mutación (árbol, nivel 3) |',
   SHIPS.map((s) => {
     const a = ABILITIES[s.ability];
-    return `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : 'gratis'} | ${s.desc} | ${a.icon} **${a.name}** (${a.cd} s): ${a.desc} | ${ABILITY_TREE[s.ability].lvl3} |`;
+    return `| **${s.name}** | ${s.cost ? `💎 ${s.cost}` : s.earn ? `🏆 ${s.earn.game}: ${s.earn.text.toLowerCase()}` : s.story ? '📖 historia de la Galaxia' : 'gratis'} | ${s.desc} | ${a.icon} **${a.name}** (${a.cd} s): ${a.desc} | ${ABILITY_TREE[s.ability].lvl3} |`;
   }),
 );
 

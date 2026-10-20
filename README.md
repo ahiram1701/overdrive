@@ -267,7 +267,10 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 | **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
 | **Halcón** | 💎 1300 | Ligera: el DASH recarga un 10% antes, pero x0.95 puntos. | 🔰 **ESCUDO DE ENERGÍA** (32 s): +1 escudo (si ya estás al máximo, 20 🪙). | Al activarla, una onda rompe lo cercano |
 | **Quimera** | 💎 1500 | Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento. | 🌀 **CAOS** (22 s): Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙. | CAOS atrae todas las monedas de la pista |
-| **Errante** | gratis | La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos). | 🕳️ **SINGULARIDAD** (28 s): Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas. | La SINGULARIDAD te da 1 escudo |
+| **Centella** | 🏆 RUNNER: llega al tramo 12 en una partida del runner | La del Runner: cambia de carril un 12% más rápido, ventana de near-miss algo mayor y x1.08 puntos. | ☄️ **ESTELA** (15 s): Acelerón: 1 s intocable arrasando lo de delante y +6% de overdrive. | La ESTELA te da 1 escudo |
+| **Gladiador** | 🏆 ARENA: gana en 2 mapas distintos de la arena | La de la Arena: empieza con 1 escudo y aguanta más tras un golpe. | 🌋 **TERREMOTO** (22 s): Sacude la pista: rompe los 3 carriles por delante y cada pieza da 3 🪙. | El TERREMOTO atrae todas las monedas de la pista |
+| **Carroñero** | 🏆 PECIOS: supera las 9 plantas de pecios | La de Pecios: cada moneda vale +1 y su DASH recarga un 10% antes. | ♻️ **DESGUACE** (19 s): Convierte lo que tienes delante (30 m) en monedas y las atrae todas. | El DESGUACE carga un 15% de overdrive |
+| **Errante** | 📖 historia de la Galaxia | La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos). | 🕳️ **SINGULARIDAD** (28 s): Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas. | La SINGULARIDAD te da 1 escudo |
 <!-- CARDS:END -->
 
 #### Ajustes del menú

@@ -253,6 +253,9 @@ export const ABILITY = {
   ram: { name: 'Ariete', desc: 'embestida: 4 de daño a lo que atravieses' },
   roar: { name: 'Rugido', desc: 'aturdes a todos 2 s' },
   phase: { name: 'Fase', desc: 'intocable 2,5 s' },
+  surge: { name: 'Estela', desc: 'acelerón largo e intocable: 4 de daño a lo que atravieses' },
+  quake: { name: 'Terremoto', desc: '2 de daño y aturde 1,5 s a todo lo cercano' },
+  salvage: { name: 'Desguace', desc: 'trae a tus pies todo lo del suelo y aturde a los cercanos' },
 };
 
 // ---------- Colisiones ----------
@@ -886,6 +889,15 @@ export function useAbility(s) {
   else if (id === 'overclock') p.boost = 4;
   else if (id === 'ram') { p.ram = 1; p.dashT = 0.45; p.dashCd = 0.6; }
   else if (id === 'roar') { for (const e of room.enemies) if (e.alive) e.stun = 2; }
+  else if (id === 'surge') { p.ram = 1; p.dashT = 0.6; p.dashCd = 0.6; }
+  else if (id === 'quake') {
+    ev.push({ type: 'boom', x: p.x, y: p.y, r: 3.2, mine: true });
+    for (const e of room.enemies) if (e.alive && d2(e, p) < 3.2) { hitEnemy(s, room, e, 2, ev); e.stun = Math.max(e.stun, 1.5); }
+    breakCrack(s, room, p, 2, ev);
+  } else if (id === 'salvage') {
+    for (const pk of room.pickups) { pk.x = p.x + (s.rng.next() - 0.5) * 0.4; pk.y = p.y + 0.7; pk.cool = false; }
+    for (const e of room.enemies) if (e.alive && d2(e, p) < 2.5) e.stun = Math.max(e.stun, 1.2);
+  }
   else p.inv = 2.5; // fase (y cualquier otra): intocable
   return ev;
 }

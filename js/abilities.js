@@ -15,6 +15,10 @@ export const ABILITIES = {
   singularity: { name: 'SINGULARIDAD', icon: '🕳️', cd: 28, dur: 0, desc: 'Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas.' },
   chaos: { name: 'CAOS', icon: '🌀', cd: 22, dur: 0, desc: 'Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙.' },
   hammer: { name: 'MARTILLO', icon: '🔨', cd: 16, dur: 0, desc: 'Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe).' },
+  // las de las naves EXCLUSIVAS (se ganan con un reto de cada juego)
+  surge: { name: 'ESTELA', icon: '☄️', cd: 15, dur: 0, desc: 'Acelerón: 1 s intocable arrasando lo de delante y +6% de overdrive.' },
+  quake: { name: 'TERREMOTO', icon: '🌋', cd: 22, dur: 0, desc: 'Sacude la pista: rompe los 3 carriles por delante y cada pieza da 3 🪙.' },
+  salvage: { name: 'DESGUACE', icon: '♻️', cd: 19, dur: 0, desc: 'Convierte lo que tienes delante (30 m) en monedas y las atrae todas.' },
 };
 
 export const NEAR_MISS_CD = 0.15; // segundos de recarga que quita cada near-miss

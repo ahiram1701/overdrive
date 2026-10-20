@@ -10,7 +10,7 @@ import { BOSS_NAMES, BIOMES } from './world.js';
 import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
-import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL } from './upgrades.js';
+import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL, unlockEarnedShips } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
@@ -198,6 +198,7 @@ function buildSummary(run) {
 
 export const ui = {
   init() {
+    if (unlockEarnedShips(save).length) persist();
     tap($('btnPlay'), () => newRun(false));
     tap($('btnMods'), () => ui.showMods());
     tap($('btnArena'), () => ui.showArenaHub());
@@ -531,7 +532,7 @@ export const ui = {
       const stars = treeStars(lv);
       const b = el('button', `ship-chip${s.id === view.id ? ' viewing' : ''}${save.ship === s.id ? ' equipped' : ''}${has ? '' : ' locked'}${prestigeOf(save) >= 5 ? ' gold' : ''}`);
       b.style.setProperty('--sc', s.color);
-      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : s.story ? '📖 historia' : `💎 ${s.cost}`}</small>`;
+      b.innerHTML = `<canvas class="sc-mini" width="96" height="60"></canvas><b>${s.name}</b><small>${has ? (stars ? `★ ${stars}/16` : ABILITIES[s.ability].icon) : s.story ? '📖 historia' : s.earn ? `🏆 ${s.earn.game}` : `💎 ${s.cost}`}</small>`;
       tap(b, () => {
         // segundo toque en la nave que ya ves y es tuya: equiparla sin bajar a buscar el botón
         if (s.id === ui.hangarView && has && save.ship !== s.id) { save.ship = s.id; persist(); fx.vibe(20); toast(`🚀 ${s.name} equipada`); }
@@ -562,6 +563,7 @@ export const ui = {
     if (inUse) action = '<button class="btn ghost" disabled>EN USO</button>';
     else if (owned) action = '<button class="btn" id="btnEquip">EQUIPAR</button>';
     else if (view.story) action = '<button class="btn ghost" disabled>📖 Termina la historia LA SEÑAL (Galaxia)</button>';
+    else if (view.earn) action = `<button class="btn ghost" disabled>🏆 ${view.earn.text} · ${Math.min(view.earn.of(save), view.earn.n)}/${view.earn.n}</button>`;
     else action = `<button class="btn big" id="btnBuyShip" ${save.gems < view.cost ? 'disabled' : ''}>COMPRAR · 💎 ${view.cost}</button>`;
     $('shipDetail').innerHTML = `
       <div class="sd-head" style="--sc:${view.color}"><div><h3>${shipName(save, view.id) ? `«${shipName(save, view.id)}» <em>${view.name}</em>` : view.name}</h3><small>${view.desc}</small></div>

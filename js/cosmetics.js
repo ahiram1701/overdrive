@@ -41,7 +41,7 @@ export const PALETTES = [
   { id: 'x-comet2', name: 'Halley', hull: '#160a26', edge: '#ffa94d', glow: '#fff3a0', ...X('comet', 'bosses', 5) },
   // MAESTRÍA: una por nave, al completar su árbol entero
   ...[['viper', '#00e5ff'], ['brick', '#ffd60a'], ['ghost', '#e0e0ff'], ['nova', '#ff375f'], ['kaiju', '#30d158'], ['raptor', '#ff9f0a'],
-    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d'], ['falcon', '#7dffb0'], ['chimera', '#ff4fd8'], ['wanderer', '#c58cff']].map(([ship, c]) => (
+    ['comet', '#bf5af2'], ['manta', '#64d2ff'], ['spectra', '#ffe600'], ['titan', '#ff6b3d'], ['falcon', '#7dffb0'], ['chimera', '#ff4fd8'], ['wanderer', '#c58cff'], ['centella', '#ff2d55'], ['gladiador', '#ff9f0a'], ['carronero', '#8fd14f']].map(([ship, c]) => (
     { id: `m-${ship}`, name: 'Maestro', hull: '#0a0a0a', alt: '#2a2000', pattern: 'fade', edge: c, glow: '#ffd60a', ship, unlock: { mastery: ship } })),
   // de FACCIÓN (se compran con créditos en sus estaciones al ser Amigo/Aliado)
   { id: 'f-liga', name: 'Liga Minera', hull: '#061a0a', alt: '#2a2400', pattern: 'stripes', edge: '#30d158', glow: '#ffd60a', unlock: { faction: 'liga' } },
@@ -60,6 +60,12 @@ export const PALETTES = [
   { id: 'x-falcon2', name: 'Peregrino', hull: '#1a1406', edge: '#ffcf6b', glow: '#7dffb0', ...X('falcon', 'bosses', 5) },
   { id: 'x-wanderer1', name: 'Polvo de estrellas', hull: '#0a0618', edge: '#c58cff', glow: '#ffffff', ...X('wanderer', 'sections', 30) },
   { id: 'x-wanderer2', name: 'Silencio', hull: '#000000', edge: '#7a5cff', glow: '#00e5ff', ...X('wanderer', 'bosses', 5) },
+  { id: 'x-centella1', name: 'Rayo rojo', hull: '#1a0004', edge: '#ff2d55', glow: '#ffffff', ...X('centella', 'sections', 30) },
+  { id: 'x-centella2', name: 'Meteoro', hull: '#140800', edge: '#ffb340', glow: '#ff2d55', ...X('centella', 'bosses', 5) },
+  { id: 'x-gladiador1', name: 'Arena', hull: '#1a1006', edge: '#ffcf6b', glow: '#ff9f0a', ...X('gladiador', 'sections', 30) },
+  { id: 'x-gladiador2', name: 'Campeón', hull: '#0a0a0a', edge: '#ff9f0a', glow: '#ffe600', ...X('gladiador', 'bosses', 5) },
+  { id: 'x-carronero1', name: 'Óxido', hull: '#1a0e06', edge: '#c8743a', glow: '#8fd14f', ...X('carronero', 'sections', 30) },
+  { id: 'x-carronero2', name: 'Chatarra', hull: '#0c0c0c', edge: '#8e8e93', glow: '#8fd14f', ...X('carronero', 'bosses', 5) },
   { id: 'x-chimera1', name: 'Escamas', hull: '#1a0618', edge: '#ff4fd8', glow: '#ffe600', ...X('chimera', 'sections', 30) },
   { id: 'x-chimera2', name: 'Tres cabezas', hull: '#060a1a', edge: '#ff9f0a', glow: '#ff4fd8', ...X('chimera', 'bosses', 5) },
 ];
@@ -98,7 +104,7 @@ export const EMBLEMS = [
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
   { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
-  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
+  ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer', 'centella', 'gladiador', 'carronero'].map((s) => ({ id: `sil-${s}`, name: 'Insignia', ...X(s, 'runs', 20) })),
 ];
 
 // Color del motor (llama y estela). null = el brillo de la pintura

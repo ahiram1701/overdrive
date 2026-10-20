@@ -12,6 +12,7 @@ const DEFAULTS = {
   gems: 0,
   coins: 0,         // 🪙 cartera de RUNNER y ARENA (lo que sobra de cada partida)
   best: 0,
+  bestSection: 0, // el tramo más lejano en una partida del Runner (para la nave Centella)
   bestDist: 0,
   daily: { key: '', best: 0 },
   ships: ['viper'],

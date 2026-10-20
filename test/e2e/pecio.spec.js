@@ -329,3 +329,16 @@ test('pecios: el aviso de caer al pozo se queda en pantalla el tiempo de leerlo'
   });
   expect(r).toEqual({ now: true, later: true });
 });
+
+test('nave exclusiva: superar la planta 9 de Pecios te da el Carroñero, y se ve en el hangar', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startPecio(page);
+  expect(await page.evaluate(() => window.__save.ships.includes('carronero'))).toBe(false);
+  await page.evaluate(async () => {
+    const { progress } = await import('/js/game.js');
+    window.__save.pecio.wins = 1;
+    progress('pecioWin');
+  });
+  expect(await page.evaluate(() => window.__save.ships.includes('carronero'))).toBe(true);
+  expect(errors).toEqual([]);
+});

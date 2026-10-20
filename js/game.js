@@ -4,7 +4,7 @@ import { makeRng, todayKey, hashString } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
-import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, shipLvls, applyShipTree, abilityMods } from './upgrades.js';
+import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, shipLvls, applyShipTree, abilityMods, unlockEarnedShips } from './upgrades.js';
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, hammerLane, runSpeed, SCRIPTS } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
@@ -271,6 +271,16 @@ export function addChain(n) {
 // Fuente única de eventos de progreso: alimenta misiones diarias y logros (y en el futuro la campaña).
 // Lo que se completa se celebra en el momento.
 export function progress(kind, value = 1) {
+  if (kind === 'section') save.bestSection = Math.max(save.bestSection || 0, value);
+  // NAVES EXCLUSIVAS: al cumplir el reto de su juego, son tuyas (y sirven en todos)
+  if (kind === 'section' || kind === 'arenaMapsWon' || kind === 'pecioWin') {
+    for (const s of unlockEarnedShips(save)) {
+      fx.banner('🚀 ¡NAVE NUEVA!', `${s.name} · la nave exclusiva de ${s.earn.game}, ya en tu hangar`, s.color, true, 3);
+      sfx.chest();
+      fx.vibe([30, 40, 30, 40, 120]);
+      persist();
+    }
+  }
   // uso de la nave equipada: desbloquea sus pinturas y su insignia exclusivas
   const stat = SHIP_STAT[kind];
   if (stat) {
@@ -641,6 +651,39 @@ export function useAbility() {
       fx.shake(16);
       sfx.boom();
       if (n) fx.notice(`🌀 ${n} destruidos · +${n * 5} 🪙`, '#ff4fd8');
+      break;
+    }
+    case 'surge': { // ESTELA: acelerón intocable que arrasa lo de delante
+      addOD(0.06, true);
+      p.invuln = Math.max(p.invuln, 1);
+      const n = sweep(Math.max(14, runSpeed() * 0.45) * a.pow);
+      if (a.mut === 'shield') gainShield(1, '☄️ +1 🛡️');
+      fx.flash('#ff2d55', 0.3);
+      fx.burst(ps.x, ps.y, 26, '#ff2d55', 520, 4, 0.4, 0);
+      fx.shake(12);
+      sfx.dash();
+      if (n) fx.notice(`☄️ ${n} destruidos`, '#ff2d55');
+      break;
+    }
+    case 'quake': { // TERREMOTO: los 3 carriles, y cada pieza da monedas
+      const n = sweep(35 * a.pow);
+      r.coins += n * 3;
+      if (a.mut === 'magnet') for (const o of r.objects) if (o.alive && o.type === 'coin') o.mag = true;
+      fx.ring(ps.x, ps.y - 30, '#ff9f0a', 700, 0.6, 30);
+      fx.shake(28);
+      sfx.boom();
+      if (n) fx.notice(`🌋 ${n} destruidos · +${n * 3} 🪙`, '#ff9f0a');
+      break;
+    }
+    case 'salvage': { // DESGUACE: lo de delante, a monedas, y todas al imán
+      const n = sweep(30 * a.pow);
+      r.coins += n * 4;
+      for (const o of r.objects) if (o.alive && o.type === 'coin') o.mag = true;
+      if (a.mut === 'od') addOD(0.15, true);
+      fx.ring(ps.x, ps.y - 40, '#8fd14f', 520, 0.5, 22);
+      fx.shake(14);
+      sfx.boom();
+      if (n) fx.notice(`♻️ ${n} desguazados · +${n * 4} 🪙`, '#8fd14f');
       break;
     }
     case 'hammer': {
