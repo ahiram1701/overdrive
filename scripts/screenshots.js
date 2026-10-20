@@ -56,7 +56,13 @@ async function newPage(browser, seed) {
   // partida ya jugada antes: sin tutorial
   await page.addInitScript(() => localStorage.setItem('overdrive-save-v1', JSON.stringify({ runs: 1, best: 1234567, gems: 340 })));
   await page.goto(`${BASE}/?debug&nosw${seed != null ? `&seed=${seed}` : ''}`);
-  await page.evaluate(() => { window.G.debug = false; }); // oculta el contador de FPS
+  await page.evaluate(async () => {
+    window.G.debug = false; // oculta el contador de FPS
+    // la GUÍA ya vista: que ningún consejo tape las capturas
+    const { TIPS, markTip } = await import('/js/tips.js');
+    const { save } = await import('/js/save.js');
+    for (const id of Object.keys(TIPS)) markTip(save, id);
+  });
   return page;
 }
 
@@ -112,7 +118,7 @@ try {
 
   // Arena en plena partida (simulada, con algunas mejoras)
   await page.evaluate(() => { window.G.manual = true; });
-  await page.evaluate(() => document.getElementById('btnArena').click());
+  await page.evaluate(() => { document.getElementById('btnArena').click(); document.querySelector('#arenaMaps .arena-map:not(.locked)').click(); });
   await page.evaluate(() => {
     const G = window.G;
     for (let i = 0; i < 70 * 20; i++) {
@@ -159,6 +165,43 @@ try {
   await page.screenshot({ path: `${OUT}/galaxy.png` });
   console.log(`✔ ${OUT}/galaxy.png`);
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
+
+  // PECIOS: una sala en 3D con equipo y botín en el suelo, y un jefe
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPecio').click(); document.getElementById('btnPecioPlay').click(); });
+  await page.evaluate(async () => {
+    const { genItem, applyGear } = await import('/js/pecioLoot.js');
+    const { makeRng } = await import('/js/rng.js');
+    const s = window.G.pecio, rng = makeRng(42), pl = s.player;
+    pl.gear.weapon = genItem(rng, 9, { slot: 'weapon', minTier: 3 });
+    pl.gear.plating = genItem(rng, 5, { slot: 'plating', minTier: 2 });
+    pl.gear.mod1 = genItem(rng, 5, { slot: 'mod', minTier: 1 });
+    applyGear(pl);
+    pl.hp = pl.max;
+    pl.bag = { kit: 2, emp: 1, warp: 0 };
+    s.introBanner = null;
+    s.rooms[s.at].pickups.push({ id: 'a', kind: 'item', item: genItem(rng, 9, { minTier: 3 }), x: 4.5, y: 3.2 }, { id: 'b', kind: 'item', item: genItem(rng, 6, { minTier: 2 }), x: 2.8, y: 4.4 }, { id: 'c', kind: 'cons', cons: 'emp', x: 6.2, y: 4.4 });
+    for (let i = 0; i < 20; i++) window.D.step(1 / 60, false);
+    window.D.step(1 / 60, true);
+  });
+  await page.screenshot({ path: `${OUT}/pecio.png` });
+  console.log(`✔ ${OUT}/pecio.png`);
+  await page.evaluate(async () => {
+    const { genFloor, roomOf } = await import('/js/pecio.js');
+    const s = window.G.pecio;
+    s.depth = 9; s.floor = genFloor(s.seed, 9); s.rooms = {};
+    s.at = Object.keys(s.floor.rooms).find((k) => s.floor.rooms[k].type === 'boss');
+    const room = roomOf(s), boss = room.enemies.find((e) => e.kind === 'boss');
+    s.player.hp = s.player.max = 99;
+    Object.assign(s.player, { x: 4.5, y: 8.5, ang: 0 });
+    s.camSnap = true;
+    boss.hp = Math.round(boss.max * 0.7);
+    boss.cd = 0;
+    for (let i = 0; i < 30; i++) window.D.step(1 / 60, false);
+    window.D.step(1 / 60, true);
+  });
+  await page.screenshot({ path: `${OUT}/pecio-boss.png` });
+  console.log(`✔ ${OUT}/pecio-boss.png`);
+  await page.evaluate(() => { window.G.manual = false; document.getElementById('pcPause').click(); document.getElementById('btnQuit').click(); });
 
   // Modificadores con algunos activos
   await page.evaluate(async () => {

@@ -315,3 +315,17 @@ for (const vp of [{ width: 360, height: 640 }, { width: 375, height: 812 }]) {
     expect(errors).toEqual([]);
   });
 }
+
+test('pecios: el aviso de caer al pozo se queda en pantalla el tiempo de leerlo', async ({ page }) => {
+  await startPecio(page);
+  const r = await page.evaluate(async () => {
+    const { fx } = await import('/js/fx.js');
+    const s = window.G.pecio, room = s.rooms[s.at];
+    room.tiles[Math.floor(s.player.y)][Math.floor(s.player.x)] = 'P';
+    window.D.step(0.05, false);
+    const now = fx.noticeList.some((n) => n.includes('pozo'));
+    window.D.step(2.5, false);
+    return { now, later: fx.noticeList.some((n) => n.includes('pozo')) };
+  });
+  expect(r).toEqual({ now: true, later: true });
+});
