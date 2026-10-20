@@ -2,32 +2,70 @@
 
 # ⚡ OVERDRIVE
 
-**Runner de velocidad neón para el móvil. Dopamina a lo bruto.**
+**4 juegos arcade de neón en una sola PWA, hechos para el móvil.**
+Runner de velocidad · galaxia en 3D · mazmorras en 3D · arena de supervivencia
 
 ### [▶ JUGAR AHORA](https://ahiram1701.github.io/overdrive/)
 
 [![CI](https://github.com/ahiram1701/overdrive/actions/workflows/ci.yml/badge.svg)](https://github.com/ahiram1701/overdrive/actions/workflows/ci.yml)
 [![Deploy](https://github.com/ahiram1701/overdrive/actions/workflows/deploy.yml/badge.svg)](https://github.com/ahiram1701/overdrive/actions/workflows/deploy.yml)
-![PWA](https://img.shields.io/badge/PWA-offline-5a0fc8)
+![PWA](https://img.shields.io/badge/PWA-instalable%20y%20offline-5a0fc8)
 ![Sin dependencias](https://img.shields.io/badge/runtime-0%20dependencias-ff2bd6)
+![Tests](https://img.shields.io/badge/tests-unitarios%20%2B%20E2E%20con%20bots-30d158)
+[![Licencia](https://img.shields.io/badge/licencia-todos%20los%20derechos%20reservados-lightgrey)](LICENSE)
 
-<img src="docs/gameplay.gif" width="270" alt="Partida a toda velocidad con explosiones y combo">
+<img src="docs/gameplay.gif" width="270" alt="Partida del Runner a toda velocidad, con explosiones y combo">
 
-<img src="docs/menu.png" width="200" alt="Menú"> <img src="docs/gameplay.png" width="200" alt="Partida con obstáculos"> <img src="docs/cards.png" width="200" alt="Elección de cartas"> <img src="docs/boss.png" width="200" alt="Jefe"> <img src="docs/hangar.png" width="200" alt="Hangar con árbol de mejoras"> <img src="docs/campaign.png" width="200" alt="Mapa de campaña"> <img src="docs/modifiers.png" width="200" alt="Modificadores"> <img src="docs/arena.png" width="200" alt="Modo Arena"> <img src="docs/expedition.png" width="200" alt="Mapa de la Expedición"> <img src="docs/race.png" width="200" alt="Carrera contra rivales"> <img src="docs/galaxy.png" width="200" alt="Galaxia en 3D">
+<img src="docs/menu.png" width="180" alt="Menú con los 4 juegos"> <img src="docs/galaxy.png" width="180" alt="Galaxia en 3D"> <img src="docs/pecio.png" width="180" alt="Pecios: sala en 3D con botín"> <img src="docs/arena.png" width="180" alt="Arena llena de enemigos">
 
 </div>
 
+## Qué es OVERDRIVE
+
+Un **arcade de neón** con cuatro juegos completos que comparten nave, hangar, rango, logros y misiones. Se juega en el navegador del móvil, **se instala como una app** y **funciona sin conexión**. Está escrito a mano, sin motores ni librerías: HTML, CSS y JavaScript nativos sobre Canvas, con un **motor 3D propio** para la Galaxia y Pecios.
+
+## Los 4 juegos
+
+| | Juego | De qué va | Lo más destacado |
+|---|---|---|---|
+| <img src="docs/gameplay.png" width="110" alt="Runner"> | **🏁 RUNNER** | Corres solo por una pista de neón: esquiva, salta, deslízate y rompe con DASH. | Near-miss, combo hasta x99, OVERDRIVE, 6 jefes, cartas y sinergias. Con **Campaña**, **Expedición** (roguelite con mapa), **Carreras** contra rivales IA y **Mutación** del día. |
+| <img src="docs/galaxy.png" width="110" alt="Galaxia"> | **🌌 GALAXIA** | Un juego de naves en 3D con la cámara detrás: explora, mina, comercia y lucha en 30 sistemas. | Vuelo libre con rizos, facciones y territorio, historia en 3 actos + crónica sin fin, fabricación, astillero, puestos avanzados y sucesos vivos. |
+| <img src="docs/pecio.png" width="110" alt="Pecios"> | **🏚️ PECIOS** | Mazmorras en 3D con tu nave: sala a sala por pecios abandonados, disparando sola. | Botín con rareza, mímicos, salas ocultas, **jefes cada 3 plantas**, modo sin fin, taller y bóveda. Su propia moneda, 🔩. |
+| <img src="docs/arena.png" width="110" alt="Arena"> | **⚔️ ARENA** | *Survivors* en vista cenital: oleadas cada vez más grandes durante 10 minutos. | Sube de nivel y elige mejoras, armas que **evolucionan**, 4 mapas con sus jefes y modo sin fin. |
+
+## Características
+
+- **Una sola progresión para todo:** tu nave del hangar (con su árbol de mejoras y su estilo) juega en los cuatro juegos. Rango de piloto, **99 logros** con estilos exclusivos, misiones diarias, colección y prestigio.
+- **Motor 3D propio sobre Canvas 2D:** proyección, recorte contra el plano cercano y orden por profundidad hechos a mano. La Galaxia corre a ~2 ms por fotograma en el móvil y una sala de Pecios, por debajo de 1 ms.
+- **Pensado para el móvil:** controles táctiles por gestos y joystick virtual, vibración (Android), textos que se ajustan a cualquier pantalla y modo a pantalla completa.
+- **PWA:** se instala desde el navegador, funciona sin conexión y **se actualiza sola** al volver al menú (la versión instalada aparece en Ajustes).
+- **La GUÍA:** un robot explica cada juego la primera vez y lo nuevo cuando aparece. Mientras lees, la partida se para.
+- **Siempre justo:** los ataques avisan antes de llegar, y los tests ponen a **bots a jugar** para comprobar que ninguna pista, sala o jefe es imposible.
+
 ## 📲 Instalar en el móvil
+
 1. Abre **https://ahiram1701.github.io/overdrive/** en Chrome (Android) o Safari (iOS).
 2. Elige **Añadir a pantalla de inicio** o **Instalar app**.
 3. Se abre a pantalla completa y funciona **sin conexión**.
 
 La vibración solo funciona en Android; iOS no soporta `navigator.vibrate`.
 
-## 🤖 Primeros pasos
-La **GUÍA** te explica cada juego la primera vez que entras (Runner, Galaxia y Arena) y lo nuevo la primera vez que aparece: tu primer jefe, subir de nivel y evolucionar en la Arena, atracar, un sistema pirata, la Expedición, las Carreras, la Campaña, las reliquias y los sucesos de la galaxia. Mientras lees (la GUÍA o los diálogos de la historia), **la partida se para de verdad**: nada se mueve hasta que cierras. Cada consejo sale una vez; en **⚙️ Ajustes → Repetir los consejos de la GUÍA** vuelven todos.
-
 ## 🎮 Controles
+
+| | Móvil | Teclado |
+|---|---|---|
+| **Runner** | deslizar ← → ↑ ↓ · doble toque = DASH · botón ⚡ habilidad | flechas / WASD · Espacio = DASH · E/Q = habilidad |
+| **Galaxia** | joystick donde apoyes el dedo · ↺ ↻ alabeo · palanca MOTOR · 🔫 disparo · doble toque = tonel | WASD / flechas · Q/E alabeo · R/F motor · Espacio dispara · Shift impulso · M misil · X tonel |
+| **Pecios** | dedo como joystick (arriba avanza, lados giran) · 💨 esquive · ⚡ habilidad · mochila 🧰 📡 🌀 | flechas / WASD · Espacio = esquive · E = habilidad |
+| **Arena** | arrastra para moverte · disparo automático · doble toque = DASH | WASD / flechas · Espacio = DASH · E = habilidad |
+| **Pausa** | botón ❚❚ | P / Esc |
+
+## Los juegos en detalle
+
+<details>
+<summary><b>🏁 RUNNER: modos, obstáculos, jefes, cartas y sinergias</b></summary>
+
+#### 🎮 Controles
 
 | Acción | Móvil | Teclado |
 |---|---|---|
@@ -39,7 +77,8 @@ La **GUÍA** te explica cada juego la primera vez que entras (Runner, Galaxia y 
 
 Puedes encadenar swipes sin levantar el dedo.
 
-## 🚦 Leer los obstáculos
+#### 🚦 Leer los obstáculos
+
 El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en todos los biomas:
 
 | Aspecto | Qué hacer | Qué es |
@@ -60,7 +99,8 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
 - **Rieles**: súbete saltando su punta y haz *grind*, que suma puntos, combo y overdrive mientras lo recorres.
 - 🎯 **Dianas**: rómpelas con DASH, láser u overdrive para un bonus.
 
-## 🔥 Cómo sacar puntos
+#### 🔥 Cómo sacar puntos
+
 - **Near-miss:** pasa rozando un obstáculo justo después de moverte. Si lo haces en el último instante es un **¡PERFECTO!**, con cámara lenta incluida.
 - **Combo (x1 → x99):** sube con near-miss, roturas y monedas. Si pasan 3 s sin hacer nada empieza a bajar, y un golpe lo reinicia.
 - **OVERDRIVE:** se carga con near-miss y roturas. Durante unos segundos eres invencible, todo lo que tocas explota, vas un 50% más rápido y puntúas el doble.
@@ -68,17 +108,27 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
 - **El Cazador:** si pasas 3 s sin tocar nada aparece un dron que marca tu carril en rojo y dispara. Sus disparos atraviesan la invulnerabilidad. Esquiva 2 seguidos y se retira con un **¡ESCAPASTE!** y bonus. Cada vez que vuelve, tarda menos en aparecer.
 - **Velocidad:** no para de subir. Hay avisos a los 500 km/h, en MACH 1, en MACH 2…
 
-## 🌍 Biomas, set pieces y eventos
+#### 🛣️ Estructura de una partida
+
+1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".
+2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
+3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
+4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y **pasa por sus núcleos verdes** antes de que escape: tocarlos le hace daño, y con DASH el golpe es **crítico (doble)**. El núcleo blindado del Censor solo cede al DASH.
+5. Al morir ganas **gemas 💎** para el hangar, y las **🪙 que no gastaste** van a tu cartera.
+
+#### 🌍 Biomas, set pieces y eventos
+
 - **Cada bioma tiene su mecánica:**
   - **Túnel de lava:** ríos de lava que recorren un carril.
   - **Vacío glitch:** muros que saltan de carril; un fantasma verde marca el destino antes.
   - **Hiperespacio:** gravedad baja, con saltos más largos y flotantes.
   - **Neón urbano:** cortinas de láser bajo y alto seguidas.
-  - **❄️ Glaciar** (nuevo, el 5.º): **carámbanos** que caen sobre dos carriles (su sombra los anuncia; cambia al libre) y **crestas de hielo** de lado a lado que hay que saltar, bajo una aurora. En la Campaña sale en los sectores generados múltiplos de 5 (5, 10, 15…).
+  - **❄️ Glaciar** (el 5.º): **carámbanos** que caen sobre dos carriles (su sombra los anuncia; cambia al libre) y **crestas de hielo** de lado a lado que hay que saltar, bajo una aurora. En la Campaña sale en los sectores generados múltiplos de 5 (5, 10, 15…).
 - **Set pieces:** desde el tramo 3, a veces aparece una secuencia guionizada con aviso: **TÚNEL** (rieles y portales), **ESTAMPIDA** (oleada de rodillos), **LLUVIA DE MINAS** o **AGUJERO DE GUSANO** (el mundo gira).
 - **Eventos:** controles invertidos, mundo al revés, lluvia de monedas, solo near-miss, **apagón** (solo ves lo cercano), **tormenta magnética** (todas las monedas vienen a ti) y **combo doble**.
 
-## 👾 Jefes
+#### 👾 Jefes
+
 Cada 3 tramos aparece un jefe. Hay 6, cada uno con su forma, sus ataques y una **segunda fase** al llegar al 50% de vida:
 
 | Jefe | Fase 1 | Fase 2 |
@@ -92,7 +142,142 @@ Cada 3 tramos aparece un jefe. Hay 6, cada uno con su forma, sus ataques y una *
 
 Derrotar al Leviatán da el logro **Deshielo**.
 
-## 🌌 Modo GALAXIA (nuevo)
+#### 🗺️ Campaña
+
+Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Distrito neón, Forja de lava, El vacío e Hiperespacio):
+- Cada nivel tiene **pista fija** (siempre la misma, para aprendértela), un número de tramos y una **línea de META**. El 4.º nivel de cada sector es un **jefe**.
+- **3 estrellas por nivel:** llegar a la meta (o derrotar al jefe) y dos objetivos más, como "sin perder escudos", "25 near-miss", "combo x35" o "120 monedas". Las estrellas se guardan: nunca se pierden.
+- Superar un nivel abre el siguiente; los **sectores se abren con estrellas** (6, 15 y 26).
+- La primera vez que superas un nivel ganas sus gemas, y cada estrella nueva da +5 💎.
+- Los tests comprueban que el bot llega a la meta de **todos** los niveles sin un solo golpe: ninguna pista fija es injusta.
+- **Y no se acaba:** tras el sector 4 llegan los **sectores generados** (5, 6, 7…), siempre los mismos para todos:
+  - cada uno con nombre propio, a veces con **dos biomas que se alternan**;
+  - cada nivel trae **1–2 modificadores fijos**, y la dificultad sigue subiendo;
+  - desde el sector 6, uno de cada dos acaba en un **JEFE ÉLITE**: ataques de su fase 2 desde el principio, uno prestado de otro jefe y +50% de vida;
+  - cada sector se abre al vencer al jefe del anterior, y el mapa enseña siempre el siguiente cerrado.
+
+#### 🧭 Expedición
+
+El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).
+- **Nodos:**
+  - 🛣️ Tramo (al final, una carta);
+  - ☠️ Élite: tramo duro, con carta rara;
+  - 🛒 Tienda;
+  - ❓ Evento: 12 decisiones de riesgo y recompensa, como un casino, un altar o una nave abandonada;
+  - 🎁 Tesoro;
+  - 🔥 Descanso: +1 escudo o sube de nivel una carta;
+  - 🔨 **Forja**: sube 2 cartas de nivel, o funde 40 🪙 en una carta épica;
+  - 👾 Jefe.
+- Escudos, monedas y cartas te acompañan todo el viaje. Si caes, se acaba.
+- **🏺 Reliquias** (10, eliges 1 de 3): las dan siempre los jefes, a veces los élites y los tesoros, y eventos como el Oráculo o el Contrabandista. Duran toda la expedición: Escudo de cristal (el primer golpe de cada tramo no cuenta), Avaro, Brasa eterna, Coleccionista (una carta más para elegir), Corazón de reserva, Hucha, Imán eterno, Gema del viajero, Cartógrafo y Pluma de fénix (una vida extra). Se ven arriba del mapa.
+- **18 eventos** (6 nuevos: Oráculo, Contrabandista, Reliquia maldita, Espejo gemelo, Ruleta y Peregrino).
+- **Acto 4 · EL ABISMO:** tras completar una expedición, las siguientes tienen un 4.º acto con jefe ÉLITE. Logro **Del abismo**.
+- Cada acto superado da gemas; completar la expedición da un buen premio de XP. Logros propios.
+
+#### 🏁 Carreras
+
+- **5 copas de 3 pistas** (Neón, Magma, Vacío, **Glaciar** y **Leyenda**, que mezcla biomas) contra **3 rivales IA con personalidad**:
+  - **BRUTO** busca tu carril y empuja;
+  - **SEDA** corre limpio;
+  - **CHISPA** mete acelerones.
+- Los rivales corren por la **misma pista** y esquivan sus obstáculos (cada copa los hace más hábiles). Con DASH u overdrive **los sacas de la pista**.
+- **Chocar frena, no mata**: la carrera siempre acaba. Posición en directo y podio con puntos (10/6/3/1); al final de la copa, medalla. Cada medalla abre la copa siguiente.
+- **Tu fantasma:** se guarda tu mejor carrera de cada pista y la próxima vez corres contra ella (el HUD dice a cuántos segundos vas).
+- **Rivales que se adaptan:** si en una pista vas muy rápido, aprietan un poco (±3 %); si te cuesta, aflojan.
+- **⏱️ CONTRARRELOJ** (pestaña en Carreras): cada pista de las copas abiertas, sin rivales. Solo tú, el reloj y tu fantasma, con tres tiempos objetivo 🥇🥈🥉 (el oro pide overdrive). Logro **Cronómetro** por 5 oros.
+
+#### 🧪 Modificadores y mutación del día
+
+- **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:
+  - Turbo, Caos, Campo minado, Cristal, Jefazos, Cazador voraz;
+  - Avaricia, Ingravidez, Frágil, Sin DASH, Niebla y Al revés.
+- Se activan con el ⚙️ de la tarjeta **RUNNER**, y se recuerdan para la próxima partida.
+- El bonus se multiplica: Turbo + Cristal = x2,08 puntos. Las gemas suben la mitad, con tope x3.
+- Se **desbloquean con el rango**, uno cada pocos rangos: siempre hay uno nuevo a la vista.
+- **🧬 Mutación del día:** cada día, 2 modificadores y la misma pista para todos. El primer intento paga **x1,5 gemas**.
+- Los tests comprueban que el bot sobrevive sin golpes con cada modificador que cambia la pista.
+
+#### ⚖️ Balance
+
+El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:
+- **Overdrive:** carga más despacio y, al acabar, se **recalienta 5 s** (barra gris: "RECALENTANDO"); no se puede encadenar uno tras otro.
+- **Topes:** cargas de overdrive x1,5, duración 7 s, 3 cargas de DASH y recarga mínima de 2,4 s.
+- **Cartas repetidas, menos efecto:** Cargador +35/+25/+15%, Overdrive+ +2/+1,5/+1 s, Recarga rápida −20/−15/−10%. La carta dice cuánto da la siguiente copia.
+- **Vampiro** pide cada vez más near-miss por escudo (12, 18, 24…), y Doble carga solo se puede coger una vez.
+- **Medido con el bot** en 120 s, con el árbol al máximo:
+  - ninguna nave pasa del 28% del tiempo en overdrive ni del 35% invulnerable en total;
+  - Nova con la build más rota se queda en ~34%;
+  - antes: Viper 64%, Nova 84% y Nova rota 96%.
+
+<!-- CARDS:START -->
+### Cartas
+| | Carta | Rareza | Efecto | Máx. |
+|---|---|---|---|---|
+| 🧲 | **Imán** | común | Atrae las monedas cercanas. Se acumula. | 3 |
+| ⚡ | **Doble carga** | rara | +1 carga de DASH. | 1 |
+| 🛡️ | **Escudo** | rara | Aguanta 1 golpe (máximo 3 escudos). | 2 |
+| 👁️ | **Reflejos** | común | Ventana de near-miss más grande y cámara lenta más larga. | 3 |
+| 💉 | **Adrenalina** | rara | Cada near-miss recarga un cuarto de carga de DASH. | 1 |
+| 🌋 | **Terremoto** | rara | Al aterrizar de un salto destruyes lo que tengas delante en tu carril. | 1 |
+| 🦘 | **Salto doble** | rara | Salta otra vez en el aire. Bien medido, ¡pasas por encima de los muros! | 1 |
+| 💥 | **Dash ancho** | rara | Tu DASH destruye obstáculos en los 3 carriles. | 1 |
+| 🧨 | **Explosivo** | épica | Lo que rompes explota y arrasa todo lo cercano en cadena. | 1 |
+| 🔥 | **Overdrive+** | común | El OVERDRIVE dura +2 s. | 3 |
+| 🔋 | **Cargador** | común | El OVERDRIVE se llena un 35% más rápido. | 3 |
+| 🪙 | **Monedas de oro** | común | Cada moneda vale +1. | 3 |
+| 💎 | **Pacto de cristal** | épica | x3 PUNTOS… pero pierdes un carril para siempre. | 1 |
+| 🚀 | **Nitro loco** | épica | +50% de velocidad y x2 PUNTOS. | 1 |
+| 🧛 | **Vampiro** | rara | Ganas un escudo a los 12 near-miss; cada uno siguiente pide 6 más. | 1 |
+| 🧷 | **Seguro de combo** | común | Perder un escudo no reinicia tu combo. | 1 |
+| ⏱️ | **Recarga rápida** | común | El DASH recarga un 20% más rápido. | 3 |
+| 🪶 | **Ágil** | común | Cambias de carril y saltas más rápido. | 2 |
+| 🏎️ | **Turbo** | común | +10% de velocidad y +10% de puntos. | 2 |
+| 🔩 | **Chatarrero** | común | +15 🪙 al empezar cada tramo. Se acumula. | 2 |
+| 🍀 | **Fortuna** | común | Más cartas raras y épicas en las elecciones. | 2 |
+| 🪁 | **Aerodinámica** | común | Saltas más alto y caes más despacio. | 2 |
+| 🎯 | **Trofeo** | rara | Escapar del Cazador te da 1 escudo. | 1 |
+| 🔧 | **Mecánico** | rara | Cada 3 tramos sin perder escudos, ganas 1. | 1 |
+| 🧱 | **Parachoques** | épica | El primer golpe de cada tramo no te quita escudo (sí combo y overdrive). | 1 |
+| 💰 | **Tesoro** | épica | x1,5 gemas al acabar la partida. | 1 |
+
+### Sinergias
+Si tienes las dos cartas de una sinergia, se activa un efecto extra.
+
+| Sinergia | Combina | Efecto |
+|---|---|---|
+| **SUPERNOVA** | 🧲 Imán + 🔥 Overdrive+ | En OVERDRIVE las monedas valen x3 y el imán es gigante. |
+| **BULLDOZER** | 🧨 Explosivo + 💥 Dash ancho | DASH +50% de duración y recarga un 30% más rápido. |
+| **ZEN** | 👁️ Reflejos + 💉 Adrenalina | Los near-miss PERFECTOS cargan un 15% extra de OVERDRIVE. |
+| **METEORO** | 🦘 Salto doble + 🌋 Terremoto | Terremoto con doble alcance y +500 puntos por golpe. |
+| **KAMIKAZE** | 💎 Pacto de cristal + 🚀 Nitro loco | x2 PUNTOS extra. Sí, otra vez. |
+| **SANGRE DORADA** | 🧛 Vampiro + 🪙 Monedas de oro | Cada moneda suma combo extra. |
+
+### Naves (hangar)
+| Nave | Coste | Pasiva | Habilidad activa ⚡ | ★ Mutación (árbol, nivel 3) |
+|---|---|---|---|---|
+| **Viper** | gratis | Equilibrada. La de siempre. | ⏩ **SOBRECARGA** (18 s): 4 s de tiempo bala; los near-miss valen el doble. | Cada near-miss alarga la SOBRECARGA 0,3 s |
+| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. | 🐏 **ARIETE** (24 s): 2,5 s rompiendo todo lo que tocas (sin poder saltar). | Cada rotura con el ARIETE recarga 1 s |
+| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. | 👻 **FASE** (18 s): 1,2 s intangible: lo que atraviesas cuenta como PERFECTO. | Al salir de FASE, una onda rompe lo cercano |
+| **Nova** | 💎 300 | OVERDRIVE se llena un 20% más rápido y dura +1 s. | 💥 **ESTALLIDO** (25 s): +10% de overdrive y arrasa todo lo que tienes delante. | ESTALLIDO carga un 25% de OVERDRIVE |
+| **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. | RUGIDO te da 1 escudo |
+| **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). | Dispara en los 3 carriles |
+| **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. | El GANCHO arrasa lo que tienes delante |
+| **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
+| **Spectra** | 💎 950 | Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento. | ⚡ **SALTO CORTO** (12 s): Te teletransporta 35 m adelante (no con un jefe delante). | Al aparecer, rompes lo que tienes delante |
+| **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
+| **Halcón** | 💎 1300 | Ligera: el DASH recarga un 10% antes, pero x0.95 puntos. | 🔰 **ESCUDO DE ENERGÍA** (32 s): +1 escudo (si ya estás al máximo, 20 🪙). | Al activarla, una onda rompe lo cercano |
+| **Quimera** | 💎 1500 | Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento. | 🌀 **CAOS** (22 s): Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙. | CAOS atrae todas las monedas de la pista |
+| **Errante** | gratis | La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos). | 🕳️ **SINGULARIDAD** (28 s): Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas. | La SINGULARIDAD te da 1 escudo |
+<!-- CARDS:END -->
+
+#### Ajustes del menú
+En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes y, en la Galaxia, los brillos con desenfoque: apagarlo ahorra batería en móviles modestos) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
+
+</details>
+
+<details>
+<summary><b>🌌 GALAXIA</b></summary>
+
 Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia que se explora a tu ritmo.
 - **Vuelo libre:** la nave gira en **sus propios ejes**, así que puedes dar **rizos completos**, volar boca abajo y alabear.
   - **Joystick** donde apoyes el dedo: arriba/abajo = cabeceo sin tope, a los lados = giro.
@@ -210,7 +395,35 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - Arriba siempre está el **siguiente paso** ("Vuelve a la estación a vender") y una flecha que te lleva hasta él.
 - Un motor 3D propio sobre Canvas 2D, sin librerías: ~2 ms por fotograma en el móvil.
 
-## ⚔️ Modo ARENA
+</details>
+
+<details>
+<summary><b>🏚️ PECIOS</b></summary>
+
+El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con la **cámara detrás de tu nave** (como en la Galaxia, pero por salas con techo y paredes). Roguelite: cada partida, plantas nuevas.
+- **Controles:** apoya el dedo donde quieras y deslízalo: **arriba avanzas, a los lados giras** (teclado: flechas o WASD). Tu nave **dispara sola** al enemigo más cercano que vea.
+- **💨 Esquive** (botón, doble toque o Espacio): un acelerón intocable que además **salta los pozos**. **⚡ Habilidad** de tu nave (botón o E), con su versión para los pecios.
+- **Salas:** ⚔️ combate (las puertas se cierran hasta limpiarla, y al limpiarla reparas 1 ❤️), 🎁 tesoro (el cofre pide 🗝️), ⚠️ trampas (pozos, minas y suelo eléctrico que se enciende a ratos), 🛒 tienda, ✨ altar (vida máxima o daño) y 🚪 salida con la escotilla ⬇️.
+- **Enemigos, siempre avisan:** Dron (te persigue y embiste), Torreta (marca en rojo la línea del láser y dispara un instante después: apártate), Bomba (corre hacia ti, parpadea y estalla alrededor), Escudo (para lo que le llega de frente y gira despacio: rodéalo).
+- **9 plantas** en 3 ambientes: Pecio de carga, Estación médica y Reactor. Minimapa arriba a la derecha.
+- **🔩 Piezas**, su moneda propia (solo de Pecios): si caes te llevas más cuanto más hondo llegaste; si sales, todas.
+- **🎁 Botín con rareza** (<span>común · raro · épico · legendario</span>): **arma** (🔱 Abanico, 🗡️ Perforador, 🪃 Rebote, 💥 Estallido, 🔥 Ráfaga: cambian tu disparo), **blindaje** (vida máxima y, los buenos, escudo al entrar en cada sala) y **2 módulos** (🩸 Sanguijuela, 🗝️ Llavero, 🔍 Escáner, 🧲 Imán, 💨 Reflejos, 🔋 Sobrecarga). Caen de enemigos, cofres y mímicos; al tocarlos ves **lo nuevo frente a lo que llevas** y eliges (lo que sueltas queda en el suelo). Más hondo, mejor botín.
+- **🎒 Mochila** (hasta 3 de cada, con su botón): 🧰 Kit de reparación, 📡 Pulso EMP (aturde a toda la sala) y 🌀 Teletransporte (a la entrada de la planta).
+- **Explorar:** algunos cofres son **😈 mímicos** (muerden y cierran la sala, pero sueltan buen botín; el 🔍 Escáner los delata). Las **paredes agrietadas** esconden una **💎 sala oculta**: embístelas con 💨. En las salas de trampas, el **🔌 interruptor** apaga el suelo eléctrico. La tienda vende consumibles y la 📦 caja misteriosa; el altar ofrece también un 🩸 **pacto** (−1 de vida máxima por un objeto épico o mejor).
+- **🔐 Bóveda** (150 🔩, para siempre): al acabar una partida guardas 1 objeto y empiezas la siguiente con él puesto.
+- **💀 Jefes cada 3 plantas** (guardan la salida; la escotilla aparece al vencerlos), con **fase 2** a media vida:
+  - planta 3, **Guardián de carga**: marca una franja y embiste; si se estrella contra la pared queda aturdido y recibe el doble (en fase 2, más a menudo y con drones de apoyo);
+  - planta 6, **Enjambre médico**: la reina se cura mientras vivan sus nodos (rayos verdes); a media vida se divide;
+  - planta 9, **Núcleo del reactor**: marca casillas en rojo (anillos, cruz o alrededor de ti) y al momento arden; en fase 2 electrifica el suelo.
+- **♾️ Modo sin fin**: al superar la planta 9 eliges **salir** con todas las 🔩 o **seguir**: ya cuenta como victoria, no pierdes 🔩 al caer y los jefes vuelven cada 3 plantas, más duros. El récord cuenta la planta más honda.
+- **🛠️ Taller de Pecios** (con 🔩, para siempre): Casco reforzado (+vida), Llavero (empiezas con llaves), Mochila (un kit al empezar y caben 4 de cada), Olfato (más y mejor botín) y Calibración (+daño).
+- **Logros**: Desguace (primer jefe), Fondo del pecio (supera la 9), Pieza de museo (un legendario), Barrendero (50 salas) y Sin fondo (planta 15). Y misiones diarias de Pecios.
+
+</details>
+
+<details>
+<summary><b>⚔️ ARENA</b></summary>
+
 Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
 - **Vista cenital:** te mueves libre (arrastra el dedo como un joystick, o WASD/flechas) y **tu nave dispara sola**.
 - **Oleadas cada vez más grandes** de 6 tipos de enemigo: el Embestidor avisa con una línea antes de cargar, el Divisor se parte en dos al morir… Un **élite** por minuto suelta un cofre con una mejora gratis.
@@ -239,85 +452,13 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - 🚫 **Vetos**: elige una mejora que no quieres volver a ver en esa partida.
 - Gemas, 🪙 y XP para el hangar, la tienda y el rango (la pantalla final dice cuántas de cada). Récord, logros y misiones propias.
 
-## 🏚️ Modo PECIOS (nuevo)
-El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con la **cámara detrás de tu nave** (como en la Galaxia, pero por salas con techo y paredes). Roguelite: cada partida, plantas nuevas.
-- **Controles:** apoya el dedo donde quieras y deslízalo: **arriba avanzas, a los lados giras** (teclado: flechas o WASD). Tu nave **dispara sola** al enemigo más cercano que vea.
-- **💨 Esquive** (botón, doble toque o Espacio): un acelerón intocable que además **salta los pozos**. **⚡ Habilidad** de tu nave (botón o E), con su versión para los pecios.
-- **Salas:** ⚔️ combate (las puertas se cierran hasta limpiarla, y al limpiarla reparas 1 ❤️), 🎁 tesoro (el cofre pide 🗝️), ⚠️ trampas (pozos, minas y suelo eléctrico que se enciende a ratos), 🛒 tienda, ✨ altar (vida máxima o daño) y 🚪 salida con la escotilla ⬇️.
-- **Enemigos, siempre avisan:** Dron (te persigue y embiste), Torreta (marca en rojo la línea del láser y dispara un instante después: apártate), Bomba (corre hacia ti, parpadea y estalla alrededor), Escudo (para lo que le llega de frente y gira despacio: rodéalo).
-- **9 plantas** en 3 ambientes: Pecio de carga, Estación médica y Reactor. Minimapa arriba a la derecha.
-- **🔩 Piezas**, su moneda propia (solo de Pecios): si caes te llevas más cuanto más hondo llegaste; si sales, todas.
-- **🎁 Botín con rareza** (<span>común · raro · épico · legendario</span>): **arma** (🔱 Abanico, 🗡️ Perforador, 🪃 Rebote, 💥 Estallido, 🔥 Ráfaga: cambian tu disparo), **blindaje** (vida máxima y, los buenos, escudo al entrar en cada sala) y **2 módulos** (🩸 Sanguijuela, 🗝️ Llavero, 🔍 Escáner, 🧲 Imán, 💨 Reflejos, 🔋 Sobrecarga). Caen de enemigos, cofres y mímicos; al tocarlos ves **lo nuevo frente a lo que llevas** y eliges (lo que sueltas queda en el suelo). Más hondo, mejor botín.
-- **🎒 Mochila** (hasta 3 de cada, con su botón): 🧰 Kit de reparación, 📡 Pulso EMP (aturde a toda la sala) y 🌀 Teletransporte (a la entrada de la planta).
-- **Explorar:** algunos cofres son **😈 mímicos** (muerden y cierran la sala, pero sueltan buen botín; el 🔍 Escáner los delata). Las **paredes agrietadas** esconden una **💎 sala oculta**: embístelas con 💨. En las salas de trampas, el **🔌 interruptor** apaga el suelo eléctrico. La tienda vende consumibles y la 📦 caja misteriosa; el altar ofrece también un 🩸 **pacto** (−1 de vida máxima por un objeto épico o mejor).
-- **🔐 Bóveda** (150 🔩, para siempre): al acabar una partida guardas 1 objeto y empiezas la siguiente con él puesto.
-- **💀 Jefes cada 3 plantas** (guardan la salida; la escotilla aparece al vencerlos), con **fase 2** a media vida:
-  - planta 3, **Guardián de carga**: marca una franja y embiste; si se estrella contra la pared queda aturdido y recibe el doble (en fase 2, más a menudo y con drones de apoyo);
-  - planta 6, **Enjambre médico**: la reina se cura mientras vivan sus nodos (rayos verdes); a media vida se divide;
-  - planta 9, **Núcleo del reactor**: marca casillas en rojo (anillos, cruz o alrededor de ti) y al momento arden; en fase 2 electrifica el suelo.
-- **♾️ Modo sin fin**: al superar la planta 9 eliges **salir** con todas las 🔩 o **seguir**: ya cuenta como victoria, no pierdes 🔩 al caer y los jefes vuelven cada 3 plantas, más duros. El récord cuenta la planta más honda.
-- **🛠️ Taller de Pecios** (con 🔩, para siempre): Casco reforzado (+vida), Llavero (empiezas con llaves), Mochila (un kit al empezar y caben 4 de cada), Olfato (más y mejor botín) y Calibración (+daño).
-- **Logros**: Desguace (primer jefe), Fondo del pecio (supera la 9), Pieza de museo (un legendario), Barrendero (50 salas) y Sin fondo (planta 15). Y misiones diarias de Pecios.
+</details>
 
-## 🗺️ Modo EXPEDICIÓN
-El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).
-- **Nodos:**
-  - 🛣️ Tramo (al final, una carta);
-  - ☠️ Élite: tramo duro, con carta rara;
-  - 🛒 Tienda;
-  - ❓ Evento: 12 decisiones de riesgo y recompensa, como un casino, un altar o una nave abandonada;
-  - 🎁 Tesoro;
-  - 🔥 Descanso: +1 escudo o sube de nivel una carta;
-  - 🔨 **Forja**: sube 2 cartas de nivel, o funde 40 🪙 en una carta épica;
-  - 👾 Jefe.
-- Escudos, monedas y cartas te acompañan todo el viaje. Si caes, se acaba.
-- **🏺 Reliquias** (10, eliges 1 de 3): las dan siempre los jefes, a veces los élites y los tesoros, y eventos como el Oráculo o el Contrabandista. Duran toda la expedición: Escudo de cristal (el primer golpe de cada tramo no cuenta), Avaro, Brasa eterna, Coleccionista (una carta más para elegir), Corazón de reserva, Hucha, Imán eterno, Gema del viajero, Cartógrafo y Pluma de fénix (una vida extra). Se ven arriba del mapa.
-- **18 eventos** (6 nuevos: Oráculo, Contrabandista, Reliquia maldita, Espejo gemelo, Ruleta y Peregrino).
-- **Acto 4 · EL ABISMO:** tras completar una expedición, las siguientes tienen un 4.º acto con jefe ÉLITE. Logro **Del abismo**.
-- Cada acto superado da gemas; completar la expedición da un buen premio de XP. Logros propios.
+<details>
+<summary><b>🚀 Hangar, tienda, rango, logros y misiones</b></summary>
 
-## 🏁 Modo CARRERAS
-- **5 copas de 3 pistas** (Neón, Magma, Vacío, **Glaciar** y **Leyenda**, que mezcla biomas) contra **3 rivales IA con personalidad**:
-  - **BRUTO** busca tu carril y empuja;
-  - **SEDA** corre limpio;
-  - **CHISPA** mete acelerones.
-- Los rivales corren por la **misma pista** y esquivan sus obstáculos (cada copa los hace más hábiles). Con DASH u overdrive **los sacas de la pista**.
-- **Chocar frena, no mata**: la carrera siempre acaba. Posición en directo y podio con puntos (10/6/3/1); al final de la copa, medalla. Cada medalla abre la copa siguiente.
-- **Tu fantasma:** se guarda tu mejor carrera de cada pista y la próxima vez corres contra ella (el HUD dice a cuántos segundos vas).
-- **Rivales que se adaptan:** si en una pista vas muy rápido, aprietan un poco (±3 %); si te cuesta, aflojan.
-- **⏱️ CONTRARRELOJ** (pestaña en Carreras): cada pista de las copas abiertas, sin rivales. Solo tú, el reloj y tu fantasma, con tres tiempos objetivo 🥇🥈🥉 (el oro pide overdrive). Logro **Cronómetro** por 5 oros.
+#### ⚡ Habilidades y hangar
 
-## 🧪 Modificadores y mutación del día
-- **12 modificadores** que cambian las reglas a cambio de **más puntos y gemas**:
-  - Turbo, Caos, Campo minado, Cristal, Jefazos, Cazador voraz;
-  - Avaricia, Ingravidez, Frágil, Sin DASH, Niebla y Al revés.
-- Se activan con el ⚙️ de la tarjeta **RUNNER**, y se recuerdan para la próxima partida.
-- El bonus se multiplica: Turbo + Cristal = x2,08 puntos. Las gemas suben la mitad, con tope x3.
-- Se **desbloquean con el rango**, uno cada pocos rangos: siempre hay uno nuevo a la vista.
-- **🧬 Mutación del día:** cada día, 2 modificadores y la misma pista para todos. El primer intento paga **x1,5 gemas**.
-- Los tests comprueban que el bot sobrevive sin golpes con cada modificador que cambia la pista.
-
-## 🗺️ Campaña
-Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Distrito neón, Forja de lava, El vacío e Hiperespacio):
-- Cada nivel tiene **pista fija** (siempre la misma, para aprendértela), un número de tramos y una **línea de META**. El 4.º nivel de cada sector es un **jefe**.
-- **3 estrellas por nivel:** llegar a la meta (o derrotar al jefe) y dos objetivos más, como "sin perder escudos", "25 near-miss", "combo x35" o "120 monedas". Las estrellas se guardan: nunca se pierden.
-- Superar un nivel abre el siguiente; los **sectores se abren con estrellas** (6, 15 y 26).
-- La primera vez que superas un nivel ganas sus gemas, y cada estrella nueva da +5 💎.
-- Los tests comprueban que el bot llega a la meta de **todos** los niveles sin un solo golpe: ninguna pista fija es injusta.
-- **Y no se acaba:** tras el sector 4 llegan los **sectores generados** (5, 6, 7…), siempre los mismos para todos:
-  - cada uno con nombre propio, a veces con **dos biomas que se alternan**;
-  - cada nivel trae **1–2 modificadores fijos**, y la dificultad sigue subiendo;
-  - desde el sector 6, uno de cada dos acaba en un **JEFE ÉLITE**: ataques de su fase 2 desde el principio, uno prestado de otro jefe y +50% de vida;
-  - cada sector se abre al vencer al jefe del anterior, y el mapa enseña siempre el siguiente cerrado.
-
-## 🛣️ Estructura de una partida
-1. **Tramos** con biomas que rotan: Neón urbano, Túnel de lava, Vacío glitch e Hiperespacio. En mitad de un tramo puede saltar un **evento**: controles invertidos, mundo al revés, lluvia de monedas o "solo near-miss".
-2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
-3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
-4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y **pasa por sus núcleos verdes** antes de que escape: tocarlos le hace daño, y con DASH el golpe es **crítico (doble)**. El núcleo blindado del Censor solo cede al DASH.
-5. Al morir ganas **gemas 💎** para el hangar, y las **🪙 que no gastaste** van a tu cartera.
-
-## ⚡ Habilidades y hangar
 - **Cada nave tiene una habilidad activa propia.** Se lanza con el botón ⚡ (abajo a la derecha) o con **E**/**Q** en el teclado. Tiene un tiempo de recarga, que se ve en el anillo del botón, y **cada near-miss lo recorta 0,15 s**.
 - **Árbol de mejoras por nave** en el hangar (pestaña MEJORAS): 3 ramas de **5 niveles** que se compran con gemas, en orden.
   - 🛡️ **BLINDAJE:** escudo inicial, más invulnerabilidad, ÚLTIMO ALIENTO, SEGURO de combo y ÚLTIMO ALIENTO doble.
@@ -341,15 +482,8 @@ Además del modo infinito hay una **campaña de 16 niveles** en 4 sectores (Dist
   - **Emblema a tu gusto:** en las dos alas, en una sola o en la cola, y en el color que quieras (gratis). Siempre cabe dentro de su cara: se centra en el incentro del triángulo y se recorta a su contorno.
   - **Pinturas con patrón** (Tigre a franjas, Dúo partida, Aurora en degradado), estelas de **Humo** y **Relámpago**, y explosiones **Agujero negro** y **Fuegos artificiales**.
 
-## 🏠 Menú
-El menú tiene los **3 juegos**:
-- **🏁 RUNNER** abre su pantalla con el modo **Infinito** (con ⚙️ modificadores y tus potenciadores) y sus 4 modos: **🗺️ Campaña**, **🧭 Expedición**, **🏆 Carreras** y **🧬 Mutación** del día;
-- **🌌 GALAXIA**;
-- **⚔️ ARENA**.
+#### 💰 Economía y 🛒 Tienda
 
-Debajo están las misiones del día, y en la barra inferior: Inicio · Hangar · Tienda · Logros · Colección.
-
-## 💰 Economía y 🛒 Tienda
 Dos economías separadas (toca 💎 o 🪙 en el menú para verlo):
 
 | Moneda | Juegos | Se gana | Se gasta |
@@ -377,26 +511,17 @@ En la **🛒 TIENDA** (barra inferior):
 - **🃏 Mazo** (en Colección): **8 cartas nuevas** que se desbloquean con gemas (Turbo, Chatarrero, Fortuna, Aerodinámica, Trofeo, Mecánico, Parachoques y Tesoro) y **maestría** de 3 niveles para cada carta (con 🪙): cuanto más alta, más a menudo te sale. Los cofres también suben maestrías.
 - **Más estilo:** grupos nuevos **🏁 Rayas** (de carreras, sobre el lomo) y **🪟 Cabina**, y más pinturas, motores y disparos.
 
-## ⚖️ Balance
-El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivir invulnerable**, y un test del bot lo comprueba:
-- **Overdrive:** carga más despacio y, al acabar, se **recalienta 5 s** (barra gris: "RECALENTANDO"); no se puede encadenar uno tras otro.
-- **Topes:** cargas de overdrive x1,5, duración 7 s, 3 cargas de DASH y recarga mínima de 2,4 s.
-- **Cartas repetidas, menos efecto:** Cargador +35/+25/+15%, Overdrive+ +2/+1,5/+1 s, Recarga rápida −20/−15/−10%. La carta dice cuánto da la siguiente copia.
-- **Vampiro** pide cada vez más near-miss por escudo (12, 18, 24…), y Doble carga solo se puede coger una vez.
-- **Medido con el bot** en 120 s, con el árbol al máximo:
-  - ninguna nave pasa del 28% del tiempo en overdrive ni del 35% invulnerable en total;
-  - Nova con la build más rota se queda en ~34%;
-  - antes: Viper 64%, Nova 84% y Nova rota 96%.
+#### 🏆 Rango, logros y colección
 
-## 🏆 Rango, logros y colección
 - **Rango de piloto (1-30):** cada partida da XP según distancia, near-miss, tramos, jefes y misiones. Cada rango nuevo da gemas.
-- **69 logros** de bronce, plata y oro: de "100 near-miss" a "100 millones de puntos en una partida", pasando por cofres, talentos, maestrías y la Galaxia.
+- **99 logros** de bronce, plata y oro: de "100 near-miss" a "100 millones de puntos en una partida", pasando por cofres, talentos, maestrías y la Galaxia.
   - **Cada logro desbloquea un estilo exclusivo** con su nombre ("Pintura Leyenda", "Motor Cazajefes"…), que vale para **todas las naves**: los de oro dan pinturas con patrón; los de plata, rayas, motores o pinturas; y los de bronce, disparos, cabinas o motores. Además dan unas gemas (5/10/20 💎).
   - En **🏆 Logros** cada uno enseña su premio, y los conseguidos tienen **EQUIPAR** para ponértelo al momento.
   - Al desbloquear uno en plena partida se celebra en el momento, con el estilo que acabas de ganar.
 - **Colección:** las cartas, sinergias y jefes que has visto. Lo que te falta aparece en silueta.
 
-## ✨ Prestigio
+#### ✨ Prestigio
+
 - Al llegar al **rango 30** aparece **PRESTIGIO** en el menú; pide confirmación con un segundo toque.
 - Vuelves al rango 1, con **+5% de gemas para siempre** por cada nivel (hasta +50%), y los rangos se vuelven a pagar.
 - **Lo desbloqueado por rango no se pierde.**
@@ -409,74 +534,45 @@ El juego engancha mientras haya que esquivar. Por eso **ninguna build puede vivi
   - en los demás niveles, 200 💎.
 - No tiene límite.
 
-## 🎯 Misiones diarias
+#### 🎯 Misiones diarias
+
 Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una difícil (+40 💎). Son las mismas para todos y cambian a medianoche. Algunas se acumulan durante el día ("haz 60 near-miss") y otras hay que lograrlas en una sola partida ("llega a x50 de combo"). Al completar una en plena partida se celebra en el momento y las gemas se suman al instante. El progreso se ve en el menú y en la pantalla final.
 
-<!-- CARDS:START -->
-### Cartas
-| | Carta | Rareza | Efecto | Máx. |
-|---|---|---|---|---|
-| 🧲 | **Imán** | común | Atrae las monedas cercanas. Se acumula. | 3 |
-| ⚡ | **Doble carga** | rara | +1 carga de DASH. | 1 |
-| 🛡️ | **Escudo** | rara | Aguanta 1 golpe (máximo 3 escudos). | 2 |
-| 👁️ | **Reflejos** | común | Ventana de near-miss más grande y cámara lenta más larga. | 3 |
-| 💉 | **Adrenalina** | rara | Cada near-miss recarga un cuarto de carga de DASH. | 1 |
-| 🌋 | **Terremoto** | rara | Al aterrizar de un salto destruyes lo que tengas delante en tu carril. | 1 |
-| 🦘 | **Salto doble** | rara | Salta otra vez en el aire. Bien medido, ¡pasas por encima de los muros! | 1 |
-| 💥 | **Dash ancho** | rara | Tu DASH destruye obstáculos en los 3 carriles. | 1 |
-| 🧨 | **Explosivo** | épica | Lo que rompes explota y arrasa todo lo cercano en cadena. | 1 |
-| 🔥 | **Overdrive+** | común | El OVERDRIVE dura +2 s. | 3 |
-| 🔋 | **Cargador** | común | El OVERDRIVE se llena un 35% más rápido. | 3 |
-| 🪙 | **Monedas de oro** | común | Cada moneda vale +1. | 3 |
-| 💎 | **Pacto de cristal** | épica | x3 PUNTOS… pero pierdes un carril para siempre. | 1 |
-| 🚀 | **Nitro loco** | épica | +50% de velocidad y x2 PUNTOS. | 1 |
-| 🧛 | **Vampiro** | rara | Ganas un escudo a los 12 near-miss; cada uno siguiente pide 6 más. | 1 |
-| 🧷 | **Seguro de combo** | común | Perder un escudo no reinicia tu combo. | 1 |
-| ⏱️ | **Recarga rápida** | común | El DASH recarga un 20% más rápido. | 3 |
-| 🪶 | **Ágil** | común | Cambias de carril y saltas más rápido. | 2 |
-| 🏎️ | **Turbo** | común | +10% de velocidad y +10% de puntos. | 2 |
-| 🔩 | **Chatarrero** | común | +15 🪙 al empezar cada tramo. Se acumula. | 2 |
-| 🍀 | **Fortuna** | común | Más cartas raras y épicas en las elecciones. | 2 |
-| 🪁 | **Aerodinámica** | común | Saltas más alto y caes más despacio. | 2 |
-| 🎯 | **Trofeo** | rara | Escapar del Cazador te da 1 escudo. | 1 |
-| 🔧 | **Mecánico** | rara | Cada 3 tramos sin perder escudos, ganas 1. | 1 |
-| 🧱 | **Parachoques** | épica | El primer golpe de cada tramo no te quita escudo (sí combo y overdrive). | 1 |
-| 💰 | **Tesoro** | épica | x1,5 gemas al acabar la partida. | 1 |
+</details>
 
-### Sinergias
-Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 
-| Sinergia | Combina | Efecto |
-|---|---|---|
-| **SUPERNOVA** | 🧲 Imán + 🔥 Overdrive+ | En OVERDRIVE las monedas valen x3 y el imán es gigante. |
-| **BULLDOZER** | 🧨 Explosivo + 💥 Dash ancho | DASH +50% de duración y recarga un 30% más rápido. |
-| **ZEN** | 👁️ Reflejos + 💉 Adrenalina | Los near-miss PERFECTOS cargan un 15% extra de OVERDRIVE. |
-| **METEORO** | 🦘 Salto doble + 🌋 Terremoto | Terremoto con doble alcance y +500 puntos por golpe. |
-| **KAMIKAZE** | 💎 Pacto de cristal + 🚀 Nitro loco | x2 PUNTOS extra. Sí, otra vez. |
-| **SANGRE DORADA** | 🧛 Vampiro + 🪙 Monedas de oro | Cada moneda suma combo extra. |
+<details>
+<summary><b>🖼️ Galería</b></summary>
 
-### Naves (hangar)
-| Nave | Coste | Pasiva | Habilidad activa ⚡ | ★ Mutación (árbol, nivel 3) |
-|---|---|---|---|---|
-| **Viper** | gratis | Equilibrada. La de siempre. | ⏩ **SOBRECARGA** (18 s): 4 s de tiempo bala; los near-miss valen el doble. | Cada near-miss alarga la SOBRECARGA 0,3 s |
-| **Brick** | 💎 60 | Empieza con 2 escudos, pero cambia de carril más lento. | 🐏 **ARIETE** (24 s): 2,5 s rompiendo todo lo que tocas (sin poder saltar). | Cada rotura con el ARIETE recarga 1 s |
-| **Ghost** | 💎 150 | Ventana de near-miss enorme y DASH que recarga rápido. | 👻 **FASE** (18 s): 1,2 s intangible: lo que atraviesas cuenta como PERFECTO. | Al salir de FASE, una onda rompe lo cercano |
-| **Nova** | 💎 300 | OVERDRIVE se llena un 20% más rápido y dura +1 s. | 💥 **ESTALLIDO** (25 s): +10% de overdrive y arrasa todo lo que tienes delante. | ESTALLIDO carga un 25% de OVERDRIVE |
-| **Kaiju** | 💎 500 | Empieza con Dash ancho y Explosivo (¡BULLDOZER!), pero x0.7 puntos. | 🦖 **RUGIDO** (30 s): Limpia los 3 carriles por delante y atrae todas las monedas. | RUGIDO te da 1 escudo |
-| **Raptor** | 💎 400 | Nerviosa: cambia de carril un 20% más rápido y su DASH recarga antes. | 🔫 **LÁSER** (6 s): Dispara por tu carril y rompe el primer obstáculo (o daña al jefe). | Dispara en los 3 carriles |
-| **Comet** | 💎 650 | Cazatesoros: cada moneda vale +1 y el imán viene de serie, pero el OVERDRIVE carga un 20% más lento. | 🪝 **GANCHO** (10 s): Te lanza al carril del extremo opuesto al instante. | El GANCHO arrasa lo que tienes delante |
-| **Manta** | 💎 800 | Planea: ventana de near-miss algo mayor y +20% de invulnerabilidad tras un golpe. | 🫧 **BURBUJA** (20 s): 5 s dentro de una burbuja que absorbe el próximo golpe. | Al estallar, la BURBUJA arrasa lo cercano |
-| **Spectra** | 💎 950 | Rayo: cambia de carril un 15% más rápido y puntúa x1.1, pero su DASH recarga más lento. | ⚡ **SALTO CORTO** (12 s): Te teletransporta 35 m adelante (no con un jefe delante). | Al aparecer, rompes lo que tienes delante |
-| **Titán** | 💎 1100 | Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos. | 🔨 **MARTILLO** (16 s): Rompe todo lo que hay en tu carril hasta 60 m (y golpea al jefe). | El MARTILLO golpea los 3 carriles |
-| **Halcón** | 💎 1300 | Ligera: el DASH recarga un 10% antes, pero x0.95 puntos. | 🔰 **ESCUDO DE ENERGÍA** (32 s): +1 escudo (si ya estás al máximo, 20 🪙). | Al activarla, una onda rompe lo cercano |
-| **Quimera** | 💎 1500 | Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento. | 🌀 **CAOS** (22 s): Arrasa lo que tienes delante (40 m) y cada pieza te da 5 🪙. | CAOS atrae todas las monedas de la pista |
-| **Errante** | gratis | La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos). | 🕳️ **SINGULARIDAD** (28 s): Un agujero negro arrasa 50 m en los 3 carriles y atrae las monedas. | La SINGULARIDAD te da 1 escudo |
-<!-- CARDS:END -->
+<img src="docs/gameplay.png" width="180" alt="Runner: obstáculos"> <img src="docs/cards.png" width="180" alt="Runner: elección de cartas"> <img src="docs/boss.png" width="180" alt="Runner: jefe"> <img src="docs/campaign.png" width="180" alt="Mapa de la campaña"> <img src="docs/expedition.png" width="180" alt="Mapa de la Expedición"> <img src="docs/race.png" width="180" alt="Carrera contra rivales"> <img src="docs/modifiers.png" width="180" alt="Modificadores"> <img src="docs/hangar.png" width="180" alt="Hangar con el árbol de mejoras"> <img src="docs/galaxy.png" width="180" alt="Galaxia en 3D"> <img src="docs/pecio.png" width="180" alt="Pecios: botín en una sala"> <img src="docs/pecio-boss.png" width="180" alt="Pecios: el Núcleo del reactor"> <img src="docs/arena.png" width="180" alt="Arena">
 
-### Ajustes del menú
-En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido · 📳 vibración · ✨ efectos intensos (shake, flashes y, en la Galaxia, los brillos con desenfoque: apagarlo ahorra batería en móviles modestos) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
+</details>
+
+## Tecnología
+
+| | |
+|---|---|
+| **Lenguaje** | JavaScript nativo con módulos ES, sin build ni transpilación. HTML y CSS a mano. |
+| **Gráficos** | Canvas 2D. Un **motor 3D propio** (proyección, recorte contra el plano cercano, orden del pintor y niebla) para la Galaxia y Pecios. |
+| **Arquitectura** | Las reglas de cada juego son **módulos puros** (sin DOM), separados del dibujo y de la interfaz: se testean en Node. Paso de simulación fijo (120 Hz) independiente de los FPS. |
+| **Offline** | Service worker con la caché versionada por commit y recarga automática al actualizar. |
+| **Calidad** | ESLint, tests unitarios con `node --test` y E2E con Playwright: bots que juegan partidas reales con semillas fijas, pruebas de diseño en varios tamaños de pantalla y de rendimiento por fotograma. |
+| **CI/CD** | GitHub Actions: cada PR pasa lint + tests; al fusionar en `main` se despliega solo en GitHub Pages. |
+
+```
+js/
+├─ main.js, state.js, input.js, ui.js, save.js   arranque, bucle, entrada, interfaz y guardado
+├─ game.js, world.js, render.js                  RUNNER
+├─ spaceGame.js, spaceRender.js, space3d.js      GALAXIA (y el motor 3D)
+├─ pecio.js, pecioLoot.js, pecioGame.js,         PECIOS: reglas, botín, partida
+│  pecioRender.js                                y dibujo 3D
+├─ arena.js, arenaRender.js                      ARENA
+└─ progress.js, missions.js, upgrades.js, …      progresión compartida
+test/unit/   reglas puras (Node)        test/e2e/   el juego en el navegador (Playwright)
+```
 
 ## 🛠️ Desarrollo
+
 El juego no necesita build (HTML, CSS y JS nativos); Node solo hace falta para las herramientas.
 
 ```bash
@@ -496,3 +592,9 @@ Con `npm run serve` el juego queda en http://localhost:8080.
 URL de desarrollo: `?nosw` desactiva la caché offline; `?debug` muestra los FPS y expone `G` y `D` en la consola; `?debug&seed=N` fija la pista.
 
 **Flujo:** rama → PR (la CI tiene que pasar) → merge a `main` → despliegue automático en GitHub Pages, con la caché del service worker versionada por commit.
+
+## Licencia
+
+© 2026 **Alberto Hiram Saucedo Guajardo**. Todos los derechos reservados.
+
+El código se publica solo para que se pueda ver. No se permite copiarlo, modificarlo, distribuirlo ni usarlo en otros proyectos sin permiso escrito del autor. Jugar en [ahiram1701.github.io/overdrive](https://ahiram1701.github.io/overdrive/) es libre. Los detalles están en [LICENSE](LICENSE).

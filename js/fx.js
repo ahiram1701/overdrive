@@ -98,10 +98,11 @@ export const fx = {
   // Aviso pequeño sobre la barra de overdrive (cartas, escudos, recompensas).
   // Se guardan los 3 últimos (si llegan varios a la vez no se pisan; el mismo texto solo se refresca):
   // los modos que los apilan los ven todos y el resto, solo el último, como siempre.
-  notice(str, color = '#fff') {
+  // dur: segundos en pantalla (los que explican qué hacer, más tiempo para leerlos)
+  notice(str, color = '#fff', dur = 1.6) {
     const i = notices.findIndex((n) => n.str === str);
     if (i >= 0) notices.splice(i, 1);
-    notices.push({ str, color, life: 1.6, max: 1.6 });
+    notices.push({ str, color, life: dur, max: dur });
     if (notices.length > 3) notices.shift();
   },
 

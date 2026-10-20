@@ -124,15 +124,15 @@ function handle(s, ev) {
     switch (e.type) {
       case 'fire': sfx.near?.(true, 0.4); break;
       case 'hit': sfx.brk(); break;
-      case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158'); } sfx.bump(); break;
+      case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158', 2.6); } sfx.bump(); break;
       case 'kill': sfx.coin(4); fx.notice(`+${e.piezas} 🔩`, '#c8d6e5'); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 }); break;
       case 'hurt': fx.flash('#f33', 0.3); fx.shake(8); fx.vibe(50); sfx.shield(); break;
       case 'absorb': fx.notice('🫧 ¡Absorbido!', '#7df9ff'); break;
       case 'dead': sfx.die(); fx.shake(25); break;
-      case 'fall': fx.notice('🕳️ ¡Al pozo! Con 💨 lo saltas', '#ff9f0a'); break;
-      case 'locked': fx.notice('🔒 Limpia la sala para salir', '#ff2d55'); sfx.bump(); break;
+      case 'fall': fx.notice('🕳️ ¡Al pozo! Con 💨 lo saltas', '#ff9f0a', 3.2); break;
+      case 'locked': fx.notice('🔒 Limpia la sala para salir', '#ff2d55', 2.6); sfx.bump(); break;
       case 'shut': fx.notice('🚪 Las puertas se cierran', '#ff9f0a'); sfx.alarm?.(); break;
-      case 'needKey': fx.notice('🗝️ Necesitas una llave', '#ffcc00'); sfx.bump(); break;
+      case 'needKey': fx.notice('🗝️ Necesitas una llave', '#ffcc00', 2.6); sfx.bump(); break;
       case 'chest': fx.banner('🎁 COFRE', `+${e.piezas} 🔩 · +1 ❤️`, '#ffcc00', false, 1.8); sfx.chest(); break;
       case 'key': fx.notice('🗝️ +1 llave', '#ffcc00'); break;
       case 'cleared': fx.notice('✔ Sala limpia · +1 ❤️', '#30d158'); sfx.milestone(); progress('pecioRoom'); break;
@@ -149,7 +149,7 @@ function handle(s, ev) {
       case 'bought': sfx.coin(6); ui.showPecioShop(s); break;
       case 'poor': fx.notice('Te faltan 🔩', '#ff2d55'); break;
       case 'blessed': sfx.chest(); fx.banner(e.pick === 'pact' ? '🩸 PACTO' : '✨ BENDICIÓN', { hp: '+2 de vida máxima', dmg: '+1 de daño del disparo', pact: '−1 de vida máxima… a cambio de esto' }[e.pick], '#bf5af2', false, 2); G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); break;
-      case 'weak': fx.notice('🩸 Estás demasiado débil para un pacto', '#ff2d55'); break;
+      case 'weak': fx.notice('🩸 Estás demasiado débil para un pacto', '#ff2d55', 2.6); break;
       case 'offer': G.mode = 'pecioShop'; ui.showPecioOffer(s); sfx.chest(); break;
       case 'equip': fx.notice(`${itemIcon(e.item)} ${itemName(e.item)} equipado`, RARITY[e.item.tier].color); sfx.milestone(); if (e.item.tier === 3) progress('pecioLegend'); break;
       case 'bossDown': fx.banner(`💀 ${e.name}`, '¡derrotado! la escotilla ⬇️ se abre', BOSSES[e.boss].color, true, 2.4); fx.shake(20); sfx.milestone(); progress('pecioBoss'); break;
@@ -163,13 +163,13 @@ function handle(s, ev) {
       case 'left': fx.notice('Lo dejas en el suelo', '#c8d6e5'); break;
       case 'drop': if (e.kind === 'item') { fx.notice('✨ ¡Botín en el suelo!', '#ffcc00'); sfx.chest(); } break;
       case 'pickup': fx.notice(`${CONS[e.cons].icon} +1 ${CONS[e.cons].name}`, '#7df9ff'); sfx.coin(3); break;
-      case 'bagFull': fx.notice(`${CONS[e.cons].icon} Ya llevas 3`, '#ff9f0a'); break;
+      case 'bagFull': fx.notice(`${CONS[e.cons].icon} Ya llevas ${s.player.bagMax}`, '#ff9f0a', 2.6); break;
       case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
       case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
       case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
       case 'mimic': fx.banner('😈 ¡MÍMICO!', 'el cofre muerde: véncelo y suelta su botín', '#ffcc00', true, 1.8); fx.shake(14); sfx.alarm?.(); break;
       case 'secret': fx.banner('💎 ¡SALA OCULTA!', 'la pared agrietada escondía una puerta', '#7df9ff', true, 2); sfx.milestone(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.8, t: 0.4, max: 0.4 }); break;
-      case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5'); break;
+      case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5', 2.6); break;
       case 'switch': fx.notice('🔌 Suelo eléctrico apagado', '#ffe600'); sfx.milestone(); break;
       case 'boom': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: e.r, t: 0.35, max: 0.35 }); sfx.boom(); fx.shake(e.mine ? 6 : 10); break;
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;

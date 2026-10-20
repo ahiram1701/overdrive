@@ -2,7 +2,9 @@
   "name": "overdrive",
   "version": "1.0.0",
   "private": true,
-  "description": "Runner de velocidad neón PWA. Dopamina a lo bruto.",
+  "description": "OVERDRIVE · 4 juegos arcade de neón en una PWA: runner de velocidad, galaxia y mazmorras en 3D, y arena. Sin dependencias y sin conexión.",
+  "author": "Alberto Hiram Saucedo Guajardo",
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "serve": "http-server -p 8080 -c-1 -s .",
