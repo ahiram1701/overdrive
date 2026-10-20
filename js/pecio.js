@@ -28,6 +28,10 @@ export const ENEMY = {
   bomb: { name: 'Bomba', hp: 2, dmg: 2, speed: 2.5, r: 0.3, color: '#ff9f0a', piezas: 1, desc: 'corre hacia ti, parpadea y estalla alrededor' },
   shield: { name: 'Escudo', hp: 6, dmg: 1, speed: 1.3, r: 0.4, color: '#30d158', piezas: 2, desc: 'para los disparos de frente y gira despacio: rodéalo' },
   mimic: { name: 'Mímico', hp: 10, dmg: 2, speed: 2.7, r: 0.42, color: '#ffcc00', piezas: 6, desc: 'un cofre con dientes: muerde fuerte, pero suelta buen botín' },
+  sniper: { name: 'Francotirador', hp: 5, dmg: 2, speed: 1.6, r: 0.32, color: '#7df9ff', piezas: 2, desc: 'de lejos: su mira te sigue y se fija un instante antes de disparar', from: 2 },
+  summoner: { name: 'Invocador', hp: 6, dmg: 1, speed: 1.8, r: 0.34, color: '#bf5af2', piezas: 3, desc: 'huye y llama drones: a por él primero', from: 4 },
+  charger: { name: 'Cargador', hp: 7, dmg: 2, speed: 1.5, r: 0.38, color: '#ff6a00', piezas: 2, desc: 'golpea el suelo y suelta una onda en anillo: sáltala con 💨', from: 3 },
+  roller: { name: 'Mina rodante', hp: 3, dmg: 2, speed: 2.4, r: 0.28, color: '#ff2d55', piezas: 1, desc: 'rueda pegada a las paredes y estalla al tocarte', from: 2 },
   node: { name: 'Nodo médico', hp: 7, dmg: 1, speed: 2.8, r: 0.27, color: '#7dffb0', piezas: 1, desc: 'gira alrededor de la reina del Enjambre y la cura' },
   boss: { name: 'Jefe', hp: 0, dmg: 2, speed: 1.1, r: 0.85, color: '#ff2d55', piezas: 0, desc: 'cada 3 plantas, en la sala de la salida', boss: true },
 };
@@ -54,9 +58,12 @@ export const ROOM_TYPES = {
   exit: { icon: '🚪', name: 'Salida' },
   hidden: { icon: '💎', name: 'Sala oculta' },
   boss: { icon: '💀', name: 'Jefe' },
+  waves: { icon: '🌊', name: 'Oleadas' },
+  challenge: { icon: '⏱️', name: 'Desafío' },
+  maze: { icon: '🌀', name: 'Laberinto' },
 };
 // salas que se cierran hasta limpiarlas
-const LOCKS = new Set(['combat', 'exit', 'boss']);
+const LOCKS = new Set(['combat', 'exit', 'boss', 'waves', 'challenge']);
 
 // Losas: . suelo · # pared · P pozo (si caes, daño y vuelves a la puerta; el ESQUIVE lo salta) · M mina
 // · E suelo eléctrico (a ratos) · D puerta · C cofre (con llave) · T terminal de la tienda · A altar · X escotilla
@@ -103,8 +110,14 @@ export function genFloor(seed, depth) {
   const specials = ['treasure', 'traps'];
   if (depth >= 2) specials.push('shop');
   if (rng.chance(0.5)) specials.push('shrine');
-  // siempre quedan al menos 2 salas de combate
-  for (const t of specials) if (rest.length > 2) rooms[rest.shift()].type = t;
+  // salas especiales, más cuanto más hondo
+  if (depth >= 2 && rng.chance(0.5)) specials.push('waves');
+  if (depth >= 3 && rng.chance(0.45)) specials.push('challenge');
+  if (rng.chance(0.4)) specials.push('maze');
+  // el tesoro, siempre; las demás especiales, en orden al azar (si no, las últimas de la lista casi nunca salían).
+  // Siempre quedan al menos 2 salas de combate.
+  const order = [specials[0], ...rng.shuffle(specials.slice(1))];
+  for (const t of order) if (rest.length > 2) rooms[rest.shift()].type = t;
   // SALA OCULTA: pegada a una sala normal, tras una pared agrietada (no cuenta para el camino a la salida)
   if (rng.chance(Math.min(0.85, 0.45 + depth * 0.05))) {
     const hosts = rng.shuffle(ids.filter((id) => id !== exit));
@@ -154,6 +167,22 @@ export function genRoom(floor, id) {
     for (let i = 0, n = 5 + Math.min(4, depth); i < n; i++) { const p = free(); if (p) t[p[1]][p[0]] = 'M'; }
     for (let i = 0, n = 4 + depth; i < n; i++) { const p = free(); if (p) t[p[1]][p[0]] = rng.chance(0.3) ? 'P' : 'E'; }
   }
+  if (type === 'maze') {
+    for (let r = 2; r < ROWS - 2; r += 2) for (let c = 1; c < COLS - 1; c++) if (!onCross(c, r) && rng.chance(0.62)) t[r][c] = '#';
+    for (let c = 2; c < COLS - 2; c += 2) for (let r = 1; r < ROWS - 1; r++) if (!onCross(c, r) && t[r][c] === '.' && rng.chance(0.3)) t[r][c] = '#';
+    // lo que haya quedado aislado se tapia: en el laberinto todo se puede alcanzar desde la cruz
+    const seen = new Set([`${MID_C},${MID_R}`]), q = [[MID_C, MID_R]];
+    while (q.length) {
+      const [c, r] = q.shift();
+      for (const d of Object.values(DIRS)) {
+        const nc = c + d.dx, nr = r + d.dy, k = `${nc},${nr}`;
+        if (nc < 1 || nr < 1 || nc > COLS - 2 || nr > ROWS - 2 || seen.has(k) || t[nr][nc] === '#') continue;
+        seen.add(k);
+        q.push([nc, nr]);
+      }
+    }
+    for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) if (t[r][c] === '.' && !seen.has(`${c},${r}`)) t[r][c] = '#';
+  }
   if (type === 'traps') { const p = free(); if (p) t[p[1]][p[0]] = 'S'; } // el interruptor que apaga el suelo eléctrico
   if (type === 'treasure' || type === 'hidden') t[2][2] = 'C';
   if (type === 'shop') t[2][2] = 'T';
@@ -169,25 +198,41 @@ export function genRoom(floor, id) {
     if (kind === 'swarm') for (let i = 0; i < 4; i++) foes.push(swarmNode(`${id}-n${i}`, foes[0], (i / 4) * Math.PI * 2, depth));
     return { id, type, tiles: t, enemies: foes, cleared: false, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic: false, freeChest: false, pickups: [], powerOff: false, ambush: false, stock: null, marks: [], markT: 0 };
   }
-  const nE = type === 'combat' ? Math.min(6, 2 + Math.floor(depth / 2) + rng.int(0, 1)) : type === 'exit' ? Math.min(5, 2 + Math.floor(depth / 3)) : 0;
-  const mix = Object.entries(floor.theme.mix).map(([k, w]) => ({ k, w }));
-  for (let i = 0; i < nE; i++) {
-    let p = null;
-    for (let j = 0; j < 60 && !p; j++) {
-      const c = rng.int(1, COLS - 2), r = rng.int(2, ROWS - 3);
-      const nearDoor = Object.values(DOOR_TILE).some(([dc, dr]) => Math.abs(dc - c) + Math.abs(dr - r) < 3);
-      if (t[r][c] === '.' && !nearDoor && !enemies.some((e) => Math.floor(e.x) === c && Math.floor(e.y) === r) && !(c === MID_C && r === MID_R)) p = [c, r];
-    }
-    if (!p) continue;
-    const kind = rng.weighted(mix).k, E = ENEMY[kind];
-    const hp = E.hp + Math.floor((depth - 1) * 1.4); // más vida cuanto más hondo (tu equipo también crece)
-    enemies.push({ id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true });
-  }
+  const nE = type === 'combat' ? Math.min(6, 2 + Math.floor(depth / 2) + rng.int(0, 1)) : type === 'exit' ? Math.min(5, 2 + Math.floor(depth / 3))
+    : type === 'waves' ? 3 : type === 'challenge' ? Math.min(6, 3 + Math.floor(depth / 3)) : type === 'maze' ? 2 + Math.floor(depth / 4) : 0;
+  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE, id, null));
+  const extra = {};
+  if (type === 'waves') extra.waves = [3 + Math.floor(depth / 3), 4 + Math.floor(depth / 3)]; // las dos oleadas que faltan
+  if (type === 'challenge') extra.timer = 15 + depth;
+  if (type === 'maze') extra.keyAt = [rng.pick([1, COLS - 2]), rng.pick([1, ROWS - 2])];
   // MÍMICO: algunos cofres de tesoro muerden (cuanto más hondo, más). El de la sala oculta nunca, y se abre sin llave
   const mimic = type === 'treasure' && rng.chance(Math.min(0.4, 0.12 + depth * 0.03));
   // en la sala oculta, además, algo de la mochila en el suelo
   const pickups = type === 'hidden' ? [{ id: `${id}-p0`, kind: 'cons', cons: rng.pick(CONS_KEYS), x: COLS - 2.5, y: ROWS - 3.5 }] : [];
-  return { id, type, tiles: t, enemies, cleared: !enemies.length, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic, freeChest: type === 'hidden', pickups, powerOff: false, ambush: false, stock: null };
+  // laberinto: la llave, en un rincón del fondo (se deja libre su casilla)
+  if (extra.keyAt) { const [kc, kr] = extra.keyAt; t[kr][kc] = '.'; pickups.push({ id: `${id}-key`, kind: 'key', x: kc + 0.5, y: kr + 0.5 }); }
+  return { id, type, tiles: t, enemies, cleared: !enemies.length, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic, freeChest: type === 'hidden', pickups, powerOff: false, ambush: false, stock: null, ...extra };
+}
+
+// N enemigos en casillas libres, lejos de las puertas (y de `avoid`, p. ej. el jugador). Los nuevos solo a partir de su planta.
+function placeFoes(rng, t, theme, depth, n, id, avoid) {
+  const out = [];
+  const mix = Object.entries(theme.mix).map(([k, w]) => ({ k, w }));
+  for (const [k, E] of Object.entries(ENEMY)) if (E.from && depth >= E.from) mix.push({ k, w: 1 + Math.min(2, (depth - E.from) * 0.3) });
+  for (let i = 0; i < n; i++) {
+    let p = null;
+    for (let j = 0; j < 80 && !p; j++) {
+      const c = rng.int(1, COLS - 2), r = rng.int(2, ROWS - 3);
+      const nearDoor = Object.values(DOOR_TILE).some(([dc, dr]) => Math.abs(dc - c) + Math.abs(dr - r) < 3);
+      const nearAvoid = avoid && Math.hypot(c + 0.5 - avoid.x, r + 0.5 - avoid.y) < 3;
+      if (t[r][c] === '.' && !nearDoor && !nearAvoid && !out.some((e) => Math.floor(e.x) === c && Math.floor(e.y) === r) && !(c === MID_C && r === MID_R)) p = [c, r];
+    }
+    if (!p) continue;
+    const kind = rng.weighted(mix).k, E = ENEMY[kind];
+    const hp = E.hp + Math.floor((depth - 1) * 1.45); // más vida cuanto más hondo (tu equipo también crece)
+    out.push({ id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) });
+  }
+  return out;
 }
 
 // ---------- Partida ----------
@@ -366,7 +411,9 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (p.fireCd <= 0) {
     const t = nearestTarget(s, room);
     if (t) {
-      const a = angTo(p, t);
+      // apunta ADELANTADO a lo que se mueve (si no, lo rápido se escapa siempre de las balas)
+      const lead = d2(p, t) / 13;
+      const a = angTo(p, { x: t.x + (t.vx || 0) * lead, y: t.y + (t.vy || 0) * lead });
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
         s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * 13, vy: f.y * 13, dmg: p.dmg, life: 1.2, pierce: p.weapon === 'pierce', blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [] });
@@ -377,8 +424,23 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   }
   updateShots(s, room, dt, ev);
   if (room.wake <= 0) updateEnemies(s, room, dt, ev);
+  // DESAFÍO: el reloj corre desde que entras; si se acaba antes de limpiarla, adiós premio
+  if (room.type === 'challenge' && !room.cleared && room.timer > 0 && room.wake <= 0) {
+    room.timer -= dt;
+    if (room.timer <= 0) { room.timer = 0; ev.push({ type: 'challengeFail' }); }
+  }
+  // OLEADAS: al caer una, llega la siguiente (lejos de ti)
+  if (!room.cleared && room.waves?.length && !room.enemies.some((e) => e.alive)) {
+    const n = room.waves.shift();
+    room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, n, `${room.id}-w${room.waves.length}`, p));
+    room.wake = 0.8;
+    room.flow = null;
+    ev.push({ type: 'wave', left: room.waves.length });
+  }
   // ¿sala limpia?
   if (!room.cleared && !room.enemies.some((e) => e.alive)) {
+    if (room.type === 'waves') { room.pickups.push({ id: `${room.id}-rw`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'waves' }); }
+    if (room.type === 'challenge' && room.timer > 0) { room.pickups.push({ id: `${room.id}-rc`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'challenge' }); }
     room.cleared = true;
     s.roomsCleared++;
     p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
@@ -429,8 +491,9 @@ function interact(s, room, ev) {
   for (const pk of room.pickups) {
     const d = Math.hypot(p.x - pk.x, p.y - pk.y);
     if (pk.cool) { if (d > 0.9) pk.cool = false; continue; }
-    if (d > 0.55) continue;
+    if (d > 0.65) continue;
     if (pk.kind === 'item') { s.offer = { item: pk.item, pk }; ev.push({ type: 'offer' }); return true; }
+    if (pk.kind === 'key') { p.keys++; room.pickups = room.pickups.filter((x) => x !== pk); ev.push({ type: 'key' }); return false; }
     if (p.bag[pk.cons] >= p.bagMax) { pk.cool = true; ev.push({ type: 'bagFull', cons: pk.cons }); continue; }
     p.bag[pk.cons]++;
     room.pickups = room.pickups.filter((x) => x !== pk);
@@ -563,7 +626,7 @@ function hitEnemy(s, room, e, dmg, ev) {
   // SANGUIJUELA: cada N bajas, +1 ❤️
   if (p.mods?.leech) { p.killsLeech++; if (p.killsLeech >= p.mods.leech) { p.killsLeech = 0; if (p.hp < p.max) { p.hp++; ev.push({ type: 'leech' }); } } }
   // BOTÍN: el mímico siempre suelta un objeto bueno; los demás, a veces un objeto o algo para la mochila
-  const drop = (pk) => { room.pickups.push({ id: `${e.id}-d`, x: e.x, y: e.y, ...pk }); ev.push({ type: 'drop', kind: pk.kind, x: e.x, y: e.y }); };
+  const drop = (pk) => { const at = safeSpot(room, e); room.pickups.push({ id: `${e.id}-d`, ...at, ...pk }); ev.push({ type: 'drop', kind: pk.kind, ...at }); };
   if (e.kind === 'boss') {
     // JEFE VENCIDO: botín épico o mejor, sus 🔩, y la escotilla para bajar (los nodos caen con su reina)
     for (const o of room.enemies) if (o.kind === 'node') o.alive = false;
@@ -576,6 +639,20 @@ function hitEnemy(s, room, e, dmg, ev) {
   else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: s.luck >= 2 ? 1 : 0 }) });
   else if (s.rng.chance(0.07)) drop({ kind: 'cons', cons: s.rng.pick(CONS_KEYS) });
   if (e.kind === 'bomb' && e.fuse !== null) explode(s, room, e, ev);
+}
+
+// donde se puede dejar algo en el suelo: si cae en un pozo, una mina o suelo eléctrico, a la casilla segura más cercana
+function safeSpot(room, at) {
+  const ok = (c, r) => tileAt(room, c, r) === '.';
+  const c0 = Math.floor(at.x), r0 = Math.floor(at.y);
+  if (ok(c0, r0)) return { x: at.x, y: at.y };
+  let best = null;
+  for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) {
+    if (!ok(c, r)) continue;
+    const d = Math.hypot(c + 0.5 - at.x, r + 0.5 - at.y);
+    if (!best || d < best.d) best = { d, x: c + 0.5, y: r + 0.5 };
+  }
+  return best ? { x: best.x, y: best.y } : { x: MID_C + 0.5, y: MID_R + 0.5 };
 }
 
 function hurt(s, dmg, ev, src, force = false) {
@@ -638,6 +715,7 @@ function updateEnemies(s, room, dt, ev) {
   }
   room.flowT -= dt;
   if (!room.flow || room.flowT <= 0) { room.flow = flowField(room, p); room.flowT = 0.3; }
+  for (const e of room.enemies) { e.px = e.x; e.py = e.y; }
   for (const e of room.enemies) {
     if (!e.alive || s.over) continue;
     e.hitT = Math.max(0, e.hitT - dt);
@@ -645,6 +723,7 @@ function updateEnemies(s, room, dt, ev) {
     e.cd -= dt;
     const E = ENEMY[e.kind], dist = d2(e, p);
     if (e.kind === 'boss') { updateBoss(s, room, e, dt, ev); continue; }
+    if (e.kind === 'sniper' || e.kind === 'summoner' || e.kind === 'charger' || e.kind === 'roller') { updateNewFoe(s, room, e, dt, ev, dist); continue; }
     if (e.kind === 'node') { updateNode(s, room, e, dt, ev); continue; }
     if (e.kind === 'drone' || e.kind === 'shield' || e.kind === 'mimic') {
       const want = chaseDir(room, e, p);
@@ -683,6 +762,8 @@ function updateEnemies(s, room, dt, ev) {
       }
     }
   }
+  // su velocidad (para que tu disparo automático los adelante)
+  for (const e of room.enemies) if (e.alive && dt > 0) { e.vx = (e.x - e.px) / dt; e.vy = (e.y - e.py) / dt; }
   // que no se apilen
   const live = room.enemies.filter((e) => e.alive && e.kind !== 'turret');
   for (let i = 0; i < live.length; i++) {
@@ -804,6 +885,8 @@ function coreMarks(s, room, e) {
 function updateNode(s, room, e, dt, ev) {
   const q = room.enemies.find((o) => o.id === e.queen && o.alive);
   if (!q) { e.alive = false; return; }
+  // nunca dentro de una pared (nacen en su órbita, que puede caer fuera de la sala): vuelve con su reina
+  if (hitsWall(room, e.x, e.y, e.r, 'enemy')) { e.x = q.x; e.y = q.y; }
   e.orbit += dt * 1.3;
   const tx = q.x + Math.cos(e.orbit) * 1.5, ty = q.y + Math.sin(e.orbit) * 1.5;
   // si estás cerca, se lanzan a por ti
@@ -812,6 +895,69 @@ function updateNode(s, room, e, dt, ev) {
   const sp = Math.min(d, ENEMY.node.speed * dt);
   moveCircle(room, e, (dx / d) * sp, (dy / d) * sp, 'enemy');
   touchHurt(s, e, 1, ev);
+}
+
+// ---------- Los enemigos nuevos ----------
+// se aleja si estás cerca, se acerca si estás lejos (para los que pelean a distancia)
+function keepRange(room, e, p, dt, near, far, speed) {
+  const dist = d2(e, p);
+  const away = dist < near ? -1 : dist > far ? 1 : 0;
+  if (!away) return;
+  const want = away > 0 ? chaseDir(room, e, p) : angTo(p, e), f = fwd(want);
+  moveCircle(room, e, f.x * speed * dt, f.y * speed * dt, 'enemy');
+}
+function updateNewFoe(s, room, e, dt, ev, dist) {
+  const p = s.player, E = ENEMY[e.kind];
+  if (e.kind === 'sniper') {
+    // FRANCOTIRADOR: su mira te SIGUE mientras carga y se queda FIJA el último 0,4 s; entonces dispara por ella
+    if (e.charge > 0) {
+      e.charge -= dt;
+      if (e.charge > 0.4) { e.aim = angTo(e, p); e.ang = e.aim; }
+      if (e.charge <= 0) {
+        const end = rayEnd(room, e, e.aim);
+        ev.push({ type: 'eshot', id: e.id, from: { x: e.x, y: e.y }, to: end });
+        if (segDist(p, e, end) < p.r + 0.1) hurt(s, E.dmg, ev, 'francotirador');
+        e.cd = 2.2;
+      }
+      return;
+    }
+    keepRange(room, e, p, dt, 4, 7, E.speed);
+    e.ang += angDiff(angTo(e, p), e.ang) * Math.min(1, dt * 4);
+    if (e.cd <= 0 && dist < 10 && canSee(room, e, p)) { e.aim = angTo(e, p); e.charge = 1.3; ev.push({ type: 'aim', id: e.id }); }
+  } else if (e.kind === 'summoner') {
+    // INVOCADOR: huye y llama drones (avisa brillando antes)
+    keepRange(room, e, p, dt, 4.5, 8, E.speed);
+    e.ang = angTo(e, p);
+    if (e.summonT > 0) {
+      e.summonT -= dt;
+      if (e.summonT <= 0) { summon(s, room, 'drone', e.x, e.y); summon(s, room, 'drone', e.x, e.y); ev.push({ type: 'spawn', x: e.x, y: e.y }); e.cd = 4.5; }
+    } else if (e.cd <= 0) e.summonT = 0.8;
+  } else if (e.kind === 'charger') {
+    // CARGADOR: se acerca, carga (aviso: el anillo que va a barrer) y golpea el suelo: onda que crece
+    if (e.wave) {
+      e.wave.r += 5.5 * dt;
+      if (!e.wave.hit && Math.abs(d2(e, p) - e.wave.r) < p.r + 0.3) { e.wave.hit = true; hurt(s, E.dmg, ev, 'cargador'); }
+      if (e.wave.r > e.wave.max) { e.wave = null; e.cd = 2.2; }
+      return;
+    }
+    if (e.charge > 0) { e.charge -= dt; if (e.charge <= 0) { e.wave = { r: 0.3, max: 3.4, hit: false }; ev.push({ type: 'shockwave', x: e.x, y: e.y }); } return; }
+    const want = chaseDir(room, e, p), f = fwd(want);
+    e.ang = want;
+    if (dist > 2.2) moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy');
+    else if (e.cd <= 0) { e.charge = 0.75; ev.push({ type: 'aim', id: e.id }); }
+  } else if (e.kind === 'roller') {
+    // MINA RODANTE: rueda en línea recta y, al chocar, gira a la derecha (sigue las paredes); estalla al tocarte
+    const dirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+    const f = fwd(dirs[e.dir || 0]);
+    if (moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy')) e.dir = ((e.dir || 0) + 1) % 4;
+    e.ang += dt * 8;
+    if (dist < p.r + e.r + 0.1) {
+      e.alive = false;
+      ev.push({ type: 'boom', x: e.x, y: e.y, r: 1.2 });
+      hurt(s, E.dmg, ev, 'mina rodante');
+      for (const o of room.enemies) if (o.alive && o !== e && d2(o, e) < 1.2) hitEnemy(s, room, o, 2, ev);
+    }
+  }
 }
 
 // La línea que va a barrer una torreta que está apuntando (para dibujarla)
@@ -950,7 +1096,8 @@ export function takeOffer(s, choice) {
   if (!o) return [];
   const p = s.player, room = roomOf(s), ev = [];
   if (o.pk) room.pickups = room.pickups.filter((x) => x !== o.pk);
-  const drop = (item) => room.pickups.push({ id: `${item.id}-f`, kind: 'item', item, x: p.x, y: p.y, cool: true });
+  // lo que dejas o te quitas queda en el suelo (marcado como descartado: el bot no vuelve a por ello)
+  const drop = (item) => room.pickups.push({ id: `${item.id}-f`, kind: 'item', item, x: p.x, y: p.y, cool: true, declined: true });
   if (choice === 'leave') { drop(o.item); ev.push({ type: 'left' }); } else {
     const slot = choice === 'mod1' || choice === 'mod2' ? choice : slotFor(p, o.item);
     const old = p.gear[slot], oldMax = p.max;
@@ -1034,10 +1181,14 @@ export function pray(s, pick) {
 // Vuela solo (el disparo ya es automático): se aparta de láseres y bombas, busca ver al enemigo más
 // cercano a buena distancia, rodea al escudo, abre cofres con llave y va a la sala sin ver o a la salida.
 export function botInput(s) {
-  const p = s.player, room = roomOf(s), foes = room.enemies.filter((e) => e.alive);
+  const p = s.player, room = roomOf(s), shut = locked(room);
+  // fuera de una sala cerrada, lo que no ves ni puedes alcanzar no te importa (p. ej. tras un muro del laberinto)
+  const foes = room.enemies.filter((e) => e.alive && (shut || canSee(room, p, e) || pathNext(room, p, [[Math.floor(e.x), Math.floor(e.y)]], () => false)));
   const avoid = (c, r) => ['M', 'P'].includes(tileAt(room, c, r)) || tileAt(room, c, r) === 'E';
   const threat = (x, y) => foes.some((e) => (e.kind === 'bomb' && (e.fuse !== null || d2(e, { x, y }) < 1.6) && d2(e, { x, y }) < 2.1)
-    || ((e.kind === 'turret' || e.kind === 'boss') && e.charge > 0 && e.aim !== null && segDist({ x, y }, e, rayEnd(room, e, e.aim)) < 0.65 + (e.kind === 'boss' ? e.r : 0))
+    || (e.kind === 'charger' && (e.charge > 0 || e.wave) && d2(e, { x, y }) < 3.7)
+    || (e.kind === 'roller' && d2(e, { x, y }) < 1.4)
+    || ((e.kind === 'turret' || e.kind === 'boss' || e.kind === 'sniper') && e.charge > 0 && e.aim !== null && segDist({ x, y }, e, rayEnd(room, e, e.aim)) < 0.65 + (e.kind === 'boss' ? e.r : 0))
     || (e.kind === 'boss' && e.dashT > 0 && d2(e, { x, y }) < 2.2))
     || (room.markT > 0 && room.marks.some(([c, r]) => c === Math.floor(x) && r === Math.floor(y)));
   const out = { x: 0, y: 0 };
@@ -1070,9 +1221,9 @@ export function botInput(s) {
   }
   // sala limpia: lo que haya en el suelo, el cofre (si hay llave), la salida, o la siguiente sala sin ver
   let goal = null;
-  const pk = room.pickups.find((x) => !x.cool && (x.kind === 'item' || p.bag[x.cons] < p.bagMax));
+  const pk = room.pickups.find((x) => !x.cool && !x.declined && (x.kind === 'item' || x.kind === 'key' || p.bag[x.cons] < p.bagMax));
   if (pk) {
-    if (d2(p, pk) < 1.2) return steer(p, pk);
+    if (d2(p, pk) < 1.2) return steer(p, pk, true);
     const st = pathNext(room, p, [[Math.floor(pk.x), Math.floor(pk.y)]], avoid) || pathNext(room, p, [[Math.floor(pk.x), Math.floor(pk.y)]], () => false);
     if (st) return steer(p, st);
   }
@@ -1084,14 +1235,16 @@ export function botInput(s) {
     if (want) goal = [DOOR_TILE[want]];
   }
   if (!goal) return out;
-  if (hasChest && d2(p, { x: 2.5, y: 2.5 }) < 1.4) return steer(p, { x: 2.5, y: 2.5 });
+  if (hasChest && d2(p, { x: 2.5, y: 2.5 }) < 1.4) return steer(p, { x: 2.5, y: 2.5 }, true);
   const step = pathNext(room, p, goal, avoid) || pathNext(room, p, goal, () => false);
   return step ? steer(p, step) : out;
 }
 // gira hacia el punto y avanza (más despacio si aún mira hacia otro lado)
-function steer(p, to) {
+function steer(p, to, final = false) {
   const diff = angDiff(angTo(p, to), p.ang), a = Math.abs(diff);
-  return { x: Math.max(-1, Math.min(1, diff * 2.5)), y: a < 0.45 ? -1 : a < 1.2 ? -0.35 : 0 };
+  // muy cerca, sigue avanzando despacio mientras gira (si no, da vueltas encima del objetivo sin llegar)
+  const close = final && Math.hypot(to.x - p.x, to.y - p.y) < 1.3; // solo con la meta final (no con cada paso del camino)
+  return { x: Math.max(-1, Math.min(1, diff * 2.5)), y: a < 0.45 ? -1 : a < 1.2 || close ? -0.35 : 0 };
 }
 // siguiente puerta hacia la sala sin visitar más cercana (o hacia la salida)
 function routeToTarget(s) {

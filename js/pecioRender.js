@@ -22,6 +22,10 @@ const ENEMY_LOOK = {
   shield: { mesh: 'brick', pal: { hull: '#0b2a14', edge: '#30d158', glow: '#7dffb0' }, y: 0.36 },
   mimic: { mesh: 'kaiju', pal: { hull: '#2a1a00', edge: '#ffcc00', glow: '#ff2d55' }, y: 0.36 },
   node: { mesh: 'nova', pal: { hull: '#03140a', edge: '#7dffb0', glow: '#30d158' }, y: 0.5 },
+  sniper: { mesh: 'spectra', pal: { hull: '#00141a', edge: '#7df9ff', glow: '#ff2d55' }, y: 0.42 },
+  summoner: { mesh: 'manta', pal: { hull: '#14001f', edge: '#bf5af2', glow: '#ff2bd6' }, y: 0.5 },
+  charger: { mesh: 'brick', pal: { hull: '#1f0a00', edge: '#ff6a00', glow: '#ffe600' }, y: 0.36 },
+  roller: { mesh: 'nova', pal: { hull: '#1a0004', edge: '#ff2d55', glow: '#ffe600' }, y: 0.28 },
 };
 // los jefes: una malla grande cada uno
 const BOSS_LOOK = {
@@ -138,6 +142,8 @@ export function renderPecio(dt) {
       poly(cam, ground, [[ln.from.x + nx, 0.02, -(ln.from.y + ny)], [ln.to.x + nx, 0.02, -(ln.to.y + ny)], [ln.to.x - nx, 0.02, -(ln.to.y - ny)], [ln.from.x - nx, 0.02, -(ln.from.y - ny)]],
         `rgba(255,45,85,${0.4 + 0.3 * Math.sin(t * 22)})`, null);
     }
+    if (e.kind === 'charger' && e.charge > 0) poly(cam, ground, ring(e.x, 0.02, -e.y, 3.4, 24), null, `rgba(255,106,0,${0.45 + 0.4 * Math.sin(t * 24)})`, 2.5);
+    if (e.kind === 'charger' && e.wave) poly(cam, ground, ring(e.x, 0.03, -e.y, e.wave.r, 28), null, '#ffb340', 6);
     if (e.kind === 'bomb' && e.fuse !== null) poly(cam, ground, ring(e.x, 0.02, -e.y, 1.7, 20), 'rgba(255,159,10,.14)', `rgba(255,159,10,${0.5 + 0.4 * Math.sin(t * 30)})`, 2);
   }
   if (room.markT > 0) {
@@ -222,6 +228,7 @@ export function renderPecio(dt) {
       ctx.globalAlpha = 1;
       if (e.stun > 0) glyph(ctx, '💫', q.x, q.y - q.s * 0.55, Math.max(10, q.s * 0.3));
       if (e.charge > 0) glyph(ctx, '❗', q.x, q.y - q.s * 0.6, Math.max(12, q.s * 0.4));
+      if (e.summonT > 0) glyph(ctx, '✨', q.x, q.y - q.s * 0.6, Math.max(12, q.s * (0.35 + 0.15 * Math.sin(t * 20))));
       // vida: puntitos si tiene poca; una barrita si tiene mucha (los jefes, su barra grande abajo)
       if (e.kind !== 'boss') {
         const n = e.max, w = Math.max(2, Math.min(5, q.s * 0.05));
@@ -247,13 +254,13 @@ export function renderPecio(dt) {
   }
   // BOTÍN EN EL SUELO: objetos (con el color de su rareza y, los buenos, un haz de luz) y consumibles
   for (const pk of room.pickups || []) {
-    const col = pk.kind === 'item' ? RARITY[pk.item.tier].color : '#7df9ff', o = ordAt(pk.x, pk.y);
+    const col = pk.kind === 'item' ? RARITY[pk.item.tier].color : pk.kind === 'key' ? '#ffcc00' : '#7df9ff', o = ordAt(pk.x, pk.y);
     poly(cam, list, ring(pk.x, 0.015, -pk.y, 0.32, 14), hexA(col, 0.18), col, 2, { o, bias: -0.6 }); // (el suelo ya está pintado: va en la lista, detrás de lo de su casilla)
     if (pk.kind === 'item' && pk.item.tier >= 2) {
       const w = 0.08;
       poly(cam, list, [[pk.x - w, 0, -pk.y], [pk.x + w, 0, -pk.y], [pk.x + w, WALL_H, -pk.y], [pk.x - w, WALL_H, -pk.y]], hexA(col, 0.22 + 0.1 * Math.sin(t * 4)), null, 1, { o, bias: 0.1 });
     }
-    const g = pk.kind === 'item' ? itemIcon(pk.item) : CONS[pk.cons].icon;
+    const g = pk.kind === 'item' ? itemIcon(pk.item) : pk.kind === 'key' ? '🗝️' : CONS[pk.cons].icon;
     point(cam, list, pk.x, 0.45 + Math.sin(t * 3 + pk.x) * 0.06, -pk.y, (q) => glyph(ctx, g, q.x, q.y, Math.max(12, q.s * 0.42)), o);
   }
   // TUS BALAS
@@ -335,6 +342,7 @@ export function renderPecio(dt) {
   ctx.globalCompositeOperation = 'source-over';
   ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
   bossBar(ctx, room, W, H, t);
+  roomBar(ctx, room, W, H, t);
   minimap(ctx, s, W);
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
@@ -386,6 +394,23 @@ function drawPolys(ctx, list, th) {
 }
 
 // BARRA DEL JEFE: su nombre y su vida, encima de los botones
+// SALAS ESPECIALES: el reloj del desafío y las oleadas que quedan
+function roomBar(ctx, room, W, H, t) {
+  let txt = null, col = '#fff';
+  if (room.type === 'challenge' && !room.cleared) { txt = room.timer > 0 ? `⏱️ ${Math.ceil(room.timer)} s · límpiala a tiempo` : '⏱️ Sin premio: se acabó el tiempo'; col = room.timer > 0 && room.timer < 6 && Math.floor(t * 4) % 2 ? '#ff2d55' : '#ffe600'; }
+  else if (room.type === 'waves' && !room.cleared) { txt = `🌊 Oleada ${3 - (room.waves?.length || 0)}/3`; col = '#7df9ff'; }
+  if (!txt) return;
+  const y = H - 170;
+  ctx.font = '900 13px system-ui, sans-serif';
+  const w = ctx.measureText(txt).width + 24;
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.fillRect(W / 2 - w / 2, y - 14, w, 28);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = col;
+  ctx.fillText(txt, W / 2, y);
+}
+
 function bossBar(ctx, room, W, H, t) {
   const b = room.enemies.find((e) => e.alive && e.kind === 'boss');
   if (!b) return;
