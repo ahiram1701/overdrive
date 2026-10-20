@@ -22,7 +22,7 @@ import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
-import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, itemIcon, itemName, itemLines, currentFor } from './pecioLoot.js';
+import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
@@ -97,7 +97,9 @@ function el(tag, cls, html) {
 // Tarjeta de un objeto de Pecios (icono, nombre, rareza y lo que hace)
 function lootCard(it) {
   const R = LOOT_RAR[it.tier];
-  return `<div class="loot-card" style="--rc:${R.color}"><span class="lc-icon">${itemIcon(it)}</span><b>${itemName(it)}</b><small class="lc-rar">${R.name}</small>${itemLines(it).map((l) => `<small>${l}</small>`).join('')}</div>`;
+  const have = it.set ? G.pecio?.player?.sets?.[it.set] || 0 : 0; // cuántas de su set llevas ya
+  const set = it.set ? `<small class="lc-set">${LOOT_SETS[it.set].icon} llevas ${have} de ${LOOT_SETS[it.set].name}</small>` : '';
+  return `<div class="loot-card${it.unique ? ' unique' : ''}" style="--rc:${R.color}"><span class="lc-icon">${itemIcon(it)}</span><b>${itemName(it)}</b><small class="lc-rar">${it.unique ? '★ ÚNICO · ' : ''}${R.name}</small>${itemLines(it).map((l) => `<small>${l}</small>`).join('')}${set}</div>`;
 }
 
 export function dialogPaused() {
@@ -2443,9 +2445,10 @@ export const ui = {
       // el equipo, en filas compactas (las tarjetas grandes empujaban los botones fuera de la pantalla)
       const rows = SLOTS.filter((k) => G.pecio.player.gear[k]).map((k) => {
         const it = G.pecio.player.gear[k], R = LOOT_RAR[it.tier];
-        return `<div class="pg-row"><span class="pg-it" style="--rc:${R.color}">${itemIcon(it)}</span><span><b>${itemName(it)}</b> <i style="color:${R.color}">${R.name}</i><small>${itemLines(it)[0] || ''}</small></span></div>`;
+        return `<div class="pg-row"><span class="pg-it" style="--rc:${R.color}">${itemIcon(it)}</span><span><b>${itemName(it)}</b> <i style="color:${R.color}">${R.name}</i><small>${itemLines(it).find((l) => l.startsWith('★')) || itemLines(it)[0] || ''}</small></span></div>`;
       }).join('');
-      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>${rows ? `<div class="pause-gear">${rows}</div>` : ''}`;
+      const sets = setLines(G.pecio.player.sets).map((l) => `<small class="pg-set">${l}</small>`).join('');
+      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>${rows ? `<div class="pause-gear">${rows}${sets}</div>` : ''}`;
       show('pause');
       return;
     }

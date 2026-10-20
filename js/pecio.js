@@ -311,7 +311,7 @@ export const openDoors = (s, id) => {
 export function gainPiezas(s, n) {
   const m = s.player.mods || {};
   const ev = s.floor?.event, mul = ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1;
-  const g = Math.max(1, Math.round(n * mul * (1 + ((m.magnet || 0) + (m.scanner || 0)) / 100)));
+  const g = Math.max(1, Math.round(n * mul * (1 + ((m.magnet || 0) + (m.scanner || 0) + (m.greed || 0) + (m.setPiezas || 0)) / 100)));
   s.player.piezas += g;
   s.found += g;
   return g;
@@ -462,6 +462,19 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     } else p.fireCd = 0;
   }
   updateShots(s, room, dt, ev);
+  // ÓRBITA: orbes que giran a tu alrededor y dañan lo que tocan
+  if (p.orbs) {
+    s.orbA = (s.orbA || 0) + dt * 3.2;
+    for (let i = 0; i < p.orbs; i++) {
+      const a = s.orbA + (i / p.orbs) * Math.PI * 2, ox = p.x + Math.cos(a) * 1.05, oy = p.y + Math.sin(a) * 1.05;
+      for (const e of room.enemies) {
+        if (!e.alive || e.hidden || (e.orbT || 0) > 0 || Math.hypot(e.x - ox, e.y - oy) > e.r + 0.22) continue;
+        e.orbT = 0.45;
+        hitEnemy(s, room, e, Math.max(1, Math.ceil(p.dmg * 0.6)), ev);
+      }
+    }
+  }
+  if (s.decoy) { s.decoy.t -= dt; if (s.decoy.t <= 0) s.decoy = null; }
   if (room.wake <= 0) updateEnemies(s, room, dt, ev);
   // DESAFÍO: el reloj corre desde que entras; si se acaba antes de limpiarla, adiós premio
   if (room.type === 'challenge' && !room.cleared && room.timer > 0 && room.wake <= 0) {
@@ -505,7 +518,7 @@ function breakCrack(s, room, at, reach, ev) {
 // pozos, minas y suelo eléctrico, según la losa que pisas
 function floorEffects(s, room, ev) {
   const p = s.player, c = Math.floor(p.x), r = Math.floor(p.y), t = tileAt(room, c, r);
-  if (t === 'P' && p.dashT <= 0) {
+  if (t === 'P' && p.dashT <= 0 && !p.anchor) {
     ev.push({ type: 'fall' });
     hurt(s, 1, ev, 'pozo', true);
     Object.assign(p, { x: s.entry.x, y: s.entry.y, ang: s.entry.ang, vel: 0 });
@@ -562,9 +575,9 @@ function interact(s, room, ev) {
           room.flow = null;
           ev.push({ type: 'mimic', x: c + 0.5, y: r + 0.5 });
           return true;
-        } else if (!room.freeChest && p.keys < 1) ev.push({ type: 'needKey' });
+        } else if (!room.freeChest && !p.masterkey && p.keys < 1) ev.push({ type: 'needKey' });
         else {
-          if (!room.freeChest) p.keys--;
+          if (!room.freeChest && !p.masterkey) p.keys--;
           room.opened = true;
           const gain = gainPiezas(s, 5 + s.depth * 2);
           p.hp = Math.min(p.max, p.hp + 1);
@@ -638,6 +651,20 @@ function updateShots(s, room, dt, ev) {
       if (e.kind === 'shield' && (b.vx * f.x + b.vy * f.y) / sp < -0.35) { ev.push({ type: 'blocked', id: e.id, x: b.x, y: b.y }); b.life = 0; }
       else {
         hitEnemy(s, room, e, b.dmg, ev);
+        if (s.player.burn && e.alive) e.burnT = 3; // CORAZÓN DEL REACTOR: quema
+        // ARCO: salta a 2 enemigos cercanos
+        if (s.player.weapon === 'arc') {
+          let from = e;
+          const done = [e.id];
+          for (let k = 0; k < 2; k++) {
+            const nx = room.enemies.filter((o) => o.alive && !o.hidden && !done.includes(o.id) && d2(o, from) < 2.6).sort((a, c) => d2(a, from) - d2(c, from))[0];
+            if (!nx) break;
+            ev.push({ type: 'arc', from: { x: from.x, y: from.y }, to: { x: nx.x, y: nx.y } });
+            hitEnemy(s, room, nx, Math.max(1, Math.ceil(b.dmg * 0.7)), ev);
+            done.push(nx.id);
+            from = nx;
+          }
+        }
         // ESTALLIDO: también a los de alrededor
         if (b.blast) {
           ev.push({ type: 'boom', x: e.x, y: e.y, r: 0.9, mine: true });
@@ -709,6 +736,14 @@ function safeSpot(room, at) {
 function hurt(s, dmg, ev, src, force = false) {
   const p = s.player;
   if (!force && (p.inv > 0 || p.dashT > 0)) return;
+  // ESPEJO: a veces el golpe rebota al enemigo más cercano
+  if (!force && p.mods?.mirror && s.rng.chance(p.mods.mirror / 100)) {
+    const room = roomOf(s), t = room.enemies.filter((e) => e.alive && !e.hidden).sort((a, b) => d2(a, p) - d2(b, p))[0];
+    p.inv = 0.5;
+    ev.push({ type: 'mirror' });
+    if (t) hitEnemy(s, room, t, 3, ev);
+    return;
+  }
   if (p.shield > 0 && !force) { p.shield--; p.inv = 0.5; ev.push({ type: 'absorb' }); return; }
   p.hp -= dmg;
   p.inv = 0.9;
@@ -769,6 +804,12 @@ function updateEnemies(s, room, dt, ev) {
   for (const e of room.enemies) {
     e.px = e.x; e.py = e.y;
     if (e.alive && e.elite === 'regen') e.hp = Math.min(e.max, e.hp + 0.6 * dt);
+    if (e.orbT > 0) e.orbT -= dt;
+    if (e.alive && e.burnT > 0) {
+      e.burnT -= dt;
+      e.burnAcc = (e.burnAcc || 0) + dt;
+      if (e.burnAcc >= 1) { e.burnAcc -= 1; hitEnemy(s, room, e, 1, ev); }
+    }
     // FUSIÓN: el núcleo apagado vuelve si su gemelo aguanta
     if (!e.alive && e.downT > 0) {
       e.downT -= dt;
@@ -785,7 +826,7 @@ function updateEnemies(s, room, dt, ev) {
     if (e.kind === 'sniper' || e.kind === 'summoner' || e.kind === 'charger' || e.kind === 'roller') { updateNewFoe(s, room, e, dt, ev, dist); continue; }
     if (e.kind === 'node') { updateNode(s, room, e, dt, ev); continue; }
     if (e.kind === 'drone' || e.kind === 'shield' || e.kind === 'mimic') {
-      const want = chaseDir(room, e, p);
+      const want = s.decoy ? angTo(e, s.decoy) : chaseDir(room, e, p); // SEÑUELO: lo persiguen a él
       // el escudo gira despacio: por eso se le puede rodear
       e.ang += Math.max(-1, Math.min(1, angDiff(want, e.ang) / 0.2)) * (e.kind === 'shield' ? 1.3 : 6) * dt;
       const f = fwd(e.kind === 'shield' ? e.ang : want);
@@ -1134,6 +1175,7 @@ export function dash(s) {
   const p = s.player;
   if (s.over || p.dashCd > 0) return [{ type: 'cooldown' }];
   p.dashT = s.floor.event === 'lowgrav' ? 0.32 : 0.22;
+  if (p.mods?.decoy) s.decoy = { x: p.x, y: p.y, t: p.mods.decoy }; // SEÑUELO
   p.dashCd = p.dashMax || 1.1;
   return [{ type: 'dash' }];
 }
@@ -1215,6 +1257,7 @@ function descend(s, ev) {
   Object.assign(s.player, { x: s.entry.x, y: s.entry.y, ang: 0, vel: 0, dashT: 0 });
   s.shots = [];
   s.player.hp = Math.min(s.player.max, s.player.hp + 1);
+  if (s.player.mods?.setKeys) s.player.keys++;
   ev.push({ type: 'floor', depth: s.depth, theme: s.floor.theme.name });
 }
 
@@ -1356,7 +1399,7 @@ export function botInput(s) {
     const st = pathNext(room, p, [[Math.floor(pk.x), Math.floor(pk.y)]], avoid) || pathNext(room, p, [[Math.floor(pk.x), Math.floor(pk.y)]], () => false);
     if (st) return steer(p, st);
   }
-  const hasChest = (room.type === 'treasure' || room.type === 'hidden') && !room.opened && (p.keys || room.freeChest);
+  const hasChest = (room.type === 'treasure' || room.type === 'hidden') && !room.opened && (p.keys || room.freeChest || p.masterkey);
   if (hasChest) goal = [[2, 3], [3, 2], [1, 2], [2, 1]];
   else if (room.type === 'exit' || room.type === 'boss') goal = [[MID_C, MID_R]];
   else {
