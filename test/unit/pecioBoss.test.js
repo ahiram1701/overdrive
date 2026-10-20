@@ -21,15 +21,16 @@ function bossRoom(depth, hp = 50) {
 
 test('jefes: uno cada 3 plantas, en la sala de la salida, y van rotando (también en el sin fin)', () => {
   for (const d of [1, 2, 4, 5, 7, 8, 10]) assert.equal(isBossFloor(d), false);
-  assert.deepEqual([3, 6, 9, 12, 15, 18].map(bossOf), ['guardian', 'swarm', 'core', 'guardian', 'swarm', 'core']);
-  for (const d of [3, 6, 9, 12]) {
+  // en el sin fin, cada vuelta alterna con los jefes nuevos de su ambiente
+  assert.deepEqual([3, 6, 9, 12, 15, 18, 21].map(bossOf), ['guardian', 'swarm', 'core', 'excavator', 'phantom', 'fusion', 'guardian']);
+  for (const d of [3, 6, 9, 12, 15, 18]) {
     const f = genFloor(5, d);
     const ids = Object.keys(f.rooms);
     assert.equal(ids.filter((id) => f.rooms[id].type === 'boss').length, 1);
     assert.equal(f.rooms[f.exit].type, 'boss');
   }
   // más duros en la segunda vuelta
-  assert.ok(bossRoom(12).boss.max > bossRoom(3).boss.max * 1.3);
+  assert.ok(bossRoom(21).boss.max > bossRoom(3).boss.max * 1.3);
   // sin escotilla hasta vencerlo
   const { room } = bossRoom(3);
   assert.notEqual(room.tiles[MID_R][MID_C], 'X');

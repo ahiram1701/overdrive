@@ -19,6 +19,13 @@ export const THEMES = [
   { id: 'medica', name: 'ESTACIÓN MÉDICA', floor: '#0b1714', wall: '#30d158', accent: '#7dffb0', fog: '#020a07', mix: { drone: 3, turret: 3, bomb: 2, shield: 2 } },
   { id: 'reactor', name: 'REACTOR', floor: '#1a0907', wall: '#ff6a00', accent: '#ff2d55', fog: '#0c0302', mix: { drone: 3, turret: 2, bomb: 3, shield: 3 } },
 ];
+// SUCESOS DE PLANTA (a veces, desde la planta 2): cambian las reglas de toda la planta
+export const EVENTS = {
+  blackout: { icon: '🔦', name: 'APAGÓN', desc: 'solo ves lo que tienes cerca' },
+  invasion: { icon: '👾', name: 'INVASIÓN', desc: 'más enemigos en cada sala, y más 🔩' },
+  lowgrav: { icon: '🪐', name: 'GRAVEDAD BAJA', desc: 'derrapas más y el esquive llega más lejos' },
+  gold: { icon: '💰', name: 'FIEBRE DEL ORO', desc: 'todas las 🔩 valen el doble' },
+};
 export const themeOf = (depth) => THEMES[Math.floor((depth - 1) / 3) % THEMES.length];
 
 // Enemigos: siempre avisan (la torreta marca su láser, la bomba parpadea, el escudo enseña su frente)
@@ -45,7 +52,15 @@ export const BOSSES = {
 };
 export const BOSS_ORDER = ['guardian', 'swarm', 'core'];
 export const isBossFloor = (depth) => depth % 3 === 0;
-export const bossOf = (depth) => BOSS_ORDER[(depth / 3 - 1) % BOSS_ORDER.length];
+BOSSES.excavator = { name: 'EXCAVADORA', hp: 85, r: 0.8, color: '#c8743a', piezas: 55, tip: 'se hunde y sale debajo de ti: aléjate de las casillas marcadas; al salir queda aturdida' };
+BOSSES.phantom = { name: 'FANTASMA DE LA ESTACIÓN', hp: 70, r: 0.6, color: '#bfe9ff', piezas: 55, tip: 'invisible: solo se ve su sombra y cuando ataca (ahí es vulnerable)' };
+BOSSES.fusion = { name: 'FUSIÓN', hp: 55, r: 0.75, color: '#ffe600', piezas: 60, tip: 'dos núcleos: si cae uno y el otro sigue entero, revive. Tumba los dos casi a la vez' };
+export const BOSS_ALT = ['excavator', 'phantom', 'fusion'];
+// planta 3, 6, 9: los de siempre; en el sin fin, cada vuelta alterna con los nuevos de su ambiente
+export const bossOf = (depth) => {
+  const i = (depth / 3 - 1) % BOSS_ORDER.length, lap = Math.floor((depth / 3 - 1) / BOSS_ORDER.length);
+  return lap % 2 === 1 ? BOSS_ALT[i] : BOSS_ORDER[i];
+};
 export const ENEMY_KEYS = Object.keys(ENEMY);
 
 export const ROOM_TYPES = {
@@ -136,7 +151,8 @@ export function genFloor(seed, depth) {
       }
     }
   }
-  return { seed, depth, theme: themeOf(depth), rooms, start: '2,2', exit };
+  const event = depth >= 2 && rng.chance(0.35) ? rng.pick(Object.keys(EVENTS)) : null;
+  return { seed, depth, theme: themeOf(depth), rooms, start: '2,2', exit, event };
 }
 
 export const DOOR_TILE = { up: [MID_C, 0], down: [MID_C, ROWS - 1], left: [0, MID_R], right: [COLS - 1, MID_R] };
@@ -160,6 +176,7 @@ export function genRoom(floor, id) {
     return null;
   };
   const type = room.type;
+  let mazeKey = null;
   if (type === 'combat' || type === 'exit') {
     for (let i = 0, n = rng.int(2, 5); i < n; i++) { const p = free(); if (p) t[p[1]][p[0]] = rng.chance(0.6) ? '#' : 'P'; }
   }
@@ -182,6 +199,9 @@ export function genRoom(floor, id) {
       }
     }
     for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) if (t[r][c] === '.' && !seen.has(`${c},${r}`)) t[r][c] = '#';
+    // la llave, en la casilla alcanzable más lejana del centro
+    let far = -1;
+    for (const k of seen) { const [c, r] = k.split(',').map(Number), d = Math.abs(c - MID_C) + Math.abs(r - MID_R); if (d > far && !onCross(c, r)) { far = d; mazeKey = [c, r]; } }
   }
   if (type === 'traps') { const p = free(); if (p) t[p[1]][p[0]] = 'S'; } // el interruptor que apaga el suelo eléctrico
   if (type === 'treasure' || type === 'hidden') t[2][2] = 'C';
@@ -193,25 +213,39 @@ export function genRoom(floor, id) {
   if (type === 'boss') {
     const kind = bossOf(depth), B = BOSSES[kind], loop = Math.floor((depth - 1) / 9);
     const hp = Math.round(B.hp * (1 + 0.45 * loop + 0.08 * (depth - 3)));
-    const pos = kind === 'core' ? { x: MID_C + 0.5, y: MID_R - 0.5 } : { x: MID_C + 0.5, y: 3 };
+    const pos = kind === 'core' ? { x: MID_C + 0.5, y: MID_R - 0.5 } : kind === 'fusion' ? { x: 2.5, y: 3.5 } : { x: MID_C + 0.5, y: 3 };
     const foes = [{ id: `${id}-boss`, kind: 'boss', boss: kind, x: pos.x, y: pos.y, ang: Math.PI, hp, max: hp, r: B.r, cd: 2, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dashT: 0, phase: 1 }];
+    if (kind === 'fusion') { foes.push({ ...foes[0], id: `${id}-boss2`, x: COLS - 2.5, cd: 3.2 }); foes[0].twin = foes[1].id; foes[1].twin = foes[0].id; }
     if (kind === 'swarm') for (let i = 0; i < 4; i++) foes.push(swarmNode(`${id}-n${i}`, foes[0], (i / 4) * Math.PI * 2, depth));
     return { id, type, tiles: t, enemies: foes, cleared: false, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic: false, freeChest: false, pickups: [], powerOff: false, ambush: false, stock: null, marks: [], markT: 0 };
   }
   const nE = type === 'combat' ? Math.min(6, 2 + Math.floor(depth / 2) + rng.int(0, 1)) : type === 'exit' ? Math.min(5, 2 + Math.floor(depth / 3))
     : type === 'waves' ? 3 : type === 'challenge' ? Math.min(6, 3 + Math.floor(depth / 3)) : type === 'maze' ? 2 + Math.floor(depth / 4) : 0;
-  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE, id, null));
+  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE + (floor.event === 'invasion' && nE ? 2 : 0), id, null));
   const extra = {};
   if (type === 'waves') extra.waves = [3 + Math.floor(depth / 3), 4 + Math.floor(depth / 3)]; // las dos oleadas que faltan
   if (type === 'challenge') extra.timer = 15 + depth;
-  if (type === 'maze') extra.keyAt = [rng.pick([1, COLS - 2]), rng.pick([1, ROWS - 2])];
+  if (type === 'maze' && mazeKey) extra.keyAt = mazeKey;
   // MÍMICO: algunos cofres de tesoro muerden (cuanto más hondo, más). El de la sala oculta nunca, y se abre sin llave
   const mimic = type === 'treasure' && rng.chance(Math.min(0.4, 0.12 + depth * 0.03));
   // en la sala oculta, además, algo de la mochila en el suelo
   const pickups = type === 'hidden' ? [{ id: `${id}-p0`, kind: 'cons', cons: rng.pick(CONS_KEYS), x: COLS - 2.5, y: ROWS - 3.5 }] : [];
   // laberinto: la llave, en un rincón del fondo (se deja libre su casilla)
-  if (extra.keyAt) { const [kc, kr] = extra.keyAt; t[kr][kc] = '.'; pickups.push({ id: `${id}-key`, kind: 'key', x: kc + 0.5, y: kr + 0.5 }); }
+  if (extra.keyAt) { const [kc, kr] = extra.keyAt; pickups.push({ id: `${id}-key`, kind: 'key', x: kc + 0.5, y: kr + 0.5 }); }
   return { id, type, tiles: t, enemies, cleared: !enemies.length, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic, freeChest: type === 'hidden', pickups, powerOff: false, ambush: false, stock: null, ...extra };
+}
+
+export const ELITE = {
+  fast: { icon: '⚡', name: 'Rápido' },
+  armored: { icon: '🛡️', name: 'Blindado' },
+  regen: { icon: '✚', name: 'Regenerador' },
+  explosive: { icon: '💥', name: 'Explosivo' },
+};
+export function makeElite(e, trait) {
+  e.elite = trait;
+  e.speedMul = trait === 'fast' ? 1.5 : 1;
+  if (trait === 'armored') { e.hp *= 2; e.max *= 2; }
+  e.r *= 1.12;
 }
 
 // N enemigos en casillas libres, lejos de las puertas (y de `avoid`, p. ej. el jugador). Los nuevos solo a partir de su planta.
@@ -230,7 +264,10 @@ function placeFoes(rng, t, theme, depth, n, id, avoid) {
     if (!p) continue;
     const kind = rng.weighted(mix).k, E = ENEMY[kind];
     const hp = E.hp + Math.floor((depth - 1) * 1.45); // más vida cuanto más hondo (tu equipo también crece)
-    out.push({ id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) });
+    const e = { id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) };
+    // ÉLITE: nombre dorado y un rasgo (más botín)
+    if (depth >= 2 && rng.chance(Math.min(0.22, 0.04 + depth * 0.02))) makeElite(e, rng.pick(Object.keys(ELITE)));
+    out.push(e);
   }
   return out;
 }
@@ -273,7 +310,8 @@ export const openDoors = (s, id) => {
 // 🔩 que ganas (con el Imán y el Escáner, algo más)
 export function gainPiezas(s, n) {
   const m = s.player.mods || {};
-  const g = Math.max(1, Math.round(n * (1 + ((m.magnet || 0) + (m.scanner || 0)) / 100)));
+  const ev = s.floor?.event, mul = ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1;
+  const g = Math.max(1, Math.round(n * mul * (1 + ((m.magnet || 0) + (m.scanner || 0)) / 100)));
   s.player.piezas += g;
   s.found += g;
   return g;
@@ -373,7 +411,7 @@ export function nearestTarget(s, room = roomOf(s)) {
   for (const e of room.enemies) {
     if (!e.alive) continue;
     const d = d2(p, e);
-    if (d < bd && canSee(room, p, e)) { bd = d; best = e; }
+    if (d < bd && !e.hidden && canSee(room, p, e)) { bd = d; best = e; }
   }
   return best;
 }
@@ -398,7 +436,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   } else {
     p.ang += Math.max(-1, Math.min(1, input.x || 0)) * 3.4 * dt;
     const want = -Math.max(-1, Math.min(1, input.y || 0)) * (input.y > 0 ? 0.5 : 1);
-    p.vel += (want - p.vel) * Math.min(1, dt * 10);
+    p.vel += (want - p.vel) * Math.min(1, dt * (s.floor.event === 'lowgrav' ? 2.5 : 10)); // gravedad baja: derrapas
     const f = fwd(p.ang);
     moveCircle(room, p, f.x * p.speed * p.vel * dt, f.y * p.speed * p.vel * dt);
     doorFunnel(room, p, dt);
@@ -413,7 +451,8 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     if (t) {
       // apunta ADELANTADO a lo que se mueve (si no, lo rápido se escapa siempre de las balas)
       const lead = d2(p, t) / 13;
-      const a = angTo(p, { x: t.x + (t.vx || 0) * lead, y: t.y + (t.vy || 0) * lead });
+      const ahead = { x: t.x + (t.vx || 0) * lead, y: t.y + (t.vy || 0) * lead };
+      const a = angTo(p, canSee(room, p, ahead) ? ahead : t); // si el punto adelantado queda tras una pared, directo a él
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
         s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * 13, vy: f.y * 13, dmg: p.dmg, life: 1.2, pierce: p.weapon === 'pierce', blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [] });
@@ -591,7 +630,7 @@ function updateShots(s, room, dt, ev) {
         }
         b.life = 0; ev.push({ type: 'spark', x: b.x, y: b.y }); break;
       }
-      const e = room.enemies.find((o) => o.alive && !b.hit.includes(o.id) && Math.hypot(o.x - b.x, o.y - b.y) < o.r + 0.08);
+      const e = room.enemies.find((o) => o.alive && !o.hidden && !b.hit.includes(o.id) && Math.hypot(o.x - b.x, o.y - b.y) < o.r + 0.08);
       if (!e) continue;
       if (b.pierce) b.hit.push(e.id); else b.life = 0; // PERFORADOR: sigue su camino
       // ESCUDO: lo que le llega de frente rebota
@@ -614,11 +653,17 @@ function updateShots(s, room, dt, ev) {
 function hitEnemy(s, room, e, dmg, ev) {
   if (!e.alive) return;
   if (e.kind === 'boss' && e.boss === 'guardian' && e.stun > 0) dmg *= 2; // estrellado contra la pared: vulnerable
+  if (e.hidden) return;
   e.hp -= dmg;
   e.hitT = 0.12;
   ev.push({ type: 'hit', id: e.id, dmg, x: e.x, y: e.y });
   if (e.hp > 0) return;
   e.alive = false;
+  if (e.boss === 'fusion') {
+    const twin = room.enemies.find((o) => o.id === e.twin);
+    if (twin && twin.alive) { e.downT = 4; ev.push({ type: 'fusionDown' }); return; } // revive si su gemelo no cae a tiempo
+    for (const o of room.enemies) if (o.boss === 'fusion') o.downT = 0;
+  }
   s.kills++;
   const gain = gainPiezas(s, ENEMY[e.kind].piezas + Math.floor(s.depth / 3));
   ev.push({ type: 'kill', id: e.id, kind: e.kind, piezas: gain, x: e.x, y: e.y });
@@ -636,8 +681,14 @@ function hitEnemy(s, room, e, dmg, ev) {
     drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 2 }) });
     ev.push({ type: 'bossDown', boss: e.boss, name: BOSSES[e.boss].name });
   } else if (e.kind === 'mimic') drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }) });
-  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: s.luck >= 2 ? 1 : 0 }) });
+  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }) });
+  else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: s.luck >= 2 ? 1 : 0 }) });
   else if (s.rng.chance(0.07)) drop({ kind: 'cons', cons: s.rng.pick(CONS_KEYS) });
+  if (e.elite) gainPiezas(s, ENEMY[e.kind].piezas + 2);
+  if (e.elite === 'explosive') { // al morir, estalla alrededor
+    ev.push({ type: 'boom', x: e.x, y: e.y, r: 1.6 });
+    if (d2(e, s.player) < 1.6) hurt(s, 2, ev, 'élite explosivo');
+  }
   if (e.kind === 'bomb' && e.fuse !== null) explode(s, room, e, ev);
 }
 
@@ -715,7 +766,15 @@ function updateEnemies(s, room, dt, ev) {
   }
   room.flowT -= dt;
   if (!room.flow || room.flowT <= 0) { room.flow = flowField(room, p); room.flowT = 0.3; }
-  for (const e of room.enemies) { e.px = e.x; e.py = e.y; }
+  for (const e of room.enemies) {
+    e.px = e.x; e.py = e.y;
+    if (e.alive && e.elite === 'regen') e.hp = Math.min(e.max, e.hp + 0.6 * dt);
+    // FUSIÓN: el núcleo apagado vuelve si su gemelo aguanta
+    if (!e.alive && e.downT > 0) {
+      e.downT -= dt;
+      if (e.downT <= 0) { e.alive = true; e.hp = Math.round(e.max * 0.5); ev.push({ type: 'fusionUp', x: e.x, y: e.y }); }
+    }
+  }
   for (const e of room.enemies) {
     if (!e.alive || s.over) continue;
     e.hitT = Math.max(0, e.hitT - dt);
@@ -730,7 +789,7 @@ function updateEnemies(s, room, dt, ev) {
       // el escudo gira despacio: por eso se le puede rodear
       e.ang += Math.max(-1, Math.min(1, angDiff(want, e.ang) / 0.2)) * (e.kind === 'shield' ? 1.3 : 6) * dt;
       const f = fwd(e.kind === 'shield' ? e.ang : want);
-      if (dist > p.r + e.r + 0.05) moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy');
+      if (dist > p.r + e.r + 0.05) moveCircle(room, e, f.x * E.speed * (e.speedMul || 1) * dt, f.y * E.speed * (e.speedMul || 1) * dt, 'enemy');
       if (dist < p.r + e.r + 0.12 && e.cd <= 0) {
         ev.push({ type: 'attack', id: e.id });
         hurt(s, E.dmg, ev, e.kind);
@@ -744,7 +803,7 @@ function updateEnemies(s, room, dt, ev) {
       } else if (dist < 1.25) { e.fuse = 0.85; ev.push({ type: 'armed', id: e.id }); } else {
         const want = chaseDir(room, e, p), f = fwd(want);
         e.ang = want;
-        moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy');
+        moveCircle(room, e, f.x * E.speed * (e.speedMul || 1) * dt, f.y * E.speed * (e.speedMul || 1) * dt, 'enemy');
       }
     } else if (e.kind === 'turret') {
       if (e.charge > 0) {
@@ -840,6 +899,76 @@ function updateBoss(s, room, e, dt, ev) {
       e.cd = p2 ? 3 : 4.5;
       if (nodes < (p2 ? 6 : 4)) { room.enemies.push(swarmNode(`${e.id}-r${room.enemies.length}`, e, s.rng.next() * 6.28, s.depth)); ev.push({ type: 'spawn', x: e.x, y: e.y }); }
     }
+  } else if (e.boss === 'excavator') {
+    // EXCAVADORA: camina hacia ti; luego se HUNDE, marca las casillas bajo tus pies y SALE ahí (aturdida un momento)
+    if (e.emergeT > 0) {
+      e.emergeT -= dt;
+      if (e.emergeT <= 0) { e.hidden = false; e.x = e.tx; e.y = e.ty; e.stun = 1.2; ev.push({ type: 'boom', x: e.x, y: e.y, r: 1.5 }); }
+      return;
+    }
+    e.cd -= dt;
+    const want = chaseDir(room, e, p), f = fwd(want);
+    e.ang += angDiff(want, e.ang) * Math.min(1, dt * 3);
+    if (d2(e, p) > p.r + e.r + 0.1) moveCircle(room, e, f.x * 1.2 * dt, f.y * 1.2 * dt, 'enemy');
+    touchHurt(s, e, 1, ev);
+    if (e.cd <= 0) {
+      e.cd = p2 ? 3 : 4.2;
+      e.hidden = true;
+      const pc = Math.floor(p.x), pr = Math.floor(p.y);
+      room.marks = [];
+      for (let r = pr - 1; r <= pr + 1; r++) for (let c = pc - 1; c <= pc + 1; c++) if (tileAt(room, c, r) === '.' || tileAt(room, c, r) === 'E') room.marks.push([c, r]);
+      // en fase 2 caen además rocas en casillas sueltas
+      if (p2) for (let i = 0; i < 6; i++) { const c = s.rng.int(1, COLS - 2), r = s.rng.int(1, ROWS - 2); if (tileAt(room, c, r) === '.') room.marks.push([c, r]); }
+      room.markT = 1.05;
+      e.emergeT = 1.05;
+      e.tx = pc + 0.5; e.ty = pr + 0.5;
+      ev.push({ type: 'dig', x: e.x, y: e.y });
+    }
+  } else if (e.boss === 'phantom') {
+    // FANTASMA: invisible; aparece junto a ti, marca su línea (visible y vulnerable) y dispara; luego se esfuma
+    e.cd -= dt;
+    if (e.charge > 0) {
+      e.charge -= dt;
+      if (e.charge <= 0) {
+        for (const da of p2 ? [-0.35, 0, 0.35] : [0]) {
+          const end = rayEnd(room, e, e.aim + da);
+          ev.push({ type: 'eshot', id: e.id, from: { x: e.x, y: e.y }, to: end });
+          if (segDist(p, e, end) < p.r + 0.12) hurt(s, 2, ev, 'phantom');
+        }
+        e.showT = 0.6;
+      }
+      return;
+    }
+    if (e.showT > 0) { e.showT -= dt; if (e.showT <= 0) e.hidden = true; return; }
+    e.hidden = true;
+    if (e.cd <= 0) {
+      e.cd = p2 ? 2.4 : 3.2;
+      for (let i = 0; i < 20; i++) { // reaparece a 3–4 casillas de ti
+        const a = s.rng.next() * Math.PI * 2, nx = p.x + Math.cos(a) * 3.4, ny = p.y + Math.sin(a) * 3.4;
+        if (!hitsWall(room, nx, ny, e.r, 'enemy')) { e.x = nx; e.y = ny; break; }
+      }
+      e.hidden = false;
+      e.aim = angTo(e, p);
+      e.ang = e.aim;
+      e.charge = p2 ? 0.75 : 1;
+      ev.push({ type: 'aim', id: e.id });
+    }
+  } else if (e.boss === 'fusion') {
+    // FUSIÓN: cada núcleo marca un anillo a su alrededor (por turnos con su gemelo)
+    touchHurt(s, e, 1, ev);
+    e.ang += dt * 0.8;
+    e.cd -= dt;
+    if (e.cd <= 0 && room.markT <= 0) {
+      e.cd = p2 ? 2.6 : 3.6;
+      const c0 = Math.floor(e.x), r0 = Math.floor(e.y), R = p2 ? [1, 2, 3] : [2];
+      room.marks = [];
+      for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) {
+        const ring = Math.max(Math.abs(c - c0), Math.abs(r - r0));
+        if (R.includes(ring) && (room.tiles[r][c] === '.' || room.tiles[r][c] === 'E')) room.marks.push([c, r]);
+      }
+      room.markT = 1.1;
+      ev.push({ type: 'aim', id: e.id });
+    }
   } else if (e.boss === 'core') {
     // el NÚCLEO no se mueve: marca casillas y, al rato, arden
     touchHurt(s, e, 1, ev);
@@ -921,12 +1050,12 @@ function updateNewFoe(s, room, e, dt, ev, dist) {
       }
       return;
     }
-    keepRange(room, e, p, dt, 4, 7, E.speed);
+    keepRange(room, e, p, dt, 4, 7, E.speed * (e.speedMul || 1));
     e.ang += angDiff(angTo(e, p), e.ang) * Math.min(1, dt * 4);
     if (e.cd <= 0 && dist < 10 && canSee(room, e, p)) { e.aim = angTo(e, p); e.charge = 1.3; ev.push({ type: 'aim', id: e.id }); }
   } else if (e.kind === 'summoner') {
     // INVOCADOR: huye y llama drones (avisa brillando antes)
-    keepRange(room, e, p, dt, 4.5, 8, E.speed);
+    keepRange(room, e, p, dt, 4.5, 8, E.speed * (e.speedMul || 1));
     e.ang = angTo(e, p);
     if (e.summonT > 0) {
       e.summonT -= dt;
@@ -943,13 +1072,13 @@ function updateNewFoe(s, room, e, dt, ev, dist) {
     if (e.charge > 0) { e.charge -= dt; if (e.charge <= 0) { e.wave = { r: 0.3, max: 3.4, hit: false }; ev.push({ type: 'shockwave', x: e.x, y: e.y }); } return; }
     const want = chaseDir(room, e, p), f = fwd(want);
     e.ang = want;
-    if (dist > 2.2) moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy');
+    if (dist > 2.2) moveCircle(room, e, f.x * E.speed * (e.speedMul || 1) * dt, f.y * E.speed * (e.speedMul || 1) * dt, 'enemy');
     else if (e.cd <= 0) { e.charge = 0.75; ev.push({ type: 'aim', id: e.id }); }
   } else if (e.kind === 'roller') {
     // MINA RODANTE: rueda en línea recta y, al chocar, gira a la derecha (sigue las paredes); estalla al tocarte
     const dirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
     const f = fwd(dirs[e.dir || 0]);
-    if (moveCircle(room, e, f.x * E.speed * dt, f.y * E.speed * dt, 'enemy')) e.dir = ((e.dir || 0) + 1) % 4;
+    if (moveCircle(room, e, f.x * E.speed * (e.speedMul || 1) * dt, f.y * E.speed * (e.speedMul || 1) * dt, 'enemy')) e.dir = ((e.dir || 0) + 1) % 4;
     e.ang += dt * 8;
     if (dist < p.r + e.r + 0.1) {
       e.alive = false;
@@ -1004,7 +1133,7 @@ export function camBack(room, p, ang, max = 2.3, rad = 0.2) {
 export function dash(s) {
   const p = s.player;
   if (s.over || p.dashCd > 0) return [{ type: 'cooldown' }];
-  p.dashT = 0.22;
+  p.dashT = s.floor.event === 'lowgrav' ? 0.32 : 0.22;
   p.dashCd = p.dashMax || 1.1;
   return [{ type: 'dash' }];
 }
@@ -1183,7 +1312,7 @@ export function pray(s, pick) {
 export function botInput(s) {
   const p = s.player, room = roomOf(s), shut = locked(room);
   // fuera de una sala cerrada, lo que no ves ni puedes alcanzar no te importa (p. ej. tras un muro del laberinto)
-  const foes = room.enemies.filter((e) => e.alive && (shut || canSee(room, p, e) || pathNext(room, p, [[Math.floor(e.x), Math.floor(e.y)]], () => false)));
+  const foes = room.enemies.filter((e) => e.alive && !e.hidden && (shut || canSee(room, p, e) || pathNext(room, p, [[Math.floor(e.x), Math.floor(e.y)]], () => false)));
   const avoid = (c, r) => ['M', 'P'].includes(tileAt(room, c, r)) || tileAt(room, c, r) === 'E';
   const threat = (x, y) => foes.some((e) => (e.kind === 'bomb' && (e.fuse !== null || d2(e, { x, y }) < 1.6) && d2(e, { x, y }) < 2.1)
     || (e.kind === 'charger' && (e.charge > 0 || e.wave) && d2(e, { x, y }) < 3.7)

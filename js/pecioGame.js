@@ -6,7 +6,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { newRun, updateRun, keptPiezas, ROOM_TYPES, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR } from './pecio.js';
+import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR } from './pecio.js';
 import { CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
@@ -143,7 +143,17 @@ function handle(s, ev) {
         if (e.roomType === 'boss') { const B = BOSSES[bossOf(s.depth)]; fx.banner(`💀 ${B.name}`, B.tip, B.color, true, 3); sfx.alarm?.(); } else if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
         break;
       }
-      case 'floor': s.fade = 0.4; s.camSnap = true; fx.banner(`🏚️ ${e.theme}`, `planta ${e.depth}`, s.floor.theme.wall, true, 2.4); sfx.milestone(); progress('pecioFloor', e.depth); break;
+      case 'floor': {
+        s.fade = 0.4; s.camSnap = true;
+        const evn = EVENTS[s.floor.event];
+        fx.banner(`🏚️ ${e.theme}`, evn ? `planta ${e.depth} · ${evn.icon} ${evn.name}` : `planta ${e.depth}`, s.floor.theme.wall, true, 2.4);
+        if (evn) fx.notice(`${evn.icon} ${evn.name}: ${evn.desc}`, '#ffe600', 4);
+        sfx.milestone(); progress('pecioFloor', e.depth);
+        break;
+      }
+      case 'dig': fx.shake(10); sfx.boom(); fx.notice('🕳️ ¡Se hunde! Sal de las casillas marcadas', '#c8743a', 2.4); break;
+      case 'fusionDown': fx.notice('⚡ Un núcleo cae… ¡tumba el otro antes de 4 s!', '#ffe600', 3); sfx.milestone(); break;
+      case 'fusionUp': fx.notice('⚡ El núcleo vuelve a encenderse', '#ff2d55', 2.4); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 1, t: 0.4, max: 0.4 }); break;
       case 'shop': G.mode = 'pecioShop'; ui.showPecioShop(s); break;
       case 'shrine': G.mode = 'pecioShop'; ui.showPecioShrine(s); break;
       case 'bought': sfx.coin(6); ui.showPecioShop(s); break;
