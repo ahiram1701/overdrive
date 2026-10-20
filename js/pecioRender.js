@@ -10,7 +10,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES, ELITE } from './pecio.js';
 import { RARITY, CONS, itemIcon } from './pecioLoot.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
@@ -32,6 +32,9 @@ const BOSS_LOOK = {
   guardian: { mesh: 'titan', pal: { hull: '#1f1000', edge: '#ff9f0a', glow: '#ffe600' }, y: 0.6 },
   swarm: { mesh: 'kaiju', pal: { hull: '#03140a', edge: '#30d158', glow: '#bf5af2' }, y: 0.7 },
   core: { mesh: 'nova', pal: { hull: '#1a0004', edge: '#ff2d55', glow: '#ffe600' }, y: 0.85 },
+  excavator: { mesh: 'titan', pal: { hull: '#1a0e06', edge: '#c8743a', glow: '#ffe600' }, y: 0.55 },
+  phantom: { mesh: 'ghost', pal: { hull: '#0a1420', edge: '#bfe9ff', glow: '#ffffff' }, y: 0.6 },
+  fusion: { mesh: 'nova', pal: { hull: '#1a1400', edge: '#ffe600', glow: '#ff2d55' }, y: 0.8 },
 };
 
 // ---------- Cámara de persecución (sin alabeo ni cabeceo): se acerca si una pared se mete en medio ----------
@@ -213,8 +216,16 @@ export function renderPecio(dt) {
     const L = e.kind === 'boss' ? BOSS_LOOK[e.boss] : ENEMY_LOOK[e.kind], pos = { x: e.x, y: L.y + (e.kind === 'drone' ? Math.sin(t * 4 + e.x) * 0.06 : 0), z: -e.y };
     const blink = e.kind === 'bomb' && e.fuse !== null && Math.floor(t * 14) % 2 === 0;
     const wake = room.wake > 0;
+    if (e.hidden) {
+      if (e.boss === 'excavator') poly(cam, list, ring(e.x, 0.03, -e.y, 0.7 + 0.1 * Math.sin(t * 9), 14), 'rgba(200,116,58,.25)', '#c8743a', 2, { o: ordAt(e.x, e.y) });
+      else poly(cam, list, ring(e.x, 0.02, -e.y, e.r, 14), 'rgba(0,0,0,.5)', 'rgba(191,233,255,.25)', 1, { o: ordAt(e.x, e.y) });
+      continue;
+    }
+    // ÉLITE: anillo dorado en el suelo
+    if (e.elite) poly(cam, list, ring(e.x, 0.02, -e.y, e.r + 0.12, 14), 'rgba(255,214,10,.12)', '#ffd60a', 2, { o: ordAt(e.x, e.y), bias: -0.5 });
     point(cam, list, pos.x, pos.y, pos.z, (q) => {
       if (wake) ctx.globalAlpha = 0.45;
+      if (e.boss === 'phantom') ctx.globalAlpha = 0.55 + 0.25 * Math.sin(t * 12); // a medio materializar
       // el NÚCLEO: una esfera de energía que late detrás de su malla
       if (e.kind === 'boss' && e.boss === 'core') {
         const R = q.s * e.r * (0.85 + 0.06 * Math.sin(t * 6)), g = ctx.createRadialGradient(q.x, q.y, R * 0.1, q.x, q.y, R);
@@ -226,6 +237,7 @@ export function renderPecio(dt) {
       }
       drawMesh3D(ctx, cam, L.mesh, pos, e.kind === 'boss' && e.boss === 'core' ? t * 0.8 : e.ang, e.kind === 'turret' || e.kind === 'boss' ? 0 : -0.1, e.r * (e.kind === 'boss' ? 1.15 : 1.25), L.pal, e.hitT > 0 || blink, NEAR);
       ctx.globalAlpha = 1;
+      if (e.elite) glyph(ctx, `👑${ELITE[e.elite].icon}`, q.x, q.y - q.s * 0.62, Math.max(11, q.s * 0.3));
       if (e.stun > 0) glyph(ctx, '💫', q.x, q.y - q.s * 0.55, Math.max(10, q.s * 0.3));
       if (e.charge > 0) glyph(ctx, '❗', q.x, q.y - q.s * 0.6, Math.max(12, q.s * 0.4));
       if (e.summonT > 0) glyph(ctx, '✨', q.x, q.y - q.s * 0.6, Math.max(12, q.s * (0.35 + 0.15 * Math.sin(t * 20))));
@@ -323,6 +335,18 @@ export function renderPecio(dt) {
     }
   }
   ctx.globalCompositeOperation = 'source-over';
+  // APAGÓN: solo se ve cerca de tu nave
+  if (s.floor.event === 'blackout') {
+    const ps = toCam(cam, p.x, SHIP_Y, -p.y);
+    if (ps.z > NEAR) {
+      const P = scr(cam, ps), R = Math.min(W, H) * 0.42;
+      const g = ctx.createRadialGradient(P.x, P.y, R * 0.25, P.x, P.y, R);
+      g.addColorStop(0, 'rgba(0,0,0,0)');
+      g.addColorStop(1, 'rgba(0,0,0,.93)');
+      ctx.fillStyle = g;
+      ctx.fillRect(-20, -20, W + 40, H + 40);
+    }
+  }
   // fundido al cruzar una puerta
   if (s.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, s.fade / 0.25)})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
   ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
@@ -412,7 +436,8 @@ function roomBar(ctx, room, W, H, t) {
 }
 
 function bossBar(ctx, room, W, H, t) {
-  const b = room.enemies.find((e) => e.alive && e.kind === 'boss');
+  const all = room.enemies.filter((e) => e.kind === 'boss' && (e.alive || e.downT > 0));
+  const b = all.find((e) => e.alive) || all[0];
   if (!b) return;
   const B = BOSSES[b.boss], w = Math.min(W - 40, 320), x = (W - w) / 2, y = H - 178;
   ctx.fillStyle = 'rgba(0,0,0,.6)';
@@ -422,6 +447,16 @@ function bossBar(ctx, room, W, H, t) {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = B.color;
   ctx.fillText(`💀 ${B.name}${b.phase === 2 ? ' · FASE 2' : ''}${b.stun > 0 && b.boss === 'guardian' ? ' · ¡VULNERABLE!' : ''}`, W / 2, y - 10);
+  if (all.length > 1) { // FUSIÓN: un núcleo por mitad
+    all.forEach((c, i) => {
+      const bx = x + i * (w / 2 + 4), bw = w / 2 - 4;
+      ctx.fillStyle = 'rgba(255,255,255,.15)';
+      ctx.fillRect(bx, y, bw, 9);
+      ctx.fillStyle = c.alive ? B.color : `rgba(255,230,0,${0.3 + 0.3 * Math.sin(t * 10)})`;
+      ctx.fillRect(bx, y, bw * (c.alive ? Math.max(0, c.hp / c.max) : 1 - c.downT / 4), 9);
+    });
+    return;
+  }
   ctx.fillStyle = 'rgba(255,255,255,.15)';
   ctx.fillRect(x, y, w, 9);
   ctx.fillStyle = b.stun > 0 && b.boss === 'guardian' && Math.floor(t * 8) % 2 ? '#ffe600' : B.color;
