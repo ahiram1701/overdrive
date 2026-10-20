@@ -76,21 +76,29 @@ export const fx = {
 
   // Un solo banner a la vez, en la franja del cielo. Si el modo de texto es mínimo,
   // solo se muestran los importantes y el resto pasa a aviso.
-  banner(str, sub = '', color = '#fff', important = false) {
+  // dur: segundos en pantalla (por defecto 1,4 los importantes y 0,95 el resto)
+  banner(str, sub = '', color = '#fff', important = false, dur = null) {
     if (save.settings.text === 'min' && !important) return this.notice(str, color);
     // un banner normal nunca pisa a uno importante que siga en pantalla (p.ej. OVERDRIVE)
     const cur = banners[0];
     if (cur && cur.important && !important && cur.life > 0.3) return this.notice(str, color);
     banners.length = 0;
-    const dur = important ? 1.4 : 0.95;
-    banners.push({ str, sub, color, life: dur, max: dur, important });
+    const d = dur || (important ? 1.4 : 0.95);
+    banners.push({ str, sub, color, life: d, max: d, important });
   },
 
   // Aviso pequeño sobre la barra de overdrive (cartas, escudos, recompensas).
+  // Se guardan los 3 últimos (si llegan varios a la vez no se pisan; el mismo texto solo se refresca):
+  // los modos que los apilan los ven todos y el resto, solo el último, como siempre.
   notice(str, color = '#fff') {
-    notices.length = 0;
-    notices.push({ str, color, life: 1.4, max: 1.4 });
+    const i = notices.findIndex((n) => n.str === str);
+    if (i >= 0) notices.splice(i, 1);
+    notices.push({ str, color, life: 1.6, max: 1.6 });
+    if (notices.length > 3) notices.shift();
   },
+
+  // (tests) los avisos que hay ahora mismo
+  get noticeList() { return notices.map((n) => n.str); },
 
   clear() {
     for (const p of parts) p.on = false;
@@ -166,17 +174,27 @@ export const fx = {
     ctx.restore();
   },
 
-  // noticeY: altura de los avisos (abajo por defecto; PECIOS los sube porque abajo tiene sus botones)
-  drawBanners(ctx, W, H, noticeY = H - 58) {
+  // opts: bannerY / noticeY (alturas; por defecto, el cartel en el cielo y los avisos abajo), stack (todos los
+  // avisos apilados en vez de solo el último) y backdrop (franja oscura tras el cartel para que se lea siempre)
+  drawBanners(ctx, W, H, opts = {}) {
+    const { bannerY = H * 0.2, noticeY = H - 58, stack = false, backdrop = false } = opts;
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    for (const n of notices) {
+    const shown = stack ? notices : notices.slice(-1);
+    shown.forEach((n, i) => {
       const a = Math.min(1, n.life / 0.3, (n.max - n.life) / 0.1);
       ctx.globalAlpha = a;
-      ctx.font = '800 14px system-ui, sans-serif';
-      const w = ctx.measureText(n.str).width + 24;
-      const y = noticeY;
+      // si no cabe, letra más pequeña (nunca se corta por los lados)
+      let fs = 14;
+      ctx.font = `800 ${fs}px system-ui, sans-serif`;
+      let w = ctx.measureText(n.str).width + 24;
+      if (w > W - 24) {
+        fs = Math.max(9, Math.floor((fs * (W - 48)) / (w - 24)));
+        ctx.font = `800 ${fs}px system-ui, sans-serif`;
+        w = ctx.measureText(n.str).width + 24;
+      }
+      const y = noticeY + i * 30;
       ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.beginPath();
       // roundRect no existe en Safari < 16: rectángulo normal como alternativa
@@ -185,23 +203,33 @@ export const fx = {
       ctx.fill();
       ctx.fillStyle = n.color;
       ctx.fillText(n.str, W / 2, y + 1);
-    }
+    });
     banners.forEach((b) => {
       const age = b.max - b.life;
       const inK = Math.min(1, age / 0.12);
       const outK = Math.min(1, b.life / 0.25);
       const scale = (0.5 + 0.5 * inK) * (1 + Math.max(0, 0.12 - age) * 2);
       // franja del cielo: por encima del horizonte (H*0.36) y por debajo de la barra del jefe
-      const y = H * 0.2;
+      const y = bannerY;
       ctx.globalAlpha = outK;
+      if (backdrop) {
+        const g = ctx.createLinearGradient(0, y - 44, 0, y + 50);
+        g.addColorStop(0, 'rgba(0,0,0,0)');
+        g.addColorStop(0.3, 'rgba(0,0,0,.55)');
+        g.addColorStop(0.75, 'rgba(0,0,0,.55)');
+        g.addColorStop(1, 'rgba(0,0,0,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(0, y - 44, W, 94);
+      }
       ctx.translate(W / 2, y);
       ctx.scale(scale, scale);
       // se mide el texto de verdad: la estimación por caracteres se quedaba corta y se salía de pantalla
       let size = 46;
       ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
       const w = ctx.measureText(b.str).width + 16; // + trazo del contorno
-      if (w > W * 0.92) {
-        size = Math.floor(size * (W * 0.92) / w);
+      const fit = (W * 0.92) / 1.24; // que quepa también durante el "pop" de entrada (escala hasta ×1,24)
+      if (w > fit) {
+        size = Math.floor(size * fit / w);
         ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
       }
       ctx.lineWidth = 8;
@@ -210,7 +238,10 @@ export const fx = {
       ctx.fillStyle = b.color;
       ctx.fillText(b.str, 0, 0);
       if (b.sub) {
-        ctx.font = `800 ${Math.round(size * 0.32)}px system-ui, sans-serif`;
+        let ss = Math.round(size * 0.32);
+        ctx.font = `800 ${ss}px system-ui, sans-serif`;
+        const sw = ctx.measureText(b.sub).width + 8;
+        if (sw > fit) { ss = Math.max(9, Math.floor((ss * fit) / sw)); ctx.font = `800 ${ss}px system-ui, sans-serif`; }
         ctx.lineWidth = 4;
         ctx.strokeText(b.sub, 0, size * 0.62);
         ctx.fillStyle = '#fff';

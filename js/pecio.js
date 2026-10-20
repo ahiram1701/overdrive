@@ -499,6 +499,43 @@ function updateEnemies(s, room, dt, ev) {
 // La línea que va a barrer una torreta que está apuntando (para dibujarla)
 export const chargeLine = (room, e) => (e.charge > 0 && e.aim !== null ? { from: { x: e.x, y: e.y }, to: rayEnd(room, e, e.aim) } : null);
 
+// ---------- Geometría para el dibujo 3D (pura: así se puede testear) ----------
+// Mundo del dibujo: x = columna, z = −fila. Caras de pared visibles: una por cada lado de una losa maciza
+// (pared, o puerta cerrada) que da a una losa libre, puesta EN el borde que comparten; n = normal hacia la libre.
+export function wallFaces(room, shut = locked(room)) {
+  const isWall = (c, r) => { const k = tileAt(room, c, r); return k === '#' || (k === 'D' && shut); };
+  const out = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      if (!isWall(c, r)) continue;
+      const door = room.tiles[r][c] === 'D', x0 = c, x1 = c + 1, zN = -r, zS = -r - 1; // zN: borde con la fila r−1; zS: con la r+1
+      if (r + 1 < ROWS && !isWall(c, r + 1)) out.push({ c, r, door, a: [x1, zS], b: [x0, zS], n: [0, -1] });
+      if (r - 1 >= 0 && !isWall(c, r - 1)) out.push({ c, r, door, a: [x0, zN], b: [x1, zN], n: [0, 1] });
+      if (c - 1 >= 0 && !isWall(c - 1, r)) out.push({ c, r, door, a: [x0, zS], b: [x0, zN], n: [-1, 0] });
+      if (c + 1 < COLS && !isWall(c + 1, r)) out.push({ c, r, door, a: [x1, zN], b: [x1, zS], n: [1, 0] });
+    }
+  }
+  return out;
+}
+// ¿un círculo toca algo que tapa la vista (pared, puerta, cofre…)?
+function touchesSight(room, x, y, rad) {
+  for (let c = Math.floor(x - rad); c <= Math.floor(x + rad); c++) {
+    for (let r = Math.floor(y - rad); r <= Math.floor(y + rad); r++) {
+      if (!blocksSight(tileAt(room, c, r))) continue;
+      const nx = Math.max(c, Math.min(x, c + 1)), ny = Math.max(r, Math.min(y, r + 1));
+      if ((x - nx) ** 2 + (y - ny) ** 2 < rad * rad) return true;
+    }
+  }
+  return false;
+}
+// Hasta dónde puede ir la cámara detrás de la nave sin tocar nada: la cámara tiene "cuerpo" (radio rad), así
+// nunca se mete en una pared ni queda tan pegada que el plano cercano la recorte y abra un hueco.
+export function camBack(room, p, ang, max = 2.3, rad = 0.2) {
+  const b = fwd(ang);
+  for (let t = 0.05; t <= max + 1e-9; t += 0.05) if (touchesSight(room, p.x - b.x * t, p.y - b.y * t, rad)) return Math.max(0, t - 0.05);
+  return max;
+}
+
 // ---------- Acciones: esquive y habilidad ----------
 export function dash(s) {
   const p = s.player;

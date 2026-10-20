@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash,
+  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash, wallFaces, camBack, blocksSight, tileAt, fwd,
   COLS, ROWS, MID_C, MID_R, OPP, LAST_FLOOR, themeOf, ENEMY, DOOR_TILE,
 } from '../../js/pecio.js';
 
@@ -191,4 +191,61 @@ test('🔩: si caes te llevas más cuanto más hondo; si sales, todas', () => {
   assert.equal(keptPiezas(s), 100);
   s.depth = LAST_FLOOR + 1; s.won = true;
   assert.equal(keptPiezas(s), 100);
+});
+
+test('dibujo 3D: cada cara de pared va EN el borde entre su pared y la casilla libre a la que mira', () => {
+  for (let seed = 1; seed <= 15; seed++) {
+    const f = genFloor(seed, 5);
+    for (const id of Object.keys(f.rooms)) {
+      const room = genRoom(f, id);
+      for (const shut of [true, false]) {
+        const faces = wallFaces(room, shut);
+        for (const fc of faces) {
+          // punto medio de la cara (mundo: x = columna, z = −fila) y medio paso a cada lado de la normal
+          const mx = (fc.a[0] + fc.b[0]) / 2, mz = (fc.a[1] + fc.b[1]) / 2;
+          const out = [Math.floor(mx + fc.n[0] * 0.5), Math.floor(-(mz + fc.n[1] * 0.5))];
+          const inn = [Math.floor(mx - fc.n[0] * 0.5), Math.floor(-(mz - fc.n[1] * 0.5))];
+          assert.deepEqual(inn, [fc.c, fc.r], `la cara pertenece a su pared (${id})`);
+          const t = room.tiles[out[1]][out[0]];
+          assert.ok(t !== '#' && !(t === 'D' && shut), `y mira a una casilla libre (${id} ${out})`);
+          // cara de una casilla de ancho
+          assert.equal(Math.hypot(fc.a[0] - fc.b[0], fc.a[1] - fc.b[1]), 1);
+        }
+        // todas las casillas libres junto a una pared tienen su cara: la sala queda cerrada
+        const need = [];
+        for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) {
+          if (room.tiles[r][c] === '#') continue;
+          for (const [dc, dr] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (room.tiles[r + dr][c + dc] === '#') need.push(`${c + dc},${r + dr}>${c},${r}`);
+        }
+        const have = new Set(faces.map((fc) => `${fc.c},${fc.r}>${Math.floor((fc.a[0] + fc.b[0]) / 2 + fc.n[0] * 0.5)},${Math.floor(-((fc.a[1] + fc.b[1]) / 2 + fc.n[1] * 0.5))}`));
+        for (const k of need) assert.ok(have.has(k), `falta la cara ${k} en ${id}`);
+      }
+    }
+  }
+});
+
+test('cámara: nunca dentro de una pared ni pegada a ella (el plano cercano no abre huecos)', () => {
+  let n = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const f = genFloor(seed, 4);
+    for (const id of Object.keys(f.rooms)) {
+      const room = genRoom(f, id);
+      for (let k = 0; k < 120; k++) {
+        const p = { x: 1 + ((k * 0.618 + seed * 0.37) % 1) * 7, y: 1 + ((k * 0.414 + seed * 0.71) % 1) * 9 };
+        if (hitsWall(room, p.x, p.y, 0.3) || room.tiles[Math.floor(p.y)][Math.floor(p.x)] !== '.') continue;
+        const ang = k * 0.77;
+        const back = camBack(room, p, ang, 2.3);
+        const b = fwd(ang), cx = p.x - b.x * back, cy = p.y - b.y * back;
+        n++;
+        assert.ok(!blocksSight(tileAt(room, Math.floor(cx), Math.floor(cy))), 'no dentro de una pared');
+        // a más de 0,15 de cualquier pared o bloque (una puerta abierta no tiene pared que recortar)
+        for (let c = Math.floor(cx - 0.15); c <= Math.floor(cx + 0.15); c++) for (let r = Math.floor(cy - 0.15); r <= Math.floor(cy + 0.15); r++) {
+          if (!blocksSight(tileAt(room, c, r)) || tileAt(room, c, r) === 'D') continue;
+          const nx = Math.max(c, Math.min(cx, c + 1)), ny = Math.max(r, Math.min(cy, r + 1));
+          assert.ok(Math.hypot(cx - nx, cy - ny) >= 0.15, `pegada a una pared en ${id}`);
+        }
+      }
+    }
+  }
+  assert.ok(n > 2000);
 });

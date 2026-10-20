@@ -10,7 +10,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, blocksSight, tileAt } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack } from './pecio.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
 const DOOR_H = 1.3, WALL_H = 2.1, SHIP_Y = 0.38, NEAR = 0.08, BACK = 2.3, CAM_Y = 1.3;
@@ -28,11 +28,9 @@ function updateCam(s, dt, W, H) {
   if (s.camSnap) { c.yaw = p.ang; c.back = BACK; s.camSnap = false; }
   c.yaw += angDiff(p.ang, c.yaw) * Math.min(1, dt * 5);
   const room = roomOf(s), b = fwd(c.yaw);
-  let back = BACK;
-  for (let t = 0.1; t <= BACK; t += 0.1) {
-    if (blocksSight(tileAt(room, Math.floor(p.x - b.x * t), Math.floor(p.y - b.y * t)))) { back = Math.max(0.45, t - 0.3); break; }
-  }
-  c.back += (back - c.back) * Math.min(1, dt * (back < c.back ? 20 : 4));
+  // si algo se mete en medio, la cámara se acerca AL MOMENTO (si fuera suave, unos fotogramas estaría dentro de la pared); se aleja despacio
+  const want = camBack(room, p, c.yaw, BACK);
+  c.back = want < c.back ? want : c.back + (want - c.back) * Math.min(1, dt * 4);
   // pegada a una pared la cámara se acerca: entonces sube y mira más abajo, así la nave sigue a la vista
   const k = Math.max(0, (BACK - c.back) / BACK);
   const pos = { x: p.x - b.x * c.back, y: CAM_Y + k * 0.6, z: -(p.y - b.y * c.back) };
@@ -100,7 +98,11 @@ export function renderPecio(dt) {
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
       const k = room.tiles[r][c];
-      if (k === '#' || k === 'C' || k === 'T' || k === 'A') continue;
+      if (k === '#') continue;
+      if (k === 'C' || k === 'T' || k === 'A') { // bajo el bloque no se ve el suelo, pero el techo de encima sí
+        poly(cam, ground, [[c, WALL_H, -r - 1], [c + 1, WALL_H, -r - 1], [c + 1, WALL_H, -r], [c, WALL_H, -r]], null, hexA(th.wall, 0.1), 1, { base: shade(th.fog, 10) });
+        continue;
+      }
       const q = [[c, 0, -r], [c + 1, 0, -r], [c + 1, 0, -r - 1], [c, 0, -r - 1]];
       const base = (r + c) % 2 ? th.floor : shade(th.floor, 9);
       if (k === 'P') poly(cam, ground, q, '#000', 'rgba(255,255,255,.18)', 1);
@@ -131,46 +133,51 @@ export function renderPecio(dt) {
   ground.sort((a, b) => b.z - a.z);
   drawPolys(ctx, ground, th);
 
-  // PAREDES, OBJETOS Y ENTIDADES (ordenados por distancia)
+  // PAREDES, OBJETOS Y ENTIDADES, en ORDEN DE CASILLAS: cada cosa pertenece a una casilla y se dibuja de la casilla más
+  // lejana a la más cercana según su distancia "en manzanas" a la de la cámara. Un rayo que sale de la cámara cruza las
+  // casillas con esa distancia siempre creciente, así que lo cercano se pinta siempre después (y encima) de lo lejano.
+  // (Ordenar por la profundidad media de cada polígono fallaba: abría "ventanas" en paredes cercanas.)
   const list = [];
-  const isWall = (c, r) => { const k = tileAt(room, c, r); return k === '#' || (k === 'D' && shut); };
+  const cc = Math.floor(cam.pos.x), cr = Math.floor(-cam.pos.z);
+  const ord = (c, r) => Math.abs(c - cc) + Math.abs(r - cr);
+  const ordAt = (x, y) => ord(Math.floor(x), Math.floor(y));
+  // cara trasera (mira hacia fuera de la cámara): no se dibuja nunca
+  const facing = (nx, nz, x, z) => nx * (cam.pos.x - x) + nz * (cam.pos.z - z) > 0;
+  for (const f of wallFaces(room, shut)) {
+    const [ax, az] = f.a, [bx, bz] = f.b;
+    if (!facing(f.n[0], f.n[1], ax, az)) continue;
+    const o = ord(f.c, f.r), col = f.door ? '#3a0010' : '#0d0a18', edge = f.door ? '#ff2d55' : th.wall;
+    poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, WALL_H, bz], [ax, WALL_H, az]], col, edge, 1.4, { fogc: true, o });
+    // franja de neón: va justo después de su cara (misma casilla, algo más cerca)
+    poly(cam, list, [[ax, 0.42, az], [bx, 0.42, bz], [bx, 0.5, bz], [ax, 0.5, az]], hexA(edge, 0.7), null, 1, { bias: 0.25, o });
+  }
   for (let r = 0; r < ROWS; r++) {
     for (let c = 0; c < COLS; c++) {
-      const k = room.tiles[r][c];
-      const wall = k === '#', door = k === 'D' && shut;
-      if (wall || door) {
-        const h = WALL_H, col = door ? '#3a0010' : '#0d0a18', edge = door ? '#ff2d55' : th.wall;
-        const x0 = c, x1 = c + 1, z0 = -r, z1 = -r - 1;
-        // solo las caras que dan a una casilla libre (las demás no se ven nunca), con su franja de neón
-        const face = (ax, az, bx, bz) => {
-          poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, h, bz], [ax, h, az]], col, edge, 1.4, { fogc: true });
-          poly(cam, list, [[ax, 0.42, az], [bx, 0.42, bz], [bx, 0.5, bz], [ax, 0.5, az]], hexA(edge, 0.7), null, 1, { bias: 0.25 });
-        };
-        if (r + 1 < ROWS && !isWall(c, r + 1)) face(x0, z0, x1, z0);
-        if (r - 1 >= 0 && !isWall(c, r - 1)) face(x1, z1, x0, z1);
-        if (c - 1 >= 0 && !isWall(c - 1, r)) face(x0, z1, x0, z0);
-        if (c + 1 < COLS && !isWall(c + 1, r)) face(x1, z0, x1, z1);
-      } else if (k === 'D') {
+      const k = room.tiles[r][c], o = ord(c, r);
+      if (k === 'D' && !shut) {
         // PUERTA ABIERTA: dintel hasta el techo y, al fondo, el portal de salida (nunca se ve el vacío de fuera)
         const side = r === 0 ? 'up' : r === ROWS - 1 ? 'down' : c === 0 ? 'left' : 'right';
         const across = side === 'up' || side === 'down';
         const inner = { up: -r - 1, down: -r, left: c + 1, right: c }[side], outer = { up: -r, down: -r - 1, left: c, right: c + 1 }[side];
+        const n = { up: [0, -1], down: [0, 1], left: [1, 0], right: [-1, 0] }[side]; // hacia dentro de la sala
         const at = (e, y, k2) => (across ? [c + k2, y, e] : [e, y, -r - k2]); // punto del borde e, a la altura y (k2: 0→1 a lo largo)
+        const pin = at(inner, 0, 0);
+        if (!facing(n[0], n[1], pin[0], pin[2])) continue;
         const edge = th.wall;
-        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true });
-        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true });
-        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: '🚪', gsize: 18 });
+        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: '🚪', gsize: 18, o, bias: -0.5 });
+        if (cam.pos.y < DOOR_H) poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true, o, bias: -0.25 });
+        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true, o });
       } else if (k === 'C' || k === 'T' || k === 'A') {
-        // cofre, terminal y altar: un bloque bajo con su icono encima
+        // cofre, terminal y altar: un bloque bajo con su icono encima (solo sus caras de frente)
         const h = 0.55, x0 = c + 0.15, x1 = c + 0.85, z0 = -r - 0.15, z1 = -r - 0.85;
         const edge = k === 'C' ? '#ffcc00' : k === 'T' ? '#7df9ff' : '#bf5af2', col = '#141020';
-        poly(cam, list, [[x0, 0, z0], [x1, 0, z0], [x1, h, z0], [x0, h, z0]], col, edge, 1.5);
-        poly(cam, list, [[x1, 0, z1], [x0, 0, z1], [x0, h, z1], [x1, h, z1]], col, edge, 1.5);
-        poly(cam, list, [[x0, 0, z1], [x0, 0, z0], [x0, h, z0], [x0, h, z1]], col, edge, 1.5);
-        poly(cam, list, [[x1, 0, z0], [x1, 0, z1], [x1, h, z1], [x1, h, z0]], col, edge, 1.5);
-        poly(cam, list, [[x0, h, z0], [x1, h, z0], [x1, h, z1], [x0, h, z1]], shade(col, 14), edge, 1.5);
+        if (facing(0, 1, x0, z0)) poly(cam, list, [[x0, 0, z0], [x1, 0, z0], [x1, h, z0], [x0, h, z0]], col, edge, 1.5, { o });
+        if (facing(0, -1, x0, z1)) poly(cam, list, [[x1, 0, z1], [x0, 0, z1], [x0, h, z1], [x1, h, z1]], col, edge, 1.5, { o });
+        if (facing(-1, 0, x0, z0)) poly(cam, list, [[x0, 0, z1], [x0, 0, z0], [x0, h, z0], [x0, h, z1]], col, edge, 1.5, { o });
+        if (facing(1, 0, x1, z0)) poly(cam, list, [[x1, 0, z0], [x1, 0, z1], [x1, h, z1], [x1, h, z0]], col, edge, 1.5, { o });
+        poly(cam, list, [[x0, h, z0], [x1, h, z0], [x1, h, z1], [x0, h, z1]], shade(col, 14), edge, 1.5, { o, bias: 0.2 });
         const g = k === 'C' ? (room.opened ? '📭' : '🎁') : k === 'T' ? '🛒' : room.used ? '🕯️' : '✨';
-        point(cam, list, c + 0.5, h + 0.35, -r - 0.5, (q) => glyph(ctx, g, q.x, q.y + Math.sin(t * 3) * 2, Math.max(10, q.s * 0.5)));
+        point(cam, list, c + 0.5, h + 0.35, -r - 0.5, (q) => glyph(ctx, g, q.x, q.y + Math.sin(t * 3) * 2, Math.max(10, q.s * 0.5)), o, -1);
       }
     }
   }
@@ -192,11 +199,11 @@ export function renderPecio(dt) {
         ctx.fillStyle = i < e.hp ? '#ff2d55' : 'rgba(255,255,255,.2)';
         ctx.fillRect(q.x - (n * (w + 1)) / 2 + i * (w + 1), q.y - q.s * 0.45, w, 3);
       }
-    });
+    }, ordAt(e.x, e.y));
     // ESCUDO: la placa de su frente (los disparos que le llegan por ahí rebotan)
     if (e.kind === 'shield') {
       const f = fwd(e.ang), cx = e.x + f.x * 0.48, cy = e.y + f.y * 0.48, nx = -f.y * 0.42, ny = f.x * 0.42;
-      poly(cam, list, [[cx + nx, 0.08, -(cy + ny)], [cx - nx, 0.08, -(cy - ny)], [cx - nx, 0.72, -(cy - ny)], [cx + nx, 0.72, -(cy + ny)]], 'rgba(48,209,88,.28)', '#7dffb0', 2.5);
+      poly(cam, list, [[cx + nx, 0.08, -(cy + ny)], [cx - nx, 0.08, -(cy - ny)], [cx - nx, 0.72, -(cy - ny)], [cx + nx, 0.72, -(cy + ny)]], 'rgba(48,209,88,.28)', '#7dffb0', 2.5, { o: ordAt(e.x, e.y) });
     }
   }
   // TUS BALAS
@@ -207,7 +214,7 @@ export function renderPecio(dt) {
       ctx.shadowBlur = save.settings.fx === false ? 0 : 10;
       ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(2, q.s * 0.07), 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
-    });
+    }, ordAt(b.x, b.y));
   }
   // TU NAVE (vista desde atrás: se inclina al girar)
   const lk = equipped(save, save.ship), pal = lk.palette;
@@ -222,9 +229,9 @@ export function renderPecio(dt) {
         ctx.lineWidth = 2.5;
         ctx.beginPath(); ctx.ellipse(q.x, q.y, size * 0.95, size * 0.6, 0, 0, Math.PI * 2); ctx.stroke();
       }
-    });
+    }, ordAt(p.x, p.y));
   }
-  list.sort((a, b) => b.z - a.z);
+  list.sort((a, b) => b.o - a.o || b.z - a.z);
   drawPolys(ctx, list, th);
 
   // DESTELLOS: disparos de las torretas, rayos, explosiones
@@ -258,16 +265,33 @@ export function renderPecio(dt) {
   minimap(ctx, s, W);
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
-  fx.drawBanners(ctx, W, H, H * 0.2 + 66); // los avisos, arriba: abajo están los botones
+  // el cartel y los avisos, ARRIBA pero por debajo de la barra (vidas, llaves) y del minimapa; abajo están los botones
+  const L = textLayout(s, H);
+  fx.drawBanners(ctx, W, H, { bannerY: L.bannerY, noticeY: L.noticeY, stack: true, backdrop: true });
+}
+
+// Dónde empieza el hueco libre bajo la barra de arriba (se mide de vez en cuando: leer el DOM en cada fotograma es caro)
+const MINIMAP_BOTTOM = 64 + 5 * 18 + 4;
+export function textLayout(s, H) {
+  const now = G.realTime;
+  if (!s.hudBottom || now - (s.hudT || 0) > 0.5) {
+    s.hudT = now;
+    const el = typeof document !== 'undefined' && document.querySelector('#pecioHud .pc-top');
+    s.hudBottom = el ? el.getBoundingClientRect().bottom : 110;
+  }
+  const top = Math.max(s.hudBottom, MINIMAP_BOTTOM) + 12;
+  const bannerY = Math.min(top + 26, H * 0.42);
+  return { top, bannerY, noticeY: bannerY + 60 };
 }
 
 // un punto del mundo como "entidad" ordenable: se dibuja con su función cuando le toca
-function point(cam, list, x, y, z, fn) {
+// (o: orden de su casilla; bias: dentro de la casilla, algo más cerca que su z real)
+function point(cam, list, x, y, z, fn, o, bias = 0) {
   const q = toCam(cam, x, y, z);
   if (q.z < NEAR * 2) return;
   const P = scr(cam, q);
   if (P.x < -200 || P.x > cam.w + 200 || P.y < -200 || P.y > cam.h + 200) return;
-  list.push({ z: q.z, fn: () => fn({ ...P, s: cam.focal / q.z }) });
+  list.push({ z: q.z + bias, o, fn: () => fn({ ...P, s: cam.focal / q.z }) });
 }
 function clipSeg(a, b) {
   if (a.z < NEAR && b.z < NEAR) return null;
