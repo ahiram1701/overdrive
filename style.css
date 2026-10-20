@@ -25,7 +25,8 @@ html, body {
   overscroll-behavior: none;
 }
 
-canvas#game { position: fixed; inset: 0; width: 100vw; height: 100vh; display: block; }
+/* inset + 100%: el lienzo sigue al área visible real (en iPhone 100vh no coincide y quedaba una franja abajo) */
+canvas#game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
 
 .hidden { display: none !important; }
 

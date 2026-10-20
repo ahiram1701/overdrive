@@ -77,3 +77,42 @@ test('salto doble: suma impulso y pasa por encima de un muro', async ({ page }) 
   expect(res.shieldsAfter).toBe(res.shields);
   expect(errors).toEqual([]);
 });
+
+// iPhone: Safari descoloca los textos centrados con emojis (empiezan en el centro y se salen por la derecha).
+// textfix.js los alinea "a mano" en todo el juego; aquí se comprueba que está puesto y que centra bien.
+test('textos centrados con emojis: el arreglo para iPhone está activo y centra de verdad', async ({ page }) => {
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  const r = await page.evaluate(() => {
+    const cv = document.createElement('canvas');
+    cv.width = 400; cv.height = 80;
+    const ctx = cv.getContext('2d');
+    ctx.font = '900 28px system-ui, sans-serif';
+    ctx.textBaseline = 'middle';
+    const res = [];
+    for (const [str, align, x] of [['🛡️ ¡Rebota! Rodea', 'center', 200], ['🏚️ PECIO', 'center', 200], ['🗝️ +1 llave', 'right', 380]]) {
+      ctx.clearRect(0, 0, 400, 80);
+      ctx.textAlign = align;
+      ctx.fillStyle = '#fff';
+      ctx.fillText(str, x, 40);
+      const keep = ctx.textAlign; // se restaura tras dibujar
+      // dónde hay tinta
+      const d = ctx.getImageData(0, 0, 400, 80).data;
+      let l = 400, rr = -1;
+      for (let px = 0; px < 400; px++) for (let py = 0; py < 80; py++) if (d[(py * 400 + px) * 4 + 3] > 40) { l = Math.min(l, px); rr = Math.max(rr, px); }
+      res.push({ str, align, x, l, r: rr, keep, w: ctx.measureText(str).width });
+    }
+    return { patched: CanvasRenderingContext2D.prototype.__textfix === true, res, canvas: document.getElementById('game').getBoundingClientRect().toJSON(), W: innerWidth, H: innerHeight };
+  });
+  expect(r.patched).toBe(true);
+  for (const t of r.res) {
+    expect(t.keep).toBe(t.align);
+    if (t.align === 'center') expect(Math.abs((t.l + t.r) / 2 - t.x)).toBeLessThan(6);
+    else expect(Math.abs(t.r - t.x)).toBeLessThan(6);
+    expect(t.l).toBeGreaterThan(0); // no se sale por ningún lado
+    expect(t.r).toBeLessThan(400);
+  }
+  // el lienzo cubre toda la pantalla (en iPhone 100vh dejaba una franja abajo)
+  expect(Math.round(r.canvas.width)).toBe(r.W);
+  expect(Math.round(r.canvas.height)).toBe(r.H);
+});

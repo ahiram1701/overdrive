@@ -29,6 +29,8 @@ export function initRender(c) {
   ctx = c.getContext('2d', { alpha: false });
   resize();
   addEventListener('resize', resize);
+  // iPhone: la barra de abajo aparece y se esconde sin un 'resize' de la ventana
+  globalThis.visualViewport?.addEventListener('resize', resize);
 }
 
 export function resize() {
