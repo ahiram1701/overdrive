@@ -157,6 +157,10 @@ function handle(s, ev) {
       case 'slam': fx.shake(16); fx.notice('💫 ¡Se ha estrellado! Ahora recibe el doble', '#ffcc00'); break;
       case 'pulse': for (const [c, r] of e.marks) s.flashes.push({ kind: 'tile', c, r, t: 0.3, max: 0.3 }); sfx.boom(); fx.shake(6); break;
       case 'spawn': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.9, t: 0.3, max: 0.3 }); break;
+      case 'shockwave': sfx.boom(); fx.shake(8); break;
+      case 'wave': fx.banner(`🌊 OLEADA ${3 - e.left}/3`, e.left ? 'aguanta' : '¡la última!', '#7df9ff', false, 1.4); sfx.alarm?.(); break;
+      case 'reward': fx.banner('🎁 ¡PREMIO!', e.what === 'challenge' ? 'desafío superado a tiempo' : 'las 3 oleadas, superadas', '#ffcc00', false, 1.8); sfx.chest(); break;
+      case 'challengeFail': fx.notice('⏱️ Se acabó el tiempo: sin premio', '#ff2d55', 2.6); break;
       case 'exitChoice': G.mode = 'pecioShop'; ui.showPecioExit(s); sfx.milestone(); break;
       case 'cleared9': progress('pecioWin'); break;
       case 'endless': fx.banner('♾️ MODO SIN FIN', 'las plantas siguen, cada vez más duras', '#bf5af2', true, 2.4); break;
