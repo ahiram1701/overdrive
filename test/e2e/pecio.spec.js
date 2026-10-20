@@ -19,11 +19,13 @@ test('pecios: el teclado mueve la nave y el bot recorre salas y baja plantas', a
   await expect(page.locator('#pecioHud')).toBeVisible();
   await expect(page.locator('#pcFloor')).toHaveText('PLANTA 1');
   // flecha arriba mantenida = avanzar (hacia la fila 0)
-  const y0 = await page.evaluate(() => window.G.pecio.player.y);
+  const p0 = await page.evaluate(() => ({ y: window.G.pecio.player.y, at: window.G.pecio.at }));
   await page.keyboard.down('ArrowUp');
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(400);
   await page.keyboard.up('ArrowUp');
-  expect(await page.evaluate(() => window.G.pecio.player.y)).toBeLessThan(y0 - 0.5);
+  // avanza hacia la fila 0 (con la máquina cargada puede llegar a cruzar la puerta de arriba: también vale)
+  const p1 = await page.evaluate(() => ({ y: window.G.pecio.player.y, at: window.G.pecio.at }));
+  expect(p1.at !== p0.at || p1.y < p0.y - 0.4).toBe(true);
   // el bot juega (con vida de sobra): llega a la planta 3
   const r = await page.evaluate(() => {
     window.G.pecio.player.hp = window.G.pecio.player.max = 60;
@@ -143,5 +145,50 @@ for (const vp of [{ width: 360, height: 640 }, { width: 375, height: 812 }]) {
     expect(r.L.noticeY + 2 * 30).toBeLessThan(r.H * 0.6); // los 3 avisos caben antes de la nave
     expect(r.notices).toEqual(['✔ Sala limpia · +1 ❤️', '🗝️ +1 llave']);
     expect(errors).toEqual([]);
+  });
+}
+
+test('pecios: con la sala limpia, una puerta se cruza aunque llegues descentrado y sin aviso de "limpia la sala"', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startPecio(page);
+  const r = await page.evaluate(async () => {
+    const { DOOR_TILE } = await import('/js/pecio.js');
+    const { fx } = await import('/js/fx.js');
+    const s = window.G.pecio;
+    const from = s.at, dir = Object.keys(s.floor.rooms[from].doors)[0];
+    const [c, r] = DOOR_TILE[dir];
+    // a 3 casillas de la puerta, 0,35 fuera de su eje, mirando hacia ella
+    const ang = { up: 0, down: Math.PI, left: -Math.PI / 2, right: Math.PI / 2 }[dir];
+    const back = { up: [0, 3], down: [0, -3], left: [3, 0], right: [-3, 0] }[dir];
+    const side = dir === 'up' || dir === 'down' ? [0.35, 0] : [0, 0.35];
+    Object.assign(s.player, { x: c + 0.5 + back[0] + side[0], y: r + 0.5 + back[1] + side[1], ang, vel: 0 });
+    s.botInput = { x: 0, y: -1 }; // "joystick arriba" mantenido (el bucle usa botInput cuando no hay dedo ni teclas)
+    for (let i = 0; i < 90 && s.at === from; i++) window.D.step(1 / 30, false);
+    s.botInput = null;
+    return { moved: s.at !== from, notices: fx.noticeList };
+  });
+  expect(r.moved).toBe(true);
+  expect(r.notices.some((n) => n.includes('Limpia la sala'))).toBe(false);
+  expect(errors).toEqual([]);
+});
+
+for (const vp of [{ width: 320, height: 568 }, { width: 360, height: 640 }]) {
+  test(`pecios: el cartel grande nunca se sale por los lados, ni durante su animación (${vp.width}×${vp.height})`, async ({ page }) => {
+    await page.setViewportSize(vp);
+    await startPecio(page);
+    const boxes = await page.evaluate(async () => {
+      const { fx } = await import('/js/fx.js');
+      window.G.pecio.introBanner = null;
+      const out = [];
+      for (const [t, sub] of [['🏚️ ESTACIÓN MÉDICA', 'planta 4'], ['🏆 ¡HAS SALIDO!', 'nueve plantas de pecio, superadas'], ['✨ BENDICIÓN', '+1 de daño del disparo']]) {
+        fx.banner(t, sub, '#fff', true, 2);
+        for (let i = 0; i < 12; i++) { window.D.step(1 / 60, true); out.push({ ...fx.lastBannerBox }); }
+      }
+      return out;
+    });
+    for (const b of boxes) {
+      expect(b.left).toBeGreaterThanOrEqual(0);
+      expect(b.right).toBeLessThanOrEqual(b.W);
+    }
   });
 }

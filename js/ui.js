@@ -370,6 +370,11 @@ export const ui = {
   },
 
   showSettings() {
+    // la versión instalada (el nombre de la caché del service worker), para saber si ya tienes la última
+    fetch('sw.js', { cache: 'no-store' }).then((r) => r.text()).then((t) => {
+      const v = /CACHE = '([^']+)'/.exec(t)?.[1];
+      if (v) setText('appVersion', `versión ${v.replace('overdrive-', '')}`);
+    }).catch(() => {});
     G.mode = 'hangar'; // pantalla estática
     ui.syncToggles();
     show('settings');

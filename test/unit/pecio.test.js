@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash, wallFaces, camBack, blocksSight, tileAt, fwd,
+  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash, wallFaces, camBack, doorTouch, blocksSight, tileAt, fwd,
   COLS, ROWS, MID_C, MID_R, OPP, LAST_FLOOR, themeOf, ENEMY, DOOR_TILE,
 } from '../../js/pecio.js';
 
@@ -248,4 +248,28 @@ test('cámara: nunca dentro de una pared ni pegada a ella (el plano cercano no a
     }
   }
   assert.ok(n > 2000);
+});
+
+test('puertas: una abierta nunca dice "limpia la sala"; se cruza aunque llegues descentrado o en diagonal', () => {
+  for (const [off, ang] of [[0, 0], [0.35, 0], [-0.35, 0], [0.42, 0], [0.3, -0.45], [-0.3, 0.45], [0.2, 0.15], [-0.6, 0.3]]) {
+    const s = newRun(12, { hp: 20 });
+    const room = arena(s);
+    room.tiles[0][MID_C] = 'D';
+    room.cleared = true;
+    const from = s.at, up = s.floor.rooms[from].doors.up;
+    if (!up) s.floor.rooms[from].doors.up = Object.keys(s.floor.rooms).find((k) => k !== from); // que la puerta lleve a algún sitio
+    Object.assign(s.player, { x: MID_C + 0.5 + off, y: 3.2, ang });
+    const ev = run(s, 2, { x: 0, y: -1 });
+    assert.ok(!ev.some((e) => e.type === 'locked'), `sin aviso falso (desvío ${off}, ángulo ${ang})`);
+    assert.notEqual(s.at, from, `cruzó la puerta (desvío ${off}, ángulo ${ang})`);
+  }
+  // cerrada (quedan enemigos): avisa una sola vez y no se cruza
+  const s = newRun(13, { hp: 20 });
+  const room = arena(s, ['drone', 1.5, 9.5, { stun: 99 }]);
+  room.tiles[0][MID_C] = 'D';
+  Object.assign(s.player, { x: MID_C + 0.5, y: 2.5, ang: 0 });
+  const ev = run(s, 2, { x: 0, y: -1 });
+  assert.equal(ev.filter((e) => e.type === 'locked').length, 1);
+  assert.equal(doorTouch(room, s.player), null);
+  assert.ok(s.player.y > 1, 'se queda en la sala');
 });

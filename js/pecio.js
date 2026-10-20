@@ -280,6 +280,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     p.vel += (want - p.vel) * Math.min(1, dt * 10);
     const f = fwd(p.ang);
     moveCircle(room, p, f.x * p.speed * p.vel * dt, f.y * p.speed * p.vel * dt);
+    doorFunnel(room, p, dt);
   }
   floorEffects(s, room, ev);
   if (s.over) return ev;
@@ -327,16 +328,15 @@ function interact(s, room, ev) {
   const p = s.player;
   if (s.touch && Math.hypot(p.x - s.touch.x, p.y - s.touch.y) > 1.3) s.touch = null;
   const c0 = Math.floor(p.x), r0 = Math.floor(p.y);
-  // puerta abierta: la cruzas
-  if (tileAt(room, c0, r0) === 'D') {
-    const dir = DIR_KEYS.find((k) => DOOR_TILE[k][0] === c0 && DOOR_TILE[k][1] === r0);
-    if (dir) { enterRoom(s, dir, ev); return true; }
-  }
+  // puerta abierta: la cruzas en cuanto tocas el hueco (no hace falta meter el centro de la nave en la losa)
+  const through = doorTouch(room, p);
+  if (through) { enterRoom(s, through, ev); return true; }
   if (tileAt(room, c0, r0) === 'X' && Math.hypot(p.x - c0 - 0.5, p.y - r0 - 0.5) < 0.45 && !locked(room)) { descend(s, ev); return true; }
   for (let c = c0 - 1; c <= c0 + 1; c++) {
     for (let r = r0 - 1; r <= r0 + 1; r++) {
       const t = tileAt(room, c, r);
       if (!['C', 'T', 'A', 'D'].includes(t) || Math.hypot(p.x - c - 0.5, p.y - r - 0.5) > 0.95) continue;
+      if (t === 'D' && !locked(room)) continue; // una puerta abierta no se queja (se cruza)
       if (s.touch) return false;
       s.touch = { x: c + 0.5, y: r + 0.5 };
       if (t === 'D') ev.push({ type: 'locked' });
@@ -357,6 +357,37 @@ function interact(s, room, ev) {
     }
   }
   return false;
+}
+
+// ¿Tocas el hueco de una puerta ABIERTA? Tu círculo la roza y estás dentro de su anchura (no contra el marco)
+export function doorTouch(room, p) {
+  if (locked(room)) return null;
+  for (const k of DIR_KEYS) {
+    const [c, r] = DOOR_TILE[k];
+    if (tileAt(room, c, r) !== 'D') continue;
+    const nx = Math.max(c, Math.min(p.x, c + 1)), ny = Math.max(r, Math.min(p.y, r + 1));
+    if (Math.hypot(p.x - nx, p.y - ny) > p.r + 0.05) continue;
+    const across = k === 'up' || k === 'down' ? Math.abs(p.x - c - 0.5) : Math.abs(p.y - r - 0.5);
+    if (across < 0.5) return k;
+  }
+  return null;
+}
+// EMBUDO: si vas hacia una puerta abierta y estás cerca, la nave se desliza hacia su eje (así no rozas el marco)
+function doorFunnel(room, p, dt) {
+  if (p.vel < 0.2 || locked(room)) return;
+  const f = fwd(p.ang);
+  for (const k of DIR_KEYS) {
+    const [c, r] = DOOR_TILE[k];
+    if (tileAt(room, c, r) !== 'D') continue;
+    const dx = c + 0.5 - p.x, dy = r + 0.5 - p.y, d = Math.hypot(dx, dy);
+    if (d > 1.6) continue;
+    // lejos: si miras hacia la puerta; ya cerca: basta con ir hacia su pared (aunque llegues torcido)
+    const towardWall = { up: -f.y, down: f.y, left: -f.x, right: f.x }[k];
+    if (d > 1.1 ? (f.x * dx + f.y * dy) / d < 0.5 : towardWall < 0.3) continue;
+    const step = 2.5 * dt;
+    if (k === 'up' || k === 'down') moveCircle(room, p, Math.max(-step, Math.min(step, dx)), 0);
+    else moveCircle(room, p, 0, Math.max(-step, Math.min(step, dy)));
+  }
 }
 
 function updateShots(s, room, dt, ev) {

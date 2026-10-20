@@ -13,6 +13,14 @@ let side = 1;
 
 const fxk = () => (save.settings.fx ? 1 : 0.3);
 
+// Ancho que ocupa de verdad un texto dibujado (tinta real, centrado) más su contorno
+function inkWidth(ctx, str, line) {
+  const m = ctx.measureText(str);
+  const l = m.actualBoundingBoxLeft, r = m.actualBoundingBoxRight;
+  const ink = Number.isFinite(l) && Number.isFinite(r) ? Math.max(Math.abs(l), Math.abs(r)) * 2 : 0; // centrado: el lado que más se sale manda
+  return Math.max(m.width, ink) + line;
+}
+
 export const fx = {
   shakeAmt: 0,
   flashA: 0,
@@ -226,12 +234,16 @@ export const fx = {
       // se mide el texto de verdad: la estimación por caracteres se quedaba corta y se salía de pantalla
       let size = 46;
       ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
-      const w = ctx.measureText(b.str).width + 16; // + trazo del contorno
-      const fit = (W * 0.92) / 1.24; // que quepa también durante el "pop" de entrada (escala hasta ×1,24)
-      if (w > fit) {
-        size = Math.floor(size * fit / w);
+      // se mide la TINTA real (la cursiva y algunos emojis se salen del "avance" del texto) + el contorno, y que quepa
+      // también durante el "pop" de entrada (escala hasta ×1,24)
+      const fit = (W * 0.88) / 1.24;
+      let ink = inkWidth(ctx, b.str, 8);
+      if (ink > fit) {
+        size = Math.floor(size * fit / ink);
         ctx.font = `italic 900 ${size}px system-ui, sans-serif`;
+        ink = inkWidth(ctx, b.str, 8);
       }
+      fx.lastBannerBox = { left: W / 2 - (ink / 2) * scale, right: W / 2 + (ink / 2) * scale, W };
       ctx.lineWidth = 8;
       ctx.strokeStyle = 'rgba(0,0,0,.75)';
       ctx.strokeText(b.str, 0, 0);
@@ -240,7 +252,7 @@ export const fx = {
       if (b.sub) {
         let ss = Math.round(size * 0.32);
         ctx.font = `800 ${ss}px system-ui, sans-serif`;
-        const sw = ctx.measureText(b.sub).width + 8;
+        const sw = inkWidth(ctx, b.sub, 4);
         if (sw > fit) { ss = Math.max(9, Math.floor((ss * fit) / sw)); ctx.font = `800 ${ss}px system-ui, sans-serif`; }
         ctx.lineWidth = 4;
         ctx.strokeText(b.sub, 0, size * 0.62);
