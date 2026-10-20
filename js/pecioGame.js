@@ -6,7 +6,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR } from './pecio.js';
+import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR } from './pecio.js';
 import { CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
@@ -35,6 +35,7 @@ export function newPecio(seedOverride = null) {
   ui.showPecioHUD(true);
   music.biome = 2;
   music.intensity = 0;
+  pecioMusic(s);
   musicStart();
   save.pecio.runs++;
   persist();
@@ -51,7 +52,10 @@ export function pecioStep(dt, input) {
   if (!s || G.mode !== 'pecio') return;
   const inp = input || s.input;
   s.turnIn += ((inp.x || 0) - s.turnIn) * Math.min(1, dt * 8);
+  // HITSTOP: un instante congelado al tumbar algo grande (el golpe se siente)
+  if (s.hitstop > 0) { s.hitstop -= dt; return; }
   handle(s, updateRun(s, dt, inp));
+  pecioMusic(s);
   if (s.over) finish(s);
 }
 export function pecioDash() {
@@ -118,14 +122,24 @@ export function pecioVaultUnlock() {
   return true;
 }
 
+// MÚSICA: la pista de la ambientación; con las puertas cerradas, más intensa; con el jefe, la suya
+function pecioMusic(s) {
+  const room = roomOf(s), boss = room.type === 'boss' && room.enemies.some((e) => e.kind === 'boss' && (e.alive || e.downT > 0));
+  const shut = !boss && locked(room);
+  music.pecio = boss ? 3 : Math.max(0, THEMES.findIndex((t) => t.id === s.floor.theme.id));
+  music.intensity = boss ? 3 : shut ? 2 : 0;
+  music.bpm = boss ? 142 : shut ? 128 : 112;
+}
+
 // Eventos → sonido, avisos y destellos para el dibujo
 function handle(s, ev) {
   for (const e of ev) {
     switch (e.type) {
-      case 'fire': sfx.near?.(true, 0.4); break;
-      case 'hit': sfx.brk(); break;
+      case 'fire': sfx.pew(e.weapon); break;
+      case 'hit': sfx.brk(); s.flashes.push({ kind: 'spark', x: e.x, y: e.y, t: 0.2, max: 0.2, a: Math.random() * 6.3 }); break;
       case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158', 2.6); } sfx.bump(); break;
-      case 'kill': sfx.coin(4); fx.notice(`+${e.piezas} 🔩`, '#c8d6e5'); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 }); break;
+      case 'kill': sfx.thud(e.big); if (e.big) { s.hitstop = 0.09; fx.shake(10); fx.vibe(40); } else fx.shake(3);
+        sfx.coin(4); fx.notice(`+${e.piezas} 🔩`, '#c8d6e5'); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 }); break;
       case 'hurt': fx.flash('#f33', 0.3); fx.shake(8); fx.vibe(50); sfx.shield(); break;
       case 'absorb': fx.notice('🫧 ¡Absorbido!', '#7df9ff'); break;
       case 'dead': sfx.die(); fx.shake(25); break;
@@ -140,7 +154,7 @@ function handle(s, ev) {
         s.fade = 0.25;
         s.camSnap = true;
         const R = ROOM_TYPES[e.roomType];
-        if (e.roomType === 'boss') { const B = BOSSES[bossOf(s.depth)]; fx.banner(`💀 ${B.name}`, B.tip, B.color, true, 3); sfx.alarm?.(); } else if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
+        if (e.roomType === 'boss') { const B = BOSSES[bossOf(s.depth)]; fx.banner(`💀 ${B.name}`, B.tip, B.color, true, 3); sfx.roar(); fx.shake(12); } else if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
         break;
       }
       case 'floor': {
@@ -181,12 +195,12 @@ function handle(s, ev) {
       case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
       case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
       case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
-      case 'mimic': fx.banner('😈 ¡MÍMICO!', 'el cofre muerde: véncelo y suelta su botín', '#ffcc00', true, 1.8); fx.shake(14); sfx.alarm?.(); break;
-      case 'secret': fx.banner('💎 ¡SALA OCULTA!', 'la pared agrietada escondía una puerta', '#7df9ff', true, 2); sfx.milestone(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.8, t: 0.4, max: 0.4 }); break;
+      case 'mimic': fx.banner('😈 ¡MÍMICO!', 'el cofre muerde: véncelo y suelta su botín', '#ffcc00', true, 1.8); fx.shake(14); sfx.growl(); break;
+      case 'secret': fx.banner('💎 ¡SALA OCULTA!', 'la pared agrietada escondía una puerta', '#7df9ff', true, 2); sfx.secret(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.8, t: 0.4, max: 0.4 }); break;
       case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5', 2.6); break;
       case 'switch': fx.notice('🔌 Suelo eléctrico apagado', '#ffe600'); sfx.milestone(); break;
       case 'boom': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: e.r, t: 0.35, max: 0.35 }); sfx.boom(); fx.shake(e.mine ? 6 : 10); break;
-      case 'arc': s.flashes.push({ kind: 'arc', from: e.from, to: e.to, t: 0.18, max: 0.18 }); break;
+      case 'arc': s.flashes.push({ kind: 'arc', from: e.from, to: e.to, t: 0.18, max: 0.18 }); sfx.zap(); break;
       case 'mirror': fx.notice('🪞 ¡Golpe devuelto!', '#bfe9ff', 1.6); sfx.bump(); break;
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;

@@ -137,6 +137,21 @@ export const sfx = {
   event() { sfx.arp([0, 6, 12, 6, 0], 330, 0.07, 'sawtooth', 0.1); },
   ui() { tone({ type: 'square', f: 900, dur: 0.04, vol: 0.08 }); },
   chest() { sfx.arp([0, 3, 7, 10, 12, 15, 19, 24], 392, 0.05, 'square', 0.12); },
+  // PECIOS: el disparo suena según el arma
+  pew(kind) {
+    const P = {
+      basic: ['square', 880, 440, 0.05, 0.05], spread: ['sawtooth', 700, 300, 0.07, 0.05], pierce: ['triangle', 1400, 900, 0.06, 0.07],
+      bounce: ['sine', 600, 1200, 0.07, 0.07], blast: ['square', 260, 90, 0.12, 0.08], rapid: ['square', 1100, 700, 0.03, 0.035],
+      arc: ['sawtooth', 1800, 400, 0.06, 0.05], orbit: ['sine', 500, 700, 0.05, 0.04],
+    }[kind] || ['square', 880, 440, 0.05, 0.05];
+    tone({ type: P[0], f: P[1], f2: P[2], dur: P[3], vol: P[4] });
+    if (kind === 'arc') noise({ dur: 0.05, vol: 0.06, type: 'highpass', f: 5000 });
+  },
+  zap() { noise({ dur: 0.08, vol: 0.12, type: 'highpass', f: 4000 }); tone({ type: 'sawtooth', f: 2200, f2: 500, dur: 0.07, vol: 0.06 }); },
+  thud(big) { tone({ type: 'sine', f: big ? 140 : 220, f2: 40, dur: big ? 0.25 : 0.1, vol: big ? 0.45 : 0.22 }); noise({ dur: 0.06, vol: big ? 0.25 : 0.1, f: 1200 }); },
+  growl() { tone({ type: 'sawtooth', f: 90, f2: 55, dur: 0.45, vol: 0.25, cutoff: 600 }); noise({ dur: 0.3, vol: 0.15, f: 400 }); },
+  secret() { sfx.arp([0, 4, 7, 11, 14, 18, 21], 659, 0.06, 'triangle', 0.15); },
+  roar() { tone({ type: 'sawtooth', f: 70, f2: 45, dur: 0.9, vol: 0.32, cutoff: 900 }); sfx.arp([0, 1, 0, 1, 0, -1], 220, 0.11, 'square', 0.1); },
 };
 
 // ---------- Música procedural ----------
@@ -148,8 +163,15 @@ const BIOME_MUSIC = [
   { root: 61.7, bass: [0, null, null, 7, null, 12, null, 7, 0, null, 3, null, 10, null, 7, null] }, // Glaciar
 ];
 const LEAD = [0, 7, 12, 15, 19, 15, 12, 7];
+// PECIOS: una pista por ambientación (carga, médica, reactor) y la de la sala del jefe
+export const PECIO_MUSIC = [
+  { root: 55.0, bass: [0, null, null, 0, 3, null, 0, null, 7, null, 5, null, 3, null, 2, null] },     // carga: grave y lenta
+  { root: 65.4, bass: [0, null, 7, null, 12, null, 7, null, 3, null, 10, null, 8, null, 7, null] },   // médica: fría y en arpegio
+  { root: 61.7, bass: [0, 0, 12, 0, 0, 12, 1, 13, 0, 0, 12, 0, 6, 18, 5, 17] },                   // reactor: pulso nervioso
+  { root: 46.2, bass: [0, 0, 1, 0, 0, 6, 0, 7, 0, 0, 1, 0, 12, 11, 7, 6] },                         // jefe: tritono y prisa
+];
 
-export const music = { on: false, bpm: 124, biome: 0, intensity: 0, od: false, step: 0, next: 0 };
+export const music = { on: false, bpm: 124, biome: 0, intensity: 0, od: false, step: 0, next: 0, pecio: null };
 
 export function musicStart() {
   if (!ctx) return;
@@ -161,6 +183,8 @@ export function musicStart() {
 
 export function musicStop() {
   music.on = false;
+  music.pecio = null; // los otros juegos vuelven a su música
+  music.bpm = 124;
   if (ctx) musicBus.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.1);
 }
 
@@ -183,7 +207,7 @@ function scheduler() {
 function playStep(s, when) {
   if (when < 0) when = 0;
   const k = s % 16;
-  const b = BIOME_MUSIC[music.biome % BIOME_MUSIC.length];
+  const b = music.pecio != null ? PECIO_MUSIC[music.pecio] : BIOME_MUSIC[music.biome % BIOME_MUSIC.length];
   const spb = 60 / music.bpm / 4;
   if (k % 4 === 0) tone({ type: 'sine', f: 160, f2: 42, dur: 0.14, vol: 0.75, when, dest: musicBus, attack: 0.002 });
   if (k % 4 === 2 || (music.intensity >= 2 && k % 2 === 1)) {
