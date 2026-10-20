@@ -342,6 +342,19 @@ export function renderPecio(dt) {
       ctx.beginPath();
       c.forEach((q, i) => { const P = scr(cam, q); if (i) ctx.lineTo(P.x, P.y); else ctx.moveTo(P.x, P.y); });
       ctx.closePath(); ctx.fill();
+    } else if (f.kind === 'spark') {
+      const q = toCam(cam, f.x, SHIP_Y + 0.1, -f.y);
+      if (q.z < NEAR * 4) continue;
+      const P = scr(cam, q), L = (1 - a) * 0.5 + 0.25, sz = Math.min(40, (H / q.z) * 0.25);
+      ctx.strokeStyle = `rgba(255,230,140,${a})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let k = 0; k < 6; k++) {
+        const an = f.a + k * 1.05;
+        ctx.moveTo(P.x + Math.cos(an) * sz * L * 0.4, P.y + Math.sin(an) * sz * L * 0.4);
+        ctx.lineTo(P.x + Math.cos(an) * sz * L, P.y + Math.sin(an) * sz * L);
+      }
+      ctx.stroke();
     } else if (f.kind === 'boom') {
       if (toCam(cam, f.x, 0, -f.y).z < 1) continue; // pegada a la cámara taparía media pantalla
       const c = clip(ring(f.x, 0.05, -f.y, (f.r || 0.5) * (0.5 + (1 - a) * 0.7), 18).map(([x, y, z]) => toCam(cam, x, y, z)));
@@ -487,17 +500,45 @@ function bossBar(ctx, room, W, H, t) {
 
 // MINIMAPA: salas vistas (con su icono), las conocidas por una puerta y dónde estás
 function minimap(ctx, s, W) {
-  const cell = 15, gap = 3, size = 5 * (cell + gap), x0 = W - size - 12, y0 = 64;
-  const rooms = s.floor.rooms;
+  const cell = 17, gap = 5, step = cell + gap, size = 5 * step - gap, x0 = W - size - 12, y0 = 64;
+  const rooms = s.floor.rooms, t = performance.now() / 1000;
   const known = new Set(s.visited);
   for (const id of s.visited) for (const n of Object.values(openDoors(s, id))) known.add(n);
-  ctx.fillStyle = 'rgba(0,0,0,.35)';
-  ctx.fillRect(x0 - 4, y0 - 4, size + 5, size + 5);
+  ctx.fillStyle = 'rgba(0,0,0,.45)';
+  ctx.fillRect(x0 - 6, y0 - 6, size + 12, size + 12);
+  ctx.strokeStyle = 'rgba(255,255,255,.12)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x0 - 6, y0 - 6, size + 12, size + 12);
+  const at = (id) => [x0 + rooms[id].x * step, y0 + rooms[id].y * step];
+  // pasillos: de cada sala vista a las que conecta
+  ctx.strokeStyle = 'rgba(255,255,255,.35)';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  for (const id of s.visited) {
+    const [ax, ay] = at(id);
+    for (const n of Object.values(openDoors(s, id))) {
+      const [bx, by] = at(n);
+      ctx.moveTo(ax + cell / 2, ay + cell / 2);
+      ctx.lineTo(bx + cell / 2, by + cell / 2);
+    }
+  }
+  ctx.stroke();
   for (const id of known) {
-    const r = rooms[id], x = x0 + r.x * (cell + gap), y = y0 + r.y * (cell + gap), seen = s.visited.includes(id);
-    ctx.fillStyle = id === s.at ? s.floor.theme.accent : seen ? 'rgba(255,255,255,.35)' : 'rgba(255,255,255,.08)';
+    const r = rooms[id], [x, y] = at(id), seen = s.visited.includes(id), here = id === s.at;
+    const shut = here && locked(roomOf(s));
+    ctx.fillStyle = here ? (shut ? '#ff2d55' : s.floor.theme.accent) : seen ? '#3a3550' : '#15121f';
     ctx.fillRect(x, y, cell, cell);
-    if (seen && r.type !== 'combat' && r.type !== 'start') glyph(ctx, ROOM_TYPES[r.type].icon, x + cell / 2, y + cell / 2, cell * 0.75);
+    if (here) { // la sala donde estás, con un borde que late
+      ctx.strokeStyle = `rgba(255,255,255,${0.55 + 0.45 * Math.sin(t * 6)})`;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x - 1.5, y - 1.5, cell + 3, cell + 3);
+    } else if (!seen) {
+      ctx.strokeStyle = 'rgba(255,255,255,.25)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
+    }
+    if (seen && r.type !== 'combat' && r.type !== 'start') glyph(ctx, ROOM_TYPES[r.type].icon, x + cell / 2, y + cell / 2, cell * 0.72);
+    else if (!seen) glyph(ctx, '?', x + cell / 2, y + cell / 2, cell * 0.6);
   }
 }
 

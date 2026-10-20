@@ -458,7 +458,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
         s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * 13, vy: f.y * 13, dmg: p.dmg, life: 1.2, pierce: p.weapon === 'pierce', blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [] });
       }
       p.fireCd = 1 / (p.rate * (p.boost > 0 ? 2 : 1));
-      ev.push({ type: 'fire' });
+      ev.push({ type: 'fire', weapon: p.weapon });
     } else p.fireCd = 0;
   }
   updateShots(s, room, dt, ev);
@@ -683,6 +683,11 @@ function hitEnemy(s, room, e, dmg, ev) {
   if (e.hidden) return;
   e.hp -= dmg;
   e.hitT = 0.12;
+  // RETROCESO: el golpe lo empuja un poco hacia atrás (los grandes y los fijos, no)
+  if (e.kind !== 'boss' && e.kind !== 'turret' && e.kind !== 'node') {
+    const p = s.player, d = Math.hypot(e.x - p.x, e.y - p.y) || 1;
+    moveCircle(room, e, ((e.x - p.x) / d) * 0.1, ((e.y - p.y) / d) * 0.1, 'enemy');
+  }
   ev.push({ type: 'hit', id: e.id, dmg, x: e.x, y: e.y });
   if (e.hp > 0) return;
   e.alive = false;
@@ -693,7 +698,7 @@ function hitEnemy(s, room, e, dmg, ev) {
   }
   s.kills++;
   const gain = gainPiezas(s, ENEMY[e.kind].piezas + Math.floor(s.depth / 3));
-  ev.push({ type: 'kill', id: e.id, kind: e.kind, piezas: gain, x: e.x, y: e.y });
+  ev.push({ type: 'kill', id: e.id, kind: e.kind, piezas: gain, x: e.x, y: e.y, big: !!(e.elite || e.kind === 'boss' || e.kind === 'mimic') });
   const p = s.player;
   // SANGUIJUELA: cada N bajas, +1 ❤️
   if (p.mods?.leech) { p.killsLeech++; if (p.killsLeech >= p.mods.leech) { p.killsLeech = 0; if (p.hp < p.max) { p.hp++; ev.push({ type: 'leech' }); } } }
@@ -936,9 +941,9 @@ function updateBoss(s, room, e, dt, ev) {
     if (away) moveCircle(room, e, f.x * 1.6 * away * dt, f.y * 1.6 * away * dt, 'enemy');
     touchHurt(s, e, 2, ev);
     e.cd -= dt;
-    if (e.cd <= 0) { // vuelve a soltar un nodo si le faltan
+    if (e.cd <= 0) { // vuelve a soltar un nodo si le faltan (como mucho 8 por pelea: si no, con poco daño sería invencible)
       e.cd = p2 ? 3 : 4.5;
-      if (nodes < (p2 ? 6 : 4)) { room.enemies.push(swarmNode(`${e.id}-r${room.enemies.length}`, e, s.rng.next() * 6.28, s.depth)); ev.push({ type: 'spawn', x: e.x, y: e.y }); }
+      if (nodes < (p2 ? 6 : 4) && (e.spawned || 0) < 8) { e.spawned = (e.spawned || 0) + 1; room.enemies.push(swarmNode(`${e.id}-r${room.enemies.length}`, e, s.rng.next() * 6.28, s.depth)); ev.push({ type: 'spawn', x: e.x, y: e.y }); }
     }
   } else if (e.boss === 'excavator') {
     // EXCAVADORA: camina hacia ti; luego se HUNDE, marca las casillas bajo tus pies y SALE ahí (aturdida un momento)
