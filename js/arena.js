@@ -319,6 +319,24 @@ export function useArenaAbility() {
       for (const e of near(a.x, a.y, 260 * a.ability.pow)) hurtEnemy(a, e, 60);
       a.rings.push({ x: a.x, y: a.y, r: 260 * a.ability.pow, t: 0.45, max: 0.45, color: '#ff4fd8' });
       break;
+    case 'surge': { // acelerón hacia donde vas, dañando lo que atraviesas
+      const len = Math.hypot(a.input.x, a.input.y);
+      const ang = len > 0.1 ? Math.atan2(a.input.y, a.input.x) : a.face;
+      beamHit(a, ang, 380 * a.ability.pow, 40, 70);
+      a.x += Math.cos(ang) * 380 * a.ability.pow;
+      a.y += Math.sin(ang) * 380 * a.ability.pow;
+      a.iframes = 0.6;
+      break;
+    }
+    case 'quake': // sacudida: daña y aturde todo lo cercano
+      for (const e of near(a.x, a.y, 300 * a.ability.pow)) { hurtEnemy(a, e, 50); e.stun = 1.5; }
+      a.rings.push({ x: a.x, y: a.y, r: 300 * a.ability.pow, t: 0.5, max: 0.5, color: '#ff9f0a' });
+      break;
+    case 'salvage': // desguace: atrae toda la XP y daña lo cercano
+      for (const g of a.gems) g.mag = true;
+      for (const e of near(a.x, a.y, 200 * a.ability.pow)) hurtEnemy(a, e, 35);
+      a.rings.push({ x: a.x, y: a.y, r: 200 * a.ability.pow, t: 0.4, max: 0.4, color: '#8fd14f' });
+      break;
     case 'hammer': { // onda en línea, ancha
       const t = nearest(a, a.x, a.y);
       beamHit(a, t ? Math.atan2(t.y - a.y, t.x - a.x) : a.face, 520, 60, 120 * a.ability.pow);

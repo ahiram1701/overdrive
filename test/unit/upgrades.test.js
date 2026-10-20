@@ -69,3 +69,20 @@ test('todas las naves se aplican sin errores y los ids de cartas son únicos', (
     assert.ok(r.stats.scoreMult > 0);
   }
 });
+
+test('naves exclusivas: una por juego, se ganan con su reto (no se compran) y sirven en todos', async () => {
+  const { SHIPS: ALL, shipEarned, unlockEarnedShips } = await import('../../js/upgrades.js');
+  const earn = ALL.filter((s) => s.earn);
+  assert.deepEqual(earn.map((s) => s.earn.game).sort(), ['ARENA', 'PECIOS', 'RUNNER']);
+  for (const s of earn) assert.equal(s.cost, 0);
+  const save = { ships: ['viper'], bestSection: 11, arenaMaps: { grid: { wins: 1 } }, pecio: { wins: 0 } };
+  assert.deepEqual(unlockEarnedShips(save), []);
+  save.bestSection = 12;
+  save.arenaMaps.belt = { wins: 2 };
+  save.pecio.wins = 1;
+  const got = unlockEarnedShips(save).map((s) => s.id).sort();
+  assert.deepEqual(got, ['carronero', 'centella', 'gladiador']);
+  assert.ok(save.ships.includes('carronero'));
+  assert.deepEqual(unlockEarnedShips(save), [], 'una sola vez');
+  assert.ok(shipEarned(earn[0], save));
+});

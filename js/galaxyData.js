@@ -50,6 +50,9 @@ export const GAL_PROFILE = {
   falcon: { speed: 1.05, turn: 1.1, shield: 1.25, regen: 1.2 },
   chimera: { speed: 1.05, dmg: 1.2, hull: 0.9 },
   wanderer: { speed: 1.1, turn: 1.1, dmg: 1.1, shield: 1.1, hull: 1.1, cargo: 1.1 },
+  centella: { speed: 1.25, turn: 1.15, hull: 0.85 },
+  gladiador: { speed: 0.9, hull: 1.35, shield: 1.2, dmg: 1.1 },
+  carronero: { cargo: 1.4, speed: 1.05, dmg: 0.95 },
 };
 export const GAL_KEYS = [['speed', 'VELOCIDAD'], ['turn', 'GIRO'], ['dmg', 'DAÑO'], ['shield', 'ESCUDO'], ['hull', 'CASCO'], ['cargo', 'BODEGA']];
 

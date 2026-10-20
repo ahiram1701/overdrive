@@ -55,6 +55,9 @@ export const MESHES = {
   wanderer: hull({ L: 1.35, W: 1.0, wz: 0.15, H: 0.22, R: 0.28, T: 0.55, F: 0.4, tw: 1 }), // aguja con aletas: la nave de La Señal
   chimera: hull({ L: 1.0, W: 0.95, wz: -0.05, H: 0.3, R: 0.45, T: 0.35, tw: 1, F: 0.3 }), // garras delante y aleta
   titan: hull({ L: 0.8, W: 0.95, wz: 0.1, H: 0.5, R: 0.6, T: 0.55, F: 0.3 }), // bloque blindado
+  centella: hull({ L: 1.5, W: 0.72, wz: 0.5, H: 0.14, R: 0.14, T: 0.32, F: 0.15 }), // flecha baja y larga: la del Runner
+  gladiador: hull({ L: 0.9, W: 1.18, wz: -0.08, H: 0.4, R: 0.5, T: 0.42, F: 0.5, tw: 1 }), // ancha, con aletas: la de la Arena
+  carronero: hull({ L: 1.08, W: 0.92, wz: 0.32, H: 0.27, R: 0.36, T: 0.62, F: 0.28, tw: 1 }), // remendada: la de Pecios
 };
 
 // Rota un vértice: yaw (eje y), pitch (eje x), roll (eje z). Escribe en `out` para no crear basura.

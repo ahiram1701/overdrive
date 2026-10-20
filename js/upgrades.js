@@ -148,6 +148,10 @@ export const SHIPS = [
   { id: 'titan', name: 'Titán', cost: 1100, color: '#ff6b3d', ability: 'hammer', desc: 'Fortaleza: empieza con 1 escudo y más invulnerabilidad tras un golpe, pero x0.85 puntos.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.4; r.stats.scoreMult *= 0.85; } },
   { id: 'falcon', name: 'Halcón', cost: 1300, color: '#7dffb0', ability: 'barrier', desc: 'Ligera: el DASH recarga un 10% antes, pero x0.95 puntos.', apply: (r) => { r.stats.dashRecharge *= 0.9; r.stats.scoreMult *= 0.95; } },
   { id: 'chimera', name: 'Quimera', cost: 1500, color: '#ff4fd8', ability: 'chaos', desc: 'Codiciosa: +20% de puntos, pero el DASH recarga un 15% más lento.', apply: (r) => { r.stats.scoreMult *= 1.2; r.stats.dashRecharge *= 1.15; } },
+  // NAVES EXCLUSIVAS: una por juego, se ganan con un reto de ese juego (y sirven en todos)
+  { id: 'centella', name: 'Centella', cost: 0, earn: { game: 'RUNNER', text: 'Llega al tramo 12 en una partida del Runner', n: 12, of: (s) => s.bestSection || 0 }, color: '#ff2d55', ability: 'surge', desc: 'La del Runner: cambia de carril un 12% más rápido, ventana de near-miss algo mayor y x1.08 puntos.', apply: (r) => { r.stats.laneTime *= 0.88; r.stats.scoreMult *= 1.08; r.stats.nearWin += 0.1; } },
+  { id: 'gladiador', name: 'Gladiador', cost: 0, earn: { game: 'ARENA', text: 'Gana en 2 mapas distintos de la Arena', n: 2, of: (s) => Object.values(s.arenaMaps || {}).filter((m) => m.wins > 0).length }, color: '#ff9f0a', ability: 'quake', desc: 'La de la Arena: empieza con 1 escudo y aguanta más tras un golpe.', apply: (r) => { addShields(r, 1); r.stats.hitInvuln *= 1.25; } },
+  { id: 'carronero', name: 'Carroñero', cost: 0, earn: { game: 'PECIOS', text: 'Supera las 9 plantas de Pecios', n: 1, of: (s) => s.pecio?.wins || 0 }, color: '#8fd14f', ability: 'salvage', desc: 'La de Pecios: cada moneda vale +1 y su DASH recarga un 10% antes.', apply: (r) => { r.stats.coinValue += 1; r.stats.dashRecharge *= 0.9; } },
   { id: 'wanderer', name: 'Errante', cost: 0, story: true, color: '#c58cff', ability: 'singularity', desc: 'La nave de La Señal: +10% en todo lo que importa (agilidad, OVERDRIVE y puntos).', apply: (r) => { r.stats.laneTime *= 0.92; r.stats.odDur += 0.5; r.stats.scoreMult *= 1.1; } },
 ];
 
@@ -181,7 +185,18 @@ export const ABILITY_TREE = {
   barrier: { lvl2: 'Al activarla, 1 s invulnerable', mut: 'wave', lvl3: 'Al activarla, una onda rompe lo cercano' },
   chaos: { lvl2: '+30% de alcance', mut: 'magnet', lvl3: 'CAOS atrae todas las monedas de la pista' },
   singularity: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'La SINGULARIDAD te da 1 escudo' },
+  surge: { lvl2: '+30% de alcance', mut: 'shield', lvl3: 'La ESTELA te da 1 escudo' },
+  quake: { lvl2: '+30% de alcance', mut: 'magnet', lvl3: 'El TERREMOTO atrae todas las monedas de la pista' },
+  salvage: { lvl2: '+30% de alcance', mut: 'od', lvl3: 'El DESGUACE carga un 15% de overdrive' },
 };
+// ¿Ganada? (las naves de reto se ganan al cumplirlo; las demás, comprándolas)
+export const shipEarned = (ship, save) => !!ship.earn && ship.earn.of(save) >= ship.earn.n;
+// Naves de reto que ya has ganado y aún no tenías (se añaden a save.ships)
+export function unlockEarnedShips(save) {
+  const out = [];
+  for (const s of SHIPS) if (s.earn && !save.ships.includes(s.id) && shipEarned(s, save)) { save.ships.push(s.id); out.push(s); }
+  return out;
+}
 
 export const emptyLvls = () => ({ a: 0, b: 0, c: 0, m: 0 });
 export const shipLvls = (map, shipId) => ({ ...emptyLvls(), ...(map && map[shipId]) });
