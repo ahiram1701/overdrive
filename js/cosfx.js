@@ -10,6 +10,7 @@ function hexA(hex, a) {
 }
 
 // Estela detrás de la nave. t = tiempo real (para el arcoíris), speed = velocidad de la partida.
+const PIX8 = ['#ff004d', '#ffa300', '#ffec27', '#00e436', '#29adff', '#ff77a8'];
 export function trailFx(sink, ctx, id, x, y, s, col, speed, t) {
   const vy = 200 + speed * 4;
   switch (id) {
@@ -31,9 +32,12 @@ export function trailFx(sink, ctx, id, x, y, s, col, speed, t) {
       ctx.restore();
       break;
     }
-    case 'pixels':
-      sink.spark(x + (Math.random() - 0.5) * s * 0.3, y + 0.15 * s, (Math.random() - 0.5) * 60, vy * 0.7, col, s * 0.11, 0.4);
+    case 'pixels': {
+      // bloques en rejilla, sin deriva lateral, con colores de consola de 8 bits
+      const g = s * 0.13, k = Math.floor(t * 30);
+      sink.spark(x + (Math.floor(Math.random() * 3) - 1) * g, y + 0.15 * s, 0, vy * 0.6, PIX8[k % PIX8.length], g, 0.5);
       break;
+    }
     case 'rainbow':
       sink.spark(x + (Math.random() - 0.5) * s * 0.2, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, `hsl(${(t * 900) % 360},100%,60%)`, s * 0.07, 0.35);
       break;

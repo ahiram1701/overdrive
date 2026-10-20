@@ -177,8 +177,18 @@ function paintSpine(ctx, vi, pts, opts) {
   if (!sp) return;
   const P = (v) => pts[vi.indexOf(v)];
   const A = P(sp[0]), B = P(sp[1]), S = P(sp[2]);
+  // la cabina (en la parte delantera: punta -> lomo)
+  const cab = opts.cockpit && sp[0] === 0 ? [lerp2(B, A, 0.1), lerp2(B, A, 0.55), lerp2(lerp2(B, A, 0.33), S, 0.28)] : null;
   ctx.save();
   if (opts.stripe) {
+    ctx.save();
+    if (cab) { // las rayas rodean la cabina: se recortan fuera de ella (antes se veían a través)
+      ctx.beginPath();
+      ctx.rect(-1e5, -1e5, 2e5, 2e5);
+      cab.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+      ctx.closePath();
+      ctx.clip('evenodd');
+    }
     ctx.fillStyle = opts.stripe.color;
     ctx.globalAlpha *= 0.9;
     for (const [t0, t1] of BANDS[opts.stripe.style] || BANDS.single) {
@@ -188,14 +198,12 @@ function paintSpine(ctx, vi, pts, opts) {
       ctx.closePath();
       ctx.fill();
     }
+    ctx.restore();
   }
-  // cabina: solo en la parte delantera (punta -> lomo)
-  if (opts.cockpit && sp[0] === 0) {
-    const mid = lerp2(B, A, 0.33);
-    ctx.fillStyle = opts.cockpit;
-    ctx.globalAlpha = 0.92;
+  if (cab) {
+    const c = cab;
+    ctx.fillStyle = opts.cockpit; // opaca (respeta la transparencia de la nave, no la sustituye)
     ctx.beginPath();
-    const c = [lerp2(B, A, 0.1), lerp2(B, A, 0.55), lerp2(mid, S, 0.28)];
     c.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
     ctx.closePath();
     ctx.fill();

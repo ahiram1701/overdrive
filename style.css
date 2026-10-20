@@ -254,6 +254,15 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
   border-radius: 10px; border: 1px solid rgba(255,255,255,.15); background: var(--panel); color: #fff; font-family: var(--font);
 }
 .cos i { width: 22px; height: 22px; border-radius: 50%; }
+.cos i.sw-pal { width: 26px; height: 26px; border-radius: 7px; box-shadow: 0 0 0 1px rgba(255,255,255,.25); }
+.cos i.sw-emo { width: auto; height: auto; border-radius: 0; font-style: normal; font-size: 20px; line-height: 1; }
+.cos i.sw-aura.rainbow { background: conic-gradient(#ff2d55, #ffe600, #39ff14, #00e5ff, #bf5af2, #ff2d55) !important; }
+.cos-row small .cos-count { width: auto; height: auto; border-radius: 0; margin-left: 6px; font-style: normal; color: var(--muted); font-size: 11px; }
+.cos-filter { display: flex; width: 100%; margin-bottom: 4px; border: 1px solid rgba(255,255,255,.2); border-radius: 10px; overflow: hidden; }
+.cos-filter button { flex: 1; padding: 9px 4px; background: transparent; color: var(--muted); border: 0; font: 900 12px var(--font); letter-spacing: .5px; }
+.cos-filter button + button { border-left: 1px solid rgba(255,255,255,.12); }
+.cos-filter button.on { background: rgba(255,230,0,.18); color: var(--yellow); }
+.cos-empty { padding: 8px 4px; color: var(--muted); font-size: 12px; }
 .cos b { font: 800 11px var(--font); }
 .cos small { font: 800 11px var(--font); color: var(--muted); }
 .cos.on { border-color: var(--yellow); box-shadow: 0 0 10px rgba(255,230,0,.35); }
@@ -266,7 +275,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .cos.excl { border-color: color-mix(in srgb, var(--sc) 70%, transparent); }
 .cos em { position: absolute; top: -7px; left: 50%; transform: translateX(-50%); padding: 1px 5px; border-radius: 6px; background: var(--sc); color: #000; font: 900 11px var(--font); font-style: normal; letter-spacing: .5px; white-space: nowrap; }
 .cos-chips { padding-top: 8px; }
-.cos-preview { position: sticky; bottom: 8px; z-index: 3; width: min(440px, 100%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 8px; padding: 10px; border-radius: 12px; background: rgba(11,2,33,.95); border: 1px solid var(--cyan); box-shadow: 0 0 16px rgba(0,229,255,.35); }
+.cos-preview { width: min(440px, 100%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; padding: 6px 8px; border-radius: 12px; background: rgba(11,2,33,.95); border: 1px solid var(--cyan); box-shadow: 0 0 16px rgba(0,229,255,.35); }
 .cos-preview .pv-name { width: 100%; text-align: center; font: 800 12px var(--font); color: var(--muted); }
 .cos-preview .pv-name b { color: #fff; }
 .cos-preview small { color: var(--muted); font-size: 12px; }
@@ -459,13 +468,12 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .h-bar .gems { margin: 0; font-size: 15px; }
 .h-back { width: auto; padding: 6px 10px; font-size: 12px; animation: none; }
 .h-tabs { width: min(440px, 100%); display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; padding: 3px; border-radius: 12px; background: rgba(255,255,255,.06); }
-.h-tabs button { position: relative; padding: 8px 2px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: italic 900 11px var(--font); letter-spacing: 0; }
-.h-tabs button.on { background: rgba(255,43,214,.22); color: #fff; box-shadow: 0 0 10px rgba(255,43,214,.35); }
+.h-tabs button { position: relative; padding: 11px 2px; border: 0; border-radius: 9px; background: transparent; color: var(--muted); font: italic 900 13px var(--font); letter-spacing: .3px; }
+.h-tabs button.on { background: rgba(255,43,214,.22); color: #fff; box-shadow: 0 0 10px rgba(255,43,214,.35), inset 0 -3px 0 var(--pink); }
 .h-tabs button.dot::after { content: ''; position: absolute; top: 5px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
 .tab-panel { width: min(440px, 100%); display: flex; flex-direction: column; align-items: center; gap: 10px; }
 .tab-panel.hidden { display: none; }
 .tab-panel .hint { margin: 0; }
-.cos-preview { position: static; }
 
 /* ---------- Arena ---------- */
 .modes { display: flex; gap: 8px; width: min(360px, 100%); }
