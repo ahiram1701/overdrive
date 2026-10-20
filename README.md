@@ -16,7 +16,7 @@ Runner de velocidad · galaxia en 3D · mazmorras en 3D · arena de supervivenci
 
 <img src="docs/gameplay.gif" width="270" alt="Partida del Runner a toda velocidad, con explosiones y combo">
 
-<img src="docs/menu.png" width="180" alt="Menú con los 4 juegos"> <img src="docs/galaxy.png" width="180" alt="Galaxia en 3D"> <img src="docs/pecio.png" width="180" alt="Pecios: sala en 3D con botín"> <img src="docs/arena.png" width="180" alt="Arena llena de enemigos">
+<img src="docs/menu.png" width="180" alt="Menú con los 4 juegos"> <img src="docs/galaxy.png" width="180" alt="Galaxia en 3D"> <img src="docs/pecio.png" width="180" alt="Pecios: sala en 3D con botín"> <img src="docs/hangar.png" width="180" alt="Hangar con las naves exclusivas">
 
 </div>
 
@@ -32,6 +32,8 @@ Un **arcade de neón** con cuatro juegos completos que comparten nave, hangar, r
 | <img src="docs/galaxy.png" width="110" alt="Galaxia"> | **🌌 GALAXIA** | Un juego de naves en 3D con la cámara detrás: explora, mina, comercia y lucha en 30 sistemas. | Vuelo libre con rizos, facciones y territorio, historia en 3 actos + crónica sin fin, fabricación, astillero, puestos avanzados y sucesos vivos. |
 | <img src="docs/pecio.png" width="110" alt="Pecios"> | **🏚️ PECIOS** | Mazmorras en 3D con tu nave: sala a sala por pecios abandonados, disparando sola. | Botín con rareza, **sets y legendarios únicos**, mímicos, salas ocultas, **jefes cada 3 plantas**, modo sin fin, taller y bóveda. Su propia moneda, 🔩. |
 | <img src="docs/arena.png" width="110" alt="Arena"> | **⚔️ ARENA** | *Survivors* en vista cenital: oleadas cada vez más grandes durante 10 minutos. | Sube de nivel y elige mejoras, armas que **evolucionan**, 4 mapas con sus jefes y modo sin fin. |
+
+Cada juego tiene su **🏆 nave exclusiva**, que se gana jugándolo y luego sirve en los cuatro: ⚡ **Centella** (Runner), 🌌 **Errante** (Galaxia), ♻️ **Carroñero** (Pecios) y 🌋 **Gladiador** (Arena).
 
 ## Características
 
@@ -553,7 +555,25 @@ Cada día hay **3 misiones**, una fácil (+15 💎), una media (+25 💎) y una 
 <details>
 <summary><b>🖼️ Galería</b></summary>
 
-<img src="docs/gameplay.png" width="180" alt="Runner: obstáculos"> <img src="docs/cards.png" width="180" alt="Runner: elección de cartas"> <img src="docs/boss.png" width="180" alt="Runner: jefe"> <img src="docs/campaign.png" width="180" alt="Mapa de la campaña"> <img src="docs/expedition.png" width="180" alt="Mapa de la Expedición"> <img src="docs/race.png" width="180" alt="Carrera contra rivales"> <img src="docs/modifiers.png" width="180" alt="Modificadores"> <img src="docs/hangar.png" width="180" alt="Hangar con el árbol de mejoras"> <img src="docs/galaxy.png" width="180" alt="Galaxia en 3D"> <img src="docs/pecio.png" width="180" alt="Pecios: botín en una sala"> <img src="docs/pecio-boss.png" width="180" alt="Pecios: el Núcleo del reactor"> <img src="docs/arena.png" width="180" alt="Arena">
+**🏁 Runner**
+
+<img src="docs/gameplay.png" width="160" alt="Runner a x99 de combo"> <img src="docs/boss.png" width="160" alt="Runner: jefe El Censor"> <img src="docs/cards.png" width="160" alt="Runner: elección de cartas"> <img src="docs/race.png" width="160" alt="Carrera en cabeza contra rivales"> <img src="docs/campaign.png" width="160" alt="Mapa de la campaña"> <img src="docs/expedition.png" width="160" alt="Mapa de la Expedición"> <img src="docs/modifiers.png" width="160" alt="Modificadores">
+
+**🌌 Galaxia**
+
+<img src="docs/galaxy.png" width="160" alt="Galaxia en 3D"> <img src="docs/galaxy-map.png" width="160" alt="Mapa galáctico con media galaxia explorada">
+
+**🏚️ Pecios**
+
+<img src="docs/pecio.png" width="160" alt="Pecios: botín en una sala"> <img src="docs/pecio-loot.png" width="160" alt="Pecios: legendario único frente a lo que llevas"> <img src="docs/pecio-boss.png" width="160" alt="Pecios: el Núcleo del reactor"> <img src="docs/pecio-workshop.png" width="160" alt="Pecios: el taller">
+
+**⚔️ Arena**
+
+<img src="docs/arena.png" width="160" alt="Arena a nivel 17 con el Gladiador"> <img src="docs/arena-maps.png" width="160" alt="Arena: los 4 mapas">
+
+**🚀 Hangar**
+
+<img src="docs/hangar.png" width="160" alt="Hangar con las 4 naves exclusivas">
 
 </details>
 
