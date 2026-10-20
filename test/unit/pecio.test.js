@@ -278,3 +278,25 @@ test('puertas: una abierta nunca dice "limpia la sala"; se cruza aunque llegues 
   assert.equal(doorTouch(room, s.player), null);
   assert.ok(s.player.y > 1, 'se queda en la sala');
 });
+
+test('cofre, tienda y altar se activan también rozando su esquina (no solo de frente)', () => {
+  const c = MID_C + 1, r = MID_R - 1, d = 0.31 / Math.SQRT2;
+  for (const [tile, type] of [['T', 'shop'], ['C', 'chest'], ['A', 'shrine']]) {
+    const s = newRun(5, { hp: 9 });
+    const room = arena(s);
+    Object.assign(room, { type: tile === 'C' ? 'treasure' : tile === 'T' ? 'shop' : 'shrine', cleared: true, mimic: false, opened: false });
+    room.tiles[r][c] = tile;
+    s.player.keys = 1;
+    // pegado a la esquina de abajo a la izquierda del bloque, en diagonal
+    Object.assign(s.player, { x: c - d, y: r + 1 + d });
+    const ev = run(s, 0.1);
+    assert.ok(ev.some((e) => e.type === type) || s.offer, `${tile}: se activa por la esquina`);
+    // y a más distancia, no
+    const s2 = newRun(5, { hp: 9 });
+    const room2 = arena(s2);
+    Object.assign(room2, { type: room.type, cleared: true, mimic: false, opened: false });
+    room2.tiles[r][c] = tile;
+    Object.assign(s2.player, { x: c - 0.6, y: r + 1.6 });
+    assert.ok(!run(s2, 0.1).some((e) => e.type === type) && !s2.offer, `${tile}: de lejos no`);
+  }
+});

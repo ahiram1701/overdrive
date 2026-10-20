@@ -530,10 +530,15 @@ function floorEffects(s, room, ev) {
   else if (t === 'S' && Math.hypot(p.x - c - 0.5, p.y - r - 0.5) < 0.5) { room.tiles[r][c] = 's'; room.powerOff = true; ev.push({ type: 'switch' }); }
 }
 
+// distancia del centro de la nave al punto más cercano de la losa (c, r): mide igual de cara que de esquina
+export function gapToTile(p, c, r) {
+  const nx = Math.max(c, Math.min(p.x, c + 1)), ny = Math.max(r, Math.min(p.y, r + 1));
+  return Math.hypot(p.x - nx, p.y - ny);
+}
 // cofre, tienda, altar, puertas y escotilla: se activan al tocarlos (una vez, hasta que te alejes)
 function interact(s, room, ev) {
   const p = s.player;
-  if (s.touch && Math.hypot(p.x - s.touch.x, p.y - s.touch.y) > 1.3) s.touch = null;
+  if (s.touch && gapToTile(p, s.touch.x - 0.5, s.touch.y - 0.5) > p.r + 0.6) s.touch = null;
   const c0 = Math.floor(p.x), r0 = Math.floor(p.y);
   // puerta abierta: la cruzas en cuanto tocas el hueco (no hace falta meter el centro de la nave en la losa)
   const through = doorTouch(room, p);
@@ -555,7 +560,9 @@ function interact(s, room, ev) {
   for (let c = c0 - 1; c <= c0 + 1; c++) {
     for (let r = r0 - 1; r <= r0 + 1; r++) {
       const t = tileAt(room, c, r);
-      if (!['C', 'T', 'A', 'D', 'K'].includes(t) || Math.hypot(p.x - c - 0.5, p.y - r - 0.5) > 0.95) continue;
+      if (!['C', 'T', 'A', 'D', 'K'].includes(t)) continue;
+      // cofre, tienda y altar: basta rozar el bloque, también por la esquina; puertas y grietas, de frente
+      if (['C', 'T', 'A'].includes(t) ? gapToTile(p, c, r) > p.r + 0.15 : Math.hypot(p.x - c - 0.5, p.y - r - 0.5) > 0.95) continue;
       if (t === 'D' && !locked(room)) continue; // una puerta abierta no se queja (se cruza)
       if (s.touch) return false;
       s.touch = { x: c + 0.5, y: r + 0.5 };
