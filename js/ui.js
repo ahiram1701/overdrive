@@ -2177,7 +2177,8 @@ export const ui = {
     const p = s.player;
     setText('pcFloor', `PLANTA ${s.depth}`);
     setText('pcTheme', s.floor.theme.name);
-    setText('pcHearts', '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, p.max - p.hp)) + (p.shield ? ` 🫧${p.shield}` : ''));
+    // con muchas vidas, en número: una fila de corazones que salta de línea empujaría la barra sobre el cartel
+    setText('pcHearts', (p.max > 8 ? `❤️ ${Math.max(0, p.hp)}/${p.max}` : '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, p.max - p.hp))) + (p.shield ? ` 🫧${p.shield}` : ''));
     setText('pcKeys', String(p.keys));
     setText('pcPiezas', String(p.piezas));
     setText('pcDashTxt', p.dashCd > 0 ? `${p.dashCd.toFixed(1)} s` : 'ESQUIVE');

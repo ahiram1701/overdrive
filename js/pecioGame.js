@@ -8,7 +8,7 @@ import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
 import { newRun, updateRun, keptPiezas, ROOM_TYPES, botInput, dash, useAbility, buy, pray } from './pecio.js';
 import { progress } from './game.js';
-import { ui } from './ui.js';
+import { ui, dialogPaused } from './ui.js';
 
 const P = () => G.pecio;
 
@@ -33,7 +33,8 @@ export function newPecio(seedOverride = null) {
   save.pecio.runs++;
   persist();
   progress('pecio');
-  fx.banner(`🏚️ ${s.floor.theme.name}`, 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true);
+  // el cartel de la planta espera a que se cierre la GUÍA (si no, se acaba debajo de ella)
+  s.introBanner = [`🏚️ ${s.floor.theme.name}`, 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
   ui.showTip?.('pecio');
 }
 
@@ -74,7 +75,7 @@ function handle(s, ev) {
       case 'locked': fx.notice('🔒 Limpia la sala para salir', '#ff2d55'); sfx.bump(); break;
       case 'shut': fx.notice('🚪 Las puertas se cierran', '#ff9f0a'); sfx.alarm?.(); break;
       case 'needKey': fx.notice('🗝️ Necesitas una llave', '#ffcc00'); sfx.bump(); break;
-      case 'chest': fx.banner('🎁 COFRE', `+${e.piezas} 🔩 · +1 ❤️`, '#ffcc00'); sfx.chest(); break;
+      case 'chest': fx.banner('🎁 COFRE', `+${e.piezas} 🔩 · +1 ❤️`, '#ffcc00', false, 1.8); sfx.chest(); break;
       case 'key': fx.notice('🗝️ +1 llave', '#ffcc00'); break;
       case 'cleared': fx.notice('✔ Sala limpia · +1 ❤️', '#30d158'); sfx.milestone(); progress('pecioRoom'); break;
       case 'room': {
@@ -84,19 +85,19 @@ function handle(s, ev) {
         if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
         break;
       }
-      case 'floor': s.fade = 0.4; s.camSnap = true; fx.banner(`🏚️ ${e.theme}`, `planta ${e.depth}`, s.floor.theme.wall, true); sfx.milestone(); progress('pecioFloor', e.depth); break;
+      case 'floor': s.fade = 0.4; s.camSnap = true; fx.banner(`🏚️ ${e.theme}`, `planta ${e.depth}`, s.floor.theme.wall, true, 2.4); sfx.milestone(); progress('pecioFloor', e.depth); break;
       case 'shop': G.mode = 'pecioShop'; ui.showPecioShop(s); break;
       case 'shrine': G.mode = 'pecioShop'; ui.showPecioShrine(s); break;
       case 'bought': sfx.coin(6); ui.showPecioShop(s); break;
       case 'poor': fx.notice('Te faltan 🔩', '#ff2d55'); break;
-      case 'blessed': sfx.chest(); fx.banner('✨ BENDICIÓN', e.pick === 'hp' ? '+2 de vida máxima' : '+1 de daño del disparo', '#bf5af2'); G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); break;
+      case 'blessed': sfx.chest(); fx.banner('✨ BENDICIÓN', e.pick === 'hp' ? '+2 de vida máxima' : '+1 de daño del disparo', '#bf5af2', false, 2); G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); break;
       case 'boom': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: e.r, t: 0.35, max: 0.35 }); sfx.boom(); fx.shake(e.mine ? 6 : 10); break;
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
       case 'armed': sfx.alarm?.(); break;
       case 'ability': fx.notice('⚡ ¡Habilidad!', '#ffe600'); sfx.od(); break;
       case 'dash': sfx.near?.(true, 0.8); break;
-      case 'win': fx.banner('🏆 ¡HAS SALIDO!', 'nueve plantas de pecio, superadas', '#ffe600', true); break;
+      case 'win': fx.banner('🏆 ¡HAS SALIDO!', 'nueve plantas de pecio, superadas', '#ffe600', true, 2.5); break;
       default: break;
     }
   }
@@ -121,6 +122,7 @@ function finish(s) {
 export function updatePecio(dt) {
   const s = P();
   if (!s) return;
+  if (s.introBanner && !dialogPaused()) { fx.banner(...s.introBanner); s.introBanner = null; }
   s.fade = Math.max(0, s.fade - dt);
   for (const f of s.flashes) f.t -= dt;
   s.flashes = s.flashes.filter((f) => f.t > 0);

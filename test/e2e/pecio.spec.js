@@ -115,3 +115,33 @@ test('pecios: rendimiento de un fotograma completo en 3D (simular + dibujar)', a
   console.log(`PECIOS fotograma medio: ${ms.toFixed(2)} ms`);
   expect(ms).toBeLessThan(16);
 });
+
+for (const vp of [{ width: 360, height: 640 }, { width: 375, height: 812 }]) {
+  test(`pecios: el cartel y los avisos no pisan la barra ni el minimapa, y no se pisan entre sí (${vp.width}×${vp.height})`, async ({ page }) => {
+    await page.setViewportSize(vp);
+    const errors = trackErrors(page);
+    await startPecio(page);
+    const r = await page.evaluate(async () => {
+      const { textLayout } = await import('/js/pecioRender.js');
+      const { fx } = await import('/js/fx.js');
+      const { ui } = await import('/js/ui.js');
+      const s = window.G.pecio;
+      s.player.max = 12; s.player.hp = 9; s.player.shield = 2; // muchas vidas: la barra no debe crecer
+      ui.updatePecioHUD();
+      s.hudBottom = 0; // que vuelva a medir
+      const L = textLayout(s, innerHeight);
+      const bar = document.querySelector('#pecioHud .pc-top').getBoundingClientRect();
+      fx.notice('✔ Sala limpia · +1 ❤️');
+      fx.notice('🗝️ +1 llave');
+      fx.notice('🗝️ +1 llave'); // repetido: no se duplica
+      return { L, barBottom: bar.bottom, hearts: document.getElementById('pcHearts').textContent, notices: fx.noticeList, H: innerHeight };
+    });
+    expect(r.hearts).toContain('9/12');
+    expect(r.L.bannerY - 30).toBeGreaterThanOrEqual(r.barBottom); // la mitad de arriba del cartel, bajo la barra
+    expect(r.L.bannerY - 30).toBeGreaterThanOrEqual(64 + 90); // y bajo el minimapa
+    expect(r.L.noticeY).toBeGreaterThan(r.L.bannerY + 40); // los avisos, bajo el subtítulo del cartel
+    expect(r.L.noticeY + 2 * 30).toBeLessThan(r.H * 0.6); // los 3 avisos caben antes de la nave
+    expect(r.notices).toEqual(['✔ Sala limpia · +1 ❤️', '🗝️ +1 llave']);
+    expect(errors).toEqual([]);
+  });
+}
