@@ -283,3 +283,35 @@ test('pecios P3: el taller mejora la nave al empezar, y tras la planta 9 se elig
   expect(await page.evaluate(() => window.__save.ach.pecioWin?.done)).toBe(true);
   expect(errors).toEqual([]);
 });
+
+for (const vp of [{ width: 360, height: 640 }, { width: 375, height: 812 }]) {
+  test(`pecios: en pausa, con 4 objetos, ABANDONAR se ve y funciona (sin el HUD encima) (${vp.width}×${vp.height})`, async ({ page }) => {
+    await page.setViewportSize(vp);
+    const errors = trackErrors(page);
+    await startPecio(page);
+    await page.evaluate(async () => {
+      const { genItem, applyGear } = await import('/js/pecioLoot.js');
+      const { makeRng } = await import('/js/rng.js');
+      const p = window.G.pecio.player, rng = makeRng(3);
+      p.gear = { weapon: genItem(rng, 5, { slot: 'weapon' }), plating: genItem(rng, 5, { slot: 'plating' }), mod1: genItem(rng, 5, { slot: 'mod' }), mod2: genItem(rng, 5, { slot: 'mod' }) };
+      p.bag = { kit: 2, emp: 0, warp: 1 };
+      applyGear(p);
+    });
+    await page.locator('#pcPause').click();
+    await expect(page.locator('#pause')).toBeVisible();
+    await expect(page.locator('#pecioHud')).toBeHidden();
+    await expect(page.locator('.pause-gear .pg-row')).toHaveCount(4);
+    // ABANDONAR, entero en pantalla
+    const q = await page.locator('#btnQuit').boundingBox();
+    expect(q.y + q.height).toBeLessThanOrEqual(vp.height);
+    // SEGUIR devuelve el HUD
+    await page.locator('#btnResume').click();
+    await expect(page.locator('#pecioHud')).toBeVisible();
+    // y ABANDONAR lleva al menú
+    await page.locator('#pcPause').click();
+    await page.locator('#btnQuit').click();
+    await expect(page.locator('#menu')).toBeVisible();
+    await expect(page.locator('#pecioHud')).toBeHidden();
+    expect(errors).toEqual([]);
+  });
+}

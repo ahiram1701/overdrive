@@ -73,9 +73,9 @@ test('hub: ningún botón se solapa con otro ni se sale de la pantalla a 375×81
     }
   }
   expect(bad).toEqual([]);
-  // la última tarjeta (PECIOS) se ve entera, sin quedar tapada por la barra inferior
-  await page.locator('#btnPecio').scrollIntoViewIfNeeded();
-  const ar = await page.locator('#btnPecio').boundingBox();
+  // la última tarjeta (ARENA) se ve entera, sin quedar tapada por la barra inferior
+  await page.locator('#btnArena').scrollIntoViewIfNeeded();
+  const ar = await page.locator('#btnArena').boundingBox();
   const nav = await page.locator('#bottomNav').boundingBox();
   expect(ar.y + ar.height).toBeLessThanOrEqual(nav.y + 1);
   // pantalla RUNNER: tampoco se solapa nada

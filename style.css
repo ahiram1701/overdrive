@@ -1105,7 +1105,11 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .loot-card small { color: #dfe6ee; font-size: 12px; }
 .pe-vault { display: flex; flex-direction: column; align-items: center; gap: 6px; margin: 6px 0; text-align: center; }
 .pe-vault-row { display: flex; gap: 8px; justify-content: center; }
-#pBuild .loot-card { margin-top: 6px; }
+.pause-gear { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; max-height: 40vh; overflow-y: auto; text-align: left; }
+.pg-row { display: flex; align-items: center; gap: 10px; padding: 6px 10px; border-radius: 12px; background: rgba(5,3,11,.6); }
+.pg-row b { font: italic 900 14px var(--font); }
+.pg-row i { font: 900 10px var(--font); letter-spacing: 1px; text-transform: uppercase; font-style: normal; }
+.pg-row small { display: block; color: var(--muted); font-size: 11px; }
 .pc-btn.on { border-color: var(--yellow); box-shadow: 0 0 14px rgba(255,230,0,.55); }
 .pc-btn.on small { color: var(--yellow); }
 #pecioHub .hero-card.pecio { width: min(440px, 100%); min-height: 110px; flex-direction: row; align-items: center; gap: var(--sp-3); padding: var(--sp-4); border: 2px solid #c8d6e5; background: linear-gradient(140deg, rgba(200,214,229,.18), rgba(90,200,250,.18)); box-shadow: 0 0 22px rgba(200,214,229,.3); }
