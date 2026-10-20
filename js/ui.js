@@ -2437,7 +2437,13 @@ export const ui = {
     if (G.mode === 'pecio') {
       G.mode = 'pecioPaused';
       musicDuck(true);
-      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>` + SLOTS.filter((k) => G.pecio.player.gear[k]).map((k) => lootCard(G.pecio.player.gear[k])).join('');
+      ui.showPecioHUD(false); // los botones de la partida no tapan SEGUIR / ABANDONAR
+      // el equipo, en filas compactas (las tarjetas grandes empujaban los botones fuera de la pantalla)
+      const rows = SLOTS.filter((k) => G.pecio.player.gear[k]).map((k) => {
+        const it = G.pecio.player.gear[k], R = LOOT_RAR[it.tier];
+        return `<div class="pg-row"><span class="pg-it" style="--rc:${R.color}">${itemIcon(it)}</span><span><b>${itemName(it)}</b> <i style="color:${R.color}">${R.name}</i><small>${itemLines(it)[0] || ''}</small></span></div>`;
+      }).join('');
+      $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>${rows ? `<div class="pause-gear">${rows}</div>` : ''}`;
       show('pause');
       return;
     }
