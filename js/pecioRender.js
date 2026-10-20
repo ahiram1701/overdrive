@@ -13,7 +13,7 @@ import { drawMesh3D } from './spaceRender.js';
 import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, blocksSight, tileAt } from './pecio.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
-const WALL_H = 2.1, SHIP_Y = 0.38, NEAR = 0.08, BACK = 2.3, CAM_Y = 1.3;
+const DOOR_H = 1.3, WALL_H = 2.1, SHIP_Y = 0.38, NEAR = 0.08, BACK = 2.3, CAM_Y = 1.3;
 const ENEMY_LOOK = {
   drone: { mesh: 'raptor', pal: { hull: '#100010', edge: '#ff2bd6', glow: '#ff2d55' }, y: 0.4 },
   turret: { mesh: 'titan', pal: { hull: '#00141a', edge: '#00e5ff', glow: '#ff2d55' }, y: 0.32 },
@@ -33,10 +33,11 @@ function updateCam(s, dt, W, H) {
     if (blocksSight(tileAt(room, Math.floor(p.x - b.x * t), Math.floor(p.y - b.y * t)))) { back = Math.max(0.45, t - 0.3); break; }
   }
   c.back += (back - c.back) * Math.min(1, dt * (back < c.back ? 20 : 4));
-  const pos = { x: p.x - b.x * c.back, y: CAM_Y, z: -(p.y - b.y * c.back) };
-  // bien inclinada hacia abajo: la sala llena la pantalla y la nave queda en el tercio inferior
+  // pegada a una pared la cámara se acerca: entonces sube y mira más abajo, así la nave sigue a la vista
+  const k = Math.max(0, (BACK - c.back) / BACK);
+  const pos = { x: p.x - b.x * c.back, y: CAM_Y + k * 0.6, z: -(p.y - b.y * c.back) };
   // casi horizontal, y el centro de la proyección algo más abajo (h·1.15): la nave en el tercio inferior
-  return makeCam(pos, c.yaw, -0.14, W, H * 1.15, 1.25);
+  return makeCam(pos, c.yaw, -0.14 - k * 0.75, W, H * 1.15, 1.25);
 }
 
 // del mundo (casillas) al espacio de cámara
@@ -89,11 +90,8 @@ export function renderPecio(dt) {
   const cam = updateCam(s, dt, W, H);
   const shk = fx.shakeAmt;
   ctx.setTransform(G.dpr, 0, 0, G.dpr, shk ? (Math.random() - 0.5) * shk * G.dpr : 0, shk ? (Math.random() - 0.5) * shk * G.dpr : 0);
-  const bg = ctx.createLinearGradient(0, 0, 0, H);
-  bg.addColorStop(0, '#000');
-  bg.addColorStop(0.45, th.fog);
-  bg.addColorStop(1, hexA(th.wall, 0.12));
-  ctx.fillStyle = bg;
+  // fondo del mismo tono que la pared en la niebla: si el recorte junto a la cámara deja algún píxel, parece sombra y no un hueco
+  ctx.fillStyle = th.fog;
   ctx.fillRect(-20, -20, W + 40, H + 40);
   const shut = locked(room), on = energyOn(s);
 
@@ -152,6 +150,16 @@ export function renderPecio(dt) {
         if (r - 1 >= 0 && !isWall(c, r - 1)) face(x1, z1, x0, z1);
         if (c - 1 >= 0 && !isWall(c - 1, r)) face(x0, z1, x0, z0);
         if (c + 1 < COLS && !isWall(c + 1, r)) face(x1, z0, x1, z1);
+      } else if (k === 'D') {
+        // PUERTA ABIERTA: dintel hasta el techo y, al fondo, el portal de salida (nunca se ve el vacío de fuera)
+        const side = r === 0 ? 'up' : r === ROWS - 1 ? 'down' : c === 0 ? 'left' : 'right';
+        const across = side === 'up' || side === 'down';
+        const inner = { up: -r - 1, down: -r, left: c + 1, right: c }[side], outer = { up: -r, down: -r - 1, left: c, right: c + 1 }[side];
+        const at = (e, y, k2) => (across ? [c + k2, y, e] : [e, y, -r - k2]); // punto del borde e, a la altura y (k2: 0→1 a lo largo)
+        const edge = th.wall;
+        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true });
+        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true });
+        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: '🚪', gsize: 18 });
       } else if (k === 'C' || k === 'T' || k === 'A') {
         // cofre, terminal y altar: un bloque bajo con su icono encima
         const h = 0.55, x0 = c + 0.15, x1 = c + 0.85, z0 = -r - 0.15, z1 = -r - 0.85;
@@ -250,7 +258,7 @@ export function renderPecio(dt) {
   minimap(ctx, s, W);
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
-  fx.drawBanners(ctx, W, H);
+  fx.drawBanners(ctx, W, H, H * 0.2 + 66); // los avisos, arriba: abajo están los botones
 }
 
 // un punto del mundo como "entidad" ordenable: se dibuja con su función cuando le toca
@@ -276,7 +284,7 @@ function drawPolys(ctx, list, th) {
     if (d.base) { ctx.fillStyle = fog(d.base, th.fog, d.z); ctx.fill(); }
     if (d.fill) { ctx.fillStyle = d.fogc ? fog(d.fill, th.fog, d.z) : d.fill; ctx.fill(); }
     if (d.stroke) { ctx.strokeStyle = d.stroke; ctx.lineWidth = d.lw; ctx.globalAlpha = Math.max(0.25, 1 - Math.max(0, d.z - 4) / 12); ctx.stroke(); ctx.globalAlpha = 1; }
-    if (d.glyph) { let x = 0, y = 0; for (const q of d.pts) { x += q.x; y += q.y; } glyph(ctx, d.glyph, x / d.pts.length, y / d.pts.length, 22); }
+    if (d.glyph) { let x = 0, y = 0; for (const q of d.pts) { x += q.x; y += q.y; } glyph(ctx, d.glyph, x / d.pts.length, y / d.pts.length, d.gsize || 22); }
   }
 }
 

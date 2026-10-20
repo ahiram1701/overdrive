@@ -166,7 +166,8 @@ export const fx = {
     ctx.restore();
   },
 
-  drawBanners(ctx, W, H) {
+  // noticeY: altura de los avisos (abajo por defecto; PECIOS los sube porque abajo tiene sus botones)
+  drawBanners(ctx, W, H, noticeY = H - 58) {
     ctx.save();
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
@@ -175,7 +176,7 @@ export const fx = {
       ctx.globalAlpha = a;
       ctx.font = '800 14px system-ui, sans-serif';
       const w = ctx.measureText(n.str).width + 24;
-      const y = H - 58;
+      const y = noticeY;
       ctx.fillStyle = 'rgba(0,0,0,.6)';
       ctx.beginPath();
       // roundRect no existe en Safari < 16: rectángulo normal como alternativa
