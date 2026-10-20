@@ -195,4 +195,14 @@ if (G.debug) {
 // ?nosw desactiva la caché offline mientras se desarrolla
 if ('serviceWorker' in navigator && location.protocol !== 'file:' && !location.search.includes('nosw')) {
   addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+  // VERSIÓN NUEVA: el service worker nuevo toma el control mientras juegas con el código viejo. Se recarga sola en
+  // cuanto no estés en medio de una partida (en el menú o en una pantalla de un juego), para no esperar a la próxima vez.
+  let hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController) { hadController = true; return; } // primera instalación: el código ya es el último
+    G.pendingReload = true;
+  });
 }
+// pantallas en las que recargar no pierde nada
+const SAFE_RELOAD = new Set(['menu', 'hangar', 'pecioDone']);
+setInterval(() => { if (G.pendingReload && SAFE_RELOAD.has(G.mode) && !G.space && !G.arena && !G.run && !dialogPaused()) location.reload(); }, 1000);
