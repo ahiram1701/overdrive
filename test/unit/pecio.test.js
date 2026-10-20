@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash, wallFaces, camBack, doorTouch, takeOffer, botOffer, useCons, blocksSight, tileAt, fwd,
+  genFloor, genRoom, newRun, updateRun, roomOf, botInput, locked, keptPiezas, chargeLine, hitsWall, canSee, nearestTarget, useAbility, dash, wallFaces, camBack, doorTouch, takeOffer, botOffer, useCons, chooseExit, blocksSight, tileAt, fwd,
   COLS, ROWS, MID_C, MID_R, OPP, LAST_FLOOR, themeOf, ENEMY, DOOR_TILE,
 } from '../../js/pecio.js';
 
@@ -28,7 +28,7 @@ test('plantas: deterministas, todas las salas alcanzables, una entrada y una sal
       const normal = ids.filter((id) => !f.rooms[id].hidden);
       assert.ok(normal.length >= 6 && normal.length <= 9);
       assert.ok(ids.length - normal.length <= 1, 'como mucho una sala oculta');
-      assert.equal(ids.filter((id) => f.rooms[id].type === 'exit').length, 1);
+      assert.equal(ids.filter((id) => f.rooms[id].type === (depth % 3 === 0 ? 'boss' : 'exit')).length, 1, 'una salida (o la sala del jefe, cada 3 plantas)');
       assert.equal(f.rooms[f.start].type, 'start');
       const seen = new Set([f.start]), q = [f.start];
       while (q.length) for (const n of Object.values(f.rooms[q.shift()].doors)) if (!seen.has(n)) { seen.add(n); q.push(n); }
@@ -171,6 +171,7 @@ test('el bot vuela solo, baja plantas y nunca se atasca', () => {
     let prog = '', last = 0, i = 0;
     for (; i < 30 * 60 * 20 && !s.over; i++) {
       if (s.offer) takeOffer(s, botOffer(s));
+      if (s.choice) chooseExit(s, 'leave');
       const inp = botInput(s);
       if (inp.ability) useAbility(s);
       if (inp.dash) dash(s);

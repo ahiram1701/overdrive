@@ -251,6 +251,13 @@ El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con 
 - **🎒 Mochila** (hasta 3 de cada, con su botón): 🧰 Kit de reparación, 📡 Pulso EMP (aturde a toda la sala) y 🌀 Teletransporte (a la entrada de la planta).
 - **Explorar:** algunos cofres son **😈 mímicos** (muerden y cierran la sala, pero sueltan buen botín; el 🔍 Escáner los delata). Las **paredes agrietadas** esconden una **💎 sala oculta**: embístelas con 💨. En las salas de trampas, el **🔌 interruptor** apaga el suelo eléctrico. La tienda vende consumibles y la 📦 caja misteriosa; el altar ofrece también un 🩸 **pacto** (−1 de vida máxima por un objeto épico o mejor).
 - **🔐 Bóveda** (150 🔩, para siempre): al acabar una partida guardas 1 objeto y empiezas la siguiente con él puesto.
+- **💀 Jefes cada 3 plantas** (guardan la salida; la escotilla aparece al vencerlos), con **fase 2** a media vida:
+  - planta 3, **Guardián de carga**: marca una franja y embiste; si se estrella contra la pared queda aturdido y recibe el doble (en fase 2, más a menudo y con drones de apoyo);
+  - planta 6, **Enjambre médico**: la reina se cura mientras vivan sus nodos (rayos verdes); a media vida se divide;
+  - planta 9, **Núcleo del reactor**: marca casillas en rojo (anillos, cruz o alrededor de ti) y al momento arden; en fase 2 electrifica el suelo.
+- **♾️ Modo sin fin**: al superar la planta 9 eliges **salir** con todas las 🔩 o **seguir**: ya cuenta como victoria, no pierdes 🔩 al caer y los jefes vuelven cada 3 plantas, más duros. El récord cuenta la planta más honda.
+- **🛠️ Taller de Pecios** (con 🔩, para siempre): Casco reforzado (+vida), Llavero (empiezas con llaves), Mochila (un kit al empezar y caben 4 de cada), Olfato (más y mejor botín) y Calibración (+daño).
+- **Logros**: Desguace (primer jefe), Fondo del pecio (supera la 9), Pieza de museo (un legendario), Barrendero (50 salas) y Sin fondo (planta 15). Y misiones diarias de Pecios.
 
 ## 🗺️ Modo EXPEDICIÓN
 El runner convertido en **roguelite con mapa**: 3 actos, y en cada uno eliges tu ruta por un mapa que se ramifica (la salida abajo, el jefe arriba).

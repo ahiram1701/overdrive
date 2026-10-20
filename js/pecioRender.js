@@ -10,7 +10,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES } from './pecio.js';
 import { RARITY, CONS, itemIcon } from './pecioLoot.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
@@ -21,6 +21,13 @@ const ENEMY_LOOK = {
   bomb: { mesh: 'nova', pal: { hull: '#1a0a00', edge: '#ff9f0a', glow: '#ffe600' }, y: 0.3 },
   shield: { mesh: 'brick', pal: { hull: '#0b2a14', edge: '#30d158', glow: '#7dffb0' }, y: 0.36 },
   mimic: { mesh: 'kaiju', pal: { hull: '#2a1a00', edge: '#ffcc00', glow: '#ff2d55' }, y: 0.36 },
+  node: { mesh: 'nova', pal: { hull: '#03140a', edge: '#7dffb0', glow: '#30d158' }, y: 0.5 },
+};
+// los jefes: una malla grande cada uno
+const BOSS_LOOK = {
+  guardian: { mesh: 'titan', pal: { hull: '#1f1000', edge: '#ff9f0a', glow: '#ffe600' }, y: 0.6 },
+  swarm: { mesh: 'kaiju', pal: { hull: '#03140a', edge: '#30d158', glow: '#bf5af2' }, y: 0.7 },
+  core: { mesh: 'nova', pal: { hull: '#1a0004', edge: '#ff2d55', glow: '#ffe600' }, y: 0.85 },
 };
 
 // ---------- Cámara de persecución (sin alabeo ni cabeceo): se acerca si una pared se mete en medio ----------
@@ -127,11 +134,15 @@ export function renderPecio(dt) {
     if (!e.alive) continue;
     const ln = chargeLine(room, e);
     if (ln) {
-      const f = fwd(e.aim), w = 0.14, nx = -f.y * w, ny = f.x * w;
+      const f = fwd(e.aim), w = e.kind === 'boss' ? e.r : 0.14, nx = -f.y * w, ny = f.x * w;
       poly(cam, ground, [[ln.from.x + nx, 0.02, -(ln.from.y + ny)], [ln.to.x + nx, 0.02, -(ln.to.y + ny)], [ln.to.x - nx, 0.02, -(ln.to.y - ny)], [ln.from.x - nx, 0.02, -(ln.from.y - ny)]],
         `rgba(255,45,85,${0.4 + 0.3 * Math.sin(t * 22)})`, null);
     }
     if (e.kind === 'bomb' && e.fuse !== null) poly(cam, ground, ring(e.x, 0.02, -e.y, 1.7, 20), 'rgba(255,159,10,.14)', `rgba(255,159,10,${0.5 + 0.4 * Math.sin(t * 30)})`, 2);
+  }
+  if (room.markT > 0) {
+    const k = 1 - room.markT / 1.1;
+    for (const [c, r] of room.marks) poly(cam, ground, [[c + 0.06, 0.02, -r - 0.06], [c + 0.94, 0.02, -r - 0.06], [c + 0.94, 0.02, -r - 0.94], [c + 0.06, 0.02, -r - 0.94]], `rgba(255,45,85,${0.25 + 0.45 * k + 0.15 * Math.sin(t * 25)})`, '#ff2d55', 1.5);
   }
   ground.sort((a, b) => b.z - a.z);
   drawPolys(ctx, ground, th);
@@ -193,20 +204,39 @@ export function renderPecio(dt) {
   // ENEMIGOS: mallas 3D de verdad, con su vida y su aviso
   for (const e of room.enemies) {
     if (!e.alive) continue;
-    const L = ENEMY_LOOK[e.kind], pos = { x: e.x, y: L.y + (e.kind === 'drone' ? Math.sin(t * 4 + e.x) * 0.06 : 0), z: -e.y };
+    const L = e.kind === 'boss' ? BOSS_LOOK[e.boss] : ENEMY_LOOK[e.kind], pos = { x: e.x, y: L.y + (e.kind === 'drone' ? Math.sin(t * 4 + e.x) * 0.06 : 0), z: -e.y };
     const blink = e.kind === 'bomb' && e.fuse !== null && Math.floor(t * 14) % 2 === 0;
     const wake = room.wake > 0;
     point(cam, list, pos.x, pos.y, pos.z, (q) => {
       if (wake) ctx.globalAlpha = 0.45;
-      drawMesh3D(ctx, cam, L.mesh, pos, e.ang, e.kind === 'turret' ? 0 : -0.1, e.r * 1.25, L.pal, e.hitT > 0 || blink, NEAR);
+      // el NÚCLEO: una esfera de energía que late detrás de su malla
+      if (e.kind === 'boss' && e.boss === 'core') {
+        const R = q.s * e.r * (0.85 + 0.06 * Math.sin(t * 6)), g = ctx.createRadialGradient(q.x, q.y, R * 0.1, q.x, q.y, R);
+        g.addColorStop(0, 'rgba(255,230,0,.95)');
+        g.addColorStop(0.45, 'rgba(255,45,85,.75)');
+        g.addColorStop(1, 'rgba(255,45,85,0)');
+        ctx.fillStyle = g;
+        ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.fill();
+      }
+      drawMesh3D(ctx, cam, L.mesh, pos, e.kind === 'boss' && e.boss === 'core' ? t * 0.8 : e.ang, e.kind === 'turret' || e.kind === 'boss' ? 0 : -0.1, e.r * (e.kind === 'boss' ? 1.15 : 1.25), L.pal, e.hitT > 0 || blink, NEAR);
       ctx.globalAlpha = 1;
       if (e.stun > 0) glyph(ctx, '💫', q.x, q.y - q.s * 0.55, Math.max(10, q.s * 0.3));
       if (e.charge > 0) glyph(ctx, '❗', q.x, q.y - q.s * 0.6, Math.max(12, q.s * 0.4));
-      // vida
-      const n = e.max, w = Math.max(2, Math.min(5, q.s * 0.05));
-      for (let i = 0; i < n; i++) {
-        ctx.fillStyle = i < e.hp ? '#ff2d55' : 'rgba(255,255,255,.2)';
-        ctx.fillRect(q.x - (n * (w + 1)) / 2 + i * (w + 1), q.y - q.s * 0.45, w, 3);
+      // vida: puntitos si tiene poca; una barrita si tiene mucha (los jefes, su barra grande abajo)
+      if (e.kind !== 'boss') {
+        const n = e.max, w = Math.max(2, Math.min(5, q.s * 0.05));
+        if (n <= 12) {
+          for (let i = 0; i < n; i++) {
+            ctx.fillStyle = i < e.hp ? '#ff2d55' : 'rgba(255,255,255,.2)';
+            ctx.fillRect(q.x - (n * (w + 1)) / 2 + i * (w + 1), q.y - q.s * 0.45, w, 3);
+          }
+        } else {
+          const bw = Math.max(24, q.s * 0.7);
+          ctx.fillStyle = 'rgba(255,255,255,.2)';
+          ctx.fillRect(q.x - bw / 2, q.y - q.s * 0.45, bw, 3);
+          ctx.fillStyle = '#ff2d55';
+          ctx.fillRect(q.x - bw / 2, q.y - q.s * 0.45, (bw * Math.max(0, e.hp)) / e.max, 3);
+        }
       }
     }, ordAt(e.x, e.y));
     // ESCUDO: la placa de su frente (los disparos que le llegan por ahí rebotan)
@@ -266,6 +296,13 @@ export function renderPecio(dt) {
       ctx.lineWidth = f.kind === 'eshot' ? 5 : 9;
       ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(P0.x, P0.y); ctx.lineTo(P1.x, P1.y); ctx.stroke();
+    } else if (f.kind === 'tile') {
+      const c = clip([[f.c, 0.03, -f.r], [f.c + 1, 0.03, -f.r], [f.c + 1, 0.03, -f.r - 1], [f.c, 0.03, -f.r - 1]].map(([x, y, z]) => toCam(cam, x, y, z)));
+      if (c.length < 3) continue;
+      ctx.fillStyle = `rgba(255,120,40,${a * 0.8})`;
+      ctx.beginPath();
+      c.forEach((q, i) => { const P = scr(cam, q); if (i) ctx.lineTo(P.x, P.y); else ctx.moveTo(P.x, P.y); });
+      ctx.closePath(); ctx.fill();
     } else if (f.kind === 'boom') {
       if (toCam(cam, f.x, 0, -f.y).z < 1) continue; // pegada a la cámara taparía media pantalla
       const c = clip(ring(f.x, 0.05, -f.y, (f.r || 0.5) * (0.5 + (1 - a) * 0.7), 18).map(([x, y, z]) => toCam(cam, x, y, z)));
@@ -282,6 +319,22 @@ export function renderPecio(dt) {
   // fundido al cruzar una puerta
   if (s.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, s.fade / 0.25)})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
   ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  // RAYOS DE CURACIÓN: de cada nodo a su reina (si los matas, deja de curarse)
+  ctx.globalCompositeOperation = 'lighter';
+  for (const n of room.enemies) {
+    if (!n.alive || n.kind !== 'node') continue;
+    const q = room.enemies.find((o) => o.id === n.queen && o.alive);
+    if (!q) continue;
+    const seg = clipSeg(toCam(cam, n.x, 0.5, -n.y), toCam(cam, q.x, 0.7, -q.y));
+    if (!seg) continue;
+    const P0 = scr(cam, seg[0]), P1 = scr(cam, seg[1]);
+    ctx.strokeStyle = `rgba(125,255,176,${0.35 + 0.25 * Math.sin(t * 8 + n.orbit)})`;
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(P0.x, P0.y); ctx.lineTo(P1.x, P1.y); ctx.stroke();
+  }
+  ctx.globalCompositeOperation = 'source-over';
+  ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
+  bossBar(ctx, room, W, H, t);
   minimap(ctx, s, W);
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
@@ -330,6 +383,26 @@ function drawPolys(ctx, list, th) {
     if (d.stroke) { ctx.strokeStyle = d.stroke; ctx.lineWidth = d.lw; ctx.globalAlpha = Math.max(0.25, 1 - Math.max(0, d.z - 4) / 12); ctx.stroke(); ctx.globalAlpha = 1; }
     if (d.glyph) { let x = 0, y = 0; for (const q of d.pts) { x += q.x; y += q.y; } glyph(ctx, d.glyph, x / d.pts.length, y / d.pts.length, d.gsize || 22); }
   }
+}
+
+// BARRA DEL JEFE: su nombre y su vida, encima de los botones
+function bossBar(ctx, room, W, H, t) {
+  const b = room.enemies.find((e) => e.alive && e.kind === 'boss');
+  if (!b) return;
+  const B = BOSSES[b.boss], w = Math.min(W - 40, 320), x = (W - w) / 2, y = H - 178;
+  ctx.fillStyle = 'rgba(0,0,0,.6)';
+  ctx.fillRect(x - 6, y - 22, w + 12, 40);
+  ctx.font = '900 12px system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = B.color;
+  ctx.fillText(`💀 ${B.name}${b.phase === 2 ? ' · FASE 2' : ''}${b.stun > 0 && b.boss === 'guardian' ? ' · ¡VULNERABLE!' : ''}`, W / 2, y - 10);
+  ctx.fillStyle = 'rgba(255,255,255,.15)';
+  ctx.fillRect(x, y, w, 9);
+  ctx.fillStyle = b.stun > 0 && b.boss === 'guardian' && Math.floor(t * 8) % 2 ? '#ffe600' : B.color;
+  ctx.fillRect(x, y, w * Math.max(0, b.hp / b.max), 9);
+  ctx.fillStyle = 'rgba(255,255,255,.5)';
+  ctx.fillRect(x + w / 2 - 1, y - 2, 2, 13); // la mitad: ahí cambia de fase
 }
 
 // MINIMAPA: salas vistas (con su icono), las conocidas por una puerta y dónde estás
