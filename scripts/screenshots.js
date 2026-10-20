@@ -45,6 +45,7 @@ async function advance(page, cond, maxSec = 200) {
         document.getElementById('btnChestOk').click();
       }
       window.G.player.dash = 0.3;
+      if (window.G.run) window.G.run.nextEventAt = 1e9; // sin sucesos: las fotos, sin el mundo al revés
       window.D.step(1 / 60, false);
     }
     return false;
@@ -92,14 +93,18 @@ try {
     // cada nave con su propia personalización (Viper con su pintura exclusiva y un emblema)
     const eq = (palette, emblem) => ({ palette, trail: 'sparks', boom: 'classic', emblem });
     Object.assign(save, {
-      gems: 340, ships: ['viper', 'brick', 'raptor'], shipLvl: { viper: { a: 2, b: 1, c: 1 } },
-      shipStats: { viper: { sections: 34, runs: 12 } },
+      gems: 340, ships: ['viper', 'brick', 'raptor', 'centella', 'gladiador', 'carronero', 'wanderer'], ship: 'carronero',
+      shipLvl: { viper: { a: 2, b: 1, c: 1 }, carronero: { a: 1, b: 1, c: 0 } },
+      shipStats: { viper: { sections: 34, runs: 12 }, carronero: { sections: 9, runs: 3 } },
       cosmetics: { owned: { viper: ['skull'], brick: ['tiger', 'bolt'], raptor: ['chrome'] },
         equip: { viper: { ...eq('x-viper1', 'skull'), emblemColor: 'yellow' }, brick: eq('tiger', 'bolt'), raptor: eq('chrome', 'none') } },
     });
     document.getElementById('btnHangar').click();
   });
   await page.waitForTimeout(300);
+  // el carrusel, en las 4 naves exclusivas (se ganan jugando cada juego)
+  await page.evaluate(async () => { const { SHIPS } = await import('/js/upgrades.js'); const c = document.getElementById('shipCarousel'), k = c.children[SHIPS.findIndex((x) => x.id === 'centella')]; c.scrollLeft = k ? k.offsetLeft - 12 : c.scrollWidth; });
+  await page.waitForTimeout(200);
   await page.screenshot({ path: `${OUT}/hangar.png` });
   console.log(`✔ ${OUT}/hangar.png`);
   await page.evaluate(() => document.getElementById('btnHangarBack').click());
@@ -118,10 +123,19 @@ try {
 
   // Arena en plena partida (simulada, con algunas mejoras)
   await page.evaluate(() => { window.G.manual = true; });
-  await page.evaluate(() => { document.getElementById('btnArena').click(); document.querySelector('#arenaMaps .arena-map:not(.locked)').click(); });
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    save.ship = 'gladiador'; // la nave exclusiva de la Arena
+    save.arenaMaps = { ...(save.arenaMaps || {}), grid: { wins: 1, best: 600 }, belt: { wins: 0, best: 410 } }; // un mapa ganado, otro abierto
+    document.getElementById('btnArena').click();
+  });
+  await page.waitForTimeout(300);
+  await page.screenshot({ path: `${OUT}/arena-maps.png` });
+  console.log(`✔ ${OUT}/arena-maps.png`);
+  await page.evaluate(() => document.querySelector('#arenaMaps .arena-map:not(.locked)').click());
   await page.evaluate(() => {
     const G = window.G;
-    for (let i = 0; i < 70 * 20; i++) {
+    for (let i = 0; i < 125 * 20; i++) {
       if (G.mode === 'arenaUp') document.querySelector('#auOptions .au-opt').click();
       G.arena.botInput = { x: Math.cos(i / 30), y: Math.sin(i / 30) };
       window.D.step(1 / 20, false);
@@ -131,7 +145,7 @@ try {
   });
   await page.screenshot({ path: `${OUT}/arena.png` });
   console.log(`✔ ${OUT}/arena.png`);
-  await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
+  await page.evaluate(async () => { window.G.manual = false; document.getElementById('btnQuit').click(); (await import('/js/save.js')).save.ship = 'carronero'; });
 
   // Expedición: el mapa del primer acto, tras el primer tramo
   await page.evaluate(() => { window.G.manual = true; window.G.god = true; document.getElementById('btnExpedition').click(); });
@@ -148,7 +162,16 @@ try {
   // Carrera: al poco de salir, con los rivales delante
   await page.evaluate(() => { window.G.manual = true; document.getElementById('btnRaces').click(); });
   await page.evaluate(() => document.querySelector('[data-cup="c1"]').click());
-  await page.evaluate(() => { for (let i = 0; i < 150; i++) window.D.step(1 / 60, false); window.D.step(1 / 60, true); });
+  await page.evaluate(() => {
+    const G = window.G;
+    G.god = true;
+    for (let i = 0; i < 260; i++) { G.player.dash = 0.3; if (G.run) G.run.nextEventAt = 1e9; window.D.step(1 / 60, false); }
+    // en cabeza: los rivales, justo detrás y en los carriles de al lado
+    G.run.race.rivals.forEach((rv, i) => { rv.z = G.run.dist - 1.2 - i * 3.5; });
+    for (let i = 0; i < 20; i++) window.D.step(1 / 60, false);
+    window.D.step(1 / 60, true);
+    G.god = false;
+  });
   await page.screenshot({ path: `${OUT}/race.png` });
   console.log(`✔ ${OUT}/race.png`);
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
@@ -164,10 +187,30 @@ try {
   });
   await page.screenshot({ path: `${OUT}/galaxy.png` });
   console.log(`✔ ${OUT}/galaxy.png`);
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    save.galaxy.visited = Array.from({ length: 16 }, (_, i) => i); // media galaxia explorada: el mapa con vida
+    document.getElementById('btnGalMap').click();
+  });
+  await page.waitForTimeout(500);
+  await page.screenshot({ path: `${OUT}/galaxy-map.png` });
+  console.log(`✔ ${OUT}/galaxy-map.png`);
+  await page.evaluate(() => { const b = document.querySelector('#galMap .scr-back, #galMap [data-close], #btnGalMapClose'); if (b) b.click(); else window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' })); });
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
 
   // PECIOS: una sala en 3D con equipo y botín en el suelo, y un jefe
-  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPecio').click(); document.getElementById('btnPecioPlay').click(); });
+  await page.evaluate(async () => {
+    const { save } = await import('/js/save.js');
+    Object.assign(save.pecio, { piezas: 860, best: 9, wins: 1 });
+    save.pecioUp = { hull: 2, keys: 1, pack: 1, luck: 1 };
+    document.getElementById('btnPecio').click();
+  });
+  await page.waitForTimeout(300);
+  await page.evaluate(() => document.getElementById('phWorkshop').scrollIntoView({ block: 'center' }));
+  await page.waitForTimeout(200);
+  await page.screenshot({ path: `${OUT}/pecio-workshop.png` });
+  console.log(`✔ ${OUT}/pecio-workshop.png`);
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPecioPlay').click(); });
   await page.evaluate(async () => {
     const { genItem, applyGear } = await import('/js/pecioLoot.js');
     const { makeRng } = await import('/js/rng.js');
@@ -181,10 +224,31 @@ try {
     s.introBanner = null;
     s.rooms[s.at].pickups.push({ id: 'a', kind: 'item', item: genItem(rng, 9, { minTier: 3 }), x: 4.5, y: 3.2 }, { id: 'b', kind: 'item', item: genItem(rng, 6, { minTier: 2 }), x: 2.8, y: 4.4 }, { id: 'c', kind: 'cons', cons: 'emp', x: 6.2, y: 4.4 });
     for (let i = 0; i < 20; i++) window.D.step(1 / 60, false);
+    (await import('/js/fx.js')).fx.clear(); // sin el cartel de la planta tapando la sala
     window.D.step(1 / 60, true);
   });
   await page.screenshot({ path: `${OUT}/pecio.png` });
   console.log(`✔ ${OUT}/pecio.png`);
+  await page.evaluate(async () => {
+    const { genItem } = await import('/js/pecioLoot.js');
+    const { makeRng } = await import('/js/rng.js');
+    const { ui } = await import('/js/ui.js');
+    const s = window.G.pecio, it = genItem(makeRng(7), 9, { slot: 'weapon', minTier: 3 });
+    it.kind = 'orbit'; it.orbs = 3; it.rate = 0.75; it.unique = 'reactor'; it.set = 'hunter';
+    s.player.gear.weapon = { ...genItem(makeRng(3), 6, { slot: 'weapon', minTier: 2 }), kind: 'spread', unique: undefined, set: undefined, rate: 0.9 };
+    s.player.gear.mod1.set = 'hunter';
+    s.player.sets = { hunter: 1 };
+    s.offer = { item: it, pk: null };
+    window.G.mode = 'pecioShop';
+    ui.showPecioOffer(s);
+  });
+  await page.waitForTimeout(350);
+  await page.screenshot({ path: `${OUT}/pecio-loot.png` });
+  console.log(`✔ ${OUT}/pecio-loot.png`);
+  await page.evaluate(async () => {
+    const { pecioTakeOffer } = await import('/js/pecioGame.js');
+    pecioTakeOffer('leave');
+  });
   await page.evaluate(async () => {
     const { genFloor, roomOf } = await import('/js/pecio.js');
     const s = window.G.pecio;
@@ -196,7 +260,9 @@ try {
     s.camSnap = true;
     boss.hp = Math.round(boss.max * 0.7);
     boss.cd = 0;
+    s.visited = [s.at];
     for (let i = 0; i < 30; i++) window.D.step(1 / 60, false);
+    (await import('/js/fx.js')).fx.clear();
     window.D.step(1 / 60, true);
   });
   await page.screenshot({ path: `${OUT}/pecio-boss.png` });
