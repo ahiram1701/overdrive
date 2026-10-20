@@ -15,6 +15,8 @@ export const WEAPONS = {
   bounce: { icon: '🪃', name: 'Rebote', desc: 'las balas rebotan en las paredes' },
   blast: { icon: '💥', name: 'Estallido', desc: 'cada impacto daña también alrededor' },
   rapid: { icon: '🔥', name: 'Ráfaga', desc: 'dispara mucho más rápido' },
+  arc: { icon: '⚡', name: 'Arco', desc: 'cada impacto salta a 2 enemigos cercanos' },
+  orbit: { icon: '🌀', name: 'Órbita', desc: 'orbes que giran a tu alrededor y dañan lo que tocan' },
 };
 // Módulos: efectos pasivos (dos ranuras)
 export const MODULES = {
@@ -24,6 +26,29 @@ export const MODULES = {
   magnet: { icon: '🧲', name: 'Imán', desc: (v) => `+${v} % de 🔩`, val: [20, 35, 50, 75] },
   reflex: { icon: '💨', name: 'Reflejos', desc: (v) => `esquive ${v} % antes`, val: [15, 25, 35, 50] },
   overcharge: { icon: '🔋', name: 'Sobrecarga', desc: (v) => `habilidad ${v} % antes`, val: [15, 25, 35, 45] },
+  mirror: { icon: '🪞', name: 'Espejo', desc: (v) => `${v} % de devolver un golpe al enemigo más cercano`, val: [12, 18, 25, 33] },
+  decoy: { icon: '👻', name: 'Señuelo', desc: (v) => `el esquive deja un señuelo que los enemigos persiguen ${v} s`, val: [1.5, 2, 2.5, 3] },
+  greed: { icon: '💰', name: 'Avaricia', desc: (v) => `+${v} % de 🔩, pero −1 ❤️ de vida máxima`, val: [30, 45, 65, 90] },
+};
+
+// SETS: piezas de un mismo set dan un efecto extra con 2 y con 3 equipadas
+export const SETS = {
+  scrap: { icon: '🔩', name: 'Chatarrero', b2: '+30 % de 🔩', b3: 'y +1 🗝️ en cada planta' },
+  hunter: { icon: '🎯', name: 'Cazador', b2: '+1 de daño', b3: 'y cadencia ×1,2' },
+  colossus: { icon: '🗿', name: 'Coloso', b2: '+2 ❤️ de vida máxima', b3: 'y 🫧 1 escudo más al entrar en cada sala' },
+};
+// los sets que llevas puestos y qué te dan ahora mismo (para la pausa)
+export function setLines(sets = {}) {
+  return Object.entries(sets).map(([k, n]) => {
+    const S = SETS[k];
+    return `${S.icon} ${S.name} ${Math.min(3, n)}/3${n >= 3 ? ` · ${S.b2} ${S.b3}` : n >= 2 ? ` · ${S.b2}` : ''}`;
+  });
+}
+// LEGENDARIOS ÚNICOS: con nombre propio y un efecto que no tiene nada más
+export const UNIQUES = {
+  reactor: { slot: 'weapon', name: 'Corazón del Reactor', desc: 'tus balas QUEMAN: 1 de daño por segundo durante 3 s' },
+  anchor: { slot: 'plating', name: 'Ancla', desc: 'los pozos no te tragan: pasas por encima' },
+  masterkey: { slot: 'mod', name: 'Llave maestra', desc: 'abres los cofres sin llave' },
 };
 export const SLOTS = ['weapon', 'plating', 'mod1', 'mod2'];
 export const SLOT_NAME = { weapon: 'Arma', plating: 'Blindaje', mod1: 'Módulo 1', mod2: 'Módulo 2' };
@@ -55,19 +80,32 @@ export function genItem(rng, depth, { bonus = 0, slot = null, minTier = 0 } = {}
   if (sl === 'weapon') {
     const kind = rng.pick(Object.keys(WEAPONS));
     const dmg = kind === 'spread' || kind === 'rapid' ? Math.max(0, tier - 1) : tier;
-    const rate = { rapid: 1.4 + 0.1 * tier, pierce: 0.85, blast: 0.8, bounce: 0.95, spread: 0.9 }[kind];
-    return { id, slot: 'weapon', kind, tier, dmg, rate, bounces: kind === 'bounce' ? 1 + Math.min(2, tier) : 0 };
+    const rate = { rapid: 1.4 + 0.1 * tier, pierce: 0.85, blast: 0.8, bounce: 0.95, spread: 0.9, arc: 0.9, orbit: 0.75 }[kind];
+    return extras(rng, { id, slot: 'weapon', kind, tier, dmg, rate, bounces: kind === 'bounce' ? 1 + Math.min(2, tier) : 0, orbs: kind === 'orbit' ? 2 + Math.floor(tier / 2) : 0 });
   }
-  if (sl === 'plating') return { id, slot: 'plating', kind: 'plating', tier, hp: 1 + tier, shield: tier >= 2 ? tier - 1 : 0 };
+  if (sl === 'plating') return extras(rng, { id, slot: 'plating', kind: 'plating', tier, hp: 1 + tier, shield: tier >= 2 ? tier - 1 : 0 });
   const kind = rng.pick(Object.keys(MODULES));
-  return { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] };
+  return extras(rng, { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] });
+}
+// a veces, parte de un SET (raros o mejores) o un LEGENDARIO ÚNICO
+function extras(rng, it) {
+  if (it.tier >= 1 && rng.chance(0.3)) it.set = rng.pick(Object.keys(SETS));
+  if (it.tier === 3 && rng.chance(0.35)) {
+    const u = Object.entries(UNIQUES).find(([, U]) => U.slot === it.slot);
+    if (u) it.unique = u[0];
+  }
+  return it;
 }
 
 export const itemIcon = (it) => (it.slot === 'weapon' ? WEAPONS[it.kind].icon : it.slot === 'plating' ? '🛡️' : MODULES[it.kind].icon);
-export const itemName = (it) => (it.slot === 'weapon' ? WEAPONS[it.kind].name : it.slot === 'plating' ? 'Blindaje' : MODULES[it.kind].name);
+export const itemName = (it) => (it.unique ? UNIQUES[it.unique].name : it.slot === 'weapon' ? WEAPONS[it.kind].name : it.slot === 'plating' ? 'Blindaje' : MODULES[it.kind].name);
 // Lo que hace, en líneas cortas (para la pantalla de comparar)
 export function itemLines(it) {
   if (!it) return [];
+  const extra = [...(it.unique ? [`★ ${UNIQUES[it.unique].desc}`] : []), ...(it.set ? [`${SETS[it.set].icon} Set ${SETS[it.set].name}: 2 → ${SETS[it.set].b2}; 3 → ${SETS[it.set].b3}`] : [])];
+  return [...baseLines(it), ...extra];
+}
+function baseLines(it) {
   if (it.slot === 'weapon') {
     const out = [WEAPONS[it.kind].desc];
     if (it.dmg) out.push(`+${it.dmg} de daño`);
@@ -79,18 +117,29 @@ export function itemLines(it) {
   return [MODULES[it.kind].desc(it.val)];
 }
 // Para comparar (y para que el bot elija): cuanto más raro, mejor
-export const itemPower = (it) => (it ? 10 + it.tier * 10 + (it.dmg || 0) + (it.hp || 0) : 0);
+export const itemPower = (it) => (it ? 10 + it.tier * 10 + (it.dmg || 0) + (it.hp || 0) + (it.unique ? 12 : 0) + (it.set ? 3 : 0) : 0);
 
 // Recalcula lo que da tu equipo (y las bendiciones del altar) sobre las bases de tu nave
 export function applyGear(p) {
   const g = p.gear, w = g.weapon, pl = g.plating;
-  p.max = Math.max(1, p.baseMax + (p.bonusMax || 0) + (pl ? pl.hp : 0));
+  const all = [g.weapon, g.plating, g.mod1, g.mod2].filter(Boolean);
+  // SETS: cuántas piezas de cada uno llevas
+  const sets = {};
+  for (const it of all) if (it.set) sets[it.set] = (sets[it.set] || 0) + 1;
+  p.sets = sets;
+  const greed = [g.mod1, g.mod2].some((it) => it?.kind === 'greed') ? 1 : 0;
+  p.max = Math.max(1, p.baseMax + (p.bonusMax || 0) + (pl ? pl.hp : 0) + ((sets.colossus || 0) >= 2 ? 2 : 0) - greed);
   p.hp = Math.min(p.hp, p.max);
-  p.dmg = 2 + (p.bonusDmg || 0) + (w ? w.dmg : 0);
-  p.rate = 2.4 * (w ? w.rate : 1);
+  p.dmg = 2 + (p.bonusDmg || 0) + (w ? w.dmg : 0) + ((sets.hunter || 0) >= 2 ? 1 : 0);
+  p.rate = 2.4 * (w ? w.rate : 1) * ((sets.hunter || 0) >= 3 ? 1.2 : 1);
   p.weapon = w ? w.kind : 'basic';
   p.bounces = w ? w.bounces : 0;
-  const m = { leech: 0, keyring: 0, scanner: 0, magnet: 0, reflex: 0, overcharge: 0, hasScanner: false };
+  p.orbs = w?.kind === 'orbit' ? w.orbs : 0;
+  // ÚNICOS
+  p.burn = all.some((it) => it.unique === 'reactor');
+  p.anchor = all.some((it) => it.unique === 'anchor');
+  p.masterkey = all.some((it) => it.unique === 'masterkey');
+  const m = { leech: 0, keyring: 0, scanner: 0, magnet: 0, reflex: 0, overcharge: 0, mirror: 0, decoy: 0, greed: 0, hasScanner: false, setPiezas: (sets.scrap || 0) >= 2 ? 30 : 0, setKeys: (sets.scrap || 0) >= 3 };
   for (const it of [g.mod1, g.mod2]) {
     if (!it) continue;
     if (it.kind === 'leech') m.leech = m.leech ? Math.min(m.leech, it.val) - 1 : it.val; // dos sanguijuelas: aún más a menudo
@@ -102,7 +151,7 @@ export function applyGear(p) {
   p.mods = m;
   p.dashMax = 1.1 * (1 - m.reflex / 100);
   p.abMax = 10 * (1 - m.overcharge / 100);
-  p.roomShield = pl ? pl.shield : 0;
+  p.roomShield = (pl ? pl.shield : 0) + ((sets.colossus || 0) >= 3 ? 1 : 0);
 }
 
 // ¿En qué ranura entra? (los módulos: la libre, o la que elijas)

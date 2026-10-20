@@ -186,6 +186,8 @@ function handle(s, ev) {
       case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5', 2.6); break;
       case 'switch': fx.notice('🔌 Suelo eléctrico apagado', '#ffe600'); sfx.milestone(); break;
       case 'boom': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: e.r, t: 0.35, max: 0.35 }); sfx.boom(); fx.shake(e.mine ? 6 : 10); break;
+      case 'arc': s.flashes.push({ kind: 'arc', from: e.from, to: e.to, t: 0.18, max: 0.18 }); break;
+      case 'mirror': fx.notice('🪞 ¡Golpe devuelto!', '#bfe9ff', 1.6); sfx.bump(); break;
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
       case 'armed': sfx.alarm?.(); break;

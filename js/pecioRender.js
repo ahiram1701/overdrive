@@ -238,6 +238,7 @@ export function renderPecio(dt) {
       drawMesh3D(ctx, cam, L.mesh, pos, e.kind === 'boss' && e.boss === 'core' ? t * 0.8 : e.ang, e.kind === 'turret' || e.kind === 'boss' ? 0 : -0.1, e.r * (e.kind === 'boss' ? 1.15 : 1.25), L.pal, e.hitT > 0 || blink, NEAR);
       ctx.globalAlpha = 1;
       if (e.elite) glyph(ctx, `👑${ELITE[e.elite].icon}`, q.x, q.y - q.s * 0.62, Math.max(11, q.s * 0.3));
+      if (e.burnT > 0) glyph(ctx, '🔥', q.x + q.s * 0.3, q.y - q.s * 0.3, Math.max(10, q.s * 0.26));
       if (e.stun > 0) glyph(ctx, '💫', q.x, q.y - q.s * 0.55, Math.max(10, q.s * 0.3));
       if (e.charge > 0) glyph(ctx, '❗', q.x, q.y - q.s * 0.6, Math.max(12, q.s * 0.4));
       if (e.summonT > 0) glyph(ctx, '✨', q.x, q.y - q.s * 0.6, Math.max(12, q.s * (0.35 + 0.15 * Math.sin(t * 20))));
@@ -285,6 +286,25 @@ export function renderPecio(dt) {
       ctx.shadowBlur = 0;
     }, ordAt(b.x, b.y));
   }
+  // ÓRBITA: tus orbes (mismas posiciones que la lógica)
+  for (let i = 0; i < (p.orbs || 0); i++) {
+    const a = (s.orbA || 0) + (i / p.orbs) * Math.PI * 2, ox = p.x + Math.cos(a) * 1.05, oy = p.y + Math.sin(a) * 1.05;
+    point(cam, list, ox, SHIP_Y, -oy, (q) => {
+      const R = Math.min(10, Math.max(3, q.s * 0.12)), g = ctx.createRadialGradient(q.x, q.y, 0, q.x, q.y, R * 2);
+      g.addColorStop(0, '#ffffff'); g.addColorStop(0.35, '#bf5af2'); g.addColorStop(1, 'rgba(191,90,242,0)');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(q.x, q.y, R * 2, 0, Math.PI * 2); ctx.fill();
+    }, ordAt(ox, oy));
+  }
+  // SEÑUELO: un fantasma de tu nave donde esquivaste
+  if (s.decoy) {
+    const d = s.decoy;
+    point(cam, list, d.x, SHIP_Y, -d.y, (q) => {
+      ctx.globalAlpha = 0.35 + 0.2 * Math.sin(t * 14);
+      glyph(ctx, '👻', q.x, q.y, Math.max(14, q.s * 0.5));
+      ctx.globalAlpha = 1;
+    }, ordAt(d.x, d.y));
+  }
   // TU NAVE (vista desde atrás: se inclina al girar)
   const lk = equipped(save, save.ship), pal = lk.palette;
   if (G.mode !== 'pecioEnd' || s.won) {
@@ -307,12 +327,12 @@ export function renderPecio(dt) {
   ctx.globalCompositeOperation = 'lighter';
   for (const f of s.flashes || []) {
     const a = Math.max(0, f.t / f.max);
-    if (f.kind === 'eshot' || f.kind === 'beam') {
+    if (f.kind === 'eshot' || f.kind === 'beam' || f.kind === 'arc') {
       const seg = clipSeg(toCam(cam, f.from.x, SHIP_Y, -f.from.y), toCam(cam, f.to.x, SHIP_Y, -f.to.y));
       if (!seg) continue;
       const P0 = scr(cam, seg[0]), P1 = scr(cam, seg[1]);
-      ctx.strokeStyle = f.kind === 'eshot' ? `rgba(255,45,85,${a})` : `rgba(255,230,0,${a})`;
-      ctx.lineWidth = f.kind === 'eshot' ? 5 : 9;
+      ctx.strokeStyle = f.kind === 'eshot' ? `rgba(255,45,85,${a})` : f.kind === 'arc' ? `rgba(160,200,255,${a})` : `rgba(255,230,0,${a})`;
+      ctx.lineWidth = f.kind === 'eshot' ? 5 : f.kind === 'arc' ? 3 : 9;
       ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(P0.x, P0.y); ctx.lineTo(P1.x, P1.y); ctx.stroke();
     } else if (f.kind === 'tile') {
