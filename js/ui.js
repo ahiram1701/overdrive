@@ -494,6 +494,7 @@ export const ui = {
   // de Ajustes a la pausa de la que viniste: la partida sigue pausada, tal cual
   backToPause() {
     ui._settingsBack = null;
+    document.body.classList.remove('in-settings');
     musicDuck(true);
     show('pause');
   },
@@ -505,6 +506,7 @@ export const ui = {
       const v = /CACHE = '([^']+)'/.exec(t)?.[1];
       if (v) setText('appVersion', `versión ${v.replace('overdrive-', '')}`);
     }).catch(() => {});
+    document.body.classList.toggle('in-settings', from === 'pause'); // los HUD de la partida, ocultos
     if (from === 'pause') musicDuck(false); // para oír bien el volumen que ajustas (la partida sigue en pausa)
     else G.mode = 'hangar'; // pantalla estática
     ui.syncToggles();
@@ -521,6 +523,7 @@ export const ui = {
   },
 
   showMenu() {
+    document.body.classList.remove('in-settings');
     musicStart('menu'); // la canción tranquila del menú (si ya suena, sigue)
     G.mode = 'menu';
     G.run = null;

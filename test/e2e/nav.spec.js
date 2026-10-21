@@ -198,3 +198,33 @@ test('AJUSTES desde la pausa de Pecios vuelve a su pausa y SEGUIR devuelve la pa
   await page.waitForFunction(() => window.G.mode === 'pecio');
   expect(errors).toEqual([]);
 });
+
+// AJUSTES desde la pausa: ningún control de la partida queda por encima (Galaxia, Arena, Runner y Pecios)
+for (const [game, start, pause, controls] of [
+  ['Galaxia', () => document.getElementById('btnGalaxy').click(), 'spacePause', ['btnFire', 'btnBoost', 'btnRollL', 'throttleBox', 'btnGalMap']],
+  ['Arena', () => { document.getElementById('btnArena').click(); document.querySelector('#arenaMaps .arena-map:not(.locked)').click(); }, 'arenaPause', ['arenaAbility', 'ahTime']],
+  ['Runner', () => document.getElementById('btnPlay').click(), 'pauseBtn', ['abilityBtn', 'speed']],
+  ['Pecios', () => { document.getElementById('btnPecio').click(); document.getElementById('btnPecioPlay').click(); }, 'pcPause', ['pcPause']],
+]) {
+  test(`${game}: con AJUSTES abiertos desde la pausa no asoma ningún control de la partida`, async ({ page }) => {
+    const errors = trackErrors(page);
+    await page.goto('/?debug&nosw');
+    await page.waitForFunction(() => !!window.G);
+    await page.evaluate((fn) => { window.G.manual = true; (0, eval)(`(${fn})`)(); }, start.toString());
+    await page.waitForTimeout(500);
+    // los rectángulos de los controles mientras se juega
+    const rects = await page.evaluate((ids) => ids.map((id) => { const r = document.getElementById(id)?.getBoundingClientRect(); return r && r.width ? [id, r.x + r.width / 2, r.y + r.height / 2] : null; }).filter(Boolean), controls);
+    expect(rects.length).toBeGreaterThan(0);
+    await page.evaluate((id) => document.getElementById(id).click(), pause);
+    await expect(page.locator('#pause')).toBeVisible();
+    await page.locator('#btnPauseSettings').click();
+    await expect(page.locator('#settings')).toBeVisible();
+    // en el centro de cada control, lo que hay delante es Ajustes (o la barra de abajo), nunca la partida
+    const hits = await page.evaluate((rs) => rs.map(([id, x, y]) => { const el = document.elementFromPoint(x, y); return [id, !!el && !!el.closest('#settings')]; }), rects);
+    for (const [id, ok] of hits) expect(ok, `${id} asoma sobre Ajustes`).toBe(true);
+    await page.locator('#settings .scr-back').click();
+    await expect(page.locator('#pause')).toBeVisible();
+    expect(await page.evaluate(() => document.body.classList.contains('in-settings'))).toBe(false);
+    expect(errors).toEqual([]);
+  });
+}
