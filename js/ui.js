@@ -125,11 +125,13 @@ function orbitControl(cv, st) {
     }
     const dt = Math.max(0.008, (e.timeStamp - lastT) / 1000);
     lastT = e.timeStamp;
-    st.yaw += dx * 0.012;
-    st.pitch += dy * 0.012;
+    // la nave sigue al dedo: lo que tocas va hacia donde arrastras (en rotate, +yaw lleva lo cercano a
+    // la izquierda y +pitch lo sube; por eso se resta)
+    st.yaw -= dx * 0.012;
+    st.pitch -= dy * 0.012;
     // velocidad para la inercia (suavizada: un último movimiento brusco no la dispara)
-    st.vy = st.vy * 0.6 + ((dx * 0.012) / dt) * 0.4;
-    st.vp = st.vp * 0.6 + ((dy * 0.012) / dt) * 0.4;
+    st.vy = st.vy * 0.6 - ((dx * 0.012) / dt) * 0.4;
+    st.vp = st.vp * 0.6 - ((dy * 0.012) / dt) * 0.4;
   });
   const up = (e) => {
     if (!pts.delete(e.pointerId)) return;
