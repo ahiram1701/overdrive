@@ -308,6 +308,79 @@ export function auraFx(ctx, id, x, y, r, t) {
       }
       ctx.stroke();
     }
+  } else if (id === 'a-halo') { // anillo inclinado sobre la nave
+    ctx.strokeStyle = `rgba(255,255,255,${0.85 * pulse})`;
+    ctx.lineWidth = Math.max(2, r * 0.07);
+    ctx.shadowColor = '#fff6c8';
+    ctx.shadowBlur = r * 0.5;
+    ctx.beginPath();
+    ctx.ellipse(x, y - r * 0.55, r * 0.55, r * 0.16, 0, 0, Math.PI * 2);
+    ctx.stroke();
+  } else if (id === 'a-frost') { // cristales de hielo girando sobre un halo frío
+    const g = ctx.createRadialGradient(x, y, r * 0.4, x, y, r * 1.1);
+    g.addColorStop(0, 'rgba(107,140,255,0)');
+    g.addColorStop(0.8, `rgba(150,180,255,${0.22 * pulse})`);
+    g.addColorStop(1, 'rgba(107,140,255,0)');
+    ctx.fillStyle = g;
+    ctx.fillRect(x - r * 1.2, y - r * 1.2, r * 2.4, r * 2.4);
+    ctx.strokeStyle = 'rgba(210,225,255,.9)';
+    ctx.lineWidth = Math.max(1, r * 0.025);
+    for (let i = 0; i < 8; i++) {
+      const a = t * 0.8 + (i / 8) * Math.PI * 2, cx = x + Math.cos(a) * r, cy = y + Math.sin(a) * r * 0.7, s = r * 0.1;
+      ctx.beginPath();
+      for (let k = 0; k < 3; k++) { const b = (k / 3) * Math.PI; ctx.moveTo(cx - Math.cos(b) * s, cy - Math.sin(b) * s); ctx.lineTo(cx + Math.cos(b) * s, cy + Math.sin(b) * s); }
+      ctx.stroke();
+    }
+  } else if (id === 'a-toxic') { // burbujas verdes que suben y revientan
+    for (let i = 0; i < 9; i++) {
+      const ph = (t * 0.6 + i * 0.37) % 1, a = (i / 9) * Math.PI * 2;
+      const bx = x + Math.cos(a) * r * 0.85, by = y + Math.sin(a) * r * 0.6 - ph * r * 0.6;
+      ctx.strokeStyle = `rgba(57,255,20,${(0.9 * (1 - ph)).toFixed(2)})`;
+      ctx.lineWidth = Math.max(1, r * 0.03);
+      ctx.beginPath();
+      ctx.arc(bx, by, r * (0.05 + ph * 0.08), 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (id === 'a-orbit') { // tres bolas de luz en órbita, con estela
+    for (let i = 0; i < 3; i++) {
+      const sp = 1.6 + i * 0.7, a0 = t * sp + i * 2.1;
+      for (let k = 0; k < 6; k++) {
+        const a = a0 - k * 0.12, bx = x + Math.cos(a) * r * (0.9 + i * 0.08), by = y + Math.sin(a) * r * (0.55 + i * 0.08);
+        ctx.fillStyle = `rgba(255,45,85,${(0.9 * (1 - k / 6)).toFixed(2)})`;
+        ctx.beginPath();
+        ctx.arc(bx, by, r * 0.07 * (1 - k / 8), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  } else if (id === 'a-pulse') { // anillos que se abren y se apagan, uno tras otro
+    ctx.lineWidth = Math.max(1.5, r * 0.04);
+    for (let i = 0; i < 3; i++) {
+      const ph = (t * 0.7 + i / 3) % 1;
+      ctx.strokeStyle = `rgba(125,255,208,${(0.9 * (1 - ph)).toFixed(2)})`;
+      ctx.beginPath();
+      ctx.ellipse(x, y, r * (0.5 + ph * 0.7), r * (0.35 + ph * 0.5), 0, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+  } else if (id === 'a-hex') { // escudo de hexágonos que parpadea
+    ctx.lineWidth = Math.max(1, r * 0.025);
+    for (let i = 0; i < 14; i++) {
+      const a = (i / 14) * Math.PI * 2, hx = x + Math.cos(a) * r, hy = y + Math.sin(a) * r * 0.7, s = r * 0.14;
+      const on = 0.35 + 0.65 * Math.max(0, Math.sin(t * 5 + i * 1.7));
+      ctx.strokeStyle = `rgba(255,176,0,${on.toFixed(2)})`;
+      ctx.beginPath();
+      for (let k = 0; k <= 6; k++) { const b = (k / 6) * Math.PI * 2; ctx[k ? 'lineTo' : 'moveTo'](hx + Math.cos(b) * s, hy + Math.sin(b) * s); }
+      ctx.stroke();
+    }
+  } else if (id === 'a-galaxy') { // espiral de estrellas que gira
+    for (let arm = 0; arm < 2; arm++) {
+      for (let i = 0; i < 14; i++) {
+        const k = i / 14, a = t * 0.9 + arm * Math.PI + k * 4.2, rr = r * (0.35 + k * 0.8);
+        ctx.fillStyle = i % 3 ? `rgba(120,120,255,${(0.9 * (1 - k * 0.6)).toFixed(2)})` : 'rgba(255,255,255,.9)';
+        ctx.beginPath();
+        ctx.arc(x + Math.cos(a) * rr, y + Math.sin(a) * rr * 0.7, Math.max(1, r * 0.035 * (1.2 - k)), 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
   ctx.restore();
 }
