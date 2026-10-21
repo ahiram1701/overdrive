@@ -29,6 +29,15 @@ const GLYPHS = {
   // corona de laurel: dos ramas en arco y una estrella en el centro
   laurel: 'M-0.15 0.9Q-0.95 0.55-0.85-0.35Q-0.62 0.45-0.05 0.72Z M0.15 0.9Q0.95 0.55 0.85-0.35Q0.62 0.45 0.05 0.72Z'
     + 'M0-0.55L0.14-0.2L0.5-0.2L0.21 0.02L0.32 0.38L0-0.16L-0.32 0.38L-0.21 0.02L-0.5-0.2L-0.14-0.2Z',
+  wings: 'M0-0.2C-0.3-0.6-0.8-0.7-1-0.5C-0.7-0.3-0.8 0-0.5 0.1C-0.7 0.2-0.6 0.4-0.3 0.35C-0.2 0.5 0 0.4 0 0.3'
+    + 'C0 0.4 0.2 0.5 0.3 0.35C0.6 0.4 0.7 0.2 0.5 0.1C0.8 0 0.7-0.3 1-0.5C0.8-0.7 0.3-0.6 0-0.2Z',
+  diamond: 'M0-1L0.7-0.25L0 1L-0.7-0.25Z M0-0.55L0.35-0.2L0 0.45L-0.35-0.2Z',
+  shield: 'M0-0.95L0.8-0.65V0C0.8 0.5 0.4 0.8 0 1C-0.4 0.8-0.8 0.5-0.8 0V-0.65Z M0-0.6L0.45-0.42V0C0.45 0.3 0.25 0.5 0 0.62C-0.25 0.5-0.45 0.3-0.45 0V-0.42Z',
+  atom: 'M-1 0A1 0.32 0 1 0 1 0A1 0.32 0 1 0-1 0Z M-0.5-0.866A1 0.32 60 1 0 0.5 0.866A1 0.32 60 1 0-0.5-0.866Z'
+    + 'M-0.5 0.866A1 0.32 -60 1 0 0.5-0.866A1 0.32 -60 1 0-0.5 0.866Z M-0.2 0A0.2 0.2 0 1 0 0.2 0A0.2 0.2 0 1 0-0.2 0Z',
+  wolf: 'M-0.8-0.9L-0.35-0.35H0.35L0.8-0.9L0.75-0.1L0.45 0.35L0 0.95L-0.45 0.35L-0.75-0.1Z M-0.45-0.05L-0.15 0.06L-0.42 0.14Z M0.45-0.05L0.15 0.06L0.42 0.14Z',
+  target: 'M-1 0A1 1 0 1 0 1 0A1 1 0 1 0-1 0Z M-0.72 0A0.72 0.72 0 1 0 0.72 0A0.72 0.72 0 1 0-0.72 0Z'
+    + 'M-0.44 0A0.44 0.44 0 1 0 0.44 0A0.44 0.44 0 1 0-0.44 0Z M-0.16 0A0.16 0.16 0 1 0 0.16 0A0.16 0.16 0 1 0-0.16 0Z',
 };
 
 // Silueta de la nave vista desde arriba (envolvente convexa de x/z), con el morro hacia arriba y
@@ -172,6 +181,25 @@ function zrOf(mesh) {
 const SPINE = { '0,3,1': [0, 1, 3], '0,1,4': [0, 1, 4], '1,5,8': [1, 8, 5], '1,8,6': [1, 8, 6] };
 const lerp2 = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
 const BANDS = { single: [[0, 0.1]], double: [[0.14, 0.22], [0.3, 0.38]], wide: [[0, 0.3]] };
+// DISEÑOS: polígonos en coordenadas de la cara. u va por el lomo (de A a B) y v hacia el ala (S).
+// front = cara delantera (punta -> lomo); left = ala izquierda. Devuelven una lista de polígonos [[u, v]…].
+const DESIGNS = {
+  chevron: (front) => (front ? [0.22, 0.48].map((u) => [[u, 0], [u + 0.1, 0], [u + 0.28, 0.55], [u + 0.18, 0.55]]) : []),
+  checker: () => {
+    const out = [];
+    for (let i = 0; i < 4; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2 === 0) out.push([[i / 4, j * 0.12], [(i + 1) / 4, j * 0.12], [(i + 1) / 4, (j + 1) * 0.12], [i / 4, (j + 1) * 0.12]]);
+    return out;
+  },
+  flames: (front) => (front ? [[[1, 0.04], [0.35, 0.1], [0.6, 0.2], [0.15, 0.3], [0.5, 0.4], [0.3, 0.52], [1, 0.62]]] : [[[0, 0.05], [0.6, 0.15], [0.35, 0.3], [0.7, 0.45], [0, 0.6]]]),
+  tips: (front) => (front ? [[[0, 0.72], [0, 1], [0.35, 0.86]]] : [[[0, 0.75], [0, 1], [0.4, 0.8]]]),
+  dots: (front) => [[[0, 0], [1, 0], [1, 0.05], [0, 0.05]], ...(front ? [0.25, 0.55, 0.85] : [0.3, 0.7]).map((u) => {
+    const r = 0.06, n = 8;
+    return Array.from({ length: n }, (_, i) => [u + Math.cos((i / n) * 6.283) * r, 0.22 + Math.sin((i / n) * 6.283) * r * 1.6]);
+  })],
+  bolt: (front) => (front ? [[[0.05, 0.06], [0.45, 0.06], [0.38, 0.2], [0.9, 0.2], [0.35, 0.42], [0.45, 0.28], [0.05, 0.28]]] : []),
+  claws: (front, left) => (front && left ? [0.3, 0.45, 0.6].map((u) => [[u, 0.15], [u + 0.05, 0.15], [u + 0.2, 0.7], [u + 0.16, 0.7]]) : []),
+  split: (front, left) => (left ? [[[0, 0], [1, 0], [1, 1], [0, 1]]] : []),
+};
 function paintSpine(ctx, vi, pts, opts) {
   const sp = SPINE[vi.join(',')];
   if (!sp) return;
@@ -191,12 +219,23 @@ function paintSpine(ctx, vi, pts, opts) {
     }
     ctx.fillStyle = opts.stripe.color;
     ctx.globalAlpha *= 0.9;
-    for (const [t0, t1] of BANDS[opts.stripe.style] || BANDS.single) {
-      ctx.beginPath();
-      const q = [lerp2(A, S, t0), lerp2(A, S, t1), lerp2(B, S, t1), lerp2(B, S, t0)];
-      q.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
-      ctx.closePath();
-      ctx.fill();
+    const D = DESIGNS[opts.stripe.style];
+    if (D) { // un dibujo: polígonos en (u, v) de la cara
+      const at = ([u, v]) => lerp2(lerp2(A, B, u), S, v);
+      for (const poly of D(sp[0] === 0, sp[2] === 3 || sp[2] === 5)) {
+        ctx.beginPath();
+        poly.map(at).forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else {
+      for (const [t0, t1] of BANDS[opts.stripe.style] || BANDS.single) {
+        ctx.beginPath();
+        const q = [lerp2(A, S, t0), lerp2(A, S, t1), lerp2(B, S, t1), lerp2(B, S, t0)];
+        q.forEach(([x, y], i) => (i ? ctx.lineTo(x, y) : ctx.moveTo(x, y)));
+        ctx.closePath();
+        ctx.fill();
+      }
     }
     ctx.restore();
   }

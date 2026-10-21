@@ -75,6 +75,35 @@ export function trailFx(sink, ctx, id, x, y, s, col, speed, t) {
       ctx.restore();
       break;
     }
+    case 'bubbles': // burbujas que se abren al salir
+      if (Math.random() < 0.35) sink.ring(x + (Math.random() - 0.5) * s * 0.3, y + 0.2 * s + Math.random() * s * 0.25, col, s * (0.06 + Math.random() * 0.06), 0.45, 2);
+      break;
+    case 'helix': { // doble hélice: dos hilos que se cruzan
+      const o = Math.sin(t * 14) * s * 0.14;
+      sink.spark(x + o, y + 0.15 * s, 0, vy * 0.8, col, s * 0.05, 0.35);
+      sink.spark(x - o, y + 0.15 * s, 0, vy * 0.8, '#ffffff', s * 0.05, 0.35);
+      break;
+    }
+    case 'stars': // estrellas grandes que titilan, lentas
+      if (Math.random() < 0.5) sink.spark(x + (Math.random() - 0.5) * s * 0.4, y + 0.15 * s, (Math.random() - 0.5) * 30, vy * 0.45, Math.random() < 0.5 ? '#fff3a0' : '#ffffff', s * (0.05 + Math.random() * 0.07), 0.7);
+      break;
+    case 'flames': // lenguas de fuego: naranja abajo, amarillo dentro
+      for (const [c, k] of [['#ff3b00', 0.12], ['#ff9f0a', 0.08], ['#ffe600', 0.045]]) sink.spark(x + (Math.random() - 0.5) * s * 0.12, y + 0.14 * s, (Math.random() - 0.5) * 50, vy * 0.55, c, s * k, 0.22);
+      break;
+    case 'code': { // columnas de 0 y 1 verdes, como en una pantalla antigua
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      ctx.font = `700 ${Math.max(6, s * 0.13)}px monospace`;
+      ctx.textAlign = 'center';
+      for (let c = -1; c <= 1; c++) {
+        for (let i = 0; i < 5; i++) {
+          ctx.fillStyle = `rgba(57,255,20,${(0.85 * (1 - i / 5)).toFixed(2)})`;
+          ctx.fillText((Math.floor(t * 12) + i * 7 + c * 3) % 2 ? '1' : '0', x + c * s * 0.12, y + 0.22 * s + i * s * 0.14 + ((t * 60) % (s * 0.14)));
+        }
+      }
+      ctx.restore();
+      break;
+    }
     default: // chispas
       sink.spark(x + (Math.random() - 0.5) * s * 0.15, y + 0.15 * s, (Math.random() - 0.5) * 40, vy, col, s * 0.05, 0.25);
   }
@@ -132,6 +161,32 @@ export function boomFx(sink, id, x, y, edge, accent, k = 1) {
         sink.burst(x + ox, y + oy, 45, c, 700 * k, 5 * k, 1.3, 260 * k);
         sink.ring(x + ox, y + oy, c, 200 * k, 0.4, 8 * k);
       }));
+      break;
+    case 'shards': // trozos grandes del casco que caen
+      for (const c of [edge, '#ffffff', '#7df9ff']) sink.burst(x, y, 16, c, 700 * k, 18 * k, 1.5, 1200 * k);
+      break;
+    case 'wave': // ondas que se abren una tras otra, sin chispas
+      for (let i = 0; i < 4; i++) later(i * 140, () => sink.ring(x, y, i % 2 ? '#ffffff' : edge, (350 + i * 120) * k, 0.7, 16 * k));
+      break;
+    case 'implosion': { // todo se hunde hacia el centro y estalla en blanco
+      for (let i = 0; i < 60; i++) {
+        const a = (i / 60) * Math.PI * 2, rr = 200 * k;
+        sink.spark(x + Math.cos(a) * rr, y + Math.sin(a) * rr, -Math.cos(a) * rr * 3.4, -Math.sin(a) * rr * 3.4, i % 2 ? '#7df9ff' : edge, 6 * k, 0.28);
+      }
+      later(280, () => { sink.flash('#ffffff', 0.9); sink.burst(x, y, 40, '#7df9ff', 500 * k, 4 * k, 0.5, 0); });
+      break;
+    }
+    case 'petals': // pétalos rosas que flotan
+      for (const c of ['#ff8ad8', '#ffd1e8', '#ffffff']) sink.burst(x, y, 24, c, 320 * k, 9 * k, 2.2, 90 * k);
+      break;
+    case 'storm': // tres descargas eléctricas seguidas
+      for (let i = 0; i < 3; i++) {
+        later(i * 180, () => {
+          const ox = (Math.random() - 0.5) * 140 * k, oy = (Math.random() - 0.5) * 80 * k;
+          sink.burst(x + ox, y + oy, 26, i % 2 ? '#ffffff' : '#ffe600', 900 * k, 4 * k, 0.5, 0);
+          sink.flash('#fff6a0', 0.5);
+        });
+      }
       break;
     default:
       for (const c of ['#fff', '#ff2d55', '#ffcc00', accent]) sink.burst(x, y, 40, c, 800 * k, 7 * k, 1.1, 500 * k);
