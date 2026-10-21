@@ -79,6 +79,11 @@ export const TRAILS = [
   { id: 'smoke', name: 'Humo', unlock: { gems: 120 } },
   { id: 'lightning', name: 'Relámpago', unlock: { rank: 14 } },
   { id: 'prism', name: 'Prisma', unlock: { prestige: 3 } },
+  { id: 'bubbles', name: 'Burbujas', unlock: { gems: 90 } },
+  { id: 'helix', name: 'Hélice', unlock: { rank: 12 } },
+  { id: 'stars', name: 'Estrellas', unlock: { gems: 130 } },
+  { id: 'flames', name: 'Llamas', unlock: { gems: 110 } },
+  { id: 'code', name: 'Código', unlock: { crate: 'rare' } },
 ];
 
 export const BOOMS = [
@@ -90,6 +95,11 @@ export const BOOMS = [
   { id: 'blackhole', name: 'Agujero negro', unlock: { gems: 180 } },
   { id: 'fireworks', name: 'Fuegos artificiales', unlock: { rank: 20 } },
   { id: 'singularity', name: 'Singularidad', unlock: { prestige: 10 } },
+  { id: 'shards', name: 'Fragmentos', unlock: { gems: 120 } },
+  { id: 'wave', name: 'Onda', unlock: { rank: 11 } },
+  { id: 'implosion', name: 'Implosión', unlock: { gems: 160 } },
+  { id: 'petals', name: 'Pétalos', unlock: { gems: 130 } },
+  { id: 'storm', name: 'Tormenta', unlock: { crate: 'epic' } },
 ];
 
 // Emblemas: se dibujan sobre las alas (trazos vectoriales en shipdraw.js, no emoji). 'sil' es la
@@ -105,6 +115,12 @@ export const EMBLEMS = [
   { id: 'crown', name: 'Corona', unlock: { ach: 'score1m' } },
   { id: 'tribal', name: 'Tribal', unlock: { rank: 15 } },
   { id: 'laurel', name: 'Laurel', unlock: { prestige: 1 } },
+  { id: 'wings', name: 'Alas', unlock: { gems: 100 } },
+  { id: 'diamond', name: 'Diamante', unlock: { gems: 80 } },
+  { id: 'shield', name: 'Escudo', unlock: { rank: 17 } },
+  { id: 'atom', name: 'Átomo', unlock: { gems: 110 } },
+  { id: 'wolf', name: 'Lobo', unlock: { crate: 'epic' } },
+  { id: 'target', name: 'Diana', unlock: { gems: 70 } },
   ...['viper', 'brick', 'ghost', 'nova', 'kaiju', 'raptor', 'comet', 'manta', 'spectra', 'titan', 'falcon', 'chimera', 'wanderer', 'centella', 'gladiador', 'carronero'].map((s) => ({ id: `sil-${s}`, name: `Insignia ${SHIP_LABEL[s] || s}`, ...X(s, 'runs', 20) })),
 ];
 
@@ -154,13 +170,22 @@ export const SHOTS = [
 
 // RAYAS de carreras a lo largo del lomo y color de la CABINA (shipdraw los pinta en el casco)
 export const STRIPES = [
-  { id: 'st-none', name: 'Sin rayas', style: 'none' },
+  { id: 'st-none', name: 'Sin diseño', style: 'none' },
   { id: 'st-single-w', name: 'Raya blanca', style: 'single', color: '#ffffff', unlock: { gems: 60 } },
   { id: 'st-double-r', name: 'Doble roja', style: 'double', color: '#ff2d55', unlock: { gems: 90 } },
   { id: 'st-double-y', name: 'Doble amarilla', style: 'double', color: '#ffe600', unlock: { gems: 90 } },
   { id: 'st-wide-c', name: 'Ancha cian', style: 'wide', color: '#00e5ff', unlock: { gems: 130 } },
   { id: 'st-wide-k', name: 'Ancha negra', style: 'wide', color: '#050508', unlock: { rank: 11 } },
   { id: 'st-gold', name: 'Filete de oro', style: 'single', color: '#ffd60a', unlock: { crate: 'epic' } },
+  // DISEÑOS: dibujos sobre el casco (no solo bandas)
+  { id: 'st-chevron', name: 'Chevrones', style: 'chevron', color: '#ff9f0a', unlock: { gems: 110 } },
+  { id: 'st-checker', name: 'Cuadros de meta', style: 'checker', color: '#ffffff', unlock: { rank: 16 } },
+  { id: 'st-flames', name: 'Llamas laterales', style: 'flames', color: '#ff5a00', unlock: { gems: 150 } },
+  { id: 'st-tips', name: 'Puntas de ala', style: 'tips', color: '#00e5ff', unlock: { gems: 80 } },
+  { id: 'st-dots', name: 'Línea y puntos', style: 'dots', color: '#ff2bd6', unlock: { gems: 70 } },
+  { id: 'st-bolt', name: 'Rayo', style: 'bolt', color: '#ffe600', unlock: { rank: 19 } },
+  { id: 'st-claws', name: 'Garras', style: 'claws', color: '#ff2d55', unlock: { crate: 'rare' } },
+  { id: 'st-split', name: 'Ala partida', style: 'split', color: '#bf5af2', unlock: { gems: 120 } },
 ];
 export const COCKPITS = [
   { id: 'ck-stock', name: 'De serie', color: null },
@@ -197,7 +222,7 @@ export function lookGap(group, a, b) {
   return colorGap(a.color, b.color);
 }
 const ACH_KIND = { bronze: ['shot', 'cockpit', 'engine'], silver: ['stripe', 'engine', 'palette'], gold: ['palette'] };
-const KIND_NAME = { palette: 'Pintura', stripe: 'Rayas', engine: 'Motor', shot: 'Disparo', cockpit: 'Cabina' };
+const KIND_NAME = { palette: 'Pintura', stripe: 'Diseño', engine: 'Motor', shot: 'Disparo', cockpit: 'Cabina' };
 const TIER_NAME = { bronze: 'de bronce', silver: 'de plata', gold: 'de oro' };
 const HAND = { palette: PALETTES, stripe: STRIPES, engine: ENGINES, shot: SHOTS, cockpit: COCKPITS };
 const HUES = Array.from({ length: 72 }, (_, i) => i * 5);

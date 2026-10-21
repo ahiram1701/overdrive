@@ -1135,3 +1135,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 #hangar .tab-panel[data-panel="estilo"] { padding-bottom: 110px; }
 .cos-style.off { opacity: .35; pointer-events: none; }
 #expoView { touch-action: none; cursor: grab; }
+
+/* ESTILO: iconos en mini lienzo (diseños, cabinas, estelas y explosiones) */
+.cos canvas.sw-cv { width: 44px; height: 28px; display: block; border-radius: 6px; background: rgba(0,0,0,.35); }
+.cos svg path:not([stroke-width]) { stroke: none; } /* sin trazo: el grosor 1 se comía la forma del emblema */

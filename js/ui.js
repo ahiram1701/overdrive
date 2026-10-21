@@ -164,8 +164,36 @@ function cosFilter(v) {
   try { cosFilterMem = localStorage.getItem('od-cos-filter') || cosFilterMem; } catch { /* sin almacenamiento */ }
   return COS_FILTERS.some(([k]) => k === cosFilterMem) ? cosFilterMem : 'all';
 }
-const TRAIL_ICON = { sparks: '✨', ribbon: '🎀', pixels: '👾', rainbow: '🌈', comet: '☄️', smoke: '💨', lightning: '⚡', prism: '🔮' };
-const BOOM_ICON = { classic: '💥', pixel: '🧱', confetti: '🎊', supernova: '🌟', glitch: '📺', blackhole: '🕳️', fireworks: '🎆', singularity: '🌀' };
+// ICONOS de ESTILO: cada diseño o cabina, sobre la propia nave vista desde arriba; cada estela o
+// explosión, con su efecto de verdad congelado en un instante (las de varias fases, se repintan luego)
+const NO_CTX = new Proxy({}, { get: () => () => {}, set: () => true }); // lienzo "mudo" para simular
+function paintStyleIcons(root, view, eq) {
+  const pal = { ...eq.palette, edge: eq.palette.edge || view.color };
+  const glow = /^#[0-9a-f]{6}$/i.test(pal.glow || '') ? pal.glow : '#7df9ff';
+  for (const cv of root.querySelectorAll('canvas.sw-cv')) {
+    const [g, id] = cv.dataset.ic.split(':'), c = cv.getContext('2d'), w = cv.width, h = cv.height;
+    const it = GROUPS[g].find((x) => x.id === id);
+    if (g === 'stripe' || g === 'cockpit') {
+      const opts = { line: 1.2, stripe: g === 'stripe' && it.style !== 'none' ? it : null, cockpit: g === 'cockpit' ? it.color || '#7df9ff' : null };
+      drawShip(c, view.id, pal, w / 2, h * 0.55, h * 1.15, { yaw: Math.PI, pitch: -1.3, roll: 0 }, opts);
+    } else if (g === 'trail') {
+      // tumbada: sale por la izquierda y se alarga hacia la derecha (cabe más estela en el chip)
+      const parts = makeParticles();
+      c.save();
+      c.translate(2, h / 2);
+      c.rotate(-Math.PI / 2);
+      for (let i = 0; i < 30; i++) { trailFx(parts, i === 29 ? c : NO_CTX, id, 0, -h * 0.18, h * 1.25, glow, 0, i / 30); parts.update(1 / 100); }
+      parts.draw(c, w, h);
+      c.restore();
+    } else {
+      const parts = makeParticles();
+      boomFx(parts, id, w / 2, h / 2, pal.edge, '#ff2bd6', 0.32);
+      parts.update(0.1);
+      parts.draw(c, w, h);
+      setTimeout(() => { if (!cv.isConnected) return; parts.update(0.08); c.clearRect(0, 0, w, h); parts.draw(c, w, h); }, 520);
+    }
+  }
+}
 // Tarjeta de un objeto de Pecios (icono, nombre, rareza y lo que hace)
 function lootCard(it) {
   const R = LOOT_RAR[it.tier];
@@ -749,7 +777,7 @@ export const ui = {
     $('cosTitle').textContent = `Personalizar · ${view.name}`;
     const eq = equipped(save, view.id);
     const pv = ui.preview?.ship === view.id ? ui.preview : null;
-    const groups = [['palette', '🎨 Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['stripe', '🏁 Rayas'], ['cockpit', '🪟 Cabina'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
+    const groups = [['palette', '🖌️ Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['stripe', '🎨 Diseños'], ['cockpit', '🪟 Cabina'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
     // FILTRO: todo, lo que ya puedes usar o lo que te falta (se recuerda en este dispositivo)
@@ -785,9 +813,8 @@ export const ui = {
           const fill = it.alt ? `linear-gradient(135deg, ${it.hull} 0 26%, ${it.alt} 26% 46%, ${e} 46% 68%, ${it.glow} 68%)` : `linear-gradient(135deg, ${it.hull} 0 40%, ${e} 40% 66%, ${it.glow} 66%)`;
           icon = `<i class="sw-pal" style="background:${fill}"></i>`;
         }
-        if (g === 'trail' || g === 'boom') icon = `<i class="sw-emo">${(g === 'trail' ? TRAIL_ICON : BOOM_ICON)[it.id] || '✨'}</i>`;
-        if (g === 'stripe') icon = it.style === 'none' ? '<i class="sw-stripe none"></i>' : `<i class="sw-stripe s-${it.style}" style="--c:${it.color}"></i>`;
-        if (g === 'cockpit') icon = `<i class="sw-cockpit" style="--c:${it.color || '#7df9ff'}"></i>`;
+        // diseños, cabinas, estelas y explosiones: un mini lienzo con lo que se verá de verdad
+        if (g === 'stripe' || g === 'cockpit' || g === 'trail' || g === 'boom') icon = `<canvas class="sw-cv" width="88" height="56" data-ic="${g}:${it.id}"></canvas>`;
         if (g === 'engine' || g === 'shot' || g === 'aura') {
           const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : g === 'shot' ? DEFAULT_SHOT : 'transparent');
           icon = `<i class="sw-${g}${it.id === 'a-rainbow' ? ' rainbow' : ''}" style="--c:${c0}"></i>`;
@@ -835,6 +862,7 @@ export const ui = {
         cosm.appendChild(style);
       }
     }
+    paintStyleIcons(cosm, view, eq);
     // barra de prueba: comprar o cancelar
     const bar = $('cosPreview');
     const pit = pv && !pv.equipped && GROUPS[pv.group].find((x) => x.id === pv.id);

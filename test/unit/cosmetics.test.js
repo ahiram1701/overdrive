@@ -236,3 +236,20 @@ test('los estilos de logro conservan su id (nadie pierde lo que tenía)', async 
   assert.equal(ACH_STYLES.length, ACHIEVEMENTS.length);
   for (const a of ACHIEVEMENTS) assert.equal(achStyle(a.id)?.id, `ach-${a.id}`);
 });
+
+test('todas las estelas, explosiones, diseños y emblemas se dibujan sin errores', async () => {
+  const { trailFx, boomFx, makeParticles } = await import('../../js/cosfx.js');
+  const { drawShip, emblemPath } = await import('../../js/shipdraw.js');
+  const { TRAILS: T, BOOMS: B, STRIPES, EMBLEMS: E } = await import('../../js/cosmetics.js');
+  const ctx = new Proxy({}, { get: (_, k) => (k === 'createRadialGradient' || k === 'createLinearGradient' ? () => ({ addColorStop() {} }) : () => {}), set: () => true });
+  for (const t of T) {
+    const parts = makeParticles();
+    for (let i = 0; i < 10; i++) { trailFx(parts, ctx, t.id, 50, 50, 40, '#00e5ff', 10, i / 30); parts.update(1 / 60); }
+    parts.draw(ctx, 100, 100);
+  }
+  for (const b of B) { const parts = makeParticles(); boomFx(parts, b.id, 50, 50, '#00e5ff', '#ff2bd6', 0.3); parts.update(0.1); parts.draw(ctx, 100, 100); }
+  for (const st of STRIPES.filter((x) => x.style !== 'none')) {
+    drawShip(ctx, 'viper', { hull: '#111111', edge: '#00e5ff', glow: '#ffffff' }, 50, 50, 40, { yaw: 0.5, pitch: -0.5, roll: 0 }, { stripe: st, cockpit: '#7df9ff' });
+  }
+  for (const e of E.filter((x) => x.id !== 'none')) assert.ok(emblemPath(e.id), `el emblema ${e.id} tiene dibujo`);
+});
