@@ -125,3 +125,11 @@ test('ajustes: los interruptores y la Galaxia se guardan; las misiones se despli
   await page.locator('#btnMissions').click();
   await expect(page.locator('#mMissions .mission').first()).toBeVisible();
 });
+
+test('la barra de abajo se ve desde el primer pintado, aunque el JS aún no haya cargado', async ({ page }) => {
+  await page.route('**/js/main.js', (r) => r.abort()); // simula un iPhone que aún está descargando los módulos
+  await page.goto('/?nosw');
+  await expect(page.locator('#menu')).toBeVisible();
+  await expect(page.locator('#bottomNav')).toBeVisible();
+  await expect(page.locator('#bottomNav [data-nav="menu"]')).toHaveClass(/on/);
+});

@@ -186,7 +186,16 @@ test('vista 3D del hangar: se gira en cualquier dirección y el doble toque la d
   await page.mouse.up();
   const b = await hv();
   expect(Math.abs(b.yaw - a.yaw)).toBeGreaterThan(0.3);
-  expect(b.pitch - a.pitch).toBeGreaterThan(0.3);
+  expect(Math.abs(b.pitch - a.pitch)).toBeGreaterThan(0.3);
+  // la nave SIGUE AL DEDO: lo más cercano a la cámara se movió a la derecha y abajo, como el arrastre
+  const moved = await page.evaluate(async ([a, b]) => {
+    const { MESHES, rotate } = await import('/js/mesh3d.js');
+    const near = (r) => MESHES.viper.v.map((v) => rotate(v, r)).sort((p, q) => p[2] - q[2])[0];
+    const p0 = near({ yaw: a.yaw, pitch: a.pitch }), p1 = rotate(MESHES.viper.v[MESHES.viper.v.findIndex((v) => { const q = rotate(v, { yaw: a.yaw, pitch: a.pitch }); return q[0] === p0[0] && q[2] === p0[2]; })], { yaw: b.yaw, pitch: b.pitch });
+    return { dx: p1[0] - p0[0], dyScreen: -(p1[1] - p0[1]) };
+  }, [a, b]);
+  expect(moved.dx).toBeGreaterThan(0);
+  expect(moved.dyScreen).toBeGreaterThan(0);
   await page.mouse.click(box.x + 30, box.y + 30);
   await page.mouse.click(box.x + 30, box.y + 30);
   const c = await hv();
