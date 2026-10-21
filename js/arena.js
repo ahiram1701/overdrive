@@ -78,7 +78,7 @@ export function newArena(opts = {}) {
   ui.showArenaHUD(true);
   music.biome = 2;
   music.intensity = 0;
-  musicStart();
+  musicStart('arena');
   progress('arena');
   ui.showTip('arena');
 }
@@ -810,7 +810,7 @@ export function updateArena(dt) {
   }
   if (G.mode !== 'arena') return;
   a.time += dt;
-  music.intensity = Math.min(3, Math.floor(a.time / 120));
+  music.intensity = a.enemies.some((e) => e.boss && e.alive) ? 3 : Math.min(3, 1 + Math.floor(a.time / 150)); // con jefe, a tope
   a.iframes = Math.max(0, a.iframes - dt);
   a.dashCd = Math.max(0, a.dashCd - dt);
   a.slowT = Math.max(0, a.slowT - dt);

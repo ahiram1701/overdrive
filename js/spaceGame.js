@@ -100,7 +100,7 @@ export function newSpace() {
   ui.hideAll();
   ui.showSpaceHUD(true);
   music.intensity = 0;
-  musicStart();
+  musicStart('galaxy');
   if (!g.started) {
     g.started = true;
     persist();
@@ -1409,6 +1409,13 @@ export function updateSpace(dt) {
   const s = S();
   if (!s || G.mode !== 'galaxy') return;
   const sh = s.ship, st = stats(), g = gal();
+  // MÚSICA: más capas con piratas cerca, a tope con una jefa (se mira 4 veces por segundo)
+  if ((s.musT = (s.musT || 0) - dt) <= 0) {
+    s.musT = 0.25;
+    let near = 0, boss = false;
+    for (const p of s.pirates) if (p.alive && dist(p.pos, sh.pos) < 450) { near++; if (p.story) boss = true; }
+    music.intensity = boss ? 3 : near >= 3 ? 2 : near ? 1 : 0;
+  }
   // si alguien fija yaw/pitch a mano (estación, puertas, tests), la orientación se rehace con ellos
   if (!sh.f || sh.yaw !== sh._sy || sh.pitch !== sh._sp) face(sh, sh.yaw, sh.pitch);
   s.t += dt;

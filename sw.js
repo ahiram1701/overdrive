@@ -14,6 +14,7 @@ const ASSETS = [
   './js/rng.js',
   './js/save.js',
   './js/audio.js',
+  './js/music.js',
   './js/fx.js',
   './js/textfix.js',
   './js/upgrades.js',

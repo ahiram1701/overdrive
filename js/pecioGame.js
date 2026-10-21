@@ -36,7 +36,7 @@ export function newPecio(seedOverride = null) {
   music.biome = 2;
   music.intensity = 0;
   pecioMusic(s);
-  musicStart();
+  musicStart('pecio');
   save.pecio.runs++;
   persist();
   progress('pecio');

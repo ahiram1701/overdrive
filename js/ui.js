@@ -1,7 +1,7 @@
 // Capa DOM: HUD, menú, hangar, cartas, tienda, cofre, muerte y pausa.
 import { G, fmt, shieldCap } from './state.js';
 import { save, persist } from './save.js';
-import { sfx, setSound, unlockAudio, musicStop, musicDuck } from './audio.js';
+import { sfx, setSound, unlockAudio, musicStop, musicDuck, musicStart, setVolumes } from './audio.js';
 import { fx } from './fx.js';
 import { todayKey } from './rng.js';
 import { missions } from './missions.js';
@@ -431,6 +431,10 @@ export const ui = {
     });
     // ajustes de la Galaxia
     $('setSens').addEventListener('input', (e) => { save.settings.sens = Number(e.target.value); persist(); });
+    // VOLÚMENES: se oye el cambio al momento (con un sonido de prueba en los efectos)
+    $('setMusicVol').addEventListener('input', (e) => { unlockAudio(); save.settings.musicVol = Number(e.target.value); setVolumes(); persist(); });
+    $('setSfxVol').addEventListener('input', (e) => { unlockAudio(); save.settings.sfxVol = Number(e.target.value); setVolumes(); persist(); });
+    $('setSfxVol').addEventListener('change', () => sfx.coin(3));
     tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
     tap($('btnResume'), () => {
@@ -479,6 +483,8 @@ export const ui = {
     $('tgInvert').classList.toggle('off', !save.settings.invertY);
     $('tgLevel').classList.toggle('off', !save.settings.autoLevel);
     $('setSens').value = save.settings.sens ?? 1;
+    $('setMusicVol').value = save.settings.musicVol ?? 0.7;
+    $('setSfxVol').value = save.settings.sfxVol ?? 1;
   },
 
   showSettings() {
@@ -502,6 +508,7 @@ export const ui = {
   },
 
   showMenu() {
+    musicStart('menu'); // la canción tranquila del menú (si ya suena, sigue)
     G.mode = 'menu';
     G.run = null;
     G.arena = null;
@@ -602,6 +609,7 @@ export const ui = {
 
   // Hangar: carrusel de naves, ficha con stats comparadas con la equipada y árbol de mejoras.
   showHangar(viewId = ui.hangarView || save.ship) {
+    musicStart('menu');
     // dónde estabas: al repintar (elegir un estilo, comprar…) no se vuelve al principio
     const sameView = ui.hangarView === viewId && !$('hangar').classList.contains('hidden');
     const keepTop = sameView ? $('hangar').scrollTop : 0;

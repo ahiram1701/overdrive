@@ -136,7 +136,7 @@ export function newRun(opts = false) {
   }
   if (track) r.section = track.diff - 1;
   startSection();
-  musicStart();
+  musicStart('runner');
   G.mode = 'play';
   if (save.runs === 0) ui.tutorial();
   if (r.boosts.includes('start') && r.section < 1 && !level && !track) r.section = 1; // 🚀 ARRANQUE: tramo 3
@@ -1374,6 +1374,7 @@ export function update(dt) {
   }
 
   music.bpm = 118 + Math.min(70, eff * 0.35);
+  music.intensity = Math.max(Math.min(3, r.section), r.mult >= 30 ? 3 : r.mult >= 10 ? 2 : r.mult >= 3 ? 1 : 0, r.boss ? 3 : 0);
 
   // GRIND: mientras recorres un riel, puntos, combo y overdrive cada 0,2 s
   if (G.player.grind) {
