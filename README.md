@@ -278,7 +278,7 @@ Si tienes las dos cartas de una sinergia, se activa un efecto extra.
 #### Ajustes del menú
 **🎵 Música synthwave**, sintetizada al momento sin archivos: cada juego (y el menú) tiene su canción, con acordes, arpegios, bajo con *sidechain*, melodía, eco y reverb, y partes que cambian (intro, verso, estribillo, puente). Sube con la acción: el combo y los jefes en el Runner, los piratas cerca en la Galaxia, el tiempo y los jefes en la Arena, y las puertas cerradas en Pecios. Con OVERDRIVE, la melodía sube una octava.
 
-En **⚙️ Ajustes** (arriba a la derecha del menú): 🔊 sonido, con volumen aparte de 🎵 música y 💥 efectos · 📳 vibración · ✨ efectos intensos (shake, flashes y, en la Galaxia, los brillos con desenfoque: apagarlo ahorra batería en móviles modestos) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
+En **⚙️ Ajustes** (arriba a la derecha del menú, y también desde la **pausa** de cualquier partida): 🔊 sonido, con volumen aparte de 🎵 música y 💥 efectos · 📳 vibración · ✨ efectos intensos (shake, flashes y, en la Galaxia, los brillos con desenfoque: apagarlo ahorra batería en móviles modestos) · **Aa** textos en pantalla: normal o mínimo · y para la Galaxia: sensibilidad, invertir el eje vertical y nivelación automática.
 
 </details>
 

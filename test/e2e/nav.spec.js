@@ -152,3 +152,49 @@ test('música: el menú tiene su canción, cada juego la suya, y los volúmenes 
   expect([st.musicVol, st.sfxVol]).toEqual([0.25, 0.6]);
   expect(errors).toEqual([]);
 });
+
+test('AJUSTES desde la pausa: cambias algo y ← vuelve a la pausa con la partida tal cual', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  // Runner
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
+  await page.waitForFunction(() => window.G.mode === 'play');
+  await page.evaluate(() => { window.G.god = true; window.D.step(2, false); });
+  const dist = await page.evaluate(() => window.G.run.dist);
+  await page.locator('#pauseBtn').click();
+  const paused = await page.evaluate(() => window.G.mode);
+  await page.locator('#btnPauseSettings').click();
+  await expect(page.locator('#settings')).toBeVisible();
+  expect(await page.evaluate(() => window.G.mode)).toBe(paused); // sigue en pausa
+  await page.evaluate(() => { const r = document.getElementById('setMusicVol'); r.value = 0.4; r.dispatchEvent(new Event('input', { bubbles: true })); });
+  await page.locator('#settings .scr-back').click();
+  await expect(page.locator('#pause')).toBeVisible();
+  await expect(page.locator('#menu')).toBeHidden();
+  await page.locator('#btnResume').click();
+  await page.waitForFunction(() => window.G.mode === 'play');
+  expect(await page.evaluate(() => window.G.run.dist)).toBeGreaterThanOrEqual(dist);
+  expect(await page.evaluate(() => window.__save.settings.musicVol)).toBe(0.4);
+  // desde el menú, ← sigue llevando al menú
+  await page.evaluate(async () => { const { ui } = await import('/js/ui.js'); window.G.manual = false; document.getElementById('btnQuit').click(); ui.showMenu(); });
+  await page.locator('#btnSettings').click();
+  await page.locator('#settings .scr-back').click();
+  await expect(page.locator('#menu')).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('AJUSTES desde la pausa de Pecios vuelve a su pausa y SEGUIR devuelve la partida', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { document.getElementById('btnPecio').click(); document.getElementById('btnPecioPlay').click(); });
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  await page.evaluate(() => document.getElementById('pcPause').click());
+  await page.locator('#btnPauseSettings').click();
+  expect(await page.evaluate(() => window.G.mode)).toBe('pecioPaused');
+  await page.locator('#settings .scr-back').click();
+  await expect(page.locator('#pause')).toBeVisible();
+  await page.locator('#btnResume').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(errors).toEqual([]);
+});

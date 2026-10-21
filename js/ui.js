@@ -178,6 +178,9 @@ function paintStyleIcons(root, view, eq) {
     if (g === 'stripe' || g === 'cockpit') {
       const opts = { line: 1.2, stripe: g === 'stripe' && it.style !== 'none' ? it : null, cockpit: g === 'cockpit' ? it.color || '#7df9ff' : null };
       drawShip(c, view.id, pal, w / 2, h * 0.55, h * 1.15, { yaw: Math.PI, pitch: -1.3, roll: 0 }, opts);
+    } else if (g === 'aura') { // la nave pequeña, con su aura alrededor
+      auraFx(c, id, w / 2, h / 2, h * 0.5, 1.3);
+      drawShip(c, view.id, pal, w / 2, h / 2, h * 0.5, { yaw: 0.6, pitch: -0.45, roll: 0 }, { line: 1 });
     } else if (g === 'trail') {
       // tumbada: sale por la izquierda y se alarga hacia la derecha (cabe más estela en el chip)
       const parts = makeParticles();
@@ -397,7 +400,7 @@ export const ui = {
       $('btnMissions').classList.toggle('open', !open);
     });
     // cabeceras comunes con ← (y su "atrás")
-    screenHeader('settings', 'AJUSTES', () => ui.showMenu());
+    screenHeader('settings', 'AJUSTES', () => (ui._settingsBack === 'pause' ? ui.backToPause() : ui.showMenu())); // desde la pausa, vuelve a la pausa
     tap($('btnTipsReset'), () => { resetTips(save); persist(); toast('🔁 Los consejos volverán a salir'); });
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
     screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
@@ -444,6 +447,7 @@ export const ui = {
     });
     tap($('btnQuit'), () => { if (G.space) leaveSpace(); musicStop(); G.arena = null; G.pecio = null; ui.showArenaHUD(false); ui.showPecioHUD(false); ui.showMenu(); });
     tap($('pauseBtn'), () => ui.pause());
+    tap($('btnPauseSettings'), () => ui.showSettings('pause'));
     // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
     $('abilityBtn').addEventListener('pointerdown', (e) => {
       e.preventDefault();
@@ -487,13 +491,22 @@ export const ui = {
     $('setSfxVol').value = save.settings.sfxVol ?? 1;
   },
 
-  showSettings() {
+  // de Ajustes a la pausa de la que viniste: la partida sigue pausada, tal cual
+  backToPause() {
+    ui._settingsBack = null;
+    musicDuck(true);
+    show('pause');
+  },
+
+  showSettings(from = null) {
+    ui._settingsBack = from;
     // la versión instalada (el nombre de la caché del service worker), para saber si ya tienes la última
     fetch('sw.js', { cache: 'no-store' }).then((r) => r.text()).then((t) => {
       const v = /CACHE = '([^']+)'/.exec(t)?.[1];
       if (v) setText('appVersion', `versión ${v.replace('overdrive-', '')}`);
     }).catch(() => {});
-    G.mode = 'hangar'; // pantalla estática
+    if (from === 'pause') musicDuck(false); // para oír bien el volumen que ajustas (la partida sigue en pausa)
+    else G.mode = 'hangar'; // pantalla estática
     ui.syncToggles();
     show('settings');
   },
@@ -842,10 +855,10 @@ export const ui = {
           icon = `<i class="sw-pal" style="background:${fill}"></i>`;
         }
         // diseños, cabinas, estelas y explosiones: un mini lienzo con lo que se verá de verdad
-        if (g === 'stripe' || g === 'cockpit' || g === 'trail' || g === 'boom') icon = `<canvas class="sw-cv" width="88" height="56" data-ic="${g}:${it.id}"></canvas>`;
-        if (g === 'engine' || g === 'shot' || g === 'aura') {
-          const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : g === 'shot' ? DEFAULT_SHOT : 'transparent');
-          icon = `<i class="sw-${g}${it.id === 'a-rainbow' ? ' rainbow' : ''}" style="--c:${c0}"></i>`;
+        if (g === 'stripe' || g === 'cockpit' || g === 'trail' || g === 'boom' || g === 'aura') icon = `<canvas class="sw-cv" width="88" height="56" data-ic="${g}:${it.id}"></canvas>`;
+        if (g === 'engine' || g === 'shot') {
+          const c0 = it.color || (g === 'engine' ? eq.basePalette.glow : DEFAULT_SHOT);
+          icon = `<i class="sw-${g}" style="--c:${c0}"></i>`;
         }
         if (g === 'emblem') {
           const d = emblemPath(it.id);

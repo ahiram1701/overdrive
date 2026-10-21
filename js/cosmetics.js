@@ -151,6 +151,13 @@ export const AURAS = [
   { id: 'a-void', name: 'Vacío', color: '#bf5af2', unlock: { gems: 220 } },
   { id: 'a-electric', name: 'Eléctrica', color: '#ffe600', unlock: { rank: 16 } },
   { id: 'a-rainbow', name: 'Arcoíris', color: '#ff2bd6', unlock: { prestige: 1 } },
+  { id: 'a-halo', name: 'Halo', color: '#ffffff', unlock: { gems: 120 } },
+  { id: 'a-frost', name: 'Escarcha', color: '#6b8cff', unlock: { gems: 140 } },
+  { id: 'a-toxic', name: 'Tóxica', color: '#39ff14', unlock: { rank: 13 } },
+  { id: 'a-orbit', name: 'Órbitas', color: '#ff2d55', unlock: { gems: 170 } },
+  { id: 'a-pulse', name: 'Pulso', color: '#7dffd0', unlock: { gems: 130 } },
+  { id: 'a-hex', name: 'Hexágonos', color: '#ffb000', unlock: { crate: 'epic' } },
+  { id: 'a-galaxy', name: 'Galaxia', color: '#4d4dff', unlock: { rank: 24 } },
 ];
 
 // Color de tus disparos (Arena y Galaxia). null = el de siempre

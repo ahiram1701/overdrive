@@ -252,6 +252,9 @@ test('todas las estelas, explosiones, diseños y emblemas se dibujan sin errores
     drawShip(ctx, 'viper', { hull: '#111111', edge: '#00e5ff', glow: '#ffffff' }, 50, 50, 40, { yaw: 0.5, pitch: -0.5, roll: 0 }, { stripe: st, cockpit: '#7df9ff' });
   }
   for (const e of E.filter((x) => x.id !== 'none')) assert.ok(emblemPath(e.id), `el emblema ${e.id} tiene dibujo`);
+  const { auraFx } = await import('../../js/cosfx.js');
+  const { AURAS } = await import('../../js/cosmetics.js');
+  for (const au of AURAS) for (const t of [0, 0.7, 3.3]) auraFx(ctx, au.id, 50, 50, 30, t);
 });
 
 test('LOOKS: guardar, poner, copiar a otra nave, aleatorio con lo tuyo y de serie', async () => {

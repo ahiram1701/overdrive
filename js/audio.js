@@ -13,8 +13,8 @@ export function unlockAudio() {
   if (!AC) return;
   ctx = new AC();
   const comp = ctx.createDynamicsCompressor();
-  comp.threshold.value = -14;
-  comp.ratio.value = 6;
+  comp.threshold.value = -10; // más suave: no aplasta la música
+  comp.ratio.value = 4;
   master = ctx.createGain();
   master.gain.value = save.settings.sound ? 0.8 : 0;
   master.connect(comp).connect(ctx.destination);
@@ -40,7 +40,7 @@ export function unlockAudio() {
 
 // VOLÚMENES (Ajustes): música y efectos por separado; el interruptor 🔊 sigue siendo el general
 const setting = (k, d) => { const v = save.settings?.[k]; return typeof v === 'number' && v >= 0 && v <= 1 ? v : d; };
-const musicLevel = () => 0.5 * setting('musicVol', 0.7);
+const musicLevel = () => 0.95 * setting('musicVol', 0.7); // en el iPhone sonaba bajita
 export function setVolumes() {
   if (!ctx) return;
   sfxBus.gain.setTargetAtTime(0.9 * setting('sfxVol', 1), ctx.currentTime, 0.03);
@@ -245,16 +245,16 @@ function playEvent(e, t, spb) {
       noise({ dur: 1.4, vol: 0.11 * e.vel, type: 'highpass', f: 4500, when: t - ctx.currentTime, dest: musicBus });
       break;
     case 'pad':
-      for (const m of e.midis) voice({ f: midiHz(m), t, dur: e.dur * spb, vol: 0.035, detune: [-9, 9], cutoff: bright * 0.7, attack: 0.35, release: 0.5, dest: duck, toVerb: 0.6 });
+      for (const m of e.midis) voice({ f: midiHz(m), t, dur: e.dur * spb, vol: 0.055, detune: [-9, 9], cutoff: bright * 0.7, attack: 0.35, release: 0.5, dest: duck, toVerb: 0.6 });
       break;
     case 'bass':
-      voice({ f: midiHz(e.midi), t, dur: Math.max(0.08, e.dur * spb * 0.9), vol: 0.2, type: 'sawtooth', detune: [0, -1200], cutoff: 380 + I * 260 + (music.od ? 900 : 0), q: 4, attack: 0.005, release: 0.06, dest: duck });
+      voice({ f: midiHz(e.midi), t, dur: Math.max(0.08, e.dur * spb * 0.9), vol: 0.24, type: 'sawtooth', detune: [0, -1200], cutoff: 380 + I * 260 + (music.od ? 900 : 0), q: 4, attack: 0.005, release: 0.06, dest: duck });
       break;
     case 'arp':
-      voice({ f: midiHz(e.midi), t, dur: spb * 0.8, vol: 0.045, type: 'square', cutoff: 1800 + I * 500, attack: 0.003, release: 0.05, toDelay: 0.55 });
+      voice({ f: midiHz(e.midi), t, dur: spb * 0.8, vol: 0.065, type: 'square', cutoff: 1800 + I * 500, attack: 0.003, release: 0.05, toDelay: 0.55 });
       break;
     case 'lead':
-      voice({ f: midiHz(e.midi), t, dur: e.dur * spb * 0.95, vol: 0.065, type: 'sawtooth', detune: [-6, 6], cutoff: bright + 1200, attack: 0.02, release: 0.15, toDelay: 0.4, toVerb: 0.5, vib: 7 });
+      voice({ f: midiHz(e.midi), t, dur: e.dur * spb * 0.95, vol: 0.095, type: 'sawtooth', detune: [-6, 6], cutoff: bright + 1200, attack: 0.02, release: 0.15, toDelay: 0.4, toVerb: 0.5, vib: 7 });
       break;
     default:
   }
