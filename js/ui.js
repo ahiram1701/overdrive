@@ -1006,13 +1006,31 @@ export const ui = {
   // EXPOSICIÓN: la nave a pantalla completa en una sala con focos; deslizar = otra nave
   showExpo(shipId) {
     G.mode = 'hangar';
-    ui._expo = { idx: Math.max(0, SHIPS.findIndex((x) => x.id === shipId)), compare: false, yaw: 0, ...(ui._expo && { compare: ui._expo.compare }) };
+    ui._expo = { idx: Math.max(0, SHIPS.findIndex((x) => x.id === shipId)), compare: false, fly: false, mine: false, yaw: 0, shots: [], ...(ui._expo && { compare: ui._expo.compare, fly: ui._expo.fly, mine: ui._expo.mine }) };
     if (!ui._expoReady) {
       ui._expoReady = true;
-      const go = (d) => { const e = ui._expo; e.idx = (e.idx + d + SHIPS.length) % SHIPS.length; sfx.ui(); ui.fillExpo(); };
+      // ‹ ›: la nave anterior o siguiente (con SOLO MÍAS, se salta las que no tienes)
+      const go = (d) => {
+        const e = ui._expo;
+        for (let k = 0; k < SHIPS.length; k++) {
+          e.idx = (e.idx + d + SHIPS.length) % SHIPS.length;
+          if (!e.mine || save.ships.includes(SHIPS[e.idx].id)) break;
+        }
+        sfx.ui();
+        ui.fillExpo();
+      };
       tap($('expoPrev'), () => go(-1));
       tap($('expoNext'), () => go(1));
       tap($('expoCompare'), () => { ui._expo.compare = !ui._expo.compare; ui.fillExpo(); });
+      tap($('expoFly'), () => { const e = ui._expo; e.fly = !e.fly; e.flyT = 0; e.shots = []; ui._expoParts?.clear(); ui.fillExpo(); });
+      tap($('expoMine'), () => { const e = ui._expo; e.mine = !e.mine; if (e.mine && !save.ships.includes(SHIPS[e.idx].id)) go(1); else ui.fillExpo(); });
+      // EQUIPAR o COMPRAR desde la propia exposición
+      tap($('expoAct'), () => {
+        const sh = SHIPS[ui._expo.idx];
+        if (save.ships.includes(sh.id)) { if (save.ship === sh.id) return; save.ship = sh.id; persist(); fx.vibe(20); toast(`🚀 ${sh.name} equipada`); }
+        else if (!sh.story && !sh.earn && save.gems >= sh.cost) { save.gems -= sh.cost; save.ships.push(sh.id); save.ship = sh.id; persist(); sfx.chest(); fx.vibe([30, 40, 80]); toast(`🚀 ¡${sh.name} es tuya!`); } else return;
+        ui.fillExpo();
+      });
       ui._expoOrb = { pitch: -0.3 };
       orbitControl($('expoView'), ui._expoOrb);
     }
@@ -1030,6 +1048,11 @@ export const ui = {
     const other = SHIPS.find((x) => x.id === save.ship);
     const cmp = e.compare && other.id !== sh.id ? other : null;
     $('expoCompare').classList.toggle('on', e.compare);
+    $('expoFly').classList.toggle('on', e.fly);
+    $('expoMine').classList.toggle('on', e.mine);
+    const act = $('expoAct');
+    act.disabled = false;
+    if (owned) { act.textContent = save.ship === sh.id ? 'EN USO' : 'EQUIPAR'; act.disabled = save.ship === sh.id; } else if (sh.story) { act.textContent = '📖 Historia'; act.disabled = true; } else if (sh.earn) { act.textContent = `🏆 ${Math.min(sh.earn.of(save), sh.earn.n)}/${sh.earn.n}`; act.disabled = true; } else { act.textContent = `COMPRAR · 💎 ${sh.cost}`; act.disabled = save.gems < sh.cost; }
     const a = shipProfile(sh.id, shipLvls(save.shipLvl, sh.id));
     const b = cmp && shipProfile(cmp.id, shipLvls(save.shipLvl, cmp.id));
     $('expoStats').innerHTML = (cmp ? `<div class="cmp-head"><b style="color:${sh.color}">${sh.name}</b><span>vs</span><b style="color:${cmp.color}">${cmp.name} (equipada)</b></div>` : '')
@@ -1037,6 +1060,57 @@ export const ui = {
         b ? `<i class="b2" style="transform:scaleX(${b[k].toFixed(3)});background:${cmp.color}"></i>` : ''}</div></div>`).join('')
       + (e.compare && !cmp ? '<p class="hint">Es la que llevas equipada: elige otra para comparar.</p>' : '');
     e.cmp = cmp;
+  },
+
+  // EXPO · VUELO: la nave pasa volando sobre una rejilla de neón, esquiva de lado a lado, dispara con
+  // SU color, deja SU estela y cada 4 s enseña SU explosión (y vuelve a aparecer)
+  drawExpoFlight(c, w, h, dt, now, dpr, parts) {
+    const e = ui._expo, sh = SHIPS[e.idx], lk = ui.lookOf(sh.id), pal = lk.palette, edge = pal.edge || sh.color;
+    const t = now / 1000;
+    e.flyT = (e.flyT || 0) + dt;
+    const bg = c.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, '#05010d'); bg.addColorStop(0.45, '#1a0636'); bg.addColorStop(1, '#05010d');
+    c.fillStyle = bg;
+    c.fillRect(0, 0, w, h);
+    // suelo que corre hacia ti
+    const hy = h * 0.36;
+    c.strokeStyle = `${sh.color}55`;
+    c.lineWidth = dpr;
+    for (let i = -12; i <= 12; i++) { c.beginPath(); c.moveTo(w / 2 + i * w * 0.015, hy); c.lineTo(w / 2 + i * w * 0.16, h); c.stroke(); }
+    for (let i = 0; i < 10; i++) {
+      const k = ((i + (t * 1.6) % 1) / 10) ** 2;
+      c.globalAlpha = Math.min(1, k * 3);
+      c.beginPath(); c.moveTo(0, hy + (h - hy) * k); c.lineTo(w, hy + (h - hy) * k); c.stroke();
+    }
+    c.globalAlpha = 1;
+    const size = Math.min(w, h) * 0.2 * (ui._expoOrb?.zoom || 1);
+    const x = w / 2 + Math.sin(t * 1.3) * w * 0.25, y = h * 0.66;
+    const cycle = e.flyT % 4, gone = cycle > 3; // el último segundo de cada 4: explotada
+    if (gone && !e.wasGone) boomFx(parts, lk.boom.id, e.lastX ?? x, y, edge, sh.color, 0.55 * dpr); // estalla justo al desaparecer
+    e.wasGone = gone;
+    if (!gone) {
+      e.lastX = x;
+      // disparos con el color de la nave
+      e.shotT = (e.shotT || 0) - dt;
+      if (e.shotT <= 0) { e.shotT = 0.22; e.shots.push({ x, y: y - size * 0.5 }); }
+    }
+    const shotCol = lk.shot.color || DEFAULT_SHOT;
+    c.save();
+    c.globalCompositeOperation = 'lighter';
+    c.strokeStyle = shotCol;
+    c.lineWidth = 3 * dpr;
+    c.shadowColor = shotCol;
+    c.shadowBlur = 8 * dpr;
+    for (const b of e.shots) { b.y -= dt * h * 1.2; c.beginPath(); c.moveTo(b.x, b.y); c.lineTo(b.x, b.y + 14 * dpr); c.stroke(); }
+    c.restore();
+    e.shots = e.shots.filter((b) => b.y > -20);
+    if (!gone && cycle > 0.15) {
+      trailFx(parts, c, lk.trail.id, x, y + size * 0.15, size * 1.3, pal.glow, 80, t);
+      auraFx(c, lk.aura.id, x, y, size * 0.85, t);
+      drawShip(c, sh.id, { ...pal, edge }, x, y, size, { yaw: 0, pitch: -0.62, roll: -Math.cos(t * 1.3) * 0.3 }, { line: 1.5 * dpr, ...emblemOpts(lk) });
+    }
+    parts.update(dt);
+    parts.draw(c, w, h);
   },
 
   startExpoView() {
@@ -1066,6 +1140,8 @@ export const ui = {
       c.lineWidth = dpr;
       for (let i = -10; i <= 10; i++) { c.beginPath(); c.moveTo(w / 2 + i * w * 0.02, hy); c.lineTo(w / 2 + i * w * 0.2, h); c.stroke(); }
       for (let i = 1; i < 8; i++) { const y = hy + (h - hy) * ((i / 8) ** 1.8); c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
+      const parts = (ui._expoParts ||= makeParticles());
+      if (e.fly) { ui.drawExpoFlight(c, w, h, dt, now, dpr, parts); requestAnimationFrame(loop); return; }
       const ships = e.cmp ? [[SHIPS[e.idx], w * 0.28], [e.cmp, w * 0.72]] : [[SHIPS[e.idx], w / 2]];
       for (const [sh, x] of ships) {
         const lk = ui.lookOf(sh.id), pal = lk.palette, edge = pal.edge || sh.color;
@@ -1101,7 +1177,10 @@ export const ui = {
         c.restore();
         auraFx(c, lk.aura.id, x, shipY, size * 0.85, now / 1000);
         drawShip(c, sh.id, { ...pal, edge }, x, shipY, size, rot, { line: 1.5 * dpr, ...emblemOpts(lk) });
+        if (!e.cmp) trailFx(parts, c, lk.trail.id, x, shipY + size * 0.1, size * 1.2, pal.glow, 30, now / 1000);
       }
+      parts.update(dt);
+      parts.draw(c, w, h);
       requestAnimationFrame(loop);
     };
     requestAnimationFrame(loop);
