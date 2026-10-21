@@ -36,7 +36,7 @@ const DEFAULTS = {
   galaxyWorld: {},  // sucesos de la galaxia: ofensiva pirata, enjambre, dueños perdidos, noticias
   outposts: {},     // puestos avanzados { sys: { name, mods: { radar: 2 }, store } }
   crates: { n: 0, pity: 0, owned: [] }, // cofres abiertos, racha sin épico y exclusivos de cofre
-  settings: { sound: true, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: false, mapLayers: { obj: true, fac: true, evt: true, dng: true } },
+  settings: { sound: true, musicVol: 0.7, sfxVol: 1, vibe: true, fx: !reducedMotion, text: 'normal', sens: 1, invertY: false, autoLevel: false, mapLayers: { obj: true, fac: true, evt: true, dng: true } },
   runs: 0,
   missions: { key: '', list: [] },
   // v2: progreso para la expansión (se reservan ya para no migrar en cada fase)

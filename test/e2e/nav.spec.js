@@ -133,3 +133,22 @@ test('la barra de abajo se ve desde el primer pintado, aunque el JS aún no haya
   await expect(page.locator('#bottomNav')).toBeVisible();
   await expect(page.locator('#bottomNav [data-nav="menu"]')).toHaveClass(/on/);
 });
+
+test('música: el menú tiene su canción, cada juego la suya, y los volúmenes se guardan', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  const song = () => page.evaluate(async () => { const { music } = await import('/js/audio.js'); return music.on ? music.song : null; });
+  expect(await song()).toBe('menu');
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnPlay').click(); });
+  await page.waitForFunction(() => window.G.mode === 'play');
+  expect(await song()).toBe('runner');
+  await page.evaluate(async () => { const { ui } = await import('/js/ui.js'); window.G.manual = false; ui.showMenu(); });
+  expect(await song()).toBe('menu');
+  await page.evaluate(() => {
+    for (const [id, v] of [['setMusicVol', 0.25], ['setSfxVol', 0.6]]) { const r = document.getElementById(id); r.value = v; r.dispatchEvent(new Event('input', { bubbles: true })); }
+  });
+  const st = await page.evaluate(() => JSON.parse(localStorage.getItem('overdrive-save-v1')).settings);
+  expect([st.musicVol, st.sfxVol]).toEqual([0.25, 0.6]);
+  expect(errors).toEqual([]);
+});

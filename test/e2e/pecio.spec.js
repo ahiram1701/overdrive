@@ -88,7 +88,7 @@ test('pecios: al caer, pantalla final y te llevas parte de las 🔩', async ({ p
     room.wake = 0;
     room.enemies = [{ id: 'x', kind: 'drone', x: s.player.x + 0.6, y: s.player.y, ang: 0, hp: 4, max: 4, r: 0.32, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true }];
   });
-  await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 8000 });
+  await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 15000 }); // con toda la batería en paralelo, el dron puede tardar
   await expect(page.locator('#peTitle')).toHaveText('DESTRUIDO');
   expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(20);
   await page.locator('#btnPecioMenu').click();

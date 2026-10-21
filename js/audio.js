@@ -1,5 +1,6 @@
 // Todo el sonido se sintetiza con Web Audio: cero archivos, y el tono puede seguir a la velocidad/combo.
 import { save } from './save.js';
+import { SONGS, stepEvents, midiHz } from './music.js';
 
 let ctx = null, master, sfxBus, musicBus, musicFilter, noiseBuf;
 
@@ -18,20 +19,32 @@ export function unlockAudio() {
   master.gain.value = save.settings.sound ? 0.8 : 0;
   master.connect(comp).connect(ctx.destination);
   sfxBus = ctx.createGain();
-  sfxBus.gain.value = 0.9;
+  sfxBus.gain.value = 0.9 * setting('sfxVol', 1);
   sfxBus.connect(master);
   musicFilter = ctx.createBiquadFilter();
   musicFilter.type = 'lowpass';
   musicFilter.frequency.value = 18000;
   musicBus = ctx.createGain();
-  musicBus.gain.value = 0.42;
+  musicBus.gain.value = 0.0001;
   musicBus.connect(musicFilter).connect(master);
+  musicFx();
 
   noiseBuf = ctx.createBuffer(1, ctx.sampleRate, ctx.sampleRate);
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
   setInterval(scheduler, 25);
+  // si ya había una canción pedida (el menú suena antes del primer toque), arranca ahora
+  if (music.on) { music.next = ctx.currentTime + 0.08; musicBus.gain.setTargetAtTime(musicLevel(), ctx.currentTime, 0.3); }
+}
+
+// VOLÚMENES (Ajustes): música y efectos por separado; el interruptor 🔊 sigue siendo el general
+const setting = (k, d) => { const v = save.settings?.[k]; return typeof v === 'number' && v >= 0 && v <= 1 ? v : d; };
+const musicLevel = () => 0.5 * setting('musicVol', 0.7);
+export function setVolumes() {
+  if (!ctx) return;
+  sfxBus.gain.setTargetAtTime(0.9 * setting('sfxVol', 1), ctx.currentTime, 0.03);
+  if (music.on) musicBus.gain.setTargetAtTime(musicLevel(), ctx.currentTime, 0.03);
 }
 
 export function setSound(on) {
@@ -154,37 +167,122 @@ export const sfx = {
   roar() { tone({ type: 'sawtooth', f: 70, f2: 45, dur: 0.9, vol: 0.32, cutoff: 900 }); sfx.arp([0, 1, 0, 1, 0, -1], 220, 0.11, 'square', 0.1); },
 };
 
-// ---------- Música procedural ----------
-const BIOME_MUSIC = [
-  { root: 55.0, bass: [0, null, 0, 12, null, 0, 10, null, 0, null, 0, 12, 7, null, 5, null] },   // Neón
-  { root: 73.4, bass: [0, 0, null, 3, null, 0, 5, null, 0, 0, null, 3, 6, 5, 3, null] },        // Lava
-  { root: 49.0, bass: [0, null, 1, null, 0, null, 6, 7, 0, null, 1, null, 12, 11, 6, null] },   // Glitch
-  { root: 82.4, bass: [0, 12, 0, 12, 7, 19, 7, 19, 5, 17, 5, 17, 3, 15, 2, 14] },             // Hiper
-  { root: 61.7, bass: [0, null, null, 7, null, 12, null, 7, 0, null, 3, null, 10, null, 7, null] }, // Glaciar
-];
-const LEAD = [0, 7, 12, 15, 19, 15, 12, 7];
-// PECIOS: una pista por ambientación (carga, médica, reactor) y la de la sala del jefe
-export const PECIO_MUSIC = [
-  { root: 55.0, bass: [0, null, null, 0, 3, null, 0, null, 7, null, 5, null, 3, null, 2, null] },     // carga: grave y lenta
-  { root: 65.4, bass: [0, null, 7, null, 12, null, 7, null, 3, null, 10, null, 8, null, 7, null] },   // médica: fría y en arpegio
-  { root: 61.7, bass: [0, 0, 12, 0, 0, 12, 1, 13, 0, 0, 12, 0, 6, 18, 5, 17] },                   // reactor: pulso nervioso
-  { root: 46.2, bass: [0, 0, 1, 0, 0, 6, 0, 7, 0, 0, 1, 0, 12, 11, 7, 6] },                         // jefe: tritono y prisa
-];
+// ---------- Música: canciones synthwave (las notas, en music.js) con efectos ----------
+// song: menu, runner, galaxy, pecio, arena. La variante (tonalidad) sale de music.biome (o de
+// music.pecio en Pecios, donde el 3 es la sala del jefe). intensity 0–3 y od añaden capas.
+export const music = { on: false, song: 'menu', bpm: 92, biome: 0, intensity: 0, od: false, step: 0, next: 0, pecio: null };
+let duck, delay, verb;
 
-export const music = { on: false, bpm: 124, biome: 0, intensity: 0, od: false, step: 0, next: 0, pecio: null };
+// efectos: retardo de corchea con puntillo, reverb (impulso generado) y "sidechain" (el pad y el
+// bajo se agachan con cada bombo: el bombeo típico del synthwave)
+function musicFx() {
+  duck = ctx.createGain();
+  duck.connect(musicBus);
+  delay = ctx.createDelay(1.5);
+  const fb = ctx.createGain(), wet = ctx.createGain();
+  fb.gain.value = 0.32;
+  wet.gain.value = 0.3;
+  delay.connect(fb).connect(delay);
+  delay.connect(wet).connect(musicBus);
+  verb = ctx.createConvolver();
+  const len = Math.floor(ctx.sampleRate * 2.4), imp = ctx.createBuffer(2, len, ctx.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = imp.getChannelData(ch);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len) ** 3;
+  }
+  verb.buffer = imp;
+  const vw = ctx.createGain();
+  vw.gain.value = 0.25;
+  verb.connect(vw).connect(musicBus);
+}
 
-export function musicStart() {
-  if (!ctx) return;
+// una voz: osciladores (con desafinado) → filtro → envolvente → destinos (y envíos a efectos)
+function voice({ f, t, dur, vol, type = 'sawtooth', detune = [0], cutoff = 4000, q = 0.7, attack = 0.01, release = 0.12, dest = musicBus, toDelay = 0, toVerb = 0, vib = 0 }) {
+  const g = ctx.createGain(), fl = ctx.createBiquadFilter();
+  fl.type = 'lowpass';
+  fl.frequency.value = cutoff;
+  fl.Q.value = q;
+  const end = t + dur;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + attack);
+  g.gain.setValueAtTime(vol, Math.max(t + attack, end - release));
+  g.gain.exponentialRampToValueAtTime(0.0001, end + release);
+  fl.connect(g).connect(dest);
+  if (toDelay) { const sd = ctx.createGain(); sd.gain.value = toDelay; g.connect(sd).connect(delay); }
+  if (toVerb) { const sv = ctx.createGain(); sv.gain.value = toVerb; g.connect(sv).connect(verb); }
+  let lfo = null;
+  if (vib) { lfo = ctx.createOscillator(); const lg = ctx.createGain(); lfo.frequency.value = 5.5; lg.gain.value = vib; lfo.connect(lg); lfo.start(t); lfo.stop(end + release + 0.05); lfo._g = lg; }
+  for (const dt of detune) {
+    const o = ctx.createOscillator();
+    o.type = type;
+    o.frequency.setValueAtTime(f, t);
+    o.detune.value = dt;
+    if (lfo) lfo._g.connect(o.detune);
+    o.connect(fl);
+    o.start(t);
+    o.stop(end + release + 0.05);
+  }
+}
+
+function playEvent(e, t, spb) {
+  const I = music.intensity, bright = 900 + I * 650 + (music.od ? 2600 : 0);
+  switch (e.inst) {
+    case 'kick':
+      tone({ type: 'sine', f: 150, f2: 42, dur: 0.16, vol: 0.85 * e.vel, when: t - ctx.currentTime, dest: musicBus, attack: 0.002 });
+      // sidechain: el pad y el bajo se agachan y vuelven
+      duck.gain.cancelScheduledValues(t);
+      duck.gain.setValueAtTime(0.32, t);
+      duck.gain.linearRampToValueAtTime(1, t + spb * 3);
+      break;
+    case 'snare':
+      noise({ dur: 0.16, vol: 0.3 * e.vel, type: 'bandpass', f: 1900, q: 0.7, when: t - ctx.currentTime, dest: musicBus });
+      tone({ type: 'triangle', f: 210, f2: 130, dur: 0.09, vol: 0.12 * e.vel, when: t - ctx.currentTime, dest: musicBus });
+      break;
+    case 'hat':
+      noise({ dur: e.open ? 0.2 : 0.04, vol: 0.1 * e.vel, type: 'highpass', f: 7500, when: t - ctx.currentTime, dest: musicBus });
+      break;
+    case 'crash':
+      noise({ dur: 1.4, vol: 0.11 * e.vel, type: 'highpass', f: 4500, when: t - ctx.currentTime, dest: musicBus });
+      break;
+    case 'pad':
+      for (const m of e.midis) voice({ f: midiHz(m), t, dur: e.dur * spb, vol: 0.035, detune: [-9, 9], cutoff: bright * 0.7, attack: 0.35, release: 0.5, dest: duck, toVerb: 0.6 });
+      break;
+    case 'bass':
+      voice({ f: midiHz(e.midi), t, dur: Math.max(0.08, e.dur * spb * 0.9), vol: 0.2, type: 'sawtooth', detune: [0, -1200], cutoff: 380 + I * 260 + (music.od ? 900 : 0), q: 4, attack: 0.005, release: 0.06, dest: duck });
+      break;
+    case 'arp':
+      voice({ f: midiHz(e.midi), t, dur: spb * 0.8, vol: 0.045, type: 'square', cutoff: 1800 + I * 500, attack: 0.003, release: 0.05, toDelay: 0.55 });
+      break;
+    case 'lead':
+      voice({ f: midiHz(e.midi), t, dur: e.dur * spb * 0.95, vol: 0.065, type: 'sawtooth', detune: [-6, 6], cutoff: bright + 1200, attack: 0.02, release: 0.15, toDelay: 0.4, toVerb: 0.5, vib: 7 });
+      break;
+    default:
+  }
+}
+
+const curSong = () => (music.song === 'pecio' && music.pecio === 3 ? SONGS.pecioBoss : SONGS[music.song] || SONGS.menu);
+const variantOf = () => (music.song === 'pecio' ? music.pecio || 0 : music.biome || 0);
+
+// Pide una canción. Si ya suena, no la reinicia; si es otra, entra con un fundido corto. Funciona
+// también antes de que haya sonido (iOS lo habilita al primer toque): queda pedida y arranca entonces.
+export function musicStart(song = music.song) {
+  const changed = song !== music.song || !music.on;
+  music.song = song;
+  if (song !== 'runner') music.bpm = (SONGS[song] || SONGS.menu).bpm; // el Runner la marca él según la velocidad
   music.on = true;
+  if (!ctx || !changed) return;
   music.step = 0;
-  music.next = ctx.currentTime + 0.05;
-  musicBus.gain.setTargetAtTime(0.42, ctx.currentTime, 0.05);
+  music.next = ctx.currentTime + 0.12;
+  musicBus.gain.cancelScheduledValues(ctx.currentTime);
+  musicBus.gain.setValueAtTime(0.0001, ctx.currentTime);
+  musicBus.gain.setTargetAtTime(musicLevel(), ctx.currentTime + 0.1, 0.25);
 }
 
 export function musicStop() {
   music.on = false;
-  music.pecio = null; // los otros juegos vuelven a su música
-  music.bpm = 124;
+  music.pecio = null;
+  music.od = false;
+  music.intensity = 0;
   if (ctx) musicBus.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.1);
 }
 
@@ -200,30 +298,13 @@ function scheduler() {
   while (music.next < ctx.currentTime + 0.12) {
     playStep(music.step, music.next - ctx.currentTime);
     music.next += 60 / music.bpm / 4;
-    music.step = (music.step + 1) % 64;
+    music.step++;
   }
 }
 
 function playStep(s, when) {
-  if (when < 0) when = 0;
-  const k = s % 16;
-  const b = music.pecio != null ? PECIO_MUSIC[music.pecio] : BIOME_MUSIC[music.biome % BIOME_MUSIC.length];
-  const spb = 60 / music.bpm / 4;
-  if (k % 4 === 0) tone({ type: 'sine', f: 160, f2: 42, dur: 0.14, vol: 0.75, when, dest: musicBus, attack: 0.002 });
-  if (k % 4 === 2 || (music.intensity >= 2 && k % 2 === 1)) {
-    noise({ dur: 0.035, vol: 0.13, type: 'highpass', f: 7000, when, dest: musicBus });
-  }
-  if (music.intensity >= 1 && (k === 4 || k === 12)) {
-    noise({ dur: 0.12, vol: 0.28, type: 'bandpass', f: 1600, q: 0.8, when, dest: musicBus });
-  }
-  const n = b.bass[k];
-  if (n !== null) {
-    tone({
-      type: 'sawtooth', f: semi(b.root, n), dur: spb * 0.95, vol: 0.2, when, dest: musicBus,
-      cutoff: 350 + music.intensity * 350 + (music.od ? 2200 : 0),
-    });
-  }
-  if ((music.od || music.intensity >= 3) && k % 2 === 0) {
-    tone({ type: 'square', f: semi(b.root * 8, LEAD[(s / 2) % LEAD.length | 0]), dur: spb * 1.6, vol: 0.05, when, dest: musicBus });
-  }
+  const song = curSong(), spb = 60 / music.bpm / 4;
+  const t = ctx.currentTime + Math.max(0, when);
+  delay.delayTime.setValueAtTime(Math.min(1.4, spb * 3), t); // corchea con puntillo, al tempo
+  for (const e of stepEvents(song, s, { intensity: music.intensity, od: music.od, variant: variantOf() })) playEvent(e, t, spb);
 }
