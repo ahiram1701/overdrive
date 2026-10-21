@@ -7,7 +7,7 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK, effectiveRank, prestigeOf, prestigeBonus, canPrestige, doPrestige, PRESTIGE_REWARDS } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle } from './cosmetics.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, looksOf, saveLook, applyLook, copyLook, randomLook, resetLook, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL, unlockEarnedShips } from './upgrades.js';
@@ -780,6 +780,24 @@ export const ui = {
     const groups = [['palette', '🖌️ Pintura'], ['engine', '🔥 Motor'], ['trail', '✨ Estela'], ['aura', '🌟 Aura'], ['shot', '🔫 Disparo'], ['stripe', '🎨 Diseños'], ['cockpit', '🪟 Cabina'], ['boom', '💥 Explosión'], ['emblem', '🛡️ Emblema']];
     const cosm = $('cosmetics');
     cosm.innerHTML = '';
+    // LOOKS: 3 combinaciones guardadas, aleatorio, de serie y copiar a otra nave
+    if (owned) {
+      const looks = looksOf(save, view.id);
+      const swatch = (lk) => { const P = GROUPS.palette.find((x) => x.id === lk.palette) || GROUPS.palette[0]; return `linear-gradient(135deg, ${P.hull} 0 40%, ${P.edge || view.color} 40% 66%, ${P.glow} 66%)`; };
+      const box = el('div', 'looks', `<small>💾 LOOKS · toca uno para ponértelo; 💾 guarda ahí el que llevas</small><div class="looks-row">${looks.map((lk, i) => `<div class="look${lk ? '' : ' empty'}"><button class="look-use" data-i="${i}" ${lk ? '' : 'disabled'}><i style="background:${lk ? swatch(lk) : 'none'}"></i>LOOK ${i + 1}</button><button class="look-save" data-i="${i}" aria-label="Guardar el look ${i + 1}">💾</button></div>`).join('')}</div>
+        <div class="looks-row tools"><button id="btnLookRnd">🎲 ALEATORIO</button><button id="btnLookReset">↺ DE SERIE</button><button id="btnLookCopy">📋 COPIAR A…</button></div><div id="lookCopyTo" class="looks-row hidden"></div>`);
+      for (const b of box.querySelectorAll('.look-use')) tap(b, () => { const sk = applyLook(save, view.id, looks[+b.dataset.i]); persist(); ui.preview = null; fx.vibe(20); toast(sk > 0 ? `👕 Look ${+b.dataset.i + 1} · ${sk} pieza(s) ya no disponibles` : `👕 Look ${+b.dataset.i + 1} puesto`); ui.refreshStyle(); });
+      for (const b of box.querySelectorAll('.look-save')) tap(b, () => { saveLook(save, view.id, +b.dataset.i); persist(); fx.vibe([20, 30, 20]); toast(`💾 Guardado en el look ${+b.dataset.i + 1}`); ui.refreshStyle(); });
+      tap(box.querySelector('#btnLookRnd'), () => { randomLook(save, view.id); persist(); ui.preview = null; fx.vibe(20); ui.refreshStyle(); });
+      tap(box.querySelector('#btnLookReset'), () => { resetLook(save, view.id); persist(); ui.preview = null; fx.vibe(20); ui.refreshStyle(); });
+      tap(box.querySelector('#btnLookCopy'), () => {
+        const to = box.querySelector('#lookCopyTo'), others = save.ships.filter((id) => id !== view.id);
+        to.innerHTML = others.length ? others.map((id) => `<button data-to="${id}">${SHIPS.find((x) => x.id === id).name}</button>`).join('') : '<small>No tienes otra nave</small>';
+        to.classList.toggle('hidden');
+        for (const b of to.querySelectorAll('button')) tap(b, () => { const sk = copyLook(save, view.id, b.dataset.to); persist(); toast(`📋 Look copiado a ${b.textContent}${sk > 0 ? ` (${sk} pieza(s) no son suyas)` : ''}`); to.classList.add('hidden'); ui.refreshStyle(); });
+      });
+      cosm.appendChild(box);
+    }
     // FILTRO: todo, lo que ya puedes usar o lo que te falta (se recuerda en este dispositivo)
     const filt = cosFilter();
     const seg = el('div', 'seg cos-filter', COS_FILTERS.map(([k, name]) => `<button data-f="${k}" class="${filt === k ? 'on' : ''}">${name}</button>`).join(''));
@@ -806,7 +824,7 @@ export const ui = {
       for (const it of list) {
         const open = isOpen(it);
         const on = eq[g].id === it.id;
-        const trying = pv && pv.group === g && pv.id === it.id;
+        const trying = !!pv && pv.items?.[g] === it.id;
         let icon = '';
         if (g === 'palette') { // casco (y su segundo color), borde y brillo: las 3 a la vista
           const e = it.edge || view.color;
@@ -830,14 +848,16 @@ export const ui = {
         if (it.ship) c.style.setProperty('--sc', view.color);
         tap(c, () => {
           // lo que ya puedes usar en tu nave se equipa al momento; lo demás se PRUEBA
+          // y se pueden PROBAR VARIAS a la vez (una por grupo); tocar otra vez la que pruebas, la quita
+          const p = ui.preview?.ship === view.id ? ui.preview : (ui.preview = { ship: view.id, items: {} });
           if (open && owned) {
             equip(g, it.id, save, view.id);
             persist();
-            ui.preview = g === 'boom' ? { ship: view.id, group: g, id: it.id, equipped: true } : null;
+            delete p.items[g];
+            p.boomShow = g === 'boom';
             fx.vibe(20);
-          } else {
-            ui.preview = { ship: view.id, group: g, id: it.id };
-          }
+          } else if (p.items[g] === it.id) delete p.items[g];
+          else p.items[g] = it.id;
           if (g === 'boom') ui.boomAt = 0; // la explosión se ve al momento
           ui.refreshStyle();
         });
@@ -863,26 +883,38 @@ export const ui = {
       }
     }
     paintStyleIcons(cosm, view, eq);
-    // barra de prueba: comprar o cancelar
+    // barra de prueba: lo que estás probando (puede ser varias cosas), comprar todo o cancelar
     const bar = $('cosPreview');
-    const pit = pv && !pv.equipped && GROUPS[pv.group].find((x) => x.id === pv.id);
-    bar.classList.toggle('hidden', !pit);
+    const trial = pv ? Object.entries(pv.items || {}).map(([g, id]) => [g, GROUPS[g].find((x) => x.id === id)]).filter(([, it]) => it) : [];
+    bar.classList.toggle('hidden', !trial.length);
     bar.innerHTML = '';
-    if (pit) {
-      const u = pit.unlock || {};
-      let act;
+    if (trial.length) {
+      const buyable = owned ? trial.filter(([, it]) => it.unlock?.gems) : [];
+      const cost = buyable.reduce((n, [, it]) => n + it.unlock.gems, 0);
+      const locks = trial.filter(([, it]) => !it.unlock?.gems);
+      let act = '';
       if (!owned) act = '<small>Compra la nave para personalizarla</small>';
-      else if (u.gems) act = `<button class="btn" id="btnCosBuy" ${save.gems < u.gems ? 'disabled' : ''}>COMPRAR · 💎 ${u.gems}</button>`;
-      else act = `<small>🔒 ${u.stat ? `Exclusivo: ${lockText(pit, save, view.id)} con ${view.name}` : `Se desbloquea con ${lockText(pit)}`}</small>`;
-      bar.innerHTML = `<div class="pv-name">PROBANDO: <b>${pit.name}</b></div>${act}<button class="btn ghost" id="btnCosCancel">CANCELAR</button>`;
+      else if (buyable.length) act = `<button class="btn" id="btnCosBuy" ${save.gems < Math.min(...buyable.map(([, it]) => it.unlock.gems)) ? 'disabled' : ''}>${buyable.length > 1 ? 'COMPRAR TODO' : 'COMPRAR'} · 💎 ${cost}</button>`;
+      const why = owned && locks.length ? `<small>🔒 ${locks.map(([, it]) => `${it.name}: ${it.unlock?.stat ? `${lockText(it, save, view.id)} con ${view.name}` : lockText(it)}`).join(' · ')}</small>` : '';
+      bar.innerHTML = `<div class="pv-name">PROBANDO: <b>${trial.map(([, it]) => it.name).join(' + ')}</b></div>`
+        + (trial.length > 1 ? `<div class="pv-items">${trial.map(([g, it]) => `<button class="pv-x" data-g="${g}">${it.name} ✕</button>`).join('')}</div>` : '')
+        + `${act}${why}<button class="btn ghost" id="btnCosCancel">${trial.length > 1 ? 'QUITAR TODO' : 'CANCELAR'}</button>`;
       tap($('btnCosCancel'), () => { ui.preview = null; ui.refreshStyle(); });
+      for (const x of bar.querySelectorAll('.pv-x')) tap(x, () => { delete pv.items[x.dataset.g]; ui.refreshStyle(); });
       $('btnCosBuy') && tap($('btnCosBuy'), () => {
-        if (!buyCosmetic(pit, save, view.id)) return;
-        equip(pv.group, pit.id, save, view.id);
+        // compra lo que te alcance, en orden; lo demás se sigue probando
+        let got = 0;
+        for (const [g, it] of buyable) {
+          if (!buyCosmetic(it, save, view.id)) continue;
+          equip(g, it.id, save, view.id);
+          delete pv.items[g];
+          got++;
+        }
+        if (!got) return;
         persist();
         sfx.chest();
         fx.vibe([30, 40, 80]);
-        ui.preview = null;
+        if (!Object.keys(pv.items).length) ui.preview = null;
         ui.refreshStyle();
       });
     }
@@ -2628,8 +2660,13 @@ export const ui = {
     const lk = equipped(save, shipId);
     const pv = ui.preview;
     if (pv && pv.ship === shipId) {
-      lk[pv.group] = GROUPS[pv.group].find((x) => x.id === pv.id) || lk[pv.group];
-      if (pv.group === 'palette' || pv.group === 'engine') lk.palette = tintEngine(pv.group === 'palette' ? lk.palette : lk.basePalette, lk.engine);
+      for (const [g, id] of Object.entries(pv.items || {})) {
+        const it = GROUPS[g].find((x) => x.id === id);
+        if (!it) continue;
+        lk[g] = it;
+        if (g === 'palette') lk.basePalette = it;
+      }
+      lk.palette = tintEngine(lk.basePalette, lk.engine);
     }
     return lk;
   },
@@ -2682,7 +2719,7 @@ export const ui = {
       const sx = w / 2, sy = h * 0.52, size = h * 0.42 * (s.zoom || 1);
       // EXPLOSIÓN: al probarla, la nave estalla y se vuelve a montar (cada 2,4 s mientras la pruebes)
       const pv = ui.preview;
-      const boomOn = pv && pv.ship === s.ship.id && pv.group === 'boom';
+      const boomOn = pv && pv.ship === s.ship.id && (pv.items?.boom || pv.boomShow);
       if (boomOn && (!ui.boomAt || now - ui.boomAt > 2400)) {
         ui.boomAt = now;
         boomFx(parts, lk.boom.id, sx, sy, edge, s.ship.color, 0.32 * dpr);

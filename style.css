@@ -1139,3 +1139,22 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 /* ESTILO: iconos en mini lienzo (diseños, cabinas, estelas y explosiones) */
 .cos canvas.sw-cv { width: 44px; height: 28px; display: block; border-radius: 6px; background: rgba(0,0,0,.35); }
 .cos svg path:not([stroke-width]) { stroke: none; } /* sin trazo: el grosor 1 se comía la forma del emblema */
+
+/* ESTILO · LOOKS guardados y barra de prueba con varias cosas */
+.looks { width: 100%; display: flex; flex-direction: column; gap: 6px; margin-bottom: 4px; }
+.looks > small { font: 900 11px var(--font); letter-spacing: 1px; color: var(--muted); }
+.looks-row { display: flex; gap: 6px; }
+.looks-row.hidden { display: none; }
+.look { flex: 1; display: flex; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: var(--panel); overflow: hidden; }
+.look button { border: 0; background: transparent; color: #fff; font: 900 12px var(--font); padding: 8px 4px; }
+.look .look-use { flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; }
+.look .look-use i { width: 18px; height: 18px; border-radius: 5px; box-shadow: 0 0 0 1px rgba(255,255,255,.3); }
+.look.empty .look-use { color: var(--muted); }
+.look .look-save { width: 34px; border-left: 1px solid rgba(255,255,255,.12); }
+.looks-row.tools button, #lookCopyTo button { flex: 1; padding: 8px 4px; border-radius: 10px; border: 1px solid rgba(255,255,255,.18); background: var(--panel); color: #fff; font: 900 11px var(--font); }
+#lookCopyTo { flex-wrap: wrap; }
+#lookCopyTo button { flex: 0 0 auto; padding: 7px 10px; border-color: var(--cyan); }
+.pv-items { width: 100%; display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; }
+.pv-x { padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; font: 800 11px var(--font); }
+/* con la barra de prueba abierta, los avisos salen por encima de ella (no la tapan) */
+body:has(#cosPreview:not(.hidden)) .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 250px); }
