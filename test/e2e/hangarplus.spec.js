@@ -146,3 +146,51 @@ test('ESTILO: filtro TODO / MÍO / POR CONSEGUIR y aviso cuando puedes comprar a
   expect(lockedOnly.all - lockedOnly.locked).toBeLessThanOrEqual(9);
   expect(errors).toEqual([]);
 });
+
+test('ESTILO: tocar estilos no mueve nada (ni el orden, ni las filas, ni la página)', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, ship: 'viper', ships: ['viper'], gems: 500, xp: 60000 })), SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { document.getElementById('btnHangar').click(); document.querySelector('#hTabs [data-tab="estilo"]').click(); });
+  await page.evaluate(() => { document.getElementById('hangar').scrollTop = 400; document.querySelector('.cos-chips[data-group="palette"]').scrollLeft = 250; });
+  await page.waitForTimeout(500);
+  const snap = () => page.evaluate(() => ({
+    top: document.getElementById('hangar').scrollTop,
+    rows: [...document.querySelectorAll('.cos-chips')].map((r) => r.scrollLeft).join(),
+    pos: [...document.querySelectorAll('#cosmetics .cos')].map((c) => `${c.dataset.cos}@${Math.round(c.getBoundingClientRect().left)},${Math.round(c.getBoundingClientRect().top)}`).join('|'),
+  }));
+  const s0 = await snap();
+  const ids = await page.evaluate(() => [...document.querySelectorAll('.cos-chips[data-group="palette"] .cos')].slice(2, 5).map((c) => c.dataset.cos));
+  for (const id of ids) {
+    await page.evaluate((x) => document.querySelector(`[data-cos="${x}"]`).click(), id);
+    await page.waitForTimeout(120);
+    expect(await snap()).toEqual(s0);
+  }
+  expect(errors).toEqual([]);
+});
+
+test('vista 3D del hangar: se gira en cualquier dirección y el doble toque la devuelve', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, ship: 'viper', ships: ['viper'] })), SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => document.getElementById('btnHangar').click());
+  await page.waitForTimeout(300);
+  const hv = () => page.evaluate(async () => { const { ui } = await import('/js/ui.js'); return { yaw: ui._hv.yaw, pitch: ui._hv.pitch, zoom: ui._hv.zoom }; });
+  const box = await page.locator('#hangarView').boundingBox();
+  const a = await hv();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 8; i++) await page.mouse.move(box.x + box.width / 2 + i * 5, box.y + box.height / 2 + i * 6);
+  await page.mouse.up();
+  const b = await hv();
+  expect(Math.abs(b.yaw - a.yaw)).toBeGreaterThan(0.3);
+  expect(b.pitch - a.pitch).toBeGreaterThan(0.3);
+  await page.mouse.click(box.x + 30, box.y + 30);
+  await page.mouse.click(box.x + 30, box.y + 30);
+  const c = await hv();
+  expect(c.pitch).toBeCloseTo(-0.42, 2);
+  expect(c.zoom).toBe(1);
+  expect(errors).toEqual([]);
+});
