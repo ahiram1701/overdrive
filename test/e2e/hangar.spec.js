@@ -173,11 +173,11 @@ test('emblema: posición y color por nave, se guardan', async ({ page }) => {
   await page.reload();
   const eq = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)).cosmetics.equip.viper, SAVE);
   expect(eq).toMatchObject({ emblem: 'star', emblemAt: 'cola', emblemColor: 'cyan' });
-  // sin emblema no hay opciones de estilo
+  // sin emblema, las opciones de estilo se quedan (apagadas): así no salta la lista
   await page.locator('#btnHangar').click();
   await page.locator('#hTabs [data-tab="estilo"]').click();
   await page.locator('[data-cos="emblem:none"]').click();
-  await expect(page.locator('.cos-style')).toHaveCount(0);
+  await expect(page.locator('.cos-style')).toHaveClass(/off/);
   expect(errors).toEqual([]);
 });
 

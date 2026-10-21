@@ -94,6 +94,68 @@ function el(tag, cls, html) {
 
 // ¿Hay un diálogo abierto que pausa la partida? Se cura solo: si el diálogo ya no se ve (otra
 // pantalla lo tapó), deja de pausar, así la partida nunca se queda congelada sin él.
+// GIRO LIBRE de una vista 3D: arrastra en cualquier dirección (con inercia), pellizca o usa la rueda
+// para acercar y toca dos veces para volver al principio. Si no la tocas en 3 s, vuelve a girar sola.
+const ORBIT0 = { yaw: 0.6, pitch: -0.42, zoom: 1 };
+function orbitControl(cv, st) {
+  Object.assign(st, { ...ORBIT0, vy: 0, vp: 0, idle: 9, touching: 0, ...st });
+  const pts = new Map();
+  let pinch = null, lastTap = 0, moved = 0, lastT = 0;
+  cv.addEventListener('pointerdown', (e) => {
+    pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    try { cv.setPointerCapture(e.pointerId); } catch { /* ya no está */ }
+    st.touching = pts.size;
+    st.idle = 0;
+    st.vy = st.vp = 0;
+    moved = 0;
+    lastT = e.timeStamp;
+    if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a.x - b.x, a.y - b.y) || 1, z: st.zoom }; }
+  });
+  cv.addEventListener('pointermove', (e) => {
+    const p = pts.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX;
+    p.y = e.clientY;
+    moved += Math.abs(dx) + Math.abs(dy);
+    if (pts.size >= 2 && pinch) { // PELLIZCO: acercar o alejar
+      const [a, b] = [...pts.values()];
+      st.zoom = Math.min(1.8, Math.max(0.6, pinch.z * Math.hypot(a.x - b.x, a.y - b.y) / pinch.d));
+      return;
+    }
+    const dt = Math.max(0.008, (e.timeStamp - lastT) / 1000);
+    lastT = e.timeStamp;
+    st.yaw += dx * 0.012;
+    st.pitch += dy * 0.012;
+    // velocidad para la inercia (suavizada: un último movimiento brusco no la dispara)
+    st.vy = st.vy * 0.6 + ((dx * 0.012) / dt) * 0.4;
+    st.vp = st.vp * 0.6 + ((dy * 0.012) / dt) * 0.4;
+  });
+  const up = (e) => {
+    if (!pts.delete(e.pointerId)) return;
+    st.touching = pts.size;
+    if (pts.size < 2) pinch = null;
+    if (e.timeStamp - lastT > 90) st.vy = st.vp = 0; // soltó quieto: sin inercia
+    if (moved < 8) { // DOBLE TOQUE: a la vista del principio
+      if (e.timeStamp - lastTap < 320) { Object.assign(st, ORBIT0, { vy: 0, vp: 0 }); lastTap = 0; } else lastTap = e.timeStamp;
+    }
+  };
+  cv.addEventListener('pointerup', up);
+  cv.addEventListener('pointercancel', up);
+  cv.addEventListener('wheel', (e) => { e.preventDefault(); st.zoom = Math.min(1.8, Math.max(0.6, st.zoom * Math.exp(-e.deltaY * 0.0015))); st.idle = 0; }, { passive: false });
+}
+// cada fotograma: inercia que se apaga y, tras 3 s sin tocarla, el giro solo
+function orbitStep(st, dt, spin) {
+  if (st.touching) return;
+  st.idle += dt;
+  st.yaw += st.vy * dt;
+  st.pitch += st.vp * dt;
+  const k = Math.exp(-dt * 3.2);
+  st.vy *= k;
+  st.vp *= k;
+  if (st.idle > 3) st.yaw += dt * spin * Math.min(1, st.idle - 3);
+}
+
 // HANGAR · ESTILO: filtro de la lista (recordado en el dispositivo; si no hay almacenamiento, "todo")
 const COS_FILTERS = [['all', 'TODO'], ['mine', 'MÍO'], ['locked', 'POR CONSEGUIR']];
 let cosFilterMem = 'all';
@@ -650,7 +712,40 @@ export const ui = {
     // vista 3D: la nave girando (arrastra para girarla)
     ui.startHangarView(view);
 
-    // personalizar: lo de ESTA nave. Tocar algo lo prueba en la vista 3D; comprar es aparte.
+    ui.renderStyle(view, owned);
+
+    // GALAXIA: cómo vuela esta nave allí y las mejoras de la nave espacial (con créditos)
+    ui.renderGalTab(view);
+
+    ui.updateHangarDots(view, owned);
+    for (const panel of $('hangar').querySelectorAll('.tab-panel')) panel.classList.toggle('hidden', panel.dataset.panel !== ui.hangarTab);
+    show('hangar');
+    // volver a dejarlo todo donde estaba
+    if (sameView) {
+      $('hangar').scrollTop = keepTop;
+      for (const r of $('cosmetics').querySelectorAll('.cos-chips')) if (keepRows[r.dataset.group] !== undefined) r.scrollLeft = keepRows[r.dataset.group];
+    }
+    // cabecera compacta al bajar (con margen para que no parpadee en el límite)
+    if (!$('hangar').dataset.scrollReady) {
+      $('hangar').dataset.scrollReady = '1';
+      $('hangar').addEventListener('scroll', () => {
+        const h = $('hangar'), top = h.scrollTop, hd = h.querySelector('.hangar-top');
+        if (top > 60 && !hd.classList.contains('compact')) {
+          // lo que encoge la cabecera se reserva abajo: si no, la página deja de desbordar,
+          // el navegador la devuelve arriba y la cabecera vuelve a crecer (el "rebote")
+          const lost = $('shipCarousel').offsetHeight + Math.max(0, $('hangarView').offsetHeight - 90);
+          h.style.setProperty('--hspace', `${lost}px`);
+          hd.classList.add('compact');
+        } else if (top < 10 && hd.classList.contains('compact')) {
+          hd.classList.remove('compact');
+          h.style.setProperty('--hspace', '0px');
+        }
+      }, { passive: true });
+    }
+  },
+
+  // ESTILO: la lista de personalización de ESTA nave (tocar algo lo prueba o lo equipa; comprar es aparte)
+  renderStyle(view, owned) {
     $('cosTitle').textContent = `Personalizar · ${view.name}`;
     const eq = equipped(save, view.id);
     const pv = ui.preview?.ship === view.id ? ui.preview : null;
@@ -660,15 +755,23 @@ export const ui = {
     // FILTRO: todo, lo que ya puedes usar o lo que te falta (se recuerda en este dispositivo)
     const filt = cosFilter();
     const seg = el('div', 'seg cos-filter', COS_FILTERS.map(([k, name]) => `<button data-f="${k}" class="${filt === k ? 'on' : ''}">${name}</button>`).join(''));
-    for (const b of seg.querySelectorAll('button')) tap(b, () => { cosFilter(b.dataset.f); ui.showHangar(); });
+    for (const b of seg.querySelectorAll('button')) tap(b, () => { cosFilter(b.dataset.f); ui._cosOrder = null; ui.refreshStyle(); });
     cosm.appendChild(seg);
+    // ORDEN FIJO mientras estás en esta nave: lo tuyo y luego lo bloqueado. Equipar, probar o comprar
+    // no cambia el sitio de nada (así se pueden ir probando una tras otra sin que se muevan)
+    const key = `${view.id}|${filt}`;
+    if (!ui._styleKeep || !ui._cosOrder || ui._cosOrder.key !== key) {
+      ui._cosOrder = { key, g: {} };
+      for (const [g] of groups) {
+        const all = itemsFor(g, view.id), isOpen = (it) => isUnlocked(it, save, view.id);
+        ui._cosOrder.g[g] = all.map((it, k) => [it, k]).sort((x, y) => (isOpen(x[0]) ? 0 : 1) - (isOpen(y[0]) ? 0 : 1) || x[1] - y[1]).map(([it]) => it)
+          .filter((it) => filt === 'all' || (filt === 'mine' ? isOpen(it) : !isOpen(it)) || eq[g].id === it.id).map((it) => it.id);
+      }
+    }
     for (const [g, label] of groups) {
       const all = itemsFor(g, view.id), isOpen = (it) => isUnlocked(it, save, view.id);
       const mine = all.filter(isOpen).length;
-      // orden: lo equipado, luego lo tuyo y al final lo bloqueado
-      const rank = (it) => (eq[g].id === it.id ? 0 : isOpen(it) ? 1 : 2);
-      const list = all.map((it, k) => [it, k]).sort((a, b) => rank(a[0]) - rank(b[0]) || a[1] - b[1]).map(([it]) => it)
-        .filter((it) => filt === 'all' || (filt === 'mine' ? isOpen(it) : !isOpen(it)) || eq[g].id === it.id);
+      const list = ui._cosOrder.g[g].map((id) => all.find((x) => x.id === id)).filter(Boolean);
       const row = el('div', 'cos-row', `<small>${label} <i class="cos-count">${mine}/${all.length}</i></small>`);
       const chips = el('div', 'cos-chips');
       chips.dataset.group = g;
@@ -699,7 +802,6 @@ export const ui = {
         c.dataset.cos = `${g}:${it.id}`;
         if (it.ship) c.style.setProperty('--sc', view.color);
         tap(c, () => {
-          ui._lastGroup = g; // su fila mantiene a la vista lo que acabas de tocar
           // lo que ya puedes usar en tu nave se equipa al momento; lo demás se PRUEBA
           if (open && owned) {
             equip(g, it.id, save, view.id);
@@ -710,15 +812,15 @@ export const ui = {
             ui.preview = { ship: view.id, group: g, id: it.id };
           }
           if (g === 'boom') ui.boomAt = 0; // la explosión se ve al momento
-          ui.showHangar();
+          ui.refreshStyle();
         });
         chips.appendChild(c);
       }
       if (!list.length) chips.appendChild(el('small', 'cos-empty', filt === 'mine' ? 'Aún no tienes ninguno' : '¡Los tienes todos!'));
       row.appendChild(chips);
       cosm.appendChild(row);
-      if (g === 'emblem' && eq.emblem.id !== 'none' && owned) {
-        const style = el('div', 'cos-style');
+      if (g === 'emblem' && owned) {
+        const style = el('div', `cos-style${eq.emblem.id === 'none' ? ' off' : ''}`);
         style.innerHTML = `<div class="seg">${EMBLEM_AT.map(([k, name]) => `<button data-at="${k}" class="${eq.emblemAt === k ? 'on' : ''}">${name}</button>`).join('')}</div>
           <div class="swatches">${Object.entries(EMBLEM_COLORS).map(([k, hex]) => `<button data-color="${k}" class="${eq.emblemColor === k ? 'on' : ''}" aria-label="${k}"
             style="background:${hex || `conic-gradient(${eq.palette.glow} 0 50%, ${eq.palette.edge || view.color} 0)`}"></button>`).join('')}</div>`;
@@ -727,7 +829,7 @@ export const ui = {
             setEmblemStyle(save, view.id, { at: b.dataset.at, color: b.dataset.color });
             persist();
             fx.vibe(15);
-            ui.showHangar();
+            ui.refreshStyle();
           });
         }
         cosm.appendChild(style);
@@ -745,7 +847,7 @@ export const ui = {
       else if (u.gems) act = `<button class="btn" id="btnCosBuy" ${save.gems < u.gems ? 'disabled' : ''}>COMPRAR · 💎 ${u.gems}</button>`;
       else act = `<small>🔒 ${u.stat ? `Exclusivo: ${lockText(pit, save, view.id)} con ${view.name}` : `Se desbloquea con ${lockText(pit)}`}</small>`;
       bar.innerHTML = `<div class="pv-name">PROBANDO: <b>${pit.name}</b></div>${act}<button class="btn ghost" id="btnCosCancel">CANCELAR</button>`;
-      tap($('btnCosCancel'), () => { ui.preview = null; ui.showHangar(); });
+      tap($('btnCosCancel'), () => { ui.preview = null; ui.refreshStyle(); });
       $('btnCosBuy') && tap($('btnCosBuy'), () => {
         if (!buyCosmetic(pit, save, view.id)) return;
         equip(pv.group, pit.id, save, view.id);
@@ -753,14 +855,35 @@ export const ui = {
         sfx.chest();
         fx.vibe([30, 40, 80]);
         ui.preview = null;
-        ui.showHangar();
+        ui.refreshStyle();
       });
     }
+  },
 
-    // GALAXIA: cómo vuela esta nave allí y las mejoras de la nave espacial (con créditos)
-    ui.renderGalTab(view);
+  // Repintado LIGERO tras tocar algo de ESTILO: solo la lista, la barra de prueba, las gemas, los avisos
+  // y la miniatura de la nave. Nada se mueve: ni la página, ni las filas, ni el orden.
+  refreshStyle() {
+    const view = SHIPS.find((x) => x.id === ui.hangarView) || SHIPS[0], owned = save.ships.includes(view.id);
+    const h = $('hangar'), top = h.scrollTop, rows = {};
+    for (const r of $('cosmetics').querySelectorAll('.cos-chips')) rows[r.dataset.group] = r.scrollLeft;
+    ui._styleKeep = true;
+    ui.renderStyle(view, owned);
+    ui._styleKeep = false;
+    for (const r of $('cosmetics').querySelectorAll('.cos-chips')) if (rows[r.dataset.group] !== undefined) r.scrollLeft = rows[r.dataset.group];
+    h.scrollTop = top;
+    $('hGems').textContent = fmt(save.gems);
+    ui.updateHangarDots(view, owned);
+    // la miniatura del carrusel, con el estilo nuevo (sin rehacer el carrusel)
+    const chip = $('shipCarousel').querySelector('.ship-chip.viewing canvas');
+    if (chip) {
+      const c = chip.getContext('2d'), lk = equipped(save, view.id);
+      c.clearRect(0, 0, chip.width, chip.height);
+      drawShip(c, view.id, { ...lk.palette, edge: lk.palette.edge || view.color }, 48, 34, 34, { yaw: 0.5, pitch: -0.5 }, { line: 1.2, ...emblemOpts(lk) });
+    }
+  },
 
-    // pestañas: solo se ve la activa; un puntito avisa de que hay algo que ya puedes comprar
+  // pestañas: un puntito avisa de que hay algo que ya puedes comprar
+  updateHangarDots(view, owned) {
     const lvNow = shipLvls(save.shipLvl, view.id);
     const treeBuy = owned && (['a', 'b', 'c'].some((k) => lvNow[k] < TREE_LEVELS && save.gems >= TREE_COSTS[k][lvNow[k]]) || (canMaster(lvNow) && save.gems >= MASTERY_COST));
     const dots = {
@@ -773,40 +896,6 @@ export const ui = {
       b.classList.toggle('on', b.dataset.tab === ui.hangarTab);
       b.classList.toggle('dot', !!dots[b.dataset.tab]);
       b.setAttribute('aria-selected', b.dataset.tab === ui.hangarTab);
-    }
-    for (const panel of $('hangar').querySelectorAll('.tab-panel')) panel.classList.toggle('hidden', panel.dataset.panel !== ui.hangarTab);
-    show('hangar');
-    // volver a dejarlo todo donde estaba
-    if (sameView) {
-      $('hangar').scrollTop = keepTop;
-      for (const r of $('cosmetics').querySelectorAll('.cos-chips')) {
-        if (keepRows[r.dataset.group] !== undefined) r.scrollLeft = keepRows[r.dataset.group];
-        // la fila que tocaste: que se vea lo elegido, moviendo solo la fila
-        if (r.dataset.group === ui._lastGroup) {
-          const sel = r.querySelector('.cos.trying') || r.querySelector('.cos.on');
-          if (sel && (sel.offsetLeft < r.scrollLeft || sel.offsetLeft + sel.offsetWidth > r.scrollLeft + r.clientWidth)) {
-            r.scrollLeft = sel.offsetLeft - (r.clientWidth - sel.offsetWidth) / 2;
-          }
-        }
-      }
-    }
-    ui._lastGroup = null;
-    // cabecera compacta al bajar (con margen para que no parpadee en el límite)
-    if (!$('hangar').dataset.scrollReady) {
-      $('hangar').dataset.scrollReady = '1';
-      $('hangar').addEventListener('scroll', () => {
-        const h = $('hangar'), top = h.scrollTop, hd = h.querySelector('.hangar-top');
-        if (top > 60 && !hd.classList.contains('compact')) {
-          // lo que encoge la cabecera se reserva abajo: si no, la página deja de desbordar,
-          // el navegador la devuelve arriba y la cabecera vuelve a crecer (el "rebote")
-          const lost = $('shipCarousel').offsetHeight + Math.max(0, $('hangarView').offsetHeight - 90);
-          h.style.setProperty('--hspace', `${lost}px`);
-          hd.classList.add('compact');
-        } else if (top < 10 && hd.classList.contains('compact')) {
-          hd.classList.remove('compact');
-          h.style.setProperty('--hspace', '0px');
-        }
-      }, { passive: true });
     }
   },
 
@@ -864,10 +953,8 @@ export const ui = {
       tap($('expoPrev'), () => go(-1));
       tap($('expoNext'), () => go(1));
       tap($('expoCompare'), () => { ui._expo.compare = !ui._expo.compare; ui.fillExpo(); });
-      const cv = $('expoView');
-      let x0 = null;
-      cv.addEventListener('pointerdown', (e) => { x0 = e.clientX; });
-      cv.addEventListener('pointerup', (e) => { if (x0 !== null && Math.abs(e.clientX - x0) > 40) go(e.clientX < x0 ? 1 : -1); x0 = null; });
+      ui._expoOrb = { pitch: -0.3 };
+      orbitControl($('expoView'), ui._expoOrb);
     }
     show('expo');
     ui.fillExpo();
@@ -902,7 +989,8 @@ export const ui = {
       const dt = Math.min(0.05, (now - last) / 1000);
       last = now;
       const e = ui._expo;
-      e.yaw += dt * 0.6;
+      orbitStep(ui._expoOrb, dt, 0.6);
+      e.yaw = ui._expoOrb.yaw;
       const dpr = Math.min(devicePixelRatio || 1, 2);
       const W = cv.clientWidth || 360, H = cv.clientHeight || 400;
       if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
@@ -921,7 +1009,7 @@ export const ui = {
       const ships = e.cmp ? [[SHIPS[e.idx], w * 0.28], [e.cmp, w * 0.72]] : [[SHIPS[e.idx], w / 2]];
       for (const [sh, x] of ships) {
         const lk = ui.lookOf(sh.id), pal = lk.palette, edge = pal.edge || sh.color;
-        const size = Math.min(w, h) * (e.cmp ? 0.2 : 0.3);
+        const size = Math.min(w, h) * (e.cmp ? 0.2 : 0.3) * ui._expoOrb.zoom;
         const py = hy + size * 0.15;
         // foco desde arriba
         const sp = c.createLinearGradient(0, 0, 0, py);
@@ -939,7 +1027,7 @@ export const ui = {
           c.beginPath(); c.arc(x + Math.cos(ang) * size * 0.95, py + Math.sin(ang) * size * 0.22, 2 * dpr, 0, Math.PI * 2); c.fill();
         }
         const shipY = py - size * 0.95 + Math.sin(now / 700) * size * 0.05;
-        const rot = { yaw: e.yaw, pitch: -0.3, roll: 0 };
+        const rot = { yaw: e.yaw, pitch: ui._expoOrb.pitch, roll: 0 };
         // reflejo aplastado en el suelo pulido (solo por debajo de la plataforma)
         c.save();
         c.beginPath();
@@ -2527,27 +2615,10 @@ export const ui = {
     cv.width = W * dpr;
     cv.height = H * dpr;
     // el estado se conserva entre repintados (giro, destello); el canvas es siempre el mismo
-    ui._hv = { yaw: 0.6, drag: null, spin: 0.7, flash: 0, boost: 0, ...ui._hv, ship };
+    ui._hv = Object.assign(ui._hv || { spin: 0.7, flash: 0, boost: 0 }, { ship }); // el MISMO objeto: el control de giro lo usa
     if (!cv.dataset.ready) {
       cv.dataset.ready = '1';
-      // solo se gira arrastrando DE LADO; arriba/abajo lo coge el navegador para desplazar la página
-      let start = null;
-      cv.addEventListener('pointerdown', (e) => { start = { x: e.clientX, y: e.clientY, id: e.pointerId }; });
-      cv.addEventListener('pointermove', (e) => {
-        if (start && ui._hv.drag === null) {
-          const dx = e.clientX - start.x, dy = e.clientY - start.y;
-          if (Math.abs(dx) > 6 && Math.abs(dx) > Math.abs(dy)) {
-            ui._hv.drag = e.clientX;
-            try { cv.setPointerCapture(start.id); } catch { /* ya no está */ }
-          } else return;
-        }
-        if (ui._hv.drag === null) return;
-        ui._hv.yaw += (e.clientX - ui._hv.drag) * 0.012;
-        ui._hv.drag = e.clientX;
-      });
-      const end = () => { ui._hv.drag = null; start = null; };
-      cv.addEventListener('pointerup', end);
-      cv.addEventListener('pointercancel', end);
+      orbitControl(cv, ui._hv);
     }
     if (ui._hvRunning) return;
     ui._hvRunning = true;
@@ -2557,7 +2628,7 @@ export const ui = {
       if (G.mode !== 'hangar' || !view || $('hangar').classList.contains('hidden')) { ui._hvRunning = false; return; }
       const s = ui._hv, dt = Math.min(0.05, (now - last) / 1000);
       last = now;
-      if (s.drag === null) s.yaw += dt * s.spin;
+      orbitStep(s, dt, s.spin);
       // vuelta rápida al comprar una mejora
       if (s.boost > 0) {
         const d = Math.min(s.boost, dt * 9);
@@ -2580,7 +2651,7 @@ export const ui = {
       const lk = ui.lookOf(s.ship.id);
       const pal = lk.palette, edge = pal.edge || s.ship.color;
       const parts = (ui._hvParts ||= makeParticles());
-      const sx = w / 2, sy = h * 0.52, size = h * 0.42;
+      const sx = w / 2, sy = h * 0.52, size = h * 0.42 * (s.zoom || 1);
       // EXPLOSIÓN: al probarla, la nave estalla y se vuelve a montar (cada 2,4 s mientras la pruebes)
       const pv = ui.preview;
       const boomOn = pv && pv.ship === s.ship.id && pv.group === 'boom';
@@ -2592,7 +2663,7 @@ export const ui = {
       if (!(boomOn && now - ui.boomAt < 1000)) {
         auraFx(c, lk.aura.id, sx, sy, size * 0.85, now / 1000);
         drawShip(c, s.ship.id, { ...pal, edge }, sx, sy, size,
-          { yaw: s.yaw, pitch: -0.42 + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, ...emblemOpts(lk) });
+          { yaw: s.yaw, pitch: s.pitch + Math.sin(now / 900) * 0.05, roll: Math.sin(now / 700) * 0.08 }, { line: 1.5 * dpr, ...emblemOpts(lk) });
         // ESTELA: la de la nave (o la que estés probando), saliendo hacia abajo
         trailFx(parts, c, lk.trail.id, sx, sy + size * 0.1, size * 1.2, pal.glow, 30, now / 1000);
       }
