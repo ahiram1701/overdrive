@@ -200,12 +200,17 @@
   </section>
 
   <section id="expo" class="overlay hidden expo">
-    <canvas id="expoView" aria-label="Exposición: desliza para cambiar de nave"></canvas>
+    <canvas id="expoView" aria-label="Exposición: arrastra para girar la nave, pellizca para acercar, toca dos veces para volver"></canvas>
     <div class="expo-info"><b id="expoName"></b><small id="expoSub"></small></div>
     <div class="expo-nav">
       <button id="expoPrev" aria-label="Anterior">‹</button>
       <button class="btn" id="expoCompare">⚖️ COMPARAR</button>
       <button id="expoNext" aria-label="Siguiente">›</button>
+    </div>
+    <div class="expo-acts">
+      <button id="expoFly" class="expo-tog">✈️ VUELO</button>
+      <button class="btn" id="expoAct">EQUIPAR</button>
+      <button id="expoMine" class="expo-tog">SOLO MÍAS</button>
     </div>
     <div id="expoStats" class="expo-stats"></div>
   </section>

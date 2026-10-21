@@ -484,7 +484,9 @@ Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
   - La cabecera con el carrusel y la **vista 3D queda fija**: ves la nave mientras la mejoras o la personalizas.
   - Un puntito avisa de qué pestaña tiene algo que ya puedes comprar.
 - **Vista 3D:** la nave gira en el hangar (arrástrala para girarla) con su pintura, su emblema y su estela; al comprar una mejora destella y da una vuelta.
-- **🏛️ EXPOSICIÓN:** tu nave a pantalla completa sobre una plataforma giratoria, con focos y reflejo. Desliza para ver otra y pulsa **COMPARAR** para ponerla junto a la equipada con sus barras.
+- **Vista 3D libre:** arrastra la nave en cualquier dirección (con inercia), pellizca para acercar y toca dos veces para volver.
+- **ESTILO:** probar varias cosas a la vez y **COMPRAR TODO**, 3 **looks** guardados por nave, copiar el look a otra nave, 🎲 aleatorio y ↺ de serie. Filtro TODO · MÍO · POR CONSEGUIR, e iconos con el efecto real (diseños, cabinas, estelas y explosiones). Al probar, nada cambia de sitio.
+- **🏛️ EXPOSICIÓN:** tu nave a pantalla completa sobre una plataforma giratoria, con focos y reflejo, y giro libre. **✈️ VUELO** la pone a volar, disparando con su color, con su estela y su explosión. **COMPARAR** la pone junto a la equipada, **SOLO MÍAS** se salta las que no tienes, y desde ahí puedes **equiparla o comprarla**.
 - **Nombre propio:** ✏️ en la ficha. Se ve en el hangar, la exposición y la estación de la Galaxia.
 - **Personalización por nave:** cada nave lleva su propia **pintura, color del motor, estela, aura, color de disparo, explosión y emblema**.
   - Lo que compras con gemas vale **solo para esa nave**. Lo que da el rango o un logro vale para todas.

@@ -759,7 +759,7 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .gal-tab h3 { margin: var(--sp-3) 0 var(--sp-2); text-align: left; }
 .st-ship { color: var(--cyan); font-size: 13px; }
 .expo { padding: 0 0 var(--sp-3); background: #05010d; }
-.expo #expoView { width: 100%; height: 52vh; display: block; touch-action: pan-y; }
+.expo #expoView { width: 100%; height: 52vh; display: block; touch-action: none; }
 .expo-info { text-align: center; margin-top: calc(-1 * var(--sp-4)); }
 .expo-info b { display: block; font: italic 900 26px var(--font); text-shadow: 0 0 12px var(--pink); }
 .expo-info small { color: var(--muted); font-size: 13px; }
@@ -1158,3 +1158,9 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 .pv-x { padding: 4px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); background: transparent; color: #fff; font: 800 11px var(--font); }
 /* con la barra de prueba abierta, los avisos salen por encima de ella (no la tapan) */
 body:has(#cosPreview:not(.hidden)) .toast { bottom: calc(env(safe-area-inset-bottom, 0px) + 250px); }
+
+/* EXPO: vuelo, equipar o comprar, y solo las mías */
+.expo-acts { display: flex; align-items: center; justify-content: center; gap: 8px; width: min(420px, calc(100% - 32px)); margin-bottom: var(--sp-2); }
+.expo-acts .btn { flex: 1; margin: 0; padding: 10px 6px; font-size: 13px; }
+.expo-tog { padding: 10px 10px; border-radius: 12px; border: 1px solid rgba(255,255,255,.3); background: rgba(0,0,0,.4); color: #fff; font: 900 12px var(--font); white-space: nowrap; }
+.expo-tog.on { background: var(--cyan); color: #000; border-color: var(--cyan); }

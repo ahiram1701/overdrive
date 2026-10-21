@@ -215,3 +215,35 @@ test('ESTILO: probar varias cosas a la vez y COMPRAR TODO; looks guardados', asy
   expect(back).toBe('stock');
   expect(errors).toEqual([]);
 });
+
+test('EXPO: VUELO, SOLO MÍAS y EQUIPAR / COMPRAR desde la exposición', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, ship: 'viper', ships: ['viper', 'brick'], gems: 400 })), SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { document.getElementById('btnHangar').click(); document.getElementById('btnExpo').click(); });
+  await expect(page.locator('#expoAct')).toHaveText('EN USO');
+  // vuelo: dispara y se dibuja sin errores
+  await page.locator('#expoFly').click();
+  await expect(page.locator('#expoFly')).toHaveClass(/on/);
+  await page.waitForTimeout(800);
+  expect(await page.evaluate(async () => (await import('/js/ui.js')).ui._expo.shots.length)).toBeGreaterThan(0);
+  await page.locator('#expoFly').click();
+  // solo mías: ‹ › solo pasan por Viper y Brick
+  await page.locator('#expoMine').click();
+  const names = [];
+  for (let i = 0; i < 3; i++) { await page.locator('#expoNext').click(); names.push(await page.locator('#expoName').textContent()); }
+  expect(new Set(names)).toEqual(new Set(['Viper', 'Brick']));
+  // equipar la Brick desde aquí
+  if ((await page.locator('#expoName').textContent()) !== 'Brick') await page.locator('#expoNext').click();
+  await page.locator('#expoAct').click();
+  await expect(page.locator('#expoAct')).toHaveText('EN USO');
+  expect(await page.evaluate(async () => (await import('/js/save.js')).save.ship)).toBe('brick');
+  // comprar la Ghost (150 💎)
+  await page.locator('#expoMine').click();
+  for (let i = 0; i < 20 && (await page.locator('#expoName').textContent()) !== 'Ghost'; i++) await page.locator('#expoNext').click();
+  await expect(page.locator('#expoAct')).toContainText('COMPRAR');
+  await page.locator('#expoAct').click();
+  expect(await page.evaluate(async () => { const { save } = await import('/js/save.js'); return [save.ships.includes('ghost'), save.gems]; })).toEqual([true, 250]);
+  expect(errors).toEqual([]);
+});
