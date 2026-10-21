@@ -194,3 +194,24 @@ test('vista 3D del hangar: se gira en cualquier dirección y el doble toque la d
   expect(c.zoom).toBe(1);
   expect(errors).toEqual([]);
 });
+
+test('ESTILO: probar varias cosas a la vez y COMPRAR TODO; looks guardados', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript((k) => localStorage.setItem(k, JSON.stringify({ v: 3, runs: 3, ship: 'viper', ships: ['viper', 'brick'], gems: 500, xp: 60000 })), SAVE);
+  await page.goto('/?debug&nosw');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { document.getElementById('btnHangar').click(); document.querySelector('#hTabs [data-tab="estilo"]').click(); });
+  await page.evaluate(() => document.querySelector('.look-save[data-i="0"]').click());
+  for (const id of ['palette:sunset', 'trail:stars']) await page.evaluate((x) => document.querySelector(`[data-cos="${x}"]`).click(), id);
+  await expect(page.locator('#cosPreview')).toContainText('Atardecer + Estrellas');
+  await expect(page.locator('#btnCosBuy')).toContainText('COMPRAR TODO');
+  await page.evaluate(() => document.getElementById('btnCosBuy').click());
+  await expect(page.locator('#cosPreview')).toBeHidden();
+  const lk = await page.evaluate(async () => { const { save } = await import('/js/save.js'); const { equipped } = await import('/js/cosmetics.js'); const e = equipped(save, 'viper'); return [e.basePalette.id, e.trail.id, save.gems]; });
+  expect(lk).toEqual(['sunset', 'stars', 500 - 100 - 130]);
+  // el look 1 (de serie) vuelve a ponerse con un toque
+  await page.evaluate(() => document.querySelector('.look-use[data-i="0"]').click());
+  const back = await page.evaluate(async () => { const { save } = await import('/js/save.js'); const { equipped } = await import('/js/cosmetics.js'); return equipped(save, 'viper').basePalette.id; });
+  expect(back).toBe('stock');
+  expect(errors).toEqual([]);
+});

@@ -253,3 +253,30 @@ test('todas las estelas, explosiones, diseños y emblemas se dibujan sin errores
   }
   for (const e of E.filter((x) => x.id !== 'none')) assert.ok(emblemPath(e.id), `el emblema ${e.id} tiene dibujo`);
 });
+
+test('LOOKS: guardar, poner, copiar a otra nave, aleatorio con lo tuyo y de serie', async () => {
+  const C = await import('../../js/cosmetics.js');
+  const save = loadFrom(JSON.stringify({ v: 6, ships: ['viper', 'brick'], xp: 60000 }));
+  C.equip('palette', 'toxic', save, 'viper');
+  C.equip('trail', 'ribbon', save, 'viper');
+  assert.ok(C.saveLook(save, 'viper', 1));
+  assert.equal(C.looksOf(save, 'viper')[1].palette, 'toxic');
+  assert.equal(C.looksOf(save, 'viper')[0], null);
+  C.resetLook(save, 'viper');
+  assert.equal(C.equipped(save, 'viper').palette.id, 'stock');
+  assert.equal(C.applyLook(save, 'viper', C.looksOf(save, 'viper')[1]), 0);
+  assert.equal(C.equipped(save, 'viper').basePalette.id, 'toxic');
+  // copiar: lo exclusivo de Viper no pasa a Brick (se lo salta)
+  save.shipStats = { viper: { sections: 30 } };
+  assert.ok(C.equip('palette', 'x-viper1', save, 'viper'));
+  const sk = C.copyLook(save, 'viper', 'brick');
+  assert.ok(sk >= 1);
+  assert.equal(C.equipped(save, 'brick').trail.id, 'ribbon');
+  assert.notEqual(C.equipped(save, 'brick').basePalette.id, 'x-viper1');
+  // aleatorio: solo cosas ya desbloqueadas
+  for (let i = 0; i < 20; i++) {
+    C.randomLook(save, 'brick');
+    const lk = C.equipped(save, 'brick');
+    for (const g of ['basePalette', 'trail', 'boom', 'stripe', 'emblem']) assert.ok(C.isUnlocked(lk[g], save, 'brick'), `${g}: ${lk[g].id}`);
+  }
+});

@@ -293,6 +293,7 @@ const cos = (save) => {
   const c = save.cosmetics;
   if (!c.owned || Array.isArray(c.owned)) c.owned = {};
   if (!c.equip || typeof c.equip.palette === 'string') c.equip = {};
+  if (!c.sets || typeof c.sets !== 'object' || Array.isArray(c.sets)) c.sets = {};
   return c;
 };
 const ownedOf = (save, ship) => cos(save).owned[ship] || [];
@@ -372,6 +373,41 @@ export function equipped(save, ship = save.ship) {
     emblemColor: e.emblemColor in EMBLEM_COLORS ? e.emblemColor : 'auto',
   };
 }
+
+// ---------- LOOKS: 3 combinaciones guardadas por nave ----------
+export const LOOK_SLOTS = 3;
+const LOOK_GROUPS = ['palette', 'engine', 'trail', 'aura', 'shot', 'stripe', 'cockpit', 'boom', 'emblem'];
+export function looksOf(save, ship) {
+  const l = cos(save).sets[ship];
+  return Array.from({ length: LOOK_SLOTS }, (_, i) => (Array.isArray(l) && l[i]) || null);
+}
+// guarda en el hueco lo que lleva puesto la nave ahora
+export function saveLook(save, ship, slot) {
+  if (slot < 0 || slot >= LOOK_SLOTS) return false;
+  const c = cos(save), l = looksOf(save, ship);
+  l[slot] = { ...DEFAULT_EQUIP, ...c.equip[ship] };
+  c.sets[ship] = l;
+  return true;
+}
+// se pone un look: solo lo que esté desbloqueado para ESA nave. Devuelve cuántas piezas se saltó.
+export function applyLook(save, ship, look) {
+  if (!look) return -1;
+  let skipped = 0;
+  for (const g of LOOK_GROUPS) if (look[g] && !equip(g, look[g], save, ship)) skipped++;
+  setEmblemStyle(save, ship, { at: look.emblemAt, color: look.emblemColor });
+  return skipped;
+}
+// copia el look de una nave a otra (lo que la otra no tenga, se queda como estaba)
+export const copyLook = (save, from, to) => applyLook(save, to, { ...DEFAULT_EQUIP, ...cos(save).equip[from] });
+// un look al azar, SOLO con lo que ya puedes usar en esta nave
+export function randomLook(save, ship, rnd = Math.random) {
+  for (const g of LOOK_GROUPS) {
+    const mine = itemsFor(g, ship).filter((it) => isUnlocked(it, save, ship));
+    if (mine.length) equip(g, mine[Math.floor(rnd() * mine.length)].id, save, ship);
+  }
+}
+// todo de serie
+export function resetLook(save, ship) { cos(save).equip[ship] = { ...DEFAULT_EQUIP }; }
 
 // Cambia dónde va el emblema o su color (gratis)
 export function setEmblemStyle(save, ship, { at, color } = {}) {
