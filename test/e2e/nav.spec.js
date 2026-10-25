@@ -228,3 +228,30 @@ for (const [game, start, pause, controls] of [
     expect(errors).toEqual([]);
   });
 }
+
+test('Runner: el HUD dice en qué tramo vas, con su barra, y cambia al pasar al siguiente', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?debug&nosw&seed=3');
+  await page.waitForFunction(() => !!window.G);
+  await page.evaluate(() => { window.G.manual = true; window.G.god = true; document.getElementById('btnPlay').click(); });
+  await page.waitForFunction(() => window.G.mode === 'play');
+  await page.evaluate(() => window.D.step(1 / 60));
+  await expect(page.locator('#secTxt')).toHaveText('TRAMO 1');
+  const bar = () => page.evaluate(() => Number(/scaleX\(([\d.]+)\)/.exec(document.querySelector('#secTag b').style.transform)?.[1] || 0));
+  const b0 = await bar();
+  await page.evaluate(() => { for (let i = 0; i < 240; i++) { window.G.player.dash = 0.3; window.D.step(1 / 60, false); } window.D.step(1 / 60); });
+  expect(await bar()).toBeGreaterThan(b0);
+  // hasta el tramo siguiente (las cartas del final de tramo se eligen solas)
+  await page.evaluate(async () => {
+    const G = window.G;
+    for (let i = 0; i < 60 * 90 && G.run.section < 1; i++) {
+      if (G.mode === 'cards') document.querySelector('#cardRow .card').click();
+      else if (G.mode === 'shop') document.getElementById('btnShopDone').click();
+      G.player.dash = 0.3;
+      window.D.step(1 / 60, false);
+    }
+    window.D.step(1 / 60);
+  });
+  await expect(page.locator('#secTxt')).toContainText('TRAMO 2');
+  expect(errors).toEqual([]);
+});

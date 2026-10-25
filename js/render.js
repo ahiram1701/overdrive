@@ -1372,7 +1372,7 @@ export function render(dt) {
     ctx.fillStyle = '#fff';
     ctx.font = 'italic 900 13px system-ui';
     ctx.textAlign = 'center';
-    ctx.fillText(`${bo.name}  ·  ${Math.ceil(bo.escapeT)}s`, W / 2, by + 28);
+    ctx.fillText(`${r.race ? '' : `TRAMO ${r.section + 1}  ·  `}${bo.name}  ·  ${Math.ceil(bo.escapeT)}s`, W / 2, by + 28); // con jefe, el tramo va aquí
   }
 
   fx.drawBanners(ctx, W, H);
