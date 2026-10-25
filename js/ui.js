@@ -2926,6 +2926,15 @@ export const ui = {
     setTf($h('chainbar').firstElementChild, `scaleX(${Math.max(0, 1 - r.chainT / 3).toFixed(3)})`);
     setHTML('speed', `${Math.round(effSpeed(r) * 10)}<small> KM/H</small>`);
     setText('dist', `${fmt(r.dist)} m`);
+    // TRAMO en el que vas (en las carreras no: ya tienen su posición) y cuánto te falta para acabarlo
+    // (con jefe, el tramo se lee junto a su nombre, sobre su barra de vida: aquí no, para no taparla)
+    $h('secTag').classList.toggle('hidden', !!r.race || !!r.boss);
+    if (!r.race && !r.boss) {
+      const lv = r.camp?.level;
+      setText('secTxt', lv ? `TRAMO ${lv.sections - r.camp.left}/${lv.sections}` : `TRAMO ${r.section + 1}`);
+      const k = Number.isFinite(r.sectionEnd) && r.sectionEnd > (r.sectionStart || 0) ? (r.dist - (r.sectionStart || 0)) / (r.sectionEnd - (r.sectionStart || 0)) : 0;
+      setTf($h('secTag').querySelector('b'), `scaleX(${Math.min(1, Math.max(0, k)).toFixed(3)})`);
+    }
     setText('coins', `🪙 ${r.coins}`);
     setText('shields', '🛡️'.repeat(r.shields) + '▫️'.repeat(Math.max(0, shieldCap(r) - r.shields)));
     const a = r.ability;

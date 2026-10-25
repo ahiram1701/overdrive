@@ -198,6 +198,7 @@ function startSection() {
   r.forkPlaced = false;
   r.genHold = false;
   r.genZ = Math.max(r.genZ, r.dist + 45);
+  r.sectionStart = r.dist; // para la barra de progreso del tramo en el HUD
   r.event = null;
   // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
   r.hunters = Math.max(0, r.hunters - 1);

@@ -1167,3 +1167,9 @@ body:has(#cosPreview:not(.hidden)) .toast { bottom: calc(env(safe-area-inset-bot
 
 /* Ajustes abiertos desde la pausa: nada de la partida asoma por encima ni a través */
 body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, body.in-settings #pecioHud, body.in-settings .stick-vis { visibility: hidden; }
+
+/* RUNNER: el tramo en el que vas, con una barrita hasta el final del tramo */
+#secTag { margin-top: 3px; display: flex; flex-direction: column; align-items: flex-end; gap: 3px; font: 900 12px var(--font); letter-spacing: 1px; color: var(--yellow); text-shadow: 0 0 8px rgba(0,0,0,.8); }
+#secTag.hidden { display: none; }
+#secTag .sec-bar { display: block; width: 74px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.18); overflow: hidden; }
+#secTag .sec-bar b { display: block; height: 100%; background: var(--yellow); transform-origin: left; transform: scaleX(0); }
