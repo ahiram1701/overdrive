@@ -323,3 +323,45 @@ test('contratos: un ★★ «sin daño en el casco» se pierde si te dan', async
   expect(res).toBe(0);
   expect(errors).toEqual([]);
 });
+
+test('zona segura: tampoco dañan el equipo fabricado, la torreta ni los misiles', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { up: { missile: 1 }, missiles: 4 }, galaxyGear: { owned: { laser2: true, flak: true, turret: true }, w: ['laser2', 'flak'], m: ['turret'] } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, st = s.sys.station.pos, sh = s.ship;
+    sh.pos = { ...st };
+    sh.throttle = 0;
+    window.__pirate('fighter', null, 120);
+    const p = s.pirates.at(-1);
+    Object.assign(p, { speed: 0, pos: { x: sh.pos.x + sh.f.x * 120, y: sh.pos.y + sh.f.y * 120, z: sh.pos.z + sh.f.z * 120 } });
+    const hp = p.hp;
+    s.botFire = true;
+    for (let i = 0; i < 60; i++) { sh.pos = { ...st }; window.D.step(1 / 30, false); }
+    s.botFire = false;
+    const ammo = window.__save.galaxy.missiles;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'm' }));
+    return { hp0: hp, hp: p.hp, ammo0: ammo, ammo: window.__save.galaxy.missiles };
+  });
+  expect(res.hp).toBe(res.hp0);
+  expect(res.ammo).toBe(res.ammo0);
+  expect(errors).toEqual([]);
+});
+
+test('piloto: también en ORIGEN la carga queda en tu pecio', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true, galRisk: true }, galaxy: { credits: 100, cargo: { iron: 6 } } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, g = window.__save.galaxy;
+    s.ship.pos = { x: 1500, y: 0, z: 1500 };
+    s.ship.shield = 0;
+    s.ship.hull = 1;
+    s.ebolts.push({ pos: { ...s.ship.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 50 });
+    window.D.step(1 / 60, false);
+    return { sys: s.sysId, wreck: g.wreck && g.wreck.cargo.iron, inSys: !!s.wreck };
+  });
+  expect(res.sys).toBe(0);
+  expect(res.wreck).toBe(6);
+  expect(res.inSys).toBe(true);
+  expect(errors).toEqual([]);
+});
