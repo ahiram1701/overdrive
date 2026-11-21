@@ -24,6 +24,7 @@ import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterL
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
+import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
 import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
 
 const S = () => G.space;
@@ -180,6 +181,20 @@ function enterSystem(s, id, fromId) {
   placeOutpost(s);
   storyBase(s);
   worldArrive(s);
+  // PECIO PROPIO: tu carga perdida espera donde caíste (unos saltos)
+  if (wreckExpired(g.wreck, g.jumps || 0)) { fx.notice(`🪦 Tu pecio en ${GAL[g.wreck.sys].name} ha sido saqueado`, '#ff6b6b', 2.4); g.wreck = null; }
+  s.wreck = g.wreck && g.wreck.sys === id ? g.wreck : null;
+  if (s.wreck) fx.notice(`🪦 Tu pecio está en este sistema (quedan ${wreckJumpsLeft(g.wreck, g.jumps || 0)} saltos)`, '#ffd60a', 2.4);
+  // BOTÍN JUGOSO: con mucha carga valiosa, te pueden estar esperando
+  if (fromId !== null && id !== 0) {
+    const value = Object.entries(g.cargo).reduce((a, [k, n]) => a + (n ? marketValue(k, n, id) : 0), 0);
+    if (makeRng(hashString(`juicy-${id}-${g.jumps}`)).next() < juicyChance(value, def.danger)) {
+      const at = add(s.ship.pos, scale(s.ship.f || basis(s.ship.yaw, s.ship.pitch).f, 520));
+      for (let i = 0; i < (def.danger >= 4 ? 3 : 2); i++) spawnPirate(s, false, null, add(at, { x: i * 45, y: 0, z: i * 30 }));
+      fx.banner('🏴‍☠️ ¡EMBOSCADA!', `huelen tu carga (${fmtK(Math.round(value))} 💰)`, '#ff2d55', true);
+      sfx.alarm();
+    }
+  }
   // NIVEL DE BÚSQUEDA: con ⭐⭐ o más, a veces te esperan CAZADORES (no en ORIGEN)
   if (fromId !== null && id !== 0 && makeRng(hashString(`hunt-${id}-${g.jumps}`)).next() < hunterChance(g.wanted || 0)) spawnHunters(s);
   // …y después, si en el sistema anterior no abatiste a nadie, se van olvidando de ti
@@ -638,7 +653,8 @@ function spawnPirate(s, boss, kind = null, at = null) {
   // CORBETAS y MINADORES: lejos de ORIGEN o con amenaza alta
   if (!boss && !kind) k = rareKind(d, t, s.rng.next()) || k;
   const K = ENEMY_KINDS[k];
-  const hp = Math.round((boss ? 400 + d * 120 : (30 + d * 14) * K.hpK) * t);
+  const vet = pirateMul(diffOf(gal()));
+  const hp = Math.round((boss ? 400 + d * 120 : (30 + d * 14) * K.hpK) * t * vet);
   const n = k === 'drone' ? 4 : 1;
   // ESCUADRILLA: cazas e interceptores que patrullan pueden venir con alas en V
   const wings = !boss && !at && (k === 'fighter' || k === 'interceptor') ? wingsFor(d, s.rng.next()) : 0;
@@ -654,7 +670,7 @@ function spawnPirate(s, boss, kind = null, at = null) {
       // ALERTA: los del sistema patrullan su zona sin verte; los que llegan a por ti (at) ya te buscan
       home: { ...pos }, aware: !!at, phase: s.rng.range(0, 6.28), flank: i % 2 ? -flank : flank, orbitA: (i * Math.PI) / 2,
       yaw: s.rng.range(-3, 3), pitch: 0, hp: php, max: php, boss, alive: true, flash: 0, state: at ? 'attack' : 'patrol', t: 0, kind: k, size: boss ? 13 : K.size,
-      speed: ((boss ? 70 : 85) + d * 7) * K.speedK * (elite === 'kamikaze' ? 1.25 : 1), turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1) * (K.dmgK || 1) * Math.sqrt(t),
+      speed: ((boss ? 70 : 85) + d * 7) * K.speedK * (elite === 'kamikaze' ? 1.25 : 1), turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1) * (K.dmgK || 1) * Math.sqrt(t) * vet,
       missileCd: K.missiles ? 3 : 0,
       mesh: boss ? 'kaiju' : K.mesh || s.rng.pick(['raptor', 'viper', 'comet']), off: { x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) },
     });
@@ -855,7 +871,7 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul);
+  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   s.sysKills = (s.sysKills || 0) + 1;
   addWanted(gal(), 'kill');
@@ -1532,19 +1548,33 @@ function respawn(s) {
     B().active = nemesisUp(bo);
     fx.notice(`🎯 ${bo.name} sube a nivel ${B().active.level} (y su recompensa también)`, '#ff9f0a');
   }
+  // DIFICULTAD: en Piloto y Veterano el remolque se paga, vuelves tocado y la carga queda en tu PECIO
+  const diff = diffOf(g), danger = GAL[s.sysId].danger;
+  const wreck = diff !== 'relaxed' && s.sysId !== 0 ? makeWreck(s.sysId, s.ship.pos, g.cargo, g.jumps || 0) : null;
+  if (wreck) g.wreck = wreck;
+  const fee = towFee(g.credits, danger, diff);
+  g.credits -= fee;
+  const lost = matsLost(save.galaxyMats, diff);
+  for (const [k, n] of Object.entries(lost)) save.galaxyMats[k] -= n;
+  breakStreak(s.combat);
   for (const k of Object.keys(g.cargo)) g.cargo[k] = 0;
   const st = stats();
-  s.ship.hull = st.hull;
+  s.ship.hull = Math.round(st.hull * respawnHull(diff));
   s.ship.shield = st.shield;
-  g.hull = st.hull;
+  g.hull = s.ship.hull;
+  s.deathInfo = { fee, wreck: !!wreck, mats: Object.keys(lost).length, diff };
   const home = g.home ?? 0;
   if (home !== s.sysId) enterSystem(s, home, null);
   else {
     s.ores = [];
     undockPose(s);
   }
+  s.wreck = g.wreck && g.wreck.sys === s.sysId ? g.wreck : null;
   persist();
-  fx.banner('💥 NAVE DESTRUIDA', `te han remolcado a ${GAL[home].name} · has perdido la carga`, '#ff6b6b', true);
+  const di = s.deathInfo || {};
+  const bits = [`remolcado a ${GAL[home].name}`, di.fee ? `−${fmtK(di.fee)} 💰` : '', di.wreck ? '🪦 tu carga quedó en tu pecio' : di.diff === 'relaxed' ? 'has perdido la carga' : '', di.mats ? `−${di.mats} materiales` : ''];
+  fx.banner('💥 NAVE DESTRUIDA', bits.filter(Boolean).join(' · '), '#ff6b6b', true);
+  ui.showTip?.('galRisk');
   sfx.die();
 }
 
@@ -1854,6 +1884,16 @@ export function updateSpace(dt) {
     }
   }
   s.loot = s.loot.filter((l) => l.life > 0);
+  // PECIO PROPIO: al pasar junto a él, recuperas lo que quepa
+  if (s.wreck && g.wreck === s.wreck && dist(s.wreck.pos, sh.pos) < WRECK_R) {
+    const r = recoverWreck(s.wreck, g.cargo, Math.max(0, cap - cargoCount(g.cargo)));
+    g.cargo = r.cargo;
+    g.wreck = null;
+    s.wreck = null;
+    persist();
+    fx.banner('🪦 CARGA RECUPERADA', `+${r.got} de mineral`, '#30d158', true);
+    sfx.chest();
+  }
   if (cargoCount(g.cargo) < cap) s.fullWarned = false;
 
   // estación: gira y deja atracar si estás cerca
@@ -1912,6 +1952,12 @@ function updateObjective(s) {
       s.target = gate.pos;
       return;
     }
+  }
+  // PECIO PROPIO en este sistema
+  if (s.wreck && g.wreck === s.wreck) {
+    s.objective = { kind: 'wreck', text: `🪦 Recupera tu carga (quedan ${wreckJumpsLeft(g.wreck, g.jumps || 0)} saltos)` };
+    s.target = s.wreck.pos;
+    return;
   }
   // SUCESO en curso
   const e = s.event;

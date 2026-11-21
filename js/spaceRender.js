@@ -436,6 +436,20 @@ export function renderSpace(dt) {
       } });
     }
   }
+  // PECIO PROPIO: tu carga perdida
+  if (s.wreck) {
+    const p = project(cam, s.wreck.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const r = Math.max(6, p.s * 14), k = 0.6 + 0.4 * Math.sin(G.realTime * 5);
+      ctx.strokeStyle = `rgba(255,214,10,${k})`;
+      ctx.lineWidth = 2.5;
+      ctx.beginPath(); ctx.moveTo(p.x, p.y - r); ctx.lineTo(p.x + r, p.y); ctx.lineTo(p.x, p.y + r); ctx.lineTo(p.x - r, p.y); ctx.closePath(); ctx.stroke();
+      ctx.fillStyle = '#ffd60a';
+      ctx.font = 'italic 900 11px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText('🪦 TU PECIO', p.x, p.y - r - 6);
+    } });
+  }
   // INHIBIDOR: su campo (dentro no hay impulso ni salto)
   for (const pr of s.pirates) {
     if (!pr.alive || pr.kind !== 'inhibitor') continue;

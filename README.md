@@ -411,7 +411,13 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 
   La brújula te lleva de un objetivo al siguiente.
 - **Descubrimientos y ATLAS:** cada sistema esconde anomalías, pecios, señales y planetas raros. Vuela cerca unos segundos para **escanearlos**: pagan, cuentan su historia y llenan el **ATLAS**. Con 3, 8 y 15 descubrimientos ganas mejoras únicas (Motor de curvatura, Blindaje alienígena, Ojo del oráculo).
-- **Relajado:** si te destruyen, te remolcan a la última estación donde atracaste. Pierdes la carga, nunca los créditos ni las mejoras.
+- **⚖️ Dificultad** (Ajustes → Galaxia). Si te destruyen, te remolcan a tu estación base, y nunca pierdes las mejoras:
+  - **🌙 Relajado:** el remolque es gratis y vuelves con la nave reparada; solo pierdes la carga;
+  - **🚀 Piloto** (por defecto): pagas el remolque (15 % de tus créditos, con tope según el peligro) y vuelves con **medio casco**. Tu carga queda en tu **🪦 pecio**, donde caíste: recupéralo antes de **3 saltos** o lo saquean;
+  - **☠️ Veterano:** como Piloto, con un remolque más caro; además pierdes un material de cada tipo y los piratas aguantan y pegan un 25 % más.
+- **Riesgo y recompensa:**
+  - **🏴‍☠️ Botín jugoso:** cuanto más vale tu carga, más fácil es que te embosquen al llegar a un sistema. ¿Vendes ya o arriesgas por el mejor precio?
+  - **⭐ Prima de búsqueda:** cada estrella de búsqueda paga un 12 % más por cada pirata.
 - Arriba siempre está el **siguiente paso** ("Vuelve a la estación a vender") y una flecha que te lleva hasta él.
 - Un motor 3D propio sobre Canvas 2D, sin librerías: ~2 ms por fotograma en el móvil.
 
