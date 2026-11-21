@@ -75,6 +75,9 @@ export const ENEMY_KINDS = {
   // con amenaza alta (o lejos de ORIGEN)
   corvette: { name: 'Corbeta', hpK: 3.2, speedK: 0.55, turnK: 0.5, size: 12, mesh: 'titan', link: true },  // protege a los cercanos
   minelayer: { name: 'Minador', hpK: 1.3, speedK: 0.8, turnK: 0.9, size: 8, mesh: 'brick', layer: true }, // siembra minas
+  // lejos de ORIGEN (peligro 4+)
+  inhibitor: { name: 'Inhibidor', hpK: 1.7, speedK: 0.5, turnK: 0.6, size: 10, mesh: 'brick' }, // cerca de él no hay impulso ni salto
+  stalker: { name: 'Acechador', hpK: 0.9, speedK: 1.4, turnK: 1.6, size: 5, mesh: 'spectra', dmgK: 1.6 }, // invisible hasta que está encima
 };
 
 // Mezcla según el peligro: lo nuevo aparece al alejarse de ORIGEN

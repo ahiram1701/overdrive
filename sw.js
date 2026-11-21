@@ -56,6 +56,7 @@ const ASSETS = [
   './js/tips.js',
   './js/galaxyThreat.js',
   './js/galaxyCombat.js',
+  './js/galaxyTactics.js',
   './js/galmap.js',
   './js/pecio.js',
   './js/pecioLoot.js',

@@ -308,7 +308,16 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **Puntería:** el autoapuntado es más estrecho y dispara a donde **va** a estar el blanco. Los piratas que huyen pierden créditos por el camino: perseguirlos paga.
   - **🚀 Misiles teledirigidos** (mejora *Misiles*): mantén un enemigo en el visor hasta que ponga **FIJADO** y dispara. La munición se recarga al atracar. En teclado: **M**.
   - **🌀 Tonel** (doble toque o **X**): una vuelta de campana hacia un lado, invulnerable solo al **principio** del giro. Si una bala o un misil llega justo entonces: **ESQUIVE PERFECTO** (cámara lenta, racha y sobrecarga). Encadenar toneles cansa: cada uno tarda más en volver.
-  - **Enemigos:** cazas, **interceptores** rápidos y frágiles, **bombarderos** lentos que lanzan misiles (derríbalos a tiros) y **enjambres de drones**. Aparecen más tipos al alejarte de ORIGEN.
+  - **Enemigos con táctica:** cada tipo pelea a su manera:
+    - **cazas:** pasadas de justa con ráfagas de 3 tiros;
+    - **interceptores:** entran por un costado, en pareja;
+    - **drones:** el enjambre te rodea y se lanza de uno en uno;
+    - **bombarderos:** se quedan a distancia de misil y se apartan si te acercas;
+    - **escuadrillas:** un líder con sus alas en V; si cae el líder, las alas se dispersan.
+
+    Todos apuntan a donde vas a estar. Aparecen más tipos al alejarte de ORIGEN.
+  - **📡 Alerta y radio:** los piratas patrullan su zona y no te ven hasta que te acercas o les disparas. El primero que te ve **pide refuerzos**: si no lo abates en 20 s, llegan dos más.
+  - **Lejos de ORIGEN (peligro 4+):** el **🧲 Inhibidor** anula tu impulso y tu salto mientras estés en su campo morado; el **Acechador** es invisible hasta que está encima (o dispara).
   - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín de créditos.
 - **Sucesos al llegar a un sistema** (con aviso):
   - ☄️ **lluvia de meteoritos**: minería rápida, el doble de mineral, pero duelen;
@@ -393,7 +402,7 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - 💣 minas (3 detrás de ti);
   - 🎈 señuelo (los piratas lo persiguen 6 s);
   - 🏠 baliza de retorno (a tu estación base).
-- **Zona segura:** junto a las estaciones los piratas no entran.
+- **Zona segura:** junto a las estaciones los piratas no entran, y tampoco se dispara: es **alto el fuego** (desde allí tus disparos no les hacen daño).
 - **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos):
   - 🎯 caza: elimina N piratas en un sistema;
   - 📦 entrega: lleva un paquete a otra estación;

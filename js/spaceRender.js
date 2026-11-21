@@ -16,6 +16,7 @@ import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
 // estrellas "en el infinito" (solo giran con la cámara) y polvo cercano (da sensación de velocidad)
 import { makeRng, hashString } from './rng.js';
 import { EVENTS } from './galaxyEvents.js';
+import { stalkerVisible, INHIBIT_R } from './galaxyTactics.js';
 
 // NEBULOSAS: nubes de fondo por sistema, con el color de su estrella. Se pintan una vez en canvas
 // pequeños y luego solo se estiran (barato en el móvil).
@@ -135,6 +136,8 @@ const KIND_PAL = {
   drone: { hull: '#100010', edge: '#ff6bd5', glow: '#ff2d55' },
   corvette: { hull: '#06121a', edge: '#5ac8fa', glow: '#ff2d55' },
   minelayer: { hull: '#1a1000', edge: '#ff9f0a', glow: '#ff2d55' },
+  inhibitor: { hull: '#0d0018', edge: '#bf5af2', glow: '#bf5af2' },
+  stalker: { hull: '#020204', edge: '#636366', glow: '#ff2d55' },
 };
 
 export function renderSpace(dt) {
@@ -368,6 +371,7 @@ export function renderSpace(dt) {
   for (const pr of s.pirates) {
     const p = project(cam, pr.pos, 1);
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
+    if (!stalkerVisible(pr, dist(pr.pos, sh.pos))) continue; // ACECHADOR: invisible de lejos
     draws.push({ z: p.z, fn: () => {
       const size = pr.size || (pr.boss ? 13 : 6);
       const pal = pr.pal || (pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : pr.elite ? { ...(KIND_PAL[pr.kind] || KIND_PAL.fighter), edge: '#ffd60a' } : KIND_PAL[pr.kind] || KIND_PAL.fighter);
@@ -405,11 +409,11 @@ export function renderSpace(dt) {
         ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw, 4);
         ctx.fillStyle = '#ff2d55';
         ctx.fillRect(p.x - bw / 2, p.y - p.s * size * 1.4 - 8, bw * Math.max(0, pr.hp / pr.max), 4);
-        if (pr.boss || pr.name) {
+        if (pr.boss || pr.name || pr.caller) {
           ctx.fillStyle = pr.elite ? '#ffd60a' : pr.name ? '#ff9f0a' : '#ffe600';
           ctx.font = 'italic 900 11px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(pr.name ? (pr.story || pr.elite || pr.hunter ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+          ctx.fillText(pr.caller ? '📡 PIDE REFUERZOS' : pr.name ? (pr.story || pr.elite || pr.hunter ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
         }
       }
     } });
@@ -431,6 +435,19 @@ export function renderSpace(dt) {
         ctx.setLineDash([]);
       } });
     }
+  }
+  // INHIBIDOR: su campo (dentro no hay impulso ni salto)
+  for (const pr of s.pirates) {
+    if (!pr.alive || pr.kind !== 'inhibitor') continue;
+    const p = project(cam, pr.pos, 1);
+    if (!p) continue;
+    draws.push({ z: p.z + 1, fn: () => {
+      ctx.strokeStyle = `rgba(191,90,242,${0.25 + 0.2 * Math.sin(G.realTime * 4)})`;
+      ctx.lineWidth = 2;
+      ctx.setLineDash([10, 8]);
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.min(260, Math.max(30, p.s * INHIBIT_R * 0.5)), 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    } });
   }
   // FRANCOTIRADOR: la línea de aviso mientras apunta
   for (const pr of s.pirates) {
