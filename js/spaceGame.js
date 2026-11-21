@@ -25,6 +25,7 @@ import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, F
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
 import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
+import { CONTACTS, CONTACT_LIFE, nextContactDelay, pickContact, trapChance, contactReward, RINGS, ringPath, ringPay, CRUISE, cruiseStep, INTERDICT, interdictChance } from './galaxyContacts.js';
 import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
 
 const S = () => G.space;
@@ -93,7 +94,9 @@ export function newSpace() {
     ship: { pos: { x: 0, y: 0, z: 0 }, q: quatFromYawPitch(0, 0), yaw: 0, pitch: 0, roll: 0, throttle: 1, rollIn: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
     input: { x: 0, y: 0 }, firing: false, bolts: [], ebolts: [], ores: [], loot: [], pirates: [], cam: null, t: 0, canDock: false, fullWarned: false,
     objective: null, target: null, heat: 0, overheat: false, jumpT: 0, pirateT: 30, routeTo: null,
-    combat: newCombat(),
+    combat: newCombat(), cruiseK: 1, contact: null, contactT: 20, interdict: null,
+    // CONTACTOS al azar: en las pruebas (?debug) solo si se piden (?contacts), para que sean deterministas
+    contactsOn: !G.debug || new URLSearchParams(location.search).has('contacts'),
   };
   G.space = s;
   enterSystem(s, g.sys ?? 0, null);
@@ -119,6 +122,7 @@ function enterSystem(s, id, fromId) {
   const killedThere = s.sysKills || 0; // abatidos en el sistema del que vienes (para el nivel de búsqueda)
   s.sysKills = 0;
   s.cleared = false; // SISTEMA DESPEJADO se anuncia una vez por visita
+  s.contact = null; s.cruiseK = 1;
   s.call = null; s.callDone = false; s.safeWarned = false; s.inhibited = false; // radio pirata, alto el fuego, inhibidor
   const gates = def.links.map((to) => ({ to, name: GAL[to].name, ang: Math.atan2(GAL[to].y - def.y, GAL[to].x - def.x) }));
   s.sysId = id;
@@ -897,6 +901,15 @@ function killPirate(s, p) {
   addRep(save, 'pir', -1);
   if (s.owner === 'pir') { s.libKills++; checkLiberation(s); }
   if (p.bounty) bountyKilled(s, p);
+  if (p.smuggler && s.contact?.ref === p) {
+    const cr = contactReward('smuggler', GAL[s.sysId].danger);
+    s.contact.paid = true;
+    s.loot.push({ pos: { ...p.pos }, credits: cr, life: 60 });
+    gainMats(s, { circuitos: 2, chatarra: 2 });
+    fx.banner('🏃 CONTRABANDO INCAUTADO', `+${cr} 💰 al recogerlo`, '#30d158', true);
+    progress('galContact');
+    endContact(s);
+  }
   if (defendKill(save, s.sysId, gal().jumps, GAL) === 'saved') {
     const c = 1500 + GAL[s.sysId].danger * 250;
     gal().credits += c;
@@ -1478,6 +1491,128 @@ function updateScan(s, dt) {
   persist();
 }
 
+// ---------- Contactos en ruta (ver galaxyContacts.js) ----------
+function startContact(s, kind) {
+  const sh = s.ship, d = GAL[s.sysId].danger;
+  const f = sh.f || basis(sh.yaw, sh.pitch).f, r = sh.r || basis(sh.yaw, sh.pitch).r;
+  const pos = add(add(sh.pos, scale(f, 650)), scale(r, s.rng.range(-250, 250)));
+  const c = { kind, pos, t: 0 };
+  s.contact = c;
+  if (s.cruiseK > 1.2) fx.notice('🌠 Contacto: sales del supercrucero', '#7df9ff');
+  s.cruiseK = 1;
+  const K = CONTACTS[kind];
+  if (kind === 'distress') c.trap = s.rng.next() < trapChance(d);
+  else if (kind === 'smuggler') {
+    spawnPirate(s, false, 'interceptor', pos);
+    const p = s.pirates[s.pirates.length - 1];
+    Object.assign(p, { smuggler: true, aware: true, state: 'flee', name: '🏃 CONTRABANDISTA', fireCd: 999, hp: p.hp * 1.6, max: p.max * 1.6, elite: null, eShield: 0, eShieldMax: 0 });
+    c.ref = p;
+  } else if (kind === 'rings') {
+    c.rings = ringPath(sh.pos, f, r, s.rng.next() < 0.5 ? -1 : 1);
+    c.next = 0;
+    c.left = RINGS.time;
+    c.pos = c.rings[0];
+  } else if (kind === 'storm') {
+    c.r = 260;
+    c.left = 45;
+    for (let i = 0; i < 8; i++) {
+      const off = scale(norm({ x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) }), s.rng.range(40, 200));
+      s.sys.asteroids.push(makeAsteroid(s.rng, add(pos, off), s.rng.range(10, 17), 'dark'));
+    }
+  } else if (kind === 'ambush') {
+    const at = add(sh.pos, scale(f, -420));
+    for (let i = 0; i < (d >= 4 ? 4 : 3); i++) spawnPirate(s, false, null, add(at, { x: i * 50 - 50, y: s.rng.range(-30, 30), z: i * 25 }));
+    fx.banner('🪤 ¡EMBOSCADA!', 'salen del cinturón, detrás de ti', '#ff2d55', true);
+    sfx.alarm();
+    return endContact(s);
+  } else if (kind === 'container') {
+    for (let i = 0; i < 2; i++) {
+      spawnPirate(s, false, 'fighter', add(pos, { x: i ? 120 : -120, y: 0, z: 60 }));
+      Object.assign(s.pirates[s.pirates.length - 1], { aware: false, state: 'patrol', home: { ...pos } });
+    }
+  }
+  fx.notice(`📡 Contacto en el radar: ${K.icon} ${K.name}`, '#7df9ff', 2.4);
+  sfx.event();
+}
+function endContact(s) {
+  s.contact = null;
+  s.contactT = nextContactDelay(s.rng.next());
+}
+function payContact(s, credits, mats = {}) {
+  gal().credits += credits;
+  if (Object.keys(mats).length) gainMats(s, mats);
+  persist();
+  sfx.chest();
+  progress('galContact');
+}
+function updateContacts(s, dt) {
+  const sh = s.ship, d = GAL[s.sysId].danger, c = s.contact;
+  if (!c) {
+    if (!s.contactsOn) return;
+    const safe = dist(sh.pos, s.sys.station.pos) < SAFE_R + 200;
+    const busy = (s.event && !s.event.done) || s.pirates.some((p) => p.alive && p.aware && dist(p.pos, sh.pos) < 900);
+    if (safe || busy) return;
+    s.contactT -= dt;
+    if (s.contactT <= 0) startContact(s, pickContact(d, s.rng.next()));
+    return;
+  }
+  c.t += dt;
+  const near = (r) => dist(sh.pos, c.pos) < r;
+  if (c.kind === 'distress' && near(35)) {
+    if (c.trap) {
+      for (let i = 0; i < 3; i++) spawnPirate(s, false, null, add(c.pos, scale(norm({ x: s.rng.range(-1, 1), y: s.rng.range(-0.3, 0.3), z: s.rng.range(-1, 1) }), 160)));
+      fx.banner('🆘 ¡ERA UNA TRAMPA!', 'piratas por todas partes', '#ff2d55', true);
+      sfx.alarm();
+    } else {
+      const cr = contactReward('distress', d);
+      payContact(s, cr, s.rng.next() < 0.3 ? { artefactos: 1 } : { chatarra: 2 });
+      fx.banner('🆘 TRIPULACIÓN RESCATADA', `+${cr} 💰`, '#30d158', true);
+    }
+    return endContact(s);
+  }
+  if (c.kind === 'smuggler') {
+    c.pos = c.ref.pos;
+    if (!c.ref.alive && !c.paid) { fx.notice('🏃 El contrabandista se ha escapado', '#ff9f0a'); return endContact(s); }
+    return;
+  }
+  if (c.kind === 'rings') {
+    if (c.next > 0) c.left -= dt;
+    if (c.next < RINGS.n && dist(sh.pos, c.rings[c.next]) < RINGS.r) {
+      c.next++;
+      sfx.coin(c.next * 2);
+      combatGain(s, 'graze');
+      if (c.next < RINGS.n) c.pos = c.rings[c.next];
+    }
+    if (c.next >= RINGS.n || (c.next > 0 && c.left <= 0)) {
+      const cr = ringPay(c.next, d);
+      payContact(s, cr);
+      fx.banner(c.next >= RINGS.n ? '💠 ¡CARRERA PERFECTA!' : `💠 ${c.next}/${RINGS.n} anillos`, `+${cr} 💰`, c.next >= RINGS.n ? '#30d158' : '#ffe600', true);
+      return endContact(s);
+    }
+  }
+  if (c.kind === 'storm') {
+    c.left -= dt;
+    if (near(c.r)) {
+      sh.shield = 0;
+      sh.hitT = 0;
+      if (!c.warned) { c.warned = true; fx.notice('⚡ Dentro de la tormenta no hay escudo', '#bf5af2'); }
+    }
+    if (c.left <= 0) { fx.notice('⚡ La tormenta iónica se disipa', '#b8c2cc'); return endContact(s); }
+    return;
+  }
+  if (c.kind === 'container' && near(30)) {
+    const cr = contactReward('container', d);
+    payContact(s, cr, { chatarra: 3, circuitos: 1 });
+    fx.banner('📦 CONTENEDOR RECUPERADO', `+${cr} 💰 · materiales`, '#30d158', true);
+    return endContact(s);
+  }
+  if (c.t > CONTACT_LIFE && !(c.kind === 'rings' && c.next > 0)) { fx.notice(`📡 Contacto perdido: ${CONTACTS[c.kind].name}`, '#b8c2cc'); endContact(s); }
+}
+export function debugContact(kind) {
+  const s = S();
+  if (s) startContact(s, kind);
+}
+
 // ---------- Racha y sobrecarga (ver galaxyCombat.js) ----------
 function combatGain(s, kind, streak = false) {
   const c = s.combat;
@@ -1595,12 +1730,29 @@ export function updateSpace(dt) {
   s.t += dt;
   // SALTO en curso: túnel de hiperespacio y aparición en el sistema nuevo
   if (s.jumpT > 0) {
+    // INTERDICCIÓN: te han enganchado en el túnel; forcejea (toca disparo) antes de que acabe
+    const it = s.interdict;
+    if (it) {
+      it.t -= dt;
+      const pressed = s.firing && !s.firingWas;
+      s.firingWas = s.firing;
+      if (pressed) { it.taps++; sfx.bump(); fx.shake(5); fx.vibe(15); }
+      if (it.taps >= INTERDICT.taps) { s.interdict = null; fx.banner('🌀 ¡TE HAS SOLTADO!', 'sigues hacia tu destino', '#30d158'); sfx.od(); } else if (it.t <= 0) {
+        s.interdict = null;
+        s.interdictFail = true;
+        fx.banner('⚠️ INTERDICCIÓN', 'llegas con cazadores pegados', '#ff2d55', true);
+        sfx.alarm();
+      }
+      s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
+      return;
+    }
     s.jumpT -= dt;
     sh.pos = add(sh.pos, scale(sh.f, 600 * dt));
     if (s.jumpT <= 0) {
       const from = s.sysId;
       enterSystem(s, s.jumpTo, from);
       if (s.beaconJump) { s.beaconJump = false; undockPose(s); } // BALIZA: directo a la estación
+      if (s.interdictFail) { s.interdictFail = false; if (s.jumpTo !== 0) spawnHunters(s); }
       progress('jump');
     }
     s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
@@ -1637,7 +1789,16 @@ export function updateSpace(dt) {
   sh.throttle = Math.max(-0.4, Math.min(1, sh.throttle ?? 1));
   const turning = Math.min(1, Math.hypot(ix, iy));
   const thr = sh.boostT > 0 ? st.boost : sh.throttle;
-  const want = st.speed * thr * (1 - 0.55 * turning);
+  // SUPERCRUCERO: motor a tope, sin virar fuerte, sin enemigos cerca ni inhibidor: hasta ×4
+  const cruiseOk = sh.throttle >= CRUISE.minThr && sh.boostT <= 0 && turning < 0.35 && !s.inhibited && !(sh.barrelT > 0)
+    && !s.pirates.some((p) => p.alive && p.aware && dist(p.pos, sh.pos) < CRUISE.clearR)
+    // se sale solo al llegar: cerca del destino, de la estación o dentro del cinturón (polvo)
+    && !(s.target && dist(s.target, sh.pos) < 450) && dist(sh.pos, s.sys.station.pos) > 600
+    && Math.abs(Math.hypot(sh.pos.x, sh.pos.z) - s.sys.beltR) > 220;
+  const wasCruise = s.cruiseK || 1;
+  s.cruiseK = cruiseStep(wasCruise, dt, cruiseOk);
+  if (wasCruise > 2 && s.cruiseK === 1) { fx.notice('🌠 Fuera del supercrucero', '#b8c2cc', 0.9); fx.shake(4); }
+  const want = st.speed * thr * (1 - 0.55 * turning) * s.cruiseK;
   // FRENADA SUAVE: al bajar (o al cambiar de sentido) la nave frena en ~0,4 s en vez de clavarse;
   // al acelerar responde al momento
   const cur = sh.speed ?? want;
@@ -1836,6 +1997,7 @@ export function updateSpace(dt) {
   updateEvent(s, dt);
   updateEscort(s, dt);
   updateScan(s, dt);
+  updateContacts(s, dt);
   // planetas: sólidos; cerca de uno aparece ORBITAR
   s.act = null;
   for (let i = 0; i < s.sys.planets.length; i++) {
@@ -1926,11 +2088,18 @@ export function updateSpace(dt) {
     }
     s.jumpT = 1.1;
     s.jumpTo = gt.to;
+    s.cruiseK = 1;
+    // muy buscado: te pueden sacar del hiperespacio
+    if (gt.to !== 0 && s.rng.next() < interdictChance(stars(g))) {
+      s.interdict = { t: INTERDICT.time, taps: 0 };
+      s.firingWas = true; // hay que volver a pulsar
+    }
     // PEAJE de la puerta (si no te llega, te lo perdonan: nunca te quedas atrapado)
     const toll = Math.round(tollFor(to.danger) * Math.max(0.25, 1 - 0.15 * Math.max(0, (g.up.jump || 0) - 5)));
     if (g.credits >= toll) { g.credits -= toll; fx.notice(`🌀 Peaje −${toll} 💰`, '#b8c2cc'); } else fx.notice('🌀 Peaje perdonado (no te llegaba)', '#ff9f0a');
     fx.flash('#ffffff', 0.8);
-    fx.banner('🌀 SALTO', `rumbo a ${to.name}`, '#7df9ff', true);
+    if (s.interdict) fx.banner('⚠️ ¡INTERDICCIÓN!', '¡toca 🔫 sin parar para soltarte!', '#ff2d55', true);
+    else fx.banner('🌀 SALTO', `rumbo a ${to.name}`, '#7df9ff', true);
     sfx.od();
     break;
   }
@@ -1977,6 +2146,15 @@ function updateObjective(s) {
       s.target = t;
       return;
     }
+  }
+  // CONTACTO en ruta
+  const ct = s.contact;
+  if (ct) {
+    const K = CONTACTS[ct.kind];
+    const text = ct.kind === 'rings' ? `${K.icon} Anillo ${Math.min(RINGS.n, ct.next + 1)}/${RINGS.n}${ct.next ? ` · ${Math.ceil(ct.left)} s` : ''}` : ct.kind === 'storm' ? `${K.icon} ${K.text} (${Math.ceil(ct.left)} s)` : `${K.icon} ${K.text}`;
+    s.objective = { kind: 'contact', text };
+    s.target = ct.pos;
+    return;
   }
   // CAZA activa: al sistema del objetivo y, allí, a por él
   const bo = B().active;

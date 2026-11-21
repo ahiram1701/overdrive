@@ -1191,3 +1191,7 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
 /* GALAXIA: dificultad en Ajustes */
 #btnGalDiff b em { font-style: normal; color: var(--cyan); }
 #btnGalDiff small { grid-column: 2 / 4; color: var(--muted); font-size: 11px; text-align: left; line-height: 1.3; }
+.sh-cruise { position: absolute; top: calc(env(safe-area-inset-top, 0px) + 170px); left: 50%; transform: translateX(-50%); padding: 4px 12px; border-radius: 12px; pointer-events: none;
+  font: italic 900 12px var(--font); letter-spacing: 1px; color: #7df9ff; background: rgba(0,0,0,.45); border: 1px solid rgba(125,249,255,.5); white-space: nowrap; }
+.sh-cruise.alert { color: #fff; background: rgba(255,45,85,.6); border-color: #ff2d55; font-size: 14px; animation: blink .5s infinite; }
+.sh-cruise.hidden { display: none; }

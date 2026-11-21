@@ -319,6 +319,15 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - **📡 Alerta y radio:** los piratas patrullan su zona y no te ven hasta que te acercas o les disparas. El primero que te ve **pide refuerzos**: si no lo abates en 20 s, llegan dos más.
   - **Lejos de ORIGEN (peligro 4+):** el **🧲 Inhibidor** anula tu impulso y tu salto mientras estés en su campo morado; el **Acechador** es invisible hasta que está encima (o dispara).
   - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín de créditos.
+- **🌠 Supercrucero:** con el motor a tope, sin virar fuerte y sin enemigos cerca, la nave acelera poco a poco hasta **×4**. Se sale sola al llegar al destino, a la estación o al cinturón, y también si aparece un enemigo, un contacto o un Inhibidor.
+- **📡 Contactos en ruta:** fuera de la zona segura, cada 25–40 s sale algo en el radar:
+  - 🆘 **llamada de auxilio** (a veces, una trampa);
+  - 🏃 **contrabandista** que huye con su carga: derríbalo antes de que escape;
+  - 💠 **anillos de carrera** contrarreloj (todos seguidos: premio ×1,5);
+  - ⚡ **tormenta iónica:** dentro no hay escudo, pero hay materia oscura;
+  - 🪤 **emboscada** desde el cinturón;
+  - 📦 **contenedor a la deriva** con guardianes.
+- **⚠️ Interdicción:** con ⭐⭐⭐ o más, los piratas te pueden sacar del hiperespacio. **Toca 🔫 sin parar** para soltarte; si no lo consigues, llegas con cazadores pegados.
 - **Sucesos al llegar a un sistema** (con aviso):
   - ☄️ **lluvia de meteoritos**: minería rápida, el doble de mineral, pero duelen;
   - 🆘 **cápsula de rescate**: llévala a la estación (créditos);

@@ -413,7 +413,7 @@ export function renderSpace(dt) {
           ctx.fillStyle = pr.elite ? '#ffd60a' : pr.name ? '#ff9f0a' : '#ffe600';
           ctx.font = 'italic 900 11px system-ui';
           ctx.textAlign = 'center';
-          ctx.fillText(pr.caller ? '📡 PIDE REFUERZOS' : pr.name ? (pr.story || pr.elite || pr.hunter ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
+          ctx.fillText(pr.caller ? '📡 PIDE REFUERZOS' : pr.name ? (pr.story || pr.elite || pr.hunter || pr.smuggler ? pr.name : `🎯 ${pr.name}`) : '☠ JEFE PIRATA', p.x, p.y - p.s * size * 1.4 - 14);
         }
       }
     } });
@@ -435,6 +435,36 @@ export function renderSpace(dt) {
         ctx.setLineDash([]);
       } });
     }
+  }
+  // CONTACTO en ruta: su marcador (anillos de carrera y tormenta, con su forma)
+  const ct = s.contact;
+  if (ct && ct.kind === 'rings') {
+    ct.rings.forEach((rp, i) => {
+      if (i < ct.next) return;
+      const p = project(cam, rp, 1);
+      if (p) draws.push({ z: p.z, fn: () => {
+        ctx.strokeStyle = i === ct.next ? '#7df9ff' : 'rgba(125,249,255,.35)';
+        ctx.lineWidth = i === ct.next ? 3 : 1.5;
+        ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(6, p.s * 26), 0, Math.PI * 2); ctx.stroke();
+      } });
+    });
+  } else if (ct && ct.kind === 'storm') {
+    const p = project(cam, ct.pos, 1);
+    if (p) draws.push({ z: p.z + 2, fn: () => {
+      ctx.fillStyle = `rgba(191,90,242,${0.08 + 0.05 * Math.sin(G.realTime * 9)})`;
+      ctx.beginPath(); ctx.arc(p.x, p.y, Math.min(900, Math.max(20, p.s * ct.r)), 0, Math.PI * 2); ctx.fill();
+    } });
+  } else if (ct && ct.kind !== 'smuggler') {
+    const p = project(cam, ct.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const r = Math.max(7, p.s * 12);
+      ctx.strokeStyle = '#7df9ff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(p.x - r, p.y - r, r * 2, r * 2);
+      ctx.font = `${Math.round(Math.max(14, r * 1.3))}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.fillText(ct.kind === 'distress' ? '🆘' : '📦', p.x, p.y + r * 0.45);
+    } });
   }
   // PECIO PROPIO: tu carga perdida
   if (s.wreck) {

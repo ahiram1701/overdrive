@@ -23,6 +23,7 @@ import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
 import { DIFFS, diffOf, nextDiff } from './galaxyRisk.js';
+import { INTERDICT } from './galaxyContacts.js';
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
@@ -1687,6 +1688,12 @@ export const ui = {
       tgl(sb, 'on', on);
       tgl(hud, 'surging', on);
     }
+    // SUPERCRUCERO e INTERDICCIÓN
+    const cr = $h('shCruise'), k = s.cruiseK || 1, it = s.interdict;
+    tgl(cr, 'hidden', !it && k < 1.3);
+    tgl(cr, 'alert', !!it);
+    if (it) setEl(cr, `⚠️ INTERDICCIÓN · ¡toca 🔫! ${it.taps}/${INTERDICT.taps}`);
+    else if (k >= 1.3) setEl(cr, `🌠 SUPERCRUCERO ×${k.toFixed(1)}`);
     tgl($h('btnDock'), 'hidden', !s.canDock);
     tgl($h('btnBoost'), 'cool', s.ship.boostCd > 0);
     tgl($h('shHint'), 'hidden', s.t > 8 || tipSeen(save, 'galaxy'));
