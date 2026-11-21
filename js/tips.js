@@ -34,7 +34,7 @@ export const TIPS = {
   relic: [['guia', 'Una RELIQUIA: dura toda la expedición. Las ves arriba del mapa.']],
   galCombat: [
     ['guia', '¡Primera baja! Encadena bajas para la RACHA: cuanto más larga, más paga cada pirata. Si te dan en el casco, se rompe.'],
-    ['guia', 'Las bajas y las balas que te pasan ROZANDO cargan la ⚡ SOBRECARGA: tócala (o V) y durante 6 s disparas sin calor y con más daño.'],
+    ['guia', 'Cada baja carga la ⚡ SOBRECARGA (el % está en el botón); también las balas que te pasan ROZANDO, los misiles y hasta minar. Llena, tócala (o V): 6 s sin calor y con más daño. Lo cargado se guarda.'],
     ['guia', 'El tonel (doble toque) es invulnerable solo al empezar: hazlo justo cuando llega la bala para un ESQUIVE PERFECTO. Y si el láser se sobrecalienta, vuelve a pulsar cuando el calor pase por la franja azul.'],
   ],
   galRisk: [

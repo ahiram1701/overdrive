@@ -55,3 +55,11 @@ test('botín jugoso y prima de búsqueda', () => {
   assert.equal(wantedBonus(0), 1);
   assert.ok(Math.abs(wantedBonus(5) - 1.6) < 1e-9);
 });
+
+test('pecio propio: lo que no cabe se queda en el pecio', () => {
+  const w = makeWreck(3, { x: 0, y: 0, z: 0 }, { iron: 8, crystal: 4 }, 10);
+  const r = recoverWreck(w, {}, 5);
+  assert.equal(r.got, 5);
+  assert.deepEqual(r.rest, { iron: 3, crystal: 4 });
+  assert.equal(recoverWreck(w, {}, 99).rest, null);
+});

@@ -27,7 +27,7 @@ import { INTERDICT } from './galaxyContacts.js';
 import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
-import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
+import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
@@ -40,7 +40,7 @@ import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCos
 import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
 import { BOSS_BY_ID } from './bosses.js';
-import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime, arenaContinue, arenaStop, arenaReroll, arenaBanish } from './arena.js';
+import { newArena, pickArenaUpgrade, useArenaAbility, fmtTime, arenaContinue, arenaStop, arenaReroll, arenaBanish, arenaQuitEndless } from './arena.js';
 import { WEAPONS, PASSIVES, EVOLUTIONS, ARENA_TIME, xpNeed, ARENA_MAPS, MAP_KEYS, mapUnlocked, ARENA_BOSSES, ARENA_UPS, arenaUpLvl, arenaUpCost, buyArenaUp, nextBossTime } from './arenaData.js';
 import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTalent, nextTalent, buyTalent, wallet, CRATES, RARITIES, PITY, openCrate, canAfford, crateStyles, cardLvl, cardOwned, buyCard, upgradeCard, buyWeapon } from './economy.js';
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
@@ -221,7 +221,7 @@ export function dialogPaused() {
 function tap(node, fn) {
   node.addEventListener('click', (e) => {
     // con un diálogo abierto, los botones de la partida (DASH, habilidad, disparo…) no hacen nada
-    if (dialogPaused() && !node.closest('#dialog') && node.closest('#hud, #spaceHud, #arenaHud')) return;
+    if (dialogPaused() && !node.closest('#dialog') && node.closest('#hud, #spaceHud, #arenaHud, #pecioHud')) return;
     e.stopPropagation();
     unlockAudio();
     sfx.ui();
@@ -449,13 +449,22 @@ export const ui = {
     $('setSfxVol').addEventListener('change', () => sfx.coin(3));
     tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
-    tap($('btnGalDiff'), () => { save.galaxy.difficulty = nextDiff(diffOf(save.galaxy)); persist(); ui.syncToggles(); });
+    tap($('btnGalDiff'), () => {
+      // en pleno vuelo no: así no se puede esquivar el coste de morir justo antes
+      if (G.space && G.mode !== 'station') { toast('⚖️ La dificultad se cambia atracado en una estación'); return; }
+      save.galaxy.difficulty = nextDiff(diffOf(save.galaxy)); persist(); ui.syncToggles();
+    });
     tap($('btnResume'), () => {
       if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
       else if (G.mode === 'pecioPaused') { G.mode = 'pecio'; musicDuck(false); ui.hideAll(); ui.showPecioHUD(true); }
       else if (G.mode === 'galaxyPaused') { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); } else resume();
     });
-    tap($('btnQuit'), () => { if (G.space) leaveSpace(); musicStop(); G.arena = null; G.pecio = null; ui.showArenaHUD(false); ui.showPecioHUD(false); ui.showMenu(); });
+    tap($('btnQuit'), () => {
+      // en el sin fin (Arena o Pecios) ya habías ganado: salir cobra la partida en vez de tirarla
+      if (G.mode === 'arenaPaused' && arenaQuitEndless()) return;
+      if (G.mode === 'pecioPaused' && G.pecio?.endless) { G.mode = 'pecio'; ui.hideAll(); ui.showPecioHUD(true); pecioQuitEndless(); return; }
+      if (G.space) leaveSpace(); musicStop(); G.arena = null; G.pecio = null; ui.showArenaHUD(false); ui.showPecioHUD(false); ui.showMenu();
+    });
     tap($('pauseBtn'), () => ui.pause());
     tap($('btnPauseSettings'), () => ui.showSettings('pause'));
     // pointerdown y no click: la habilidad tiene que salir en el instante en que tocas
@@ -1680,7 +1689,9 @@ export const ui = {
     const cb = s.combat;
     if (cb) {
       const sk = $h('shStreak');
-      tgl(sk, 'hidden', cb.streak < 2);
+      const itemsOpen = !$h('itemBar').classList.contains('hidden');
+      tgl(sk, 'hidden', cb.streak < 2 || itemsOpen);
+      tgl(sk, 'low', !!s.devourer);
       if (cb.streak >= 2) {
         setEl(sk.children[0], `x${cb.streak}`);
         setEl(sk.children[1], streakWord(cb.streak) || 'RACHA');
@@ -1689,12 +1700,14 @@ export const ui = {
       const sb = $h('btnSurge'), on = cb.surgeT > 0;
       setTf(sb.firstElementChild, `scaleY(${(on ? cb.surgeT / SURGE.dur : cb.surge).toFixed(3)})`);
       tgl(sb, 'ready', !on && cb.surge >= 1);
+      setEl(sb.lastElementChild, on ? `${Math.ceil(cb.surgeT)}s` : `${Math.floor(cb.surge * 100)}%`);
+      tgl(sb, 'half', !on && cb.surge >= 0.5 && cb.surge < 1);
       tgl(sb, 'on', on);
       tgl(hud, 'surging', on);
     }
     // SUPERCRUCERO e INTERDICCIÓN
     const cr = $h('shCruise'), k = s.cruiseK || 1, it = s.interdict;
-    tgl(cr, 'hidden', !it && k < 1.3);
+    tgl(cr, 'hidden', (!it && k < 1.3) || !$h('itemBar').classList.contains('hidden'));
     tgl(cr, 'alert', !!it);
     if (it) setEl(cr, `⚠️ INTERDICCIÓN · ¡toca 🔫! ${it.taps}/${INTERDICT.taps}`);
     else if (k >= 1.3) setEl(cr, `🌠 SUPERCRUCERO ×${k.toFixed(1)}`);
@@ -1992,7 +2005,7 @@ export const ui = {
       box.classList.add('hidden');
       if (pauses) {
         G.dialogPause = false;
-        if (['play', 'galaxy', 'arena'].includes(G.mode)) musicDuck(false);
+        if (['play', 'galaxy', 'arena', 'pecio'].includes(G.mode)) musicDuck(false);
       }
       opts.onClose?.();
     };
@@ -2520,14 +2533,14 @@ export const ui = {
     // CANJE: las 🔩 que sobran, a 🪙
     const ex = el('button', `st-up${save.pecio.piezas >= EXCHANGE.piezas ? ' afford' : ''}`, `<span class="su-icon">♻️</span><span class="su-body"><b>Chatarrero</b><small>Cambia ${EXCHANGE.piezas} 🔩 por ${EXCHANGE.coins} 🪙 para el Runner y la Arena</small></span><span class="su-cost">${EXCHANGE.piezas} 🔩</span>`);
     ex.id = 'btnPecioExchange';
-    tap(ex, () => { if (exchangePiezas(save)) { persist(); sfx.coin(4); setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); } });
+    tap(ex, () => { if (exchangePiezas(save)) { persist(); sfx.coin(4); setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } });
     box.append(ex);
   },
   // PLANTA 9 superada: salir con todo o seguir en el modo sin fin
   showPecioExit(s) {
     ui.showPecioHUD(false);
     setText('psTitle', '🏆 ¡PLANTA 9 SUPERADA!');
-    $('psText').innerHTML = `Llevas <b>${s.player.piezas} 🔩</b>. Ya cuenta como victoria: si sigues, ya no pierdes 🔩 al caer.`;
+    setHTML('psText', `Llevas <b>${s.player.piezas} 🔩</b>. Ya cuenta como victoria: si sigues, ya no pierdes 🔩 al caer.`);
     $('btnPecioShopClose').classList.add('hidden');
     const box = $('psItems');
     box.innerHTML = '';
@@ -2590,7 +2603,7 @@ export const ui = {
   showPecioOffer(s) {
     const it = s.offer.item, p = s.player, cur = currentFor(p, it);
     setText('psTitle', '🎁 BOTÍN');
-    $('psText').innerHTML = `<b style="color:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`;
+    setHTML('psText', `<b style="color:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`);
     const box = $('psItems');
     box.innerHTML = `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>`;
     const opts = it.slot === 'mod' && p.gear.mod1 && p.gear.mod2
@@ -2608,7 +2621,7 @@ export const ui = {
   },
   showPecioShop(s) {
     setText('psTitle', '🛒 TIENDA DEL PECIO');
-    setText('psText', `Tienes ${s.player.piezas} 🔩 de esta partida.`);
+    setHTML('psText', `Tienes ${s.player.piezas} 🔩 de esta partida.`);
     ui.showPecioHUD(false); // los botones de la partida no tapan los de esta pantalla
     $('btnPecioShopClose').classList.remove('hidden');
     const box = $('psItems');
@@ -2627,7 +2640,7 @@ export const ui = {
   showPecioShrine() {
     setText('psTitle', '✨ ALTAR');
     ui.showPecioHUD(false); // los botones de la partida no tapan los de esta pantalla
-    setText('psText', 'Una luz antigua te ofrece una bendición. Solo una.');
+    setHTML('psText', 'Una luz antigua te ofrece una bendición. Solo una.');
     $('btnPecioShopClose').classList.remove('hidden');
     const box = $('psItems');
     box.innerHTML = '';
@@ -2644,7 +2657,7 @@ export const ui = {
     $('peTitle').className = r.won || r.endless ? 'won' : 'dead';
     setText('peDepth', `PLANTA ${r.depth}`);
     $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Jefes', r.bosses || 0], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
-    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}`;
+    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}${(r.rankUps || []).map((u) => `<br>⬆ ¡RANGO ${u.rank}! +${u.gems} 💎`).join('')}`;
     // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
     const vb = $('peVault');
     vb.innerHTML = '';

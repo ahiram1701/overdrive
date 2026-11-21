@@ -32,6 +32,7 @@ export const fx = {
   hitstop(dur) { G.hitstop = Math.max(G.hitstop, dur); },
   vibe(p) {
     if (!save.settings.vibe || !navigator.vibrate) return;
+    if (navigator.userActivation && !navigator.userActivation.hasBeenActive) return; // antes del primer toque el navegador lo bloquea
     try { navigator.vibrate(p); } catch { /* sin soporte */ }
   },
 

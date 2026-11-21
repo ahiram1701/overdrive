@@ -262,7 +262,7 @@ export function renderArena(dt) {
       ctx.stroke();
     }
     // el embestidor avisa con una línea hacia donde va a cargar
-    if (e.state === 'aim') {
+    if (e.state === 'aim' && e.id === 'dasher') {
       ctx.strokeStyle = 'rgba(255,106,0,.6)';
       ctx.lineWidth = 3;
       ctx.beginPath();
@@ -429,6 +429,14 @@ export function renderArena(dt) {
     ctx.fillRect(0, 0, W, H);
   }
 
+  // ECLIPSE: oscurece el mundo, pero no la barra del jefe
+  if (a.event?.id === 'eclipse') {
+    const g = ctx.createRadialGradient(W / 2, H / 2, 60 * z, W / 2, H / 2, Math.max(W, H) * 0.55);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.92)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
   // jefe: barra arriba y flecha si está fuera de pantalla
   if (boss) {
     const bw = Math.min(W * 0.7, 360), bx = (W - bw) / 2, by = 64;
@@ -468,13 +476,6 @@ export function renderArena(dt) {
       ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y), 110 * z, 0, Math.PI * 2); ctx.stroke();
       ctx.setLineDash([]);
     }
-  }
-  if (a.event?.id === 'eclipse') {
-    const g = ctx.createRadialGradient(W / 2, H / 2, 60 * z, W / 2, H / 2, Math.max(W, H) * 0.55);
-    g.addColorStop(0, 'rgba(0,0,0,0)');
-    g.addColorStop(1, 'rgba(0,0,0,.92)');
-    ctx.fillStyle = g;
-    ctx.fillRect(0, 0, W, H);
   }
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);

@@ -91,6 +91,14 @@ export function pecioChooseExit(pick) {
   if (s.over) finish(s);
 }
 // TALLER: mejoras para siempre, con 🔩
+// SALIR del sin fin desde la pausa: la partida ya cuenta como victoria, te llevas las 🔩 y lo demás
+export function pecioQuitEndless() {
+  const s = P();
+  if (!s || !s.endless || G.mode === 'pecioEnd') return false;
+  s.won = true;
+  finish(s);
+  return true;
+}
 export function pecioWorkshopBuy(id) {
   const c = workshopCost(save.pecioUp, id);
   if (c === null || save.pecio.piezas < c) return false;
@@ -225,12 +233,12 @@ function finish(s) {
   const rw = pecioRewards({ depth: s.depth, bosses: s.bosses, rooms: s.roomsCleared, kills: s.kills, won: s.won || s.cleared9 });
   const gems = Math.ceil(rw.gems * (1 + prestigeBonus(save)));
   save.gems += gems;
-  addXp(save, rw.xp);
+  const rankUps = addXp(save, rw.xp);
   progress('pecioDepth', s.depth);
   persist();
   const gear = {};
   for (const k of SLOTS) if (s.player.gear[k]) gear[k] = s.player.gear[k];
-  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best, gems, xp: rw.xp };
+  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best, gems, xp: rw.xp, rankUps };
   G.mode = 'pecioEnd';
   s.endT = s.won ? 1.6 : 1.1;
   musicStop();

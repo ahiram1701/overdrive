@@ -424,7 +424,7 @@ export function renderSpace(dt) {
     const pc = project(cam, c.pos, 1);
     if (!pc) continue;
     for (const o of s.pirates) {
-      if (o === c || !o.alive || dist(o.pos, c.pos) > 260) continue;
+      if (o === c || !o.alive || dist(o.pos, c.pos) > 260 || !stalkerVisible(o, dist(o.pos, sh.pos))) continue;
       const po = project(cam, o.pos, 1);
       if (!po) continue;
       draws.push({ z: Math.max(pc.z, po.z), fn: () => {

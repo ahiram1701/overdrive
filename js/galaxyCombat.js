@@ -15,8 +15,9 @@ export const streakWord = (n) => WORDS.find(([k]) => n >= k)?.[1] || '';
 // x1 sin racha; +6% por cada eslabón, hasta x2,2 con la racha llena
 export const streakMul = (n) => 1 + Math.min(STREAK.max, Math.max(0, n - 1)) * 0.063;
 
-export function newCombat() {
-  return { streak: 0, streakT: 0, best: 0, surge: 0, surgeT: 0, rollReady: -99, rollChain: 0 };
+// surge: lo que ya llevabas cargado (se guarda entre sesiones)
+export function newCombat(surge = 0) {
+  return { streak: 0, streakT: 0, best: 0, surge: Math.max(0, Math.min(1, surge || 0)), surgeT: 0, rollReady: -99, rollChain: 0 };
 }
 // sube la racha; devuelve la palabra si toca anunciarla (al cruzar un umbral)
 export function bumpStreak(c, n = 1) {
@@ -37,7 +38,8 @@ export function breakStreak(c) {
 
 // ---------- Sobrecarga ----------
 export const SURGE = { dur: 6, dmgMul: 1.5, fireMul: 1.4 };
-export const SURGE_GAIN = { kill: 0.12, elite: 0.25, boss: 0.5, graze: 0.06, perfect: 0.2, vent: 0.08 };
+// (unas 5 bajas la llenan; minar y los misiles también suman un poco)
+export const SURGE_GAIN = { kill: 0.22, elite: 0.4, boss: 0.7, graze: 0.1, perfect: 0.3, vent: 0.1, missile: 0.05, rock: 0.02 };
 export const surgeOn = (c) => c.surgeT > 0;
 // carga la sobrecarga; devuelve true justo cuando se llena
 export function addSurge(c, kind) {
