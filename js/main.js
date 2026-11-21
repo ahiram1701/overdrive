@@ -10,7 +10,7 @@ import { update, useAbility } from './game.js';
 import { ui, dialogPaused } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility, debugArenaBoss } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, spaceSurge, forceEvent, spawnDevourer, useItem, debugPirate } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, spaceSurge, forceEvent, debugContact, spawnDevourer, useItem, debugPirate } from './spaceGame.js';
 import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
@@ -178,6 +178,7 @@ if (G.debug) {
   window.__save = save; // para los bots de los tests
   window.__spaceStats = spaceStats;
   window.__forceEvent = forceEvent;
+  window.__contact = (k) => debugContact(k);
   window.__devourer = () => spawnDevourer();
   window.__arenaBoss = (id) => debugArenaBoss(id);
   window.__pirate = (kind, trait, ahead) => debugPirate(kind, trait, ahead);

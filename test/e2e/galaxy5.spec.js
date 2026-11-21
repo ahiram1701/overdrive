@@ -181,6 +181,101 @@ test('ajustes: la dificultad de la Galaxia se cambia en ciclo y se guarda', asyn
   expect(errors).toEqual([]);
 });
 
+// ---------- Viajes con vida ----------
+test('supercrucero: motor a tope y sin enemigos acelera hasta ×4; un contacto lo corta', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page);
+  const res = await page.evaluate(() => {
+    const s = window.G.space, sh = s.ship;
+    window.G.god = true;
+    s.routeTo = null;
+    sh.throttle = 1;
+    // volando por espacio abierto (se le devuelve al mismo sitio para no llegar a nada)
+    for (let i = 0; i < 80; i++) { sh.pos = { x: 0, y: 500, z: 0 }; window.D.step(0.1, false); }
+    const k = s.cruiseK, v = sh.speed;
+    window.__contact('distress');
+    window.D.step(1 / 60, false);
+    return { k, v, after: s.cruiseK, base: window.__spaceStats().speed, contact: s.contact?.kind };
+  });
+  expect(res.k).toBeGreaterThan(3.5);
+  expect(res.v).toBeGreaterThan(res.base * 3);
+  expect(res.after).toBeLessThan(1.1);
+  expect(res.contact).toBe('distress');
+  await expect(page.locator('#shObjective')).toContainText('auxilio');
+  expect(errors).toEqual([]);
+});
+
+test('contactos: rescate, anillos y contenedor pagan; el contrabandista paga al derribarlo', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page);
+  const res = await page.evaluate(() => {
+    const s = window.G.space, g = window.__save.galaxy;
+    window.G.god = true;
+    const out = {};
+    // auxilio (sin trampa)
+    window.__contact('distress');
+    s.contact.trap = false;
+    let c0 = g.credits;
+    s.ship.pos = { ...s.contact.pos };
+    window.D.step(1 / 30, false);
+    out.distress = g.credits - c0;
+    // anillos: cruzarlos todos
+    window.__contact('rings');
+    c0 = g.credits;
+    for (let i = 0; i < 5 && s.contact; i++) { s.ship.pos = { ...s.contact.rings[s.contact.next] }; window.D.step(1 / 30, false); }
+    out.rings = g.credits - c0;
+    // contenedor
+    window.__contact('container');
+    c0 = g.credits;
+    s.ship.pos = { ...s.contact.pos };
+    window.D.step(1 / 30, false);
+    out.container = g.credits - c0;
+    // contrabandista
+    window.__contact('smuggler');
+    const p = s.contact.ref;
+    out.flees = p.state === 'flee';
+    p.hp = 1;
+    s.bolts.push({ pos: { ...p.pos }, vel: { x: 0, y: 0, z: 0 }, life: 0.2, dmg: 50 });
+    window.D.step(1 / 60, false);
+    out.smugglerLoot = s.loot.some((l) => l.credits >= 300);
+    out.left = s.contact;
+    return out;
+  });
+  expect(res.distress).toBeGreaterThan(0);
+  expect(res.rings).toBeGreaterThan(0);
+  expect(res.container).toBeGreaterThan(0);
+  expect(res.flees).toBe(true);
+  expect(res.smugglerLoot).toBe(true);
+  expect(res.left).toBe(null);
+  expect(errors).toEqual([]);
+});
+
+test('interdicción: forcejear tocando disparo te suelta; si no, llegas con cazadores', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page);
+  const res = await page.evaluate(() => {
+    const s = window.G.space;
+    window.G.god = true;
+    const jump = () => { s.jumpT = 1.1; s.jumpTo = s.sys.gates[0].to; s.interdict = { t: 3.2, taps: 0 }; s.firingWas = true; };
+    // 1) forcejear
+    jump();
+    for (let i = 0; i < 12; i++) { s.botFire = true; window.D.step(1 / 60, false); s.botFire = false; window.D.step(1 / 60, false); }
+    const escaped = s.interdict === null && !s.interdictFail;
+    window.D.step(1.5, false);
+    const n1 = s.pirates.filter((p) => p.hunter).length;
+    // 2) no hacer nada
+    jump();
+    s.jumpTo = s.sys.gates.find((gt) => gt.to !== 0)?.to ?? s.jumpTo;
+    window.D.step(3.4, false);
+    window.D.step(1.3, false);
+    return { escaped, n1, hunters: s.pirates.filter((p) => p.hunter).length, mode: window.G.mode };
+  });
+  expect(res.escaped).toBe(true);
+  expect(res.n1).toBe(0);
+  expect(res.hunters).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
 test('zona segura: tampoco dañan el equipo fabricado, la torreta ni los misiles', async ({ page }) => {
   const errors = trackErrors(page);
   await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { up: { missile: 1 }, missiles: 4 }, galaxyGear: { owned: { laser2: true, flak: true, turret: true }, w: ['laser2', 'flak'], m: ['turret'] } });
