@@ -15,7 +15,7 @@ import { progress } from './game.js';
 import { ui } from './ui.js';
 import {
   WEAPONS, SHIP_WEAPON, SHIP_ARENA, passiveStats, EVOLUTIONS, offerUpgrades, applyUpgrade, xpNeed,
-  ENEMIES, waveAt, ELITE_EVERY, BOSS_TIMES, ARENA_TIME, arenaRewards,
+  ENEMIES, waveAt, ELITE_EVERY, GUARD_R, SNIPER, NEST, ARENA_EVENTS, ARENA_EVENT_FIRST, ARENA_EVENT_EVERY, ARENA_EVENT_DUR, arenaEventAt, BOSS_TIMES, ARENA_TIME, arenaRewards,
   ARENA_MAPS, mapFeatures, mapUnlocked, ARENA_BOSSES, BOSS_ATTACKS, bossOf, nextBossTime, arenaUpLvl,
 } from './arenaData.js';
 
@@ -42,7 +42,7 @@ export function newArena(opts = {}) {
     weapons: { [SHIP_WEAPON[ship.id]]: 1 }, passives: {}, evolved: {}, cds: {},
     enemies: [], bullets: [], ebullets: [], gems: [], chests: [], beams: [], rings: [], shells: [], arcs: [], drones: null,
     xp: 0, level: 1, kills: 0, bosses: 0, pendingUps: 0, offers: null,
-    spawnAcc: 0, nextElite: ELITE_EVERY, bossIdx: 0, orbAngle: 0, flameT: 0,
+    spawnAcc: 0, nextElite: ELITE_EVERY, nextEvent: ARENA_EVENT_FIRST, events: 0, event: null, guards: [], bossIdx: 0, orbAngle: 0, flameT: 0,
     ability: newAbility(ship.ability, abilityMods(ship, lvls)), slowT: 0, phaseT: 0, ramT: 0,
     shake: 0, dmgBy: {},
     map: mapId, M: ARENA_MAPS[mapId], pulseT: 0,
@@ -144,7 +144,7 @@ function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
   a.enemies.push({
     id, def, x: ex, y: ey, hp, max: hp, r: def.r * (elite ? 1.6 : 1), speed: def.speed * (elite ? 0.9 : 1), dmg: def.dmg * (elite ? 1.5 : 1),
     // las gemas valen más con el tiempo: así se sigue subiendo de nivel a buen ritmo
-    xp: def.xp * (elite ? 8 : 1) * (1 + a.time / 240), elite, boss: false, alive: true, flash: 0, state: 'go', st: 0, cd: a.rng.range(1, 2.5), phase: a.rng.range(0, 6),
+    xp: def.xp * (elite ? 8 : 1) * (1 + a.time / 240) * (a.event?.id === 'gold' ? 2 : a.event?.id === 'frenzy' ? 1.3 : 1), elite, boss: false, alive: true, flash: 0, state: 'go', st: 0, cd: a.rng.range(1, 2.5), phase: a.rng.range(0, 6),
     vx: 0, vy: 0, orbT: 0,
   });
 }
@@ -182,6 +182,7 @@ export function hurtEnemy(a, e, dmg) {
   if (e.shield) { e.flash = 0.03; return; } // LA COLMENA: con sus crías alrededor no le entra nada
   const st = stats(a);
   const crit = st.crit > 0 && a.rng.next() < st.crit;
+  if (!e.boss && e.id !== 'guard' && a.guards?.some((g) => g.alive && (g.x - e.x) ** 2 + (g.y - e.y) ** 2 < GUARD_R * GUARD_R)) dmg *= 0.5; // ESCUDERO cerca
   e.hp -= dmg * st.might * (a.dmgMul || 1) * (crit ? 2 : 1);
   if (crit) e.crit = 0.15;
   e.flash = 0.08;
@@ -649,6 +650,7 @@ function updateBullets(a, dt) {
 // ---------- Enemigos: movimiento y ataques ----------
 function updateEnemies(a, dt) {
   const slow = a.slowT > 0 ? 0.35 : 1;
+  a.guards = a.enemies.filter((e) => e.alive && e.id === 'guard');
   const st = stats(a);
   for (const e of a.enemies) {
     if (!e.alive) continue;
@@ -676,6 +678,26 @@ function updateEnemies(a, dt) {
       if (e.cd <= 0) {
         e.cd = 2.4;
         a.ebullets.push({ x: e.x, y: e.y, vx: (dx / d) * 210, vy: (dy / d) * 210, r: 6, dmg: 8, life: 4 });
+      }
+    } else if (e.id === 'sniper') {
+      // se queda lejos, APUNTA (línea roja) y dispara un tiro rápido a donde estabas
+      if (d < SNIPER.range - 40) { vx = -vx; vy = -vy; } else if (d < SNIPER.range + 60) { vx = 0; vy = 0; }
+      e.cd -= dt * slow;
+      if (e.state !== 'aim' && e.cd <= 0 && d < SNIPER.range + 140) { e.state = 'aim'; e.st = SNIPER.aim; e.ax = a.x; e.ay = a.y; }
+      if (e.state === 'aim') {
+        vx = 0; vy = 0;
+        e.st -= dt * slow;
+        if (e.st <= 0) {
+          const ad = Math.hypot(e.ax - e.x, e.ay - e.y) || 1;
+          a.ebullets.push({ x: e.x, y: e.y, vx: ((e.ax - e.x) / ad) * SNIPER.speed, vy: ((e.ay - e.y) / ad) * SNIPER.speed, r: 5, dmg: SNIPER.dmg, life: 2.5 });
+          e.state = 'go'; e.cd = SNIPER.cd;
+        }
+      }
+    } else if (e.id === 'nest') {
+      e.cd -= dt * slow;
+      if (e.cd <= 0 && a.enemies.length < waveAt(a.time).cap) {
+        e.cd = NEST.every;
+        for (let i = 0; i < NEST.n; i++) spawnEnemy(a, 'mini', { x: e.x + (i ? 18 : -18), y: e.y + 12 });
       }
     } else if (e.boss) {
       ({ vx, vy } = bossAI(a, e, dt, slow, dx, dy, d));
@@ -844,10 +866,19 @@ export function updateArena(dt) {
 
   // oleadas
   const w = waveAt(a.time);
-  a.spawnAcc += w.rate * dt;
+  a.spawnAcc += w.rate * dt * (a.event?.id === 'frenzy' ? 1.7 : 1);
   while (a.spawnAcc >= 1) {
     a.spawnAcc -= 1;
     if (a.enemies.length < w.cap) spawnEnemy(a, a.rng.weighted(w.weights).id);
+  }
+  // SUCESO de partida
+  if (a.event && a.time >= a.event.until) { fx.notice(`${ARENA_EVENTS[a.event.id].icon} Se acabó: ${ARENA_EVENTS[a.event.id].name}`, '#b8c2cc'); a.event = null; }
+  if (!a.event && a.time >= a.nextEvent) {
+    const id = arenaEventAt(a.events++);
+    a.event = { id, until: a.time + ARENA_EVENT_DUR };
+    a.nextEvent = a.time + ARENA_EVENT_EVERY;
+    fx.banner(`${ARENA_EVENTS[id].icon} ${ARENA_EVENTS[id].name}`, ARENA_EVENTS[id].desc, '#ffd60a', true);
+    sfx.event();
   }
   if (a.time >= a.nextElite) {
     a.nextElite += ELITE_EVERY;

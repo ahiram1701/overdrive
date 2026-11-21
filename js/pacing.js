@@ -25,3 +25,17 @@ export function timeAtDist(d) {
 
 // velocidad de referencia en la distancia d con un multiplicador de velocidad (cartas como Nitro)
 export const trackSpeed = (d, speedMult = 1) => baseSpeed(timeAtDist(d / speedMult)) * speedMult;
+
+// PRESIÓN: a partir del tramo 9 la pista ya no se aprieta más por sí sola; cada 3 tramos se suma un nivel
+// de presión (filas más juntas, más sucesos y biomas sin orden fijo), con tope para que siga siendo justa
+export const PRESSURE_FROM = 9;
+export const PRESSURE_MAX = 6;
+export const pressureOf = (section) => (section < PRESSURE_FROM ? 0 : Math.min(PRESSURE_MAX, 1 + Math.floor((section - PRESSURE_FROM) / 3)));
+export const pressureGap = (p) => 1 - 0.035 * p; // ×0,79 con la presión al máximo
+export const pressureEvent = (p) => Math.min(0.9, 0.6 + 0.05 * p);
+// tras tres vueltas de biomas, el orden cambia en cada vuelta (determinista por el tramo)
+export function biomeIndex(section, n) {
+  if (section < n * 3) return section % n;
+  const lap = Math.floor(section / n), k = section % n;
+  return (k * (lap % 2 ? n - 1 : 1) + lap * 2) % n;
+}

@@ -1500,3 +1500,19 @@ export function workshopShip(up = {}) {
   const L = (id) => workshopLevel(up, id);
   return { hpBonus: L('hull'), keys: L('keys'), bag: L('pack') ? { kit: 1 } : {}, bagMax: L('pack') >= 2 ? BAG_MAX + 1 : BAG_MAX, luck: L('luck'), bonusDmg: L('power') };
 }
+
+// RECOMPENSAS comunes de una partida de PECIOS: gemas y XP de rango (como la Arena y el Runner)
+export function pecioRewards({ depth, bosses = 0, rooms = 0, kills = 0, won = false }) {
+  return {
+    gems: Math.floor(depth * 2.5) + bosses * 10 + Math.floor(kills / 30) + (won ? 40 : 0),
+    xp: Math.floor(depth * 60 + rooms * 12 + kills * 0.5 + bosses * 120),
+  };
+}
+// CANJE: las 🔩 que sobran pasan a 🪙 (la cartera del Runner y la Arena)
+export const EXCHANGE = { piezas: 50, coins: 100 };
+export function exchangePiezas(save) {
+  if ((save.pecio.piezas || 0) < EXCHANGE.piezas) return false;
+  save.pecio.piezas -= EXCHANGE.piezas;
+  save.coins = (save.coins || 0) + EXCHANGE.coins;
+  return true;
+}

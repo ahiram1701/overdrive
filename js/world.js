@@ -6,7 +6,7 @@ import { sfx } from './audio.js';
 import { project } from './render.js';
 import { playerBox } from './player.js';
 import { isActive } from './abilities.js';
-import { trackSpeed } from './pacing.js';
+import { trackSpeed, pressureGap } from './pacing.js';
 import { BOSSES, BOSS_BY_ID, bossFor, phaseOf, attackCooldown, makeElite, bossHp } from './bosses.js';
 import { onNearMiss, onBreak, onHit, onCoin, onFork, onFinish, onJumpOver, onCore, bossDefeated, bossEscaped, addScore, hunterEscaped, progress } from './game.js';
 
@@ -285,7 +285,7 @@ function genRow(r) {
 
   // velocidad de referencia en esta distancia (no la del momento): el overdrive no cambia la pista
   const spd = trackSpeed(z, r.stats.speedMult);
-  let tGap = 0.95 - clamp(r.section / 9, 0, 1) * 0.42;
+  let tGap = (0.95 - clamp(r.section / 9, 0, 1) * 0.42) * pressureGap(r.pressure || 0);
   if (r.risk) tGap *= 0.8;
   if (r.mods.has('greed')) tGap *= 0.85; // AVARICIA: filas más juntas
   if (r.boss) tGap *= 1.7;

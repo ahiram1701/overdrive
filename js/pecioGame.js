@@ -6,7 +6,8 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR } from './pecio.js';
+import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
+import { addXp, prestigeBonus } from './progress.js';
 import { CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
@@ -220,11 +221,16 @@ function finish(s) {
   save.pecio.piezas += kept;
   save.pecio.best = Math.max(save.pecio.best || 0, s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR));
   if (s.cleared9) save.pecio.wins = (save.pecio.wins || 0) + 1;
+  // gemas y XP de rango, como en los otros juegos
+  const rw = pecioRewards({ depth: s.depth, bosses: s.bosses, rooms: s.roomsCleared, kills: s.kills, won: s.won || s.cleared9 });
+  const gems = Math.ceil(rw.gems * (1 + prestigeBonus(save)));
+  save.gems += gems;
+  addXp(save, rw.xp);
   progress('pecioDepth', s.depth);
   persist();
   const gear = {};
   for (const k of SLOTS) if (s.player.gear[k]) gear[k] = s.player.gear[k];
-  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best };
+  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best, gems, xp: rw.xp };
   G.mode = 'pecioEnd';
   s.endT = s.won ? 1.6 : 1.1;
   musicStop();

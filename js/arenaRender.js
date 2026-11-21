@@ -455,6 +455,27 @@ export function renderArena(dt) {
     }
   }
 
+  // FRANCOTIRADOR apuntando, aura del ESCUDERO y ECLIPSE
+  for (const e of a.enemies) {
+    if (e.id === 'sniper' && e.state === 'aim') {
+      ctx.strokeStyle = `rgba(255,55,95,${0.35 + 0.5 * Math.abs(Math.sin(G.realTime * 16))})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(sx(e.x), sy(e.y)); ctx.lineTo(sx(e.ax), sy(e.ay)); ctx.stroke();
+    } else if (e.id === 'guard' && onScreen(e.x, e.y, 120 * z)) {
+      ctx.strokeStyle = 'rgba(90,200,250,.35)';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.arc(sx(e.x), sy(e.y), 110 * z, 0, Math.PI * 2); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+  }
+  if (a.event?.id === 'eclipse') {
+    const g = ctx.createRadialGradient(W / 2, H / 2, 60 * z, W / 2, H / 2, Math.max(W, H) * 0.55);
+    g.addColorStop(0, 'rgba(0,0,0,0)');
+    g.addColorStop(1, 'rgba(0,0,0,.92)');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+  }
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
   fx.drawBanners(ctx, W, H);

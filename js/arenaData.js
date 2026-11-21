@@ -159,7 +159,26 @@ export const ENEMIES = {
   tank: { name: 'Tanque', hp: 120, speed: 40, dmg: 18, r: 26, xp: 5, color: '#30d158', shape: 'hex' },
   splitter: { name: 'Divisor', hp: 40, speed: 62, dmg: 10, r: 19, xp: 3, color: '#bf5af2', shape: 'square' },
   mini: { name: 'Fragmento', hp: 10, speed: 95, dmg: 6, r: 10, xp: 1, color: '#bf5af2', shape: 'square' },
+  // desde el minuto 5: cada uno cambia cómo te mueves
+  guard: { name: 'Escudero', hp: 90, speed: 50, dmg: 12, r: 18, xp: 4, color: '#5ac8fa', shape: 'hex' }, // los de su alrededor reciben la mitad
+  sniper: { name: 'Francotirador', hp: 30, speed: 55, dmg: 6, r: 13, xp: 3, color: '#ff375f', shape: 'eye' }, // apunta (línea roja) y dispara fuerte
+  nest: { name: 'Nido', hp: 180, speed: 16, dmg: 14, r: 24, xp: 6, color: '#ffcc00', shape: 'square' }, // suelta fragmentos
 };
+export const GUARD_R = 110;
+export const SNIPER = { range: 340, aim: 0.8, cd: 3.2, speed: 430, dmg: 13 };
+export const NEST = { every: 3.5, n: 2 };
+// SUCESOS de partida: cada ~2 min, uno de estos durante 20 s
+export const ARENA_EVENTS = {
+  gold: { icon: '💰', name: 'FIEBRE DEL ORO', desc: 'las gemas valen el doble' },
+  frenzy: { icon: '🔥', name: 'FRENESÍ', desc: 'salen muchos más, pero dan más XP' },
+  eclipse: { icon: '🌑', name: 'ECLIPSE', desc: 'casi no se ve: confía en tu oído' },
+};
+export const ARENA_EVENT_KEYS = Object.keys(ARENA_EVENTS);
+export const ARENA_EVENT_FIRST = 100;
+export const ARENA_EVENT_EVERY = 120;
+export const ARENA_EVENT_DUR = 20;
+export const arenaEventAt = (n) => ARENA_EVENT_KEYS[(n * 2 + 1) % ARENA_EVENT_KEYS.length];
+
 
 // Director de oleadas: cuántos enemigos por segundo, de qué tipos y lo fuertes que son, según el
 // minuto. Determinista. hpMul sube con el tiempo para que tu build tenga siempre algo que romper.
@@ -167,11 +186,14 @@ export function waveAt(t) {
   const m = t / 60;
   const rate = 2.2 + m * 1.5 + Math.pow(m, 1.5) * 0.3;
   const weights = [{ id: 'chaser', w: 10 }];
-  if (m >= 0.5) weights.push({ id: 'swarm', w: 4 + m });
+  if (m >= 0.25) weights.push({ id: 'swarm', w: 4 + m });
   if (m >= 1.5) weights.push({ id: 'dasher', w: 3 + m * 0.5 });
   if (m >= 2.5) weights.push({ id: 'shooter', w: 2.5 + m * 0.3 });
   if (m >= 3.5) weights.push({ id: 'splitter', w: 2 + m * 0.3 });
   if (m >= 4.5) weights.push({ id: 'tank', w: 1.5 + m * 0.3 });
+  if (m >= 5) weights.push({ id: 'guard', w: 1.2 + m * 0.15 });
+  if (m >= 6) weights.push({ id: 'sniper', w: 1 + m * 0.15 });
+  if (m >= 7) weights.push({ id: 'nest', w: 0.5 + m * 0.08 });
   return { rate, weights, hpMul: 1 + m * 0.28 + Math.pow(m, 2) * 0.022, cap: Math.min(420, Math.round(90 + m * 30)) }; // tope: el modo sin fin no hunde los fps
 }
 
