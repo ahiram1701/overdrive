@@ -14,13 +14,14 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
+import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
@@ -233,6 +234,7 @@ function setText(id, v) {
 // (cada escritura en el DOM, aunque sea el mismo valor, puede costar un recálculo de estilos)
 const hudEl = {};
 const $h = (id) => hudEl[id] || (hudEl[id] = $(id));
+function setEl(n, v) { if (n._t !== v) { n._t = v; n.textContent = v; } }
 function setTf(n, v) { if (n._tf !== v) { n._tf = v; n.style.transform = v; } }
 function setVar(n, k, v) { const c = `_v${k}`; if (n[c] !== v) { n[c] = v; n.style.setProperty(k, v); } }
 function tgl(n, c, on) { if (n.classList.contains(c) !== on) n.classList.toggle(c, on); }
@@ -331,6 +333,7 @@ export const ui = {
     fire.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); if (G.space) G.space.fireHeld = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) fire.addEventListener(ev, () => { if (G.space) G.space.fireHeld = false; });
     $('btnBoost').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceBoost(); });
+    $('btnSurge').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceSurge(); });
     $('btnMissile').addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); unlockAudio(); spaceMissile(); });
     tap($('btnAct'), () => spaceAct());
     // alabeo: mantener ↺ / ↻
@@ -1662,6 +1665,22 @@ export const ui = {
     setText('shWanted', ws ? '⭐'.repeat(ws) : '');
     setTf(bars.heat, `scaleX(${Math.min(1, s.heat).toFixed(3)})`);
     tgl(bars.heat.parentElement, 'over', !!s.overheat);
+    // RACHA y SOBRECARGA
+    const cb = s.combat;
+    if (cb) {
+      const sk = $h('shStreak');
+      tgl(sk, 'hidden', cb.streak < 2);
+      if (cb.streak >= 2) {
+        setEl(sk.children[0], `x${cb.streak}`);
+        setEl(sk.children[1], streakWord(cb.streak) || 'RACHA');
+        setTf(sk.children[2], `scaleX(${Math.max(0, cb.streakT / STREAK.window).toFixed(3)})`);
+      }
+      const sb = $h('btnSurge'), on = cb.surgeT > 0;
+      setTf(sb.firstElementChild, `scaleY(${(on ? cb.surgeT / SURGE.dur : cb.surge).toFixed(3)})`);
+      tgl(sb, 'ready', !on && cb.surge >= 1);
+      tgl(sb, 'on', on);
+      tgl(hud, 'surging', on);
+    }
     tgl($h('btnDock'), 'hidden', !s.canDock);
     tgl($h('btnBoost'), 'cool', s.ship.boostCd > 0);
     tgl($h('shHint'), 'hidden', s.t > 8 || tipSeen(save, 'galaxy'));

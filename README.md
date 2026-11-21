@@ -302,8 +302,12 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **Sistema ORIGEN:** un sol (no te acerques demasiado), 3 planetas, un cinturón de asteroides y una estación que gira.
 - **Espectáculo:** nebulosas de fondo con el color de cada estrella, planetas con atmósfera, bandas de nubes y lado nocturno, estela 3D con el color de tu motor, explosiones con onda expansiva, chispas al impactar y el escudo que brilla al recibir.
 - **Combate:**
+  - **🔥 RACHA:** cada baja seguida la sube (x1 → x20) y cada pirata paga más (hasta ×2,2). Caduca a los 5 s sin bajas y se rompe si te dan en el casco. Al abatir al último pirata del sistema, cámara lenta y **SISTEMA DESPEJADO**.
+  - **⚡ SOBRECARGA:** se carga con bajas, con las balas que te pasan **rozando** y con los esquives perfectos. Suéltala con el botón ⚡ (o **V**): 6 s sin calor, daño ×1,5 y cadencia ×1,4.
+  - **🌡️ Calor con ventilación:** el láser se sobrecalienta disparando sin parar (el equipo fabricado también calienta). Sobrecalentado, **vuelve a pulsar** cuando el calor pase por la franja azul y se enfría al momento; fuera de ella, se atasca.
+  - **Puntería:** el autoapuntado es más estrecho y dispara a donde **va** a estar el blanco. Los piratas que huyen pierden créditos por el camino: perseguirlos paga.
   - **🚀 Misiles teledirigidos** (mejora *Misiles*): mantén un enemigo en el visor hasta que ponga **FIJADO** y dispara. La munición se recarga al atracar. En teclado: **M**.
-  - **🌀 Tonel** (doble toque o **X**): una vuelta de campana hacia un lado, invulnerable mientras dura. Esquiva balas y misiles.
+  - **🌀 Tonel** (doble toque o **X**): una vuelta de campana hacia un lado, invulnerable solo al **principio** del giro. Si una bala o un misil llega justo entonces: **ESQUIVE PERFECTO** (cámara lenta, racha y sobrecarga). Encadenar toneles cansa: cada uno tarda más en volver.
   - **Enemigos:** cazas, **interceptores** rápidos y frágiles, **bombarderos** lentos que lanzan misiles (derríbalos a tiros) y **enjambres de drones**. Aparecen más tipos al alejarte de ORIGEN.
   - **🏴‍☠️ Bases piratas** con 4 torretas: destruirlas da un gran botín de créditos.
 - **Sucesos al llegar a un sistema** (con aviso):
