@@ -365,3 +365,23 @@ test('piloto: también en ORIGEN la carga queda en tu pecio', async ({ page }) =
   expect(res.inSys).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test('incursión: sus bajas no cuentan para los contratos ni la búsqueda del sistema', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { missions: [{ id: 'h1', kind: 'hunt', sys: 0, n: 2, progress: 0, text: '★ Elimina 2 piratas en ORIGEN', reward: 300, tier: 1, mods: [], jumps: 2, deadline: 9 }] } });
+  await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
+  await page.locator('#btnDock').click();
+  await page.locator('#btnIncursion').click();
+  const res = await page.evaluate(() => {
+    const s = window.G.space, g = window.__save.galaxy;
+    window.G.god = true;
+    window.D.step(2.2, false);
+    for (const p of s.pirates) if (p.alive && p.inc) { p.hp = 1; s.bolts.push({ pos: { ...p.pos }, vel: { x: 0, y: 0, z: 0 }, life: 0.1, dmg: 99 }); }
+    window.D.step(0.1, false);
+    return { progress: g.missions[0]?.progress, wanted: g.wanted || 0, score: s.incursion?.score };
+  });
+  expect(res.score).toBeGreaterThan(0);
+  expect(res.progress).toBe(0);
+  expect(res.wanted).toBe(0);
+  expect(errors).toEqual([]);
+});

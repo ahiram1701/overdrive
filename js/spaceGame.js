@@ -882,12 +882,12 @@ function killPirate(s, p) {
   const value = Math.round((p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   s.sysKills = (s.sysKills || 0) + 1;
-  addWanted(gal(), 'kill');
+  if (!p.inc) addWanted(gal(), 'kill');
   if (p.elite) progress('eliteKill');
   ui.showTip?.('galCombat');
   s.loot.push({ pos: { ...p.pos }, credits: value, life: 60 });
   // el último pirata del sistema: cámara lenta y SISTEMA DESPEJADO
-  if (!p.boss && !s.cleared && GAL[s.sysId].pirates && !s.base && !s.pirates.some((q) => q.alive)) {
+  if (!p.boss && !p.inc && !s.cleared && GAL[s.sysId].pirates && !s.base && !s.pirates.some((q) => q.alive)) {
     s.cleared = true;
     fx.slowmo(0.7, 0.25);
     fx.banner('✔ SISTEMA DESPEJADO', `mejor racha x${s.combat.best}`, '#30d158');
@@ -904,6 +904,8 @@ function killPirate(s, p) {
   }
   progress('pirate');
   gainMats(s, dropsOf(p.kind, { boss: p.boss, bounty: !!p.bounty }));
+  // INCURSIÓN: sus bajas puntúan, pero no cuentan para la historia, los contratos, la reputación ni las ofensivas del sistema
+  if (p.inc) return;
   if (p.story) storyHit(s, { type: 'boss', boss: p.story, sys: s.sysId });
   else storyHit(s, { type: 'kill', sys: s.sysId });
   if (s.owner !== 'pir') addRep(save, s.owner, 1);
