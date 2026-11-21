@@ -55,14 +55,17 @@ export function initInput(h) {
   addEventListener('pointerup', end);
   addEventListener('pointercancel', (e) => { if (e.pointerId === pid) active = false; });
 
-  addEventListener('keyup', (e) => held.delete(e.key));
+  // las letras, siempre en minúscula: con Shift o Bloq Mayús la tecla sigue siendo la misma (no se queda pegada)
+  const keyOf = (e) => (e.key.length === 1 ? e.key.toLowerCase() : e.key);
+  addEventListener('keyup', (e) => held.delete(keyOf(e)));
   addEventListener('blur', () => held.clear());
   addEventListener('keydown', (e) => {
     h.any?.();
-    held.add(e.key);
+    held.add(keyOf(e));
     if (e.repeat) return;
-    const k = e.key;
-    if (k === 'Escape' || k === 'p') return h.pause?.();
+    const k = keyOf(e);
+    // Esc: si una pantalla ya lo usó para volver atrás, no abre además la pausa
+    if (k === 'Escape' || k === 'p') return e.defaultPrevented ? undefined : h.pause?.();
     if (!h.enabled()) return;
     if (k === 'ArrowLeft' || k === 'a') h.swipe('left');
     else if (k === 'ArrowRight' || k === 'd') h.swipe('right');

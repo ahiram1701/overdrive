@@ -1169,6 +1169,7 @@ function expWin(gems) {
 // Explosión de la nave según el cosmético equipado
 function die() {
   const r = run(), p = G.player;
+  if (p.dead || G.mode === 'over' || G.mode === 'dying') return; // dos golpes en el mismo fotograma: se muere una vez
   // ❤️ SEGUNDA VIDA: una vez, revives y se despeja lo que tienes delante
   if (r.extraLife > 0) {
     r.extraLife--;

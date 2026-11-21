@@ -95,7 +95,7 @@ export function newSpace() {
     ship: { pos: { x: 0, y: 0, z: 0 }, q: quatFromYawPitch(0, 0), yaw: 0, pitch: 0, roll: 0, throttle: 1, rollIn: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
     input: { x: 0, y: 0 }, firing: false, bolts: [], ebolts: [], ores: [], loot: [], pirates: [], cam: null, t: 0, canDock: false, fullWarned: false,
     objective: null, target: null, heat: 0, overheat: false, jumpT: 0, pirateT: 30, routeTo: null,
-    combat: newCombat(), cruiseK: 1, contact: null, contactT: 20, interdict: null,
+    combat: newCombat(g.surge), cruiseK: 1, contact: null, contactT: 20, interdict: null,
     // CONTACTOS al azar: en las pruebas (?debug) solo si se piden (?contacts), para que sean deterministas
     contactsOn: !G.debug || new URLSearchParams(location.search).has('contacts'),
   };
@@ -176,7 +176,7 @@ function enterSystem(s, id, fromId) {
     for (const t of tickWorld(save, GAL, g.jumps)) { fx.notice(`📰 ${t}`, '#ffd60a'); ui.showTip?.('worldEvent'); }
     // CONTRATOS contrarreloj que se han pasado de plazo
     const late = g.missions.filter((m) => contractExpired(m, g.jumps));
-    if (late.length) { g.missions = g.missions.filter((m) => !late.includes(m)); for (const m of late) fx.notice(`⏱️ Contrato fallido: ${m.text}`, '#ff6b6b', 2.4); }
+    if (late.length) { g.missions = g.missions.filter((m) => !late.includes(m)); g.boardSeq = (g.boardSeq || 0) + 1; for (const m of late) fx.notice(`⏱️ Contrato fallido: ${m.text}`, '#ff6b6b', 2.4); }
     const bo = B().active;
     if (bo) bo.sys = moveBounty(GAL, bo, g.jumps);
     if (save.territory[id] && makeRng(hashString(`siege-${id}-${g.jumps}`)).next() < 0.25) startEvent(s, { kind: 'siege', id: `siege-${id}-${g.jumps}` });
@@ -689,7 +689,7 @@ function spawnPirate(s, boss, kind = null, at = null) {
       leader, wing: w, flank: w ? -flank : flank, fireCd: s.rng.range(1.2, 2.4), mesh: leader.mesh, off: { x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) } };
     s.pirates.push(wp);
   }
-  if (boss) fx.notice(`☠ Hay un JEFE PIRATA en ${def.name}`, '#ff2d55');
+  if (boss && !s.incursion) fx.notice(`☠ Hay un JEFE PIRATA en ${def.name}`, '#ff2d55');
 }
 
 // ALERTA: un pirata te ha visto (o le has dado). Avisa a los de su zona; el primero pide refuerzos por radio.
@@ -746,7 +746,7 @@ function updatePirates(s, dt) {
     if (p.raider && fr && fr.hp > 0) {
       target = fr.pos;
       p.state = 'attack';
-    } else if (s.decoy && !p.boss) {
+    } else if (s.decoy && !p.boss && !p.smuggler) {
       target = s.decoy.pos; // SEÑUELO: lo persiguen a él
       p.state = 'attack';
     } else if (p.state === 'attack') {
@@ -881,7 +881,7 @@ function killPirate(s, p) {
   const d = GAL[s.sysId].danger;
   const value = Math.round((p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
-  s.sysKills = (s.sysKills || 0) + 1;
+  if (!p.inc) s.sysKills = (s.sysKills || 0) + 1;
   if (!p.inc) addWanted(gal(), 'kill');
   if (p.elite) progress('eliteKill');
   ui.showTip?.('galCombat');
@@ -1093,6 +1093,7 @@ export function useItem(id) {
   if (id === 'repair' && sh.hull >= st.hull) { fx.notice('🧰 El casco ya está entero', '#b8c2cc'); return false; }
   if (id === 'shield' && sh.shield >= st.shield) { fx.notice('🔋 El escudo ya está lleno', '#b8c2cc'); return false; }
   if (id === 'beacon' && s.jumpT > 0) return false;
+  if (id === 'beacon' && s.incursion) { fx.notice('⚔️ En la incursión no funciona la baliza', '#ff2bd6'); sfx.bump(); return false; }
   takeItem(save, id);
   if (id === 'repair') { sh.hull = Math.min(st.hull, sh.hull + st.hull * 0.4); g.hull = sh.hull; }
   else if (id === 'shield') { sh.shield = st.shield; sh.shieldFx = 0.6; }
@@ -1584,6 +1585,7 @@ function updateContacts(s, dt) {
   }
   if (c.kind === 'smuggler') {
     c.pos = c.ref.pos;
+    if (c.t > CONTACT_LIFE && c.ref.alive) c.ref.alive = false; // se le acabó el tiempo: salta y se va
     if (!c.ref.alive && !c.paid) { fx.notice('🏃 El contrabandista se ha escapado', '#ff9f0a'); return endContact(s); }
     return;
   }
@@ -1629,12 +1631,15 @@ export function debugContact(kind) {
 // Un sector sellado sobre la estación: 10 oleadas del día. Morir aquí no cuesta nada: acaba la incursión.
 export function startIncursion() {
   const s = S();
-  if (!s || G.mode !== 'station') return false;
+  if (!s || G.mode !== 'station' || s.jumpT > 0) return false;
   undock();
   const day = todayKey();
   const center = add(s.sys.station.pos, { x: 0, y: 2600, z: 0 });
-  s.pirates = []; s.ebolts = []; s.emissiles = []; s.emines = []; s.missiles = [];
-  s.base = null; s.event = null; s.contact = null; s.freighter = null; s.call = null; s.callDone = true;
+  // lo que había en el sistema se guarda y vuelve al acabar (la incursión no toca nada de fuera)
+  const stash = { pirates: s.pirates, base: s.base, event: s.event, contact: s.contact, freighter: s.freighter, call: s.call, callDone: s.callDone,
+    devourer: s.devourer, loot: s.loot, hull: s.ship.hull, streak: s.combat };
+  s.pirates = []; s.ebolts = []; s.emissiles = []; s.emines = []; s.missiles = []; s.loot = [];
+  s.base = null; s.event = null; s.contact = null; s.freighter = null; s.call = null; s.callDone = true; s.devourer = null;
   s.ship.pos = add(center, { x: 0, y: 0, z: -ARENA_R * 0.6 });
   face(s.ship, lookAngles(s.ship.pos, center).yaw);
   s.cam = null;
@@ -1642,8 +1647,8 @@ export function startIncursion() {
   s.ship.hull = st.hull;
   s.ship.shield = st.shield;
   s.heat = 0; s.overheat = false;
-  s.combat = newCombat();
-  s.incursion = { day, center, waves: wavesFor(day), wave: 0, score: 0, pause: 2, waveT: 0, danger: 1 };
+  s.combat = newCombat(s.combat?.surge);
+  s.incursion = { day, center, waves: wavesFor(day), wave: 0, score: 0, pause: 2, waveT: 0, danger: 1, stash };
   fx.banner('⚔️ INCURSIÓN DEL DÍA', `${WAVES} oleadas · la racha multiplica los puntos`, '#ff2bd6', true);
   musicStart('galaxy');
   progress('galIncursion');
@@ -1696,17 +1701,21 @@ function updateIncursion(s, dt) {
 function endIncursion(s, won) {
   const inc = s.incursion, g = gal();
   s.incursion = null;
-  const waves = won ? WAVES : Math.max(0, inc.wave - 1);
+  // oleadas superadas (entre oleadas, la última ya cuenta)
+  const waves = won ? WAVES : Math.max(0, inc.pause > 0 ? inc.wave : inc.wave - 1);
   const r = recordRun(g.incursion, inc.day, waves, inc.score);
   g.incursion = r.rec;
-  const cr = creditsFor(inc.score);
+  // el botín que quedó flotando en el sector también se cobra
+  const cr = creditsFor(inc.score) + s.loot.reduce((a, l) => a + l.credits, 0);
   g.credits += cr;
   if (r.gems) save.gems += r.gems;
-  s.pirates = s.pirates.filter((p) => !p.inc);
+  // vuelve todo lo del sistema, y tu nave como estaba (ni reparada gratis ni dañada)
+  const sv = inc.stash;
+  Object.assign(s, { pirates: sv.pirates.filter((p) => p.alive), base: sv.base, event: sv.event, contact: sv.contact, freighter: sv.freighter, call: sv.call, callDone: sv.callDone, devourer: sv.devourer, loot: sv.loot });
   s.ebolts = []; s.emissiles = []; s.emines = [];
-  const st = stats();
-  s.ship.hull = Math.max(s.ship.hull, Math.round(st.hull * 0.5));
-  s.ship.shield = st.shield;
+  s.combat = newCombat(s.combat.surge);
+  s.ship.hull = sv.hull;
+  s.ship.shield = stats().shield;
   undockPose(s);
   persist();
   const medal = r.medal ? ` · ${r.medal.icon} ${r.medal.name}` : '';
@@ -1724,7 +1733,8 @@ function combatGain(s, kind, streak = false) {
     progress('galStreak', c.streak);
     if (w) fx.banner(w, `racha x${c.streak} · 💰 ×${streakMul(c.streak).toFixed(1)}`, '#ffe600');
   }
-  if (addSurge(c, kind)) { fx.notice('⚡ SOBRECARGA LISTA · botón ⚡ (o V)', '#ff2bd6', 2.4); sfx.milestone(); }
+  if (addSurge(c, kind)) { fx.notice('⚡ SOBRECARGA LISTA · botón ⚡ (o V)', '#ff2bd6', 2.4); sfx.milestone(); fx.vibe([30, 40, 30]); }
+  gal().surge = c.surge; // se guarda: no se pierde al salir de la Galaxia
 }
 // SOBRECARGA (botón ⚡ o V): unos segundos sin calor, con más daño y más cadencia
 export function spaceSurge() {
@@ -1736,6 +1746,7 @@ export function spaceSurge() {
   }
   s.heat = 0;
   s.overheat = false;
+  gal().surge = 0;
   fx.banner('⚡ SOBRECARGA', 'sin calor · más daño · más cadencia', '#ff2bd6', true);
   fx.flash('#ff2bd6', 0.35);
   fx.shake(8);
@@ -1767,9 +1778,16 @@ function hurt(s, dmg, src = 'hit') {
   if (dmg > toShield && src !== 'sun') {
     const had = breakStreak(s.combat);
     if (had >= 3) fx.notice(`💔 Racha perdida (x${had})`, '#ff6b6b');
-    // CONTRATOS «sin daño en el casco»: fallidos
+  }
+  // CONTRATOS «sin daño en el casco»: fallidos (el sol también cuenta; la incursión va aparte)
+  if (dmg > toShield && !s.incursion) {
     const g = gal(), broken = g.missions.filter((m) => m.mods?.includes('clean'));
-    if (broken.length) { g.missions = g.missions.filter((m) => !broken.includes(m)); for (const m of broken) fx.notice(`🛡️ Contrato fallido (daño en el casco): ${m.text}`, '#ff6b6b', 2.4); }
+    if (broken.length) {
+      g.missions = g.missions.filter((m) => !broken.includes(m));
+      g.boardSeq = (g.boardSeq || 0) + 1;
+      for (const m of broken) fx.notice(`🛡️ Contrato fallido (daño en el casco): ${m.text}`, '#ff6b6b', 2.4);
+      persist();
+    }
   }
   if (toShield > 0) sh.shieldFx = 0.45;
   sh.shield -= toShield;
@@ -1793,7 +1811,10 @@ function respawn(s) {
   // DIFICULTAD: en Piloto y Veterano el remolque se paga, vuelves tocado y la carga queda en tu PECIO
   const diff = diffOf(g), danger = GAL[s.sysId].danger;
   const wreck = diff !== 'relaxed' ? makeWreck(s.sysId, s.ship.pos, g.cargo, g.jumps || 0) : null;
-  if (wreck) g.wreck = wreck;
+  if (wreck) {
+    if (g.wreck) fx.notice('🪦 Tu pecio anterior se ha perdido', '#ff6b6b', 2.4);
+    g.wreck = wreck;
+  }
   const fee = towFee(g.credits, danger, diff);
   g.credits -= fee;
   const lost = matsLost(save.galaxyMats, diff);
@@ -1816,7 +1837,7 @@ function respawn(s) {
   const di = s.deathInfo || {};
   const bits = [`remolcado a ${GAL[home].name}`, di.fee ? `−${fmtK(di.fee)} 💰` : '', di.wreck ? '🪦 tu carga quedó en tu pecio' : di.diff === 'relaxed' ? 'has perdido la carga' : '', di.mats ? `−${di.mats} materiales` : ''];
   fx.banner('💥 NAVE DESTRUIDA', bits.filter(Boolean).join(' · '), '#ff6b6b', true);
-  ui.showTip?.('galRisk');
+  if (diff !== 'relaxed') ui.showTip?.('galRisk');
   sfx.die();
 }
 
@@ -1837,6 +1858,7 @@ export function updateSpace(dt) {
   s.t += dt;
   // SALTO en curso: túnel de hiperespacio y aparición en el sistema nuevo
   if (s.jumpT > 0) {
+    s.canDock = false; // en pleno salto no se atraca
     // INTERDICCIÓN: te han enganchado en el túnel; forcejea (toca disparo) antes de que acabe
     const it = s.interdict;
     if (it) {
@@ -1859,7 +1881,7 @@ export function updateSpace(dt) {
       const from = s.sysId;
       enterSystem(s, s.jumpTo, from);
       if (s.beaconJump) { s.beaconJump = false; undockPose(s); } // BALIZA: directo a la estación
-      if (s.interdictFail) { s.interdictFail = false; if (s.jumpTo !== 0) spawnHunters(s); }
+      if (s.interdictFail) { s.interdictFail = false; if (s.jumpTo !== 0 && !s.pirates.some((p) => p.alive && p.hunter)) spawnHunters(s); }
       progress('jump');
     }
     s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
@@ -1966,7 +1988,7 @@ export function updateSpace(dt) {
     let dir = b.f, best = null, bestA = 0.3;
     for (const p of s.pirates) {
       const d = dist(p.pos, sh.pos), ang = angleTo(sh.pos, sh.yaw, sh.pitch, p.pos);
-      if (d < 800 && ang < AIM_CONE && (!best || ang < bestA)) { best = p.vel ? leadPos(sh.pos, p.pos, p.vel, BOLT_SPEED) : p.pos; bestA = ang; }
+      if (d < 800 && ang < AIM_CONE && (!best || ang < bestA) && stalkerVisible(p, d)) { best = p.vel ? leadPos(sh.pos, p.pos, p.vel, BOLT_SPEED) : p.pos; bestA = ang; }
     }
     if (!best) {
       for (const a of s.sys.asteroids) {
@@ -2052,13 +2074,14 @@ export function updateSpace(dt) {
       else if (m.target === s.devourer || m.target.eye) hitDevourer(s, m.target, m.dmg);
       else {
         damagePirate(s, m.target, m.dmg);
+        combatGain(s, 'missile');
       }
     }
   }
   s.missiles = s.missiles.filter((m) => m.life > 0);
   // fijar blanco: lo que tengas en el visor
   if (g.up.missile > 0) {
-    const cands = s.pirates.filter((p) => p.alive).map((p) => ({ ref: p, pos: p.pos }));
+    const cands = s.pirates.filter((p) => p.alive && stalkerVisible(p, dist(p.pos, sh.pos))).map((p) => ({ ref: p, pos: p.pos }));
     if (s.base) cands.push({ ref: s.base, pos: s.base.pos });
     if (s.devourer) {
       for (const e of s.devourer.eyes) if (e.alive) cands.push({ ref: e, pos: e.pos });
@@ -2156,13 +2179,17 @@ export function updateSpace(dt) {
   s.loot = s.loot.filter((l) => l.life > 0);
   // PECIO PROPIO: al pasar junto a él, recuperas lo que quepa
   if (s.wreck && g.wreck === s.wreck && dist(s.wreck.pos, sh.pos) < WRECK_R) {
-    const r = recoverWreck(s.wreck, g.cargo, Math.max(0, cap - cargoCount(g.cargo)));
-    g.cargo = r.cargo;
-    g.wreck = null;
-    s.wreck = null;
-    persist();
-    fx.banner('🪦 CARGA RECUPERADA', `+${r.got} de mineral`, '#30d158', true);
-    sfx.chest();
+    const space = Math.max(0, cap - cargoCount(g.cargo));
+    if (!space) {
+      if (s.t - (s.wreckWarnT || -9) > 3) { s.wreckWarnT = s.t; fx.notice('📦 Bodega llena: haz sitio para recuperar tu pecio', '#ffe600'); }
+    } else {
+      const r = recoverWreck(s.wreck, g.cargo, space);
+      g.cargo = r.cargo;
+      if (r.rest) s.wreck.cargo = r.rest; else { g.wreck = null; s.wreck = null; }
+      persist();
+      fx.banner('🪦 CARGA RECUPERADA', `+${r.got} de mineral${r.rest ? ' · vuelve a por el resto' : ''}`, '#30d158', true);
+      sfx.chest();
+    }
   }
   if (cargoCount(g.cargo) < cap) s.fullWarned = false;
 
@@ -2229,16 +2256,6 @@ function updateObjective(s) {
     return;
   }
   if (s.routeTo !== null && s.routeTo === s.sysId) s.routeTo = null;
-  if (s.routeTo !== null) {
-    const path = route(GAL, s.sysId, s.routeTo);
-    const next = path && path[1];
-    const gate = s.sys.gates.find((gt) => gt.to === next);
-    if (gate) {
-      s.objective = { kind: 'route', text: `Rumbo a ${GAL[s.routeTo].name}: cruza la puerta hacia ${GAL[next].name}` };
-      s.target = gate.pos;
-      return;
-    }
-  }
   // PECIO PROPIO en este sistema
   if (s.wreck && g.wreck === s.wreck) {
     s.objective = { kind: 'wreck', text: `🪦 Recupera tu carga (quedan ${wreckJumpsLeft(g.wreck, g.jumps || 0)} saltos)` };
@@ -2272,6 +2289,17 @@ function updateObjective(s) {
     s.objective = { kind: 'contact', text };
     s.target = ct.pos;
     return;
+  }
+  // RUTA del mapa (lo urgente de aquí va antes)
+  if (s.routeTo !== null) {
+    const path = route(GAL, s.sysId, s.routeTo);
+    const next = path && path[1];
+    const gate = s.sys.gates.find((gt) => gt.to === next);
+    if (gate) {
+      s.objective = { kind: 'route', text: `Rumbo a ${GAL[s.routeTo].name}: cruza la puerta hacia ${GAL[next].name}` };
+      s.target = gate.pos;
+      return;
+    }
   }
   // CAZA activa: al sistema del objetivo y, allí, a por él
   const bo = B().active;
@@ -2370,6 +2398,7 @@ function updateObjective(s) {
 
 function breakAsteroid(s, a) {
   a.alive = false;
+  combatGain(s, 'rock'); // minar también carga (poco) la sobrecarga
   const p = s.cam && project(s.cam, a.pos);
   if (p) {
     fx.burst(p.x, p.y, 18, '#c9b8a0', 320, 4, 0.5, 0);
@@ -2399,7 +2428,8 @@ export { UPGRADES, upgradeCost, repairCost, stats as spaceStats };
 
 export function leaveSpace() {
   const s = S();
-  if (s) gal().hull = s.ship.hull;
+  if (s) gal().hull = s.incursion ? s.incursion.stash.hull : s.ship.hull;
+  if (s) gal().surge = s.combat?.surge || 0;
   persist();
   musicStop();
   G.space = null;

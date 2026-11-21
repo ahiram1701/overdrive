@@ -125,6 +125,7 @@ function nearest(a, x, y, maxR = 640, skip = null) {
 
 // ---------- Enemigos ----------
 function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
+  if (id === 'guard' && (a.guards?.length || 0) >= 6) id = 'tank'; // como mucho 6 escuderos (el móvil lo agradece)
   const def = ENEMIES[id];
   const w = waveAt(a.time);
   let ex = x, ey = y;
@@ -144,7 +145,7 @@ function spawnEnemy(a, id, { elite = false, x = null, y = null } = {}) {
   a.enemies.push({
     id, def, x: ex, y: ey, hp, max: hp, r: def.r * (elite ? 1.6 : 1), speed: def.speed * (elite ? 0.9 : 1), dmg: def.dmg * (elite ? 1.5 : 1),
     // las gemas valen más con el tiempo: así se sigue subiendo de nivel a buen ritmo
-    xp: def.xp * (elite ? 8 : 1) * (1 + a.time / 240) * (a.event?.id === 'gold' ? 2 : a.event?.id === 'frenzy' ? 1.3 : 1), elite, boss: false, alive: true, flash: 0, state: 'go', st: 0, cd: a.rng.range(1, 2.5), phase: a.rng.range(0, 6),
+    xp: def.xp * (elite ? 8 : 1) * (1 + a.time / 240), elite, boss: false, alive: true, flash: 0, state: 'go', st: 0, cd: a.rng.range(1, 2.5), phase: a.rng.range(0, 6),
     vx: 0, vy: 0, orbT: 0,
   });
 }
@@ -200,7 +201,7 @@ export function hurtEnemy(a, e, dmg) {
   fx.burst(sp.x, sp.y, e.boss ? 60 : e.elite ? 26 : 8, e.def.color, e.boss ? 700 : 260, e.boss ? 8 : 4, 0.5, 0);
   if (e.boss) {
     a.bosses++;
-    a.ring = null;
+    if (!a.enemies.some((o) => o.alive && o.boss && o !== e)) a.ring = null; // el anillo, solo con el último jefe
     fx.banner('¡JEFE DESTRUIDO!', e.final ? 'has sobrevivido a la ARENA' : '+10 💎', '#ffe600', true);
     fx.flash('#fff', 0.8);
     a.shake = 20;
@@ -211,7 +212,8 @@ export function hurtEnemy(a, e, dmg) {
     return;
   }
   sfx.brk();
-  dropGem(a, e.x, e.y, e.xp);
+  // FIEBRE DEL ORO y FRENESÍ: cuentan al soltar la gema (mientras dura el suceso)
+  dropGem(a, e.x, e.y, e.xp * (a.event?.id === 'gold' ? 2 : a.event?.id === 'frenzy' ? 1.3 : 1));
   if (e.elite) a.chests.push({ x: e.x, y: e.y, alive: true });
   if (e.id === 'splitter') {
     for (let i = 0; i < 2; i++) spawnEnemy(a, 'mini', { x: e.x + (i ? 12 : -12), y: e.y });
@@ -231,7 +233,7 @@ function dropGem(a, x, y, v) {
 // ---------- Jugador ----------
 // src: quién hace el daño (se acumula en a.dmgBy: sirve para ajustar el balance)
 function hurtPlayer(a, dmg, src = '?') {
-  if (a.iframes > 0 || a.dashT > 0 || a.phaseT > 0 || a.over || G.god) return;
+  if (a.iframes > 0 || a.dashT > 0 || a.phaseT > 0 || a.over || a.wonBoss || G.mode === 'arenaChoice' || G.god) return;
   const d = Math.max(1, dmg - stats(a).armor);
   a.hp -= d;
   a.dmgBy[src] = (a.dmgBy[src] || 0) + d;
@@ -885,7 +887,7 @@ export function updateArena(dt) {
     spawnEnemy(a, a.rng.weighted(w.weights).id, { elite: true });
     fx.notice('☠ ÉLITE: suelta un cofre', '#ff9f0a');
   }
-  if (a.time >= nextBossTime(a.bossIdx, a.endless)) spawnBoss(a);
+  if (a.time >= nextBossTime(a.bossIdx, a.endless) && !a.enemies.some((e) => e.alive && e.boss)) spawnBoss(a); // un jefe a la vez
 
   buildGrid(a);
   updateDrones(a, dt);
@@ -954,6 +956,7 @@ function loseArena(a) {
 function winArena(a) {
   sfx.milestone();
   if (a.endless) return;
+  a.wonBoss = true; // ya has ganado: nada te mata mientras eliges
   // ¿SEGUIR? El modo sin fin: un jefe cada 3:00, cada vez más fuerte
   G.mode = 'arenaChoice';
   ui.showArenaChoice(a);
@@ -962,11 +965,19 @@ export function arenaContinue() {
   const a = A();
   if (!a || G.mode !== 'arenaChoice') return;
   a.endless = true;
+  a.wonBoss = false;
   a.ring = null;
   G.mode = 'arena';
   ui.hideAll();
   ui.showArenaHUD(true);
   fx.banner('♾️ SIN FIN', 'un jefe cada 3:00, cada vez más fuerte', '#bf5af2', true);
+}
+// SALIR del sin fin desde la pausa: ya habías ganado, así que se cobra como al parar
+export function arenaQuitEndless() {
+  const a = A();
+  if (!a || !a.endless || a.over) return false;
+  finish(a, true);
+  return true;
 }
 export function arenaStop() {
   const a = A();

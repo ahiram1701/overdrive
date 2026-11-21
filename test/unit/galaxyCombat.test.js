@@ -101,3 +101,15 @@ test('poder: el equipo fabricado y los misiles cuentan para la amenaza', () => {
   assert.ok(gearDpsK(armed, 3) > 2, 'láser doble + plasma + misiles: más del doble');
   assert.ok(power(st, gearDpsK(armed, 3)) > power(st), 'una nave armada es más poderosa');
 });
+
+test('sobrecarga: se llena con unas 5 bajas y lo cargado sobrevive a una sesión nueva', async () => {
+  const c = newCombat();
+  let n = 0;
+  while (!addSurge(c, 'kill')) n++;
+  assert.ok(n + 1 <= 5, `${n + 1} bajas`);
+  const again = newCombat(0.6);
+  assert.equal(again.surge, 0.6, 'empieza con lo que llevabas');
+  assert.equal(newCombat(7).surge, 1, 'con tope');
+  const { loadFrom } = await import('../../js/save.js');
+  assert.equal(loadFrom(JSON.stringify({ v: 6, galaxy: { credits: 5 } })).galaxy.surge, 0, 'guardado antiguo: 0');
+});

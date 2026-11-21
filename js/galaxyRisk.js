@@ -40,17 +40,18 @@ export function makeWreck(sys, pos, cargo, jumps) {
 }
 export const wreckExpired = (w, jumps) => !!w && jumps > w.until;
 export const wreckJumpsLeft = (w, jumps) => (w ? Math.max(0, w.until - jumps) : 0);
-// Recoger el pecio: lo que quepa en la bodega; lo demás se pierde
+// Recoger el pecio: lo que quepa en la bodega; lo que no, se queda en el pecio (rest; null si ya no queda nada)
 export function recoverWreck(w, cargo, space) {
   let left = space, got = 0;
-  const out = { ...cargo };
+  const out = { ...cargo }, rest = {};
   for (const [k, n] of Object.entries(w.cargo)) {
     const take = Math.min(n, left);
     out[k] = (out[k] || 0) + take;
     left -= take;
     got += take;
+    if (n > take) rest[k] = n - take;
   }
-  return { cargo: out, got };
+  return { cargo: out, got, rest: Object.keys(rest).length ? rest : null };
 }
 
 // ---------- Botín jugoso ----------
