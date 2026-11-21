@@ -136,3 +136,27 @@ test('escuadrillas y enjambres: alas que siguen al líder; si cae, se dispersan'
   expect(['flee', 'evade']).toContain(res.state);
   expect(errors).toEqual([]);
 });
+
+test('zona segura: tampoco dañan el equipo fabricado, la torreta ni los misiles', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { up: { missile: 1 }, missiles: 4 }, galaxyGear: { owned: { laser2: true, flak: true, turret: true }, w: ['laser2', 'flak'], m: ['turret'] } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, st = s.sys.station.pos, sh = s.ship;
+    sh.pos = { ...st };
+    sh.throttle = 0;
+    window.__pirate('fighter', null, 120);
+    const p = s.pirates.at(-1);
+    Object.assign(p, { speed: 0, pos: { x: sh.pos.x + sh.f.x * 120, y: sh.pos.y + sh.f.y * 120, z: sh.pos.z + sh.f.z * 120 } });
+    const hp = p.hp;
+    s.botFire = true;
+    for (let i = 0; i < 60; i++) { sh.pos = { ...st }; window.D.step(1 / 30, false); }
+    s.botFire = false;
+    const ammo = window.__save.galaxy.missiles;
+    window.dispatchEvent(new KeyboardEvent('keydown', { key: 'm' }));
+    window.dispatchEvent(new KeyboardEvent('keyup', { key: 'm' }));
+    return { hp0: hp, hp: p.hp, ammo0: ammo, ammo: window.__save.galaxy.missiles };
+  });
+  expect(res.hp).toBe(res.hp0);
+  expect(res.ammo).toBe(res.ammo0);
+  expect(errors).toEqual([]);
+});

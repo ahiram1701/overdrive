@@ -39,6 +39,7 @@ test('misil: se fija en el pirata del visor y lo destruye', async ({ page }) => 
   await page.evaluate(() => {
     const s = window.G.space, sh = s.ship;
     sh.throttle = 0;
+    sh.pos = { x: 1500, y: 0, z: 1500 }; // fuera de la zona segura (allí hay alto el fuego)
     const pos = { x: sh.pos.x + sh.f.x * 300, y: sh.pos.y + sh.f.y * 300, z: sh.pos.z + sh.f.z * 300 };
     s.pirates.push({ pos, yaw: 0, pitch: 0, hp: 60, max: 60, boss: false, alive: true, flash: 0, state: 'patrol', t: 0, kind: 'fighter', size: 6,
       speed: 0, turn: 0, fireCd: 99, dmg: 0, missileCd: 0, mesh: 'viper', off: { x: 0, y: 0, z: 0 } });

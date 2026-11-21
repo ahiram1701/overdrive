@@ -23,7 +23,7 @@ import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor
 import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
-import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
+import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, stalkerVisible, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
 import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
 
 const S = () => G.space;
@@ -1099,6 +1099,7 @@ export function spaceMissile() {
   if (!(g.up.missile > 0)) return;
   if ((g.missiles || 0) <= 0) { fx.notice('🚀 Sin misiles: recarga en la estación', '#ff9f0a'); sfx.bump(); return; }
   if (!s.lock.locked || !s.lock.ref) { fx.notice('🎯 Mantén un enemigo en el visor para fijarlo', '#ffe600'); sfx.bump(); return; }
+  if (dist(s.ship.pos, s.sys.station.pos) < SAFE_R) { fx.notice('🕊️ Zona segura: alto el fuego. Sal a pelear', '#7df9ff'); sfx.bump(); return; }
   g.missiles--;
   const sh = s.ship;
   s.missiles.push({ pos: add(sh.pos, scale(sh.u, -2.5)), vel: scale(sh.f, MISSILE.speed * (hasGear(save, 'rapid') ? 1.3 : 1)), life: MISSILE.life, target: s.lock.ref, dmg: missileDmg(g.up.missile) });
@@ -1682,17 +1683,17 @@ export function updateSpace(dt) {
     const from = add(add(sh.pos, scale(b.r, sh.side * 2.2)), scale(b.f, 4));
     s.bolts.push({ pos: from, vel: add(scale(dir, BOLT_SPEED), scale(b.f, speed)), life: 0.85, dmg, surge, safe: inSafe });
     // EQUIPO fabricado: láser doble, metralla y plasma (también calientan)
-    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, BOLT_SPEED), scale(b.f, speed)), life: 0.85, dmg: dmg * gearBoost(save, 'laser2'), surge });
-    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), BOLT_SPEED), scale(b.f, speed)), life: 0.6, dmg: dmg * 0.6 * gearBoost(save, 'flak'), surge });
+    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, BOLT_SPEED), scale(b.f, speed)), life: 0.85, dmg: dmg * gearBoost(save, 'laser2'), surge, safe: inSafe });
+    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), BOLT_SPEED), scale(b.f, speed)), life: 0.6, dmg: dmg * 0.6 * gearBoost(save, 'flak'), surge, safe: inSafe });
     if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) {
-      s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: dmg * 3 * gearBoost(save, 'plasma'), plasma: true });
+      s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: dmg * 3 * gearBoost(save, 'plasma'), plasma: true, safe: inSafe });
       if (!surge) s.heat += GEAR_HEAT.plasma;
     }
     sfx.swish();
   }
 
   // TORRETA automática (equipo): dispara sola al pirata más cercano
-  if (hasGear(save, 'turret')) {
+  if (hasGear(save, 'turret') && dist(sh.pos, s.sys.station.pos) >= SAFE_R) { // alto el fuego: la torreta tampoco
     s.turretT = (s.turretT || 0) - dt;
     const tgt = s.turretT <= 0 && s.pirates.filter((p) => p.alive && dist(p.pos, sh.pos) < 450).sort((x, y) => dist(x.pos, sh.pos) - dist(y.pos, sh.pos))[0];
     if (tgt) {
@@ -1897,6 +1898,9 @@ export function updateSpace(dt) {
 
   // objetivo actual y brújula
   updateObjective(s);
+  // un ACECHADOR que aún no se ve tampoco sale en la brújula
+  const tp = s.target && s.pirates.find((p) => p.alive && p.pos === s.target);
+  if (tp && !stalkerVisible(tp, dist(tp.pos, sh.pos))) s.target = null;
   s.cam = chaseCam(s.cam, sh, dt, G.W || 375, G.H || 812);
 }
 
