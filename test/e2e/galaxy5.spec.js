@@ -275,3 +275,51 @@ test('interdicción: forcejear tocando disparo te suelta; si no, llegas con caza
   expect(res.hunters).toBeGreaterThan(0);
   expect(errors).toEqual([]);
 });
+
+// ---------- Economía sin grind y retos ----------
+test('incursión del día: oleadas en un sector sellado, puntos con la racha, medalla con gemas', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page);
+  await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
+  await page.locator('#btnDock').click();
+  await expect(page.locator('#btnIncursion')).toBeVisible();
+  await page.locator('#btnIncursion').click();
+  const res = await page.evaluate(() => {
+    const s = window.G.space;
+    window.G.god = true;
+    const gems0 = window.__save.gems;
+    // limpiar oleadas a lo bruto: cada pirata de la incursión cae al instante
+    for (let i = 0; i < 400 && s.incursion && s.incursion.wave < 4; i++) {
+      for (const p of s.pirates) if (p.alive && p.inc) { p.hp = 1; s.bolts.push({ pos: { ...p.pos }, vel: { x: 0, y: 0, z: 0 }, life: 0.1, dmg: 99 }); }
+      window.D.step(0.25, false);
+    }
+    const mid = { wave: s.incursion?.wave, score: s.incursion?.score, mode: window.G.mode };
+    // y ahora, caer
+    window.G.god = false;
+    s.ship.shield = 0; s.ship.hull = 1;
+    s.ebolts.push({ pos: { ...s.ship.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 99 });
+    window.D.step(1 / 60, false);
+    return { ...mid, over: s.incursion === null, rec: window.__save.galaxy.incursion, gems: window.__save.gems - gems0, credits: window.__save.galaxy.credits };
+  });
+  expect(res.mode).toBe('galaxy');
+  expect(res.wave).toBeGreaterThanOrEqual(4);
+  expect(res.score).toBeGreaterThan(0);
+  expect(res.over).toBe(true);
+  expect(res.rec.waves).toBeGreaterThanOrEqual(3);
+  expect(res.credits).toBeGreaterThan(0);
+  expect(errors).toEqual([]);
+});
+
+test('contratos: un ★★ «sin daño en el casco» se pierde si te dan', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { missions: [{ id: 'c1', kind: 'hunt', sys: 4, n: 3, progress: 0, text: '★★ Elimina 3 piratas · 🛡️ sin daño en el casco', reward: 900, tier: 2, mods: ['clean'], jumps: 4, deadline: 4 }] } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space;
+    s.ship.shield = 0;
+    s.ebolts.push({ pos: { ...s.ship.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 5 });
+    window.D.step(1 / 60, false);
+    return window.__save.galaxy.missions.length;
+  });
+  expect(res).toBe(0);
+  expect(errors).toEqual([]);
+});

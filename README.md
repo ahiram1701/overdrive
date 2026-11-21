@@ -374,17 +374,18 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
 - **🗺️ Mapa galáctico:** ves lo visitado y sus vecinos (lo demás es niebla). Toca un sistema y **traza la ruta**: la brújula te guía de puerta en puerta.
 - **Piratas:** atacan en pasadas, esquivan y huyen con poca vida. Llevan corchetes rojos para verlos siempre, y sueltan 💰. En los sistemas más peligrosos hay **jefes piratas**. Tu láser se **sobrecalienta** si no paras.
 - **Comercio:** cada estación paga distinto. Compra barato el mineral local y véndelo donde lo paguen más.
-  - **Mercado vivo:** cada estación paga las 10 primeras unidades de un mineral a precio completo. A partir de ahí, cada una baja un 2% (hasta −60%, la estación muestra "📉 −34%"). El precio se recupera mientras vuelas. Vaciar la bodega siempre en el mismo sitio sale caro; repartir entre sistemas, no.
+  - **📈 Escasez:** cada pocos saltos, una estación paga un mineral **al doble** durante 6 saltos. Sale en las NOTICIAS y en el mercado.
+  - **Mercado vivo:** cada estación paga las 15 primeras unidades de un mineral a precio completo. A partir de ahí, cada una baja un 2% (hasta −60%, la estación muestra "📉 −34%"). El precio se recupera mientras vuelas. Vaciar la bodega siempre en el mismo sitio sale caro; repartir entre sistemas, no.
 - **Mantenimiento:**
   - **peaje** en cada puerta de salto (25 + 15 × el peligro del destino; si no te llega, te lo perdonan);
   - **recargar misiles** cuesta 40 💰 cada uno, en los Suministros de las estaciones;
   - reparar cuesta más.
 - **🚀 Astillero** (en cualquier estación): **chasis espaciales** que se compran con créditos y se cambian cuando quieras. Tu nave del hangar conserva su aspecto; el chasis cambia stats, huecos y tamaño.
   - **Explorador** (el tuyo);
-  - **Carguero** (15K): bodega ×2,2, lento;
-  - **Interceptor** (22K): +30% velocidad y giro, frágil, 3 armas;
-  - **Acorazado** (40K): casco y escudo ×1,7, 3 + 3 huecos;
-  - **Corsario** (60K): +4 misiles, fija antes, impulso rapidísimo.
+  - **Carguero** (11K): bodega ×2,2, lento;
+  - **Interceptor** (16,5K): +30% velocidad y giro, frágil, 3 armas;
+  - **Acorazado** (30K): casco y escudo ×1,7, 3 + 3 huecos;
+  - **Corsario** (45K): +4 misiles, fija antes, impulso rapidísimo.
 - **Mejoras sin techo:** cada mejora de la nave sigue del nivel 5 al **Mk 10** (◆ naranja). Cada Mk es más caro y pide materiales, y rinde la mitad que un nivel normal. El **Salto** Mk 6+ abarata los peajes.
 - **Equipo con niveles:** cada pieza fabricada sube de nivel 1 a 5 con créditos y materiales (+12% por nivel: más daño, más cadencia, más alcance…).
 - **🗺️ Mapa galáctico:** el **color** de cada sistema es su peligro (0 verde → 6 morado) y el **anillo**, su facción (discontinuo = pirata). Alrededor, **insignias** de lo que tienes allí: 📖 historia, 📋 misión, 🎯 recompensa, ⚔️ ofensiva, 🐝 enjambre, 🏴‍☠️ base pirata, 🏗️ tu puesto, 🏠 tu base. La ruta va en amarillo con **flechas**, y abajo dice saltos y peaje. Toca un sistema para ver su ficha (facción, mineral, si puedes atracar y tus objetivos allí). **Pellizca** o usa ＋ － para acercar, arrastra para moverte, ⌖ para verlo todo y doble toque para centrarte. Las **capas** (Objetivos, Facciones, Sucesos, Peligro) se ocultan con un toque, y la **📘 Leyenda** lo explica todo.
@@ -412,7 +413,12 @@ Un juego de naves en **3D**, con la cámara detrás de tu nave, en una galaxia q
   - 🎈 señuelo (los piratas lo persiguen 6 s);
   - 🏠 baliza de retorno (a tu estación base).
 - **Zona segura:** junto a las estaciones los piratas no entran, y tampoco se dispara: es **alto el fuego** (desde allí tus disparos no les hacen daño).
-- **Tablón de misiones** en cada estación (hasta 3 activas, pagan créditos):
+- **⚔️ INCURSIÓN DEL DÍA** (botón en cualquier estación): un sector sellado, el mismo para todos cada día, con **10 oleadas** cada vez más duras, jefes en la 5 y la 10, y un tipo de pirata protagonista. Cada baja puntúa más con la **racha** y en oleadas altas; acabar rápido da un extra. Las medallas **🥉 (4 oleadas), 🥈 (7) y 🥇 (10)** dan **💎 gemas** (una vez al día cada una) y la puntuación se paga en créditos. Morir allí no cuesta nada: solo termina la incursión.
+- **Tablón de contratos** en cada estación (hasta 3 activos, pagan créditos). Cada contrato tiene nivel **★ / ★★ / ★★★**:
+  - los altos traen condiciones: **⏱️ contrarreloj** (en N saltos) y **🛡️ sin daño en el casco**. Si fallas una, se pierde;
+  - pagan **×2,5** y **×5**.
+
+  Tipos:
   - 🎯 caza: elimina N piratas en un sistema;
   - 📦 entrega: lleva un paquete a otra estación;
   - 📡 exploración: escanea un punto de interés;

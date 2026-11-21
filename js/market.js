@@ -3,7 +3,7 @@
 // (las 10 primeras a precio completo; luego −2% por unidad, hasta −60%), y se recupera con el tiempo.
 // Así no castiga las ventas pequeñas, sino vaciar la bodega siempre en el mismo sitio.
 
-export const SAT_FREE = 10; // unidades que una estación compra sin bajar el precio
+export const SAT_FREE = 15; // unidades que una estación compra sin bajar el precio
 export const SAT_PER_UNIT = 0.02;
 export const SAT_MAX = 0.6;
 export const RECOVER_SECS = 20; // cada 20 s de vuelo, una unidad menos de saturación

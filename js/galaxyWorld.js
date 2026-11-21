@@ -14,6 +14,12 @@ export const SWARM_FIRST = 12;
 export const SWARM_EVERY = 3;    // saltos entre cada expansión
 export const SWARM_MAX = 4;      // sistemas como mucho
 export const SWARM_PRICE = 0.7;  // en un sistema infectado, el mineral se paga a un 70 %
+// ESCASEZ: una estación paga un mineral al doble unos saltos (sale en las noticias)
+export const SHORT_FIRST = 3;
+export const SHORT_EVERY = 7;
+export const SHORT_TIME = 6;
+export const SHORT_MUL = 2;
+const ORE_NAME = { iron: '⛓️ hierro', crystal: '💎 cristal', plasma: '🔥 plasma', dark: '🌑 materia oscura' };
 const NEWS_MAX = 8;
 
 export const world = (save) => {
@@ -26,6 +32,8 @@ export const world = (save) => {
   w.swarm ??= null;
   w.nextWar ??= WAR_FIRST;
   w.nextSwarm ??= SWARM_FIRST;
+  w.shortage ??= null;
+  w.nextShort ??= SHORT_FIRST;
   return w;
 };
 // dueños con los sucesos: lo que perdiste en una ofensiva es pirata (hasta que lo liberes otra vez)
@@ -59,6 +67,18 @@ export function tickWorld(save, gal, jumps) {
     }
     w.nextWar = jumps + WAR_EVERY;
   }
+  // ESCASEZ: se acaba y, cada pocos saltos, sale otra (nunca del mineral que la estación ya tiene)
+  if (w.shortage && jumps >= w.shortage.until) w.shortage = null;
+  if (!w.shortage && jumps >= w.nextShort) {
+    const pool = gal.filter((s) => s.id !== 0 && own(save, s) !== 'pir');
+    if (pool.length) {
+      const sys = rng.pick(pool);
+      const ore = rng.pick(Object.keys(ORE_NAME).filter((o) => o !== sys.ore));
+      w.shortage = { sys: sys.id, ore, until: jumps + SHORT_TIME };
+      say(`📈 Escasez de ${ORE_NAME[ore]} en ${sys.name}: lo pagan ×${SHORT_MUL} durante ${SHORT_TIME} saltos`);
+    }
+    w.nextShort = jumps + SHORT_EVERY;
+  }
   // ENJAMBRE: aparece en un sistema no pirata y se extiende a un vecino cada pocos saltos
   if (!w.swarm && jumps >= w.nextSwarm) {
     const pool = gal.filter((s) => s.id !== 0 && s.danger >= 2 && own(save, s) !== 'pir' && w.war?.sys !== s.id);
@@ -86,6 +106,7 @@ export function tickWorld(save, gal, jumps) {
 export const warHere = (save, sys) => (world(save).war?.sys === sys ? world(save).war : null);
 export const infected = (save, sys) => !!world(save).swarm?.systems.includes(sys);
 export const priceMul = (save, sys) => (infected(save, sys) ? SWARM_PRICE : 1);
+export const oreMul = (save, sys, ore) => { const sh = world(save).shortage; return sh && sh.sys === sys && sh.ore === ore ? SHORT_MUL : 1; };
 
 // abatir un pirata en el sistema atacado; devuelve 'saved' si ya está a salvo
 export function defendKill(save, sys, jumps, gal) {

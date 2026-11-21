@@ -2,14 +2,14 @@
 // Relajado: si te destruyen, te remolcan a tu estación base (pierdes la carga, no la partida), y
 // junto a las estaciones hay zona segura (los piratas no entran).
 import { G } from './state.js';
-import { makeRng, hashString } from './rng.js';
+import { makeRng, hashString, todayKey } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
-import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS } from './galaxyMissions.js';
+import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
 import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
@@ -17,7 +17,7 @@ import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
-import { world, worldTerritory, tickWorld, warHere, infected, priceMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
+import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
@@ -26,6 +26,7 @@ import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockS
 import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
 import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
 import { CONTACTS, CONTACT_LIFE, nextContactDelay, pickContact, trapChance, contactReward, RINGS, ringPath, ringPay, CRUISE, cruiseStep, INTERDICT, interdictChance } from './galaxyContacts.js';
+import { WAVES, ARENA_R, WAVE_PAUSE, wavesFor, killScore, waveBonus, creditsFor, recordRun } from './galaxyIncursion.js';
 import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
 
 const S = () => G.space;
@@ -173,6 +174,9 @@ function enterSystem(s, id, fromId) {
     g.jumps = (g.jumps || 0) + 1;
     // SUCESOS DE LA GALAXIA: ofensivas y enjambre avanzan con cada salto
     for (const t of tickWorld(save, GAL, g.jumps)) { fx.notice(`📰 ${t}`, '#ffd60a'); ui.showTip?.('worldEvent'); }
+    // CONTRATOS contrarreloj que se han pasado de plazo
+    const late = g.missions.filter((m) => contractExpired(m, g.jumps));
+    if (late.length) { g.missions = g.missions.filter((m) => !late.includes(m)); for (const m of late) fx.notice(`⏱️ Contrato fallido: ${m.text}`, '#ff6b6b', 2.4); }
     const bo = B().active;
     if (bo) bo.sys = moveBounty(GAL, bo, g.jumps);
     if (save.territory[id] && makeRng(hashString(`siege-${id}-${g.jumps}`)).next() < 0.25) startEvent(s, { kind: 'siege', id: `siege-${id}-${g.jumps}` });
@@ -648,7 +652,7 @@ function undockPose(s) {
 // kind: fighter | interceptor | bomber | drone (los drones vienen en enjambre de 4)
 function spawnPirate(s, boss, kind = null, at = null) {
   const def = GAL[s.sysId];
-  const d = def.danger;
+  const d = s.incursion?.danger ?? def.danger;
   const a = s.rng.range(0, Math.PI * 2), R = s.rng.range(700, 1300);
   const pos = at ? { ...at } : { x: Math.cos(a) * R, y: s.rng.range(-120, 120), z: Math.sin(a) * R };
   if (!at && dist(pos, s.sys.station.pos) < SAFE_R + 200) pos.x += 600;
@@ -846,7 +850,7 @@ function updatePirates(s, dt) {
   // refuerzos de vez en cuando (si el sistema tiene piratas)
   const def = GAL[s.sysId];
   s.pirateT -= dt;
-  if (def.pirates && s.pirateT <= 0) {
+  if (def.pirates && s.pirateT <= 0 && !s.incursion) {
     s.pirateT = 45;
     if (s.pirates.filter((p) => !p.boss).length < def.pirates) spawnPirate(s, false);
   }
@@ -875,7 +879,7 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
+  const value = Math.round((p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   s.sysKills = (s.sysKills || 0) + 1;
   addWanted(gal(), 'kill');
@@ -888,7 +892,12 @@ function killPirate(s, p) {
     fx.slowmo(0.7, 0.25);
     fx.banner('✔ SISTEMA DESPEJADO', `mejor racha x${s.combat.best}`, '#30d158');
   }
-  if (p.boss) {
+  if (p.inc && s.incursion) {
+    const pts = killScore(s.incursion.wave, mul, p.boss);
+    s.incursion.score += pts;
+    if (pp) fx.score('pts', pts, pp.x, pp.y, '#ff2bd6');
+  }
+  if (p.boss && !p.inc) {
     save.galaxyBoss[s.sysId] = true;
     fx.banner('☠ JEFE PIRATA DERROTADO', `+${value} 💰 al recogerlo`, '#ffe600', true);
     progress('pirateBoss');
@@ -1261,9 +1270,9 @@ export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.2);
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
-export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId));
+export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore));
 // lo que pagaría por n unidades (cada una algo menos)
-export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId));
+export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore));
 
 export function sellAll() {
   const g = gal(), sys = S()?.sysId ?? 0;
@@ -1391,7 +1400,7 @@ export function boardNow(s = S()) {
 export function acceptMission(m) {
   const g = gal();
   if (g.missions.length >= MAX_ACTIVE || g.missions.some((x) => x.id === m.id)) return false;
-  g.missions.push({ ...m });
+  g.missions.push({ ...m, deadline: (g.jumps || 0) + (m.jumps || 0) });
   persist();
   sfx.card();
   return true;
@@ -1548,7 +1557,7 @@ function payContact(s, credits, mats = {}) {
 function updateContacts(s, dt) {
   const sh = s.ship, d = GAL[s.sysId].danger, c = s.contact;
   if (!c) {
-    if (!s.contactsOn) return;
+    if (!s.contactsOn || s.incursion) return;
     const safe = dist(sh.pos, s.sys.station.pos) < SAFE_R + 200;
     const busy = (s.event && !s.event.done) || s.pirates.some((p) => p.alive && p.aware && dist(p.pos, sh.pos) < 900);
     if (safe || busy) return;
@@ -1613,6 +1622,97 @@ export function debugContact(kind) {
   if (s) startContact(s, kind);
 }
 
+// ---------- INCURSIÓN DIARIA (ver galaxyIncursion.js) ----------
+// Un sector sellado sobre la estación: 10 oleadas del día. Morir aquí no cuesta nada: acaba la incursión.
+export function startIncursion() {
+  const s = S();
+  if (!s || G.mode !== 'station') return false;
+  undock();
+  const day = todayKey();
+  const center = add(s.sys.station.pos, { x: 0, y: 2600, z: 0 });
+  s.pirates = []; s.ebolts = []; s.emissiles = []; s.emines = []; s.missiles = [];
+  s.base = null; s.event = null; s.contact = null; s.freighter = null; s.call = null; s.callDone = true;
+  s.ship.pos = add(center, { x: 0, y: 0, z: -ARENA_R * 0.6 });
+  face(s.ship, lookAngles(s.ship.pos, center).yaw);
+  s.cam = null;
+  const st = stats();
+  s.ship.hull = st.hull;
+  s.ship.shield = st.shield;
+  s.heat = 0; s.overheat = false;
+  s.combat = newCombat();
+  s.incursion = { day, center, waves: wavesFor(day), wave: 0, score: 0, pause: 2, waveT: 0, danger: 1 };
+  fx.banner('⚔️ INCURSIÓN DEL DÍA', `${WAVES} oleadas · la racha multiplica los puntos`, '#ff2bd6', true);
+  musicStart('galaxy');
+  progress('galIncursion');
+  return true;
+}
+function spawnWave(s) {
+  const inc = s.incursion, w = inc.waves[inc.wave];
+  inc.wave++;
+  inc.waveT = 0;
+  inc.danger = w.danger;
+  const mark = (n0) => { for (const p of s.pirates.slice(n0)) Object.assign(p, { inc: true, aware: true, state: 'attack' }); };
+  w.list.forEach((k, i) => {
+    const a = (i / w.list.length) * Math.PI * 2;
+    const n0 = s.pirates.length;
+    spawnPirate(s, false, k, add(inc.center, { x: Math.cos(a) * ARENA_R * 0.8, y: s.rng.range(-150, 150), z: Math.sin(a) * ARENA_R * 0.8 }));
+    mark(n0);
+  });
+  if (w.boss) {
+    const n0 = s.pirates.length;
+    spawnPirate(s, true, null, add(inc.center, { x: 0, y: 200, z: ARENA_R * 0.7 }));
+    mark(n0);
+  }
+  fx.banner(`⚔️ OLEADA ${inc.wave}/${WAVES}`, w.boss ? '¡con jefe!' : `${w.list.length} piratas`, '#ff2bd6', true);
+  sfx.alarm();
+}
+function updateIncursion(s, dt) {
+  const inc = s.incursion;
+  if (!inc) return;
+  // el muro del sector
+  const off = sub(s.ship.pos, inc.center), d = Math.hypot(off.x, off.y, off.z);
+  if (d > ARENA_R) {
+    s.ship.pos = add(inc.center, scale(norm(off), ARENA_R));
+    if (s.t - (inc.wallT || 0) > 1.5) { inc.wallT = s.t; fx.notice('🧱 Límite del sector', '#ff2bd6', 0.8); }
+  }
+  if (inc.pause > 0) {
+    inc.pause -= dt;
+    if (inc.pause <= 0) spawnWave(s);
+    return;
+  }
+  inc.waveT += dt;
+  if (s.pirates.some((p) => p.alive && p.inc)) return;
+  // oleada superada: bonus por rapidez y escudo lleno
+  const bonus = waveBonus(inc.wave, inc.waveT);
+  inc.score += bonus;
+  if (inc.wave >= WAVES) { endIncursion(s, true); return; }
+  fx.banner(`✔ OLEADA ${inc.wave}`, `+${bonus} pts · ${inc.score} en total`, '#30d158');
+  s.ship.shield = stats().shield;
+  inc.pause = WAVE_PAUSE;
+}
+function endIncursion(s, won) {
+  const inc = s.incursion, g = gal();
+  s.incursion = null;
+  const waves = won ? WAVES : Math.max(0, inc.wave - 1);
+  const r = recordRun(g.incursion, inc.day, waves, inc.score);
+  g.incursion = r.rec;
+  const cr = creditsFor(inc.score);
+  g.credits += cr;
+  if (r.gems) save.gems += r.gems;
+  s.pirates = s.pirates.filter((p) => !p.inc);
+  s.ebolts = []; s.emissiles = []; s.emines = [];
+  const st = stats();
+  s.ship.hull = Math.max(s.ship.hull, Math.round(st.hull * 0.5));
+  s.ship.shield = st.shield;
+  undockPose(s);
+  persist();
+  const medal = r.medal ? ` · ${r.medal.icon} ${r.medal.name}` : '';
+  fx.banner(won ? '🏆 INCURSIÓN SUPERADA' : '💥 INCURSIÓN TERMINADA', `${waves}/${WAVES} oleadas · ${fmtK(inc.score)} pts · +${fmtK(cr)} 💰${r.gems ? ` · +${r.gems} 💎` : ''}${medal}${r.isBest ? ' · ¡récord!' : ''}`, won ? '#ffe600' : '#ff6b6b', true);
+  sfx.milestone();
+  progress('galIncursionWave', waves);
+}
+export const incursionRecord = () => { const r = gal().incursion; return r && r.day === todayKey() ? r : null; };
+
 // ---------- Racha y sobrecarga (ver galaxyCombat.js) ----------
 function combatGain(s, kind, streak = false) {
   const c = s.combat;
@@ -1663,6 +1763,9 @@ function hurt(s, dmg, src = 'hit') {
   if (dmg > toShield && src !== 'sun') {
     const had = breakStreak(s.combat);
     if (had >= 3) fx.notice(`💔 Racha perdida (x${had})`, '#ff6b6b');
+    // CONTRATOS «sin daño en el casco»: fallidos
+    const g = gal(), broken = g.missions.filter((m) => m.mods?.includes('clean'));
+    if (broken.length) { g.missions = g.missions.filter((m) => !broken.includes(m)); for (const m of broken) fx.notice(`🛡️ Contrato fallido (daño en el casco): ${m.text}`, '#ff6b6b', 2.4); }
   }
   if (toShield > 0) sh.shieldFx = 0.45;
   sh.shield -= toShield;
@@ -1671,7 +1774,7 @@ function hurt(s, dmg, src = 'hit') {
   fx.flash(toShield >= dmg ? '#7df9ff' : '#f33', 0.3);
   fx.vibe(40);
   sfx.shield();
-  if (sh.hull <= 0) respawn(s);
+  if (sh.hull <= 0) { if (s.incursion) endIncursion(s, false); else respawn(s); }
 }
 
 // Relajado: te remolcan a tu estación base; pierdes la carga, no el progreso
@@ -1998,6 +2101,7 @@ export function updateSpace(dt) {
   updateEscort(s, dt);
   updateScan(s, dt);
   updateContacts(s, dt);
+  updateIncursion(s, dt);
   // planetas: sólidos; cerca de uno aparece ORBITAR
   s.act = null;
   for (let i = 0; i < s.sys.planets.length; i++) {
@@ -2111,6 +2215,12 @@ export function updateSpace(dt) {
 
 function updateObjective(s) {
   const g = gal(), sh = s.ship;
+  if (s.incursion) {
+    const inc = s.incursion, left = s.pirates.filter((p) => p.alive && p.inc);
+    s.objective = { kind: 'incursion', text: `⚔️ Incursión · oleada ${inc.wave}/${WAVES} · ${fmtK(inc.score)} pts${left.length ? ` · quedan ${left.length}` : ''}` };
+    s.target = left.sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos || inc.center;
+    return;
+  }
   if (s.routeTo !== null && s.routeTo === s.sysId) s.routeTo = null;
   if (s.routeTo !== null) {
     const path = route(GAL, s.sysId, s.routeTo);
