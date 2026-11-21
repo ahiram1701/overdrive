@@ -10,7 +10,7 @@ import { update, useAbility } from './game.js';
 import { ui, dialogPaused } from './ui.js';
 import { updateArena, arenaDash, useArenaAbility, debugArenaBoss } from './arena.js';
 import { renderArena } from './arenaRender.js';
-import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, forceEvent, spawnDevourer, useItem, debugPirate } from './spaceGame.js';
+import { updateSpace, spaceBoost, spaceStats, spaceRoll, spaceMissile, spaceSurge, forceEvent, spawnDevourer, useItem, debugPirate } from './spaceGame.js';
 import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
@@ -100,7 +100,7 @@ initInput({
     if (G.mode === 'pecio') { if (k === 'x') pecioDash(); return; }
     if (G.mode !== 'galaxy') return;
     if ('12345'.includes(k)) useItem(ITEM_KEYS[Number(k) - 1]); // consumibles
-    else if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else spaceMissile();
+    else if (k === 'i') ui.showGalInv(); else if (k === 'x') spaceRoll(); else if (k === 'v') spaceSurge(); else spaceMissile();
   },
   ability: () => (G.mode === 'pecio' ? pecioAbility() : G.mode === 'arena' ? useArenaAbility() : useAbility()),
   pause() {

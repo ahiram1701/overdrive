@@ -16,19 +16,20 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
-import { power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
+import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
+import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
 
 const S = () => G.space;
 const DOCK_R = 150;
 const SAFE_R = 380; // zona segura alrededor de la estación
 const MAGNET_R = 75;
-const BARREL = 0.55; // duración del tonel (s), invulnerable mientras dura
+const BARREL = ROLL.anim; // duración del tonel (s); invulnerable solo al principio (ROLL.invuln)
 const ORBIT_R = 160; // a esta distancia de la superficie aparece ORBITAR
 export const GAL = genGalaxy();
 
@@ -60,7 +61,7 @@ const calcStats = () => {
 // ---------- Facciones ----------
 const fmtK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
 // AMENAZA: los piratas se refuerzan con el PODER de tu nave (ver galaxyThreat.js)
-export const shipPower = () => power(stats());
+export const shipPower = () => power(stats(), gearDpsK(save, gal().up.missile || 0));
 export const threat = () => threatOf(shipPower());
 export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], worldTerritory(save)); // con lo perdido en las ofensivas
 const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
@@ -90,6 +91,7 @@ export function newSpace() {
     ship: { pos: { x: 0, y: 0, z: 0 }, q: quatFromYawPitch(0, 0), yaw: 0, pitch: 0, roll: 0, throttle: 1, rollIn: 0, shield: st.shield, hull: g.hull ?? st.hull, boostT: 0, boostCd: 0, fireT: 0, hitT: 9, side: 1 },
     input: { x: 0, y: 0 }, firing: false, bolts: [], ebolts: [], ores: [], loot: [], pirates: [], cam: null, t: 0, canDock: false, fullWarned: false,
     objective: null, target: null, heat: 0, overheat: false, jumpT: 0, pirateT: 30, routeTo: null,
+    combat: newCombat(),
   };
   G.space = s;
   enterSystem(s, g.sys ?? 0, null);
@@ -114,6 +116,7 @@ function enterSystem(s, id, fromId) {
   const def = GAL[id];
   const killedThere = s.sysKills || 0; // abatidos en el sistema del que vienes (para el nivel de búsqueda)
   s.sysKills = 0;
+  s.cleared = false; // SISTEMA DESPEJADO se anuncia una vez por visita
   const gates = def.links.map((to) => ({ to, name: GAL[to].name, ang: Math.atan2(GAL[to].y - def.y, GAL[to].x - def.x) }));
   s.sysId = id;
   s.sys = makeSystem(id + 1, { name: def.name, sunColor: def.star.color, planets: def.planets, ore: def.ore, gates, danger: def.danger, asteroids: id === 0 ? 80 : 70 });
@@ -683,7 +686,8 @@ function updatePirates(s, dt) {
     p.pitch += Math.max(-p.turn * dt, Math.min(p.turn * dt, want.pitch - p.pitch));
     p.pitch = Math.max(-1.1, Math.min(1.1, p.pitch));
     const f = basis(p.yaw, p.pitch).f;
-    p.pos = add(p.pos, scale(f, p.speed * (p.state === 'flee' ? 1.3 : 1) * dt));
+    p.vel = scale(f, p.speed * (p.state === 'flee' ? 1.3 : 1));
+    p.pos = add(p.pos, scale(p.vel, dt));
     // nunca dentro de la zona segura
     const ds = dist(p.pos, st);
     if (ds < SAFE_R) p.pos = add(st, scale(norm(sub(p.pos, st)), SAFE_R));
@@ -711,6 +715,15 @@ function updatePirates(s, dt) {
       }
     }
     pirateTraits(s, p, d, dt);
+    // HUYENDO: se le cae el botín por el camino (perseguirlo paga)
+    if (p.state === 'flee' && !p.boss && (p.drops || 0) < 3) {
+      p.dropT = (p.dropT ?? 0.5) - dt;
+      if (p.dropT <= 0) {
+        p.dropT = 1.2;
+        p.drops = (p.drops || 0) + 1;
+        s.loot.push({ pos: { ...p.pos }, credits: Math.round((25 + GAL[s.sysId].danger * 18) * 0.3), life: 30 });
+      }
+    }
     if (p.state === 'flee' && d > 1600) p.alive = false; // se escapó
   }
   updateEMines(s, dt);
@@ -734,9 +747,16 @@ function updatePirates(s, dt) {
       s.freighter.flash = 0.1;
       continue;
     }
-    if (dist(b.pos, sh.pos) < 6) {
+    const db = dist(b.pos, sh.pos);
+    if (db < 6) {
       b.life = 0;
       if (dist(sh.pos, st) >= SAFE_R) hurt(s, b.dmg);
+    } else if (!b.grazed && db < GRAZE_R) b.near = true;
+    else if (b.near && db > GRAZE_R) {
+      // ROCE: te ha pasado rozando y no te ha dado
+      b.near = false;
+      b.grazed = true;
+      if (dist(sh.pos, st) >= SAFE_R) { combatGain(s, 'graze'); fx.notice('⚡ ¡ROCE!', '#ff2bd6', 0.5); }
     }
   }
   s.ebolts = s.ebolts.filter((b) => b.life > 0);
@@ -753,6 +773,10 @@ function updatePirates(s, dt) {
 function killPirate(s, p) {
   if (p.shield) { p.hp = p.shieldHp; return; }
   p.alive = false;
+  // RACHA y SOBRECARGA; un instante congelado (más largo si era gordo)
+  combatGain(s, p.boss || p.story ? 'boss' : p.elite ? 'elite' : 'kill', true);
+  const mul = streakMul(s.combat.streak);
+  fx.hitstop(p.boss ? 0.12 : p.elite ? 0.07 : 0.035);
   const pp = s.cam && project(s.cam, p.pos);
   if (pp) {
     for (const c of ['#ff2d55', '#ffe600', '#fff']) fx.burst(pp.x, pp.y, p.boss ? 60 : 22, c, p.boss ? 600 : 380, 5, 0.7, 0);
@@ -762,11 +786,19 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1));
+  const value = Math.round((p.boss ? 600 + d * 150 : 25 + d * 18) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul);
+  if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   s.sysKills = (s.sysKills || 0) + 1;
   addWanted(gal(), 'kill');
   if (p.elite) progress('eliteKill');
+  ui.showTip?.('galCombat');
   s.loot.push({ pos: { ...p.pos }, credits: value, life: 60 });
+  // el último pirata del sistema: cámara lenta y SISTEMA DESPEJADO
+  if (!p.boss && !s.cleared && GAL[s.sysId].pirates && !s.base && !s.pirates.some((q) => q.alive)) {
+    s.cleared = true;
+    fx.slowmo(0.7, 0.25);
+    fx.banner('✔ SISTEMA DESPEJADO', `mejor racha x${s.combat.best}`, '#30d158');
+  }
   if (p.boss) {
     save.galaxyBoss[s.sysId] = true;
     fx.banner('☠ JEFE PIRATA DERROTADO', `+${value} 💰 al recogerlo`, '#ffe600', true);
@@ -1013,7 +1045,8 @@ export function spaceRoll(dir = 0) {
   if (sh.rollCd > 0) return;
   sh.barrelT = BARREL;
   sh.barrelDir = dir || (s.input.x < -0.1 ? -1 : 1);
-  sh.rollCd = 1.3;
+  // encadenarlos cansa: cada tonel seguido tarda más en volver
+  sh.rollCd = rollCooldown(s.combat, s.t);
   sh.dodged = false;
   sfx.slide();
   fx.vibe(20);
@@ -1359,16 +1392,57 @@ function updateScan(s, dt) {
   persist();
 }
 
+// ---------- Racha y sobrecarga (ver galaxyCombat.js) ----------
+function combatGain(s, kind, streak = false) {
+  const c = s.combat;
+  if (streak) {
+    const w = bumpStreak(c);
+    if (w) fx.banner(w, `racha x${c.streak} · 💰 ×${streakMul(c.streak).toFixed(1)}`, '#ffe600');
+  }
+  if (addSurge(c, kind)) { fx.notice('⚡ SOBRECARGA LISTA · botón ⚡ (o V)', '#ff2bd6', 2.4); sfx.milestone(); }
+}
+// SOBRECARGA (botón ⚡ o V): unos segundos sin calor, con más daño y más cadencia
+export function spaceSurge() {
+  const s = S();
+  if (!s || G.mode !== 'galaxy') return;
+  if (!startSurge(s.combat)) {
+    if (!surgeOn(s.combat)) { fx.notice(`⚡ Sobrecarga al ${Math.round(s.combat.surge * 100)}%: abate piratas y roza sus balas`, '#ff2bd6'); sfx.bump(); }
+    return;
+  }
+  s.heat = 0;
+  s.overheat = false;
+  fx.banner('⚡ SOBRECARGA', 'sin calor · más daño · más cadencia', '#ff2bd6', true);
+  fx.flash('#ff2bd6', 0.35);
+  fx.shake(8);
+  sfx.od();
+  fx.vibe([20, 40, 60]);
+  progress('galSurge');
+}
+
 // ---------- Daño y reaparición ----------
-function hurt(s, dmg) {
+// src: 'hit' (balas, misiles, minas, kamikazes: se pueden esquivar con un tonel), 'sun' o 'rock'
+function hurt(s, dmg, src = 'hit') {
   if (G.god) return;
   const sh = s.ship;
-  if (sh.barrelT > 0) {
-    if (!sh.dodged) { sh.dodged = true; fx.notice('🌀 ¡ESQUIVADO!', '#7df9ff'); }
+  if (sh.barrelT > 0 && rollInvuln(sh.barrelT)) {
+    // ESQUIVE PERFECTO: algo te iba a dar justo mientras girabas
+    if (!sh.dodged && src === 'hit') {
+      sh.dodged = true;
+      fx.banner('🌀 ¡ESQUIVE PERFECTO!', '', '#7df9ff');
+      fx.slowmo(0.4, 0.3);
+      fx.vibe(25);
+      sfx.near(true, 1);
+      combatGain(s, 'perfect', true);
+    }
     return;
   }
   sh.hitT = 0;
   const toShield = Math.min(sh.shield, dmg);
+  // un golpe en el CASCO rompe la racha
+  if (dmg > toShield && src !== 'sun') {
+    const had = breakStreak(s.combat);
+    if (had >= 3) fx.notice(`💔 Racha perdida (x${had})`, '#ff6b6b');
+  }
   if (toShield > 0) sh.shieldFx = 0.45;
   sh.shield -= toShield;
   sh.hull -= dmg - toShield;
@@ -1488,23 +1562,40 @@ export function updateSpace(dt) {
   const ds = dist(sh.pos, s.sys.sun.pos);
   if (ds < s.sys.sun.r + 60) {
     sh.pos = add(s.sys.sun.pos, scale(norm(sub(sh.pos, s.sys.sun.pos)), s.sys.sun.r + 60));
-    hurt(s, 20 * dt * 10);
+    hurt(s, 20 * dt * 10, 'sun');
     fx.notice('🔥 ¡Demasiado cerca del sol!', '#ff9f0a');
   }
 
-  // láser: se calienta al disparar; sobrecalentado, no dispara hasta enfriarse
-  s.heat = Math.max(0, s.heat - dt * 0.45);
-  if (s.overheat && s.heat < 0.35) s.overheat = false;
+  // RACHA que caduca y SOBRECARGA que se agota
+  const cb = tickCombat(s.combat, dt);
+  if (cb.lost >= 3) fx.notice(`Racha terminada (x${cb.lost})`, '#b8c2cc');
+  if (cb.surgeEnd) fx.notice('⚡ Sobrecarga agotada', '#b8c2cc');
+  const surge = surgeOn(s.combat);
+  // láser: se calienta al disparar. Sobrecalentado no dispara, pero si VUELVES A PULSAR con el calor en la
+  // franja se ventila al momento; fuera de ella, se atasca (vuelve a tope)
+  s.heat = Math.max(0, s.heat - dt * HEAT.cool);
+  if (s.overheat && s.heat < HEAT.release) s.overheat = false;
+  const pressed = s.firing && !s.firingWas;
+  s.firingWas = s.firing;
+  if (s.overheat && pressed) {
+    const v = vent(s.heat);
+    s.heat = v.heat;
+    s.overheat = v.overheat;
+    if (v.ok) { fx.notice('❄️ ¡VENTILADO!', '#7df9ff', 0.8); sfx.near(false, 1); combatGain(s, 'vent'); } else { fx.notice('🌡️ ¡Atasco! pulsa con el calor en la franja azul', '#ff6a00', 0.9); sfx.bump(); }
+  }
   sh.fireT -= dt;
   if (s.firing && sh.fireT <= 0 && !s.overheat) {
-    sh.fireT = st.fireCd;
-    s.heat += 0.06;
-    if (s.heat >= 1) { s.overheat = true; fx.notice('🌡️ Láser sobrecalentado', '#ff6a00'); sfx.bump(); }
-    // autoapuntado suave: primero piratas, luego asteroides
+    sh.fireT = surge ? st.fireCd / SURGE.fireMul : st.fireCd;
+    if (!surge) {
+      s.heat += shotHeat(st.fireCd) + (hasGear(save, 'laser2') ? GEAR_HEAT.laser2 : 0) + (hasGear(save, 'flak') ? GEAR_HEAT.flak : 0);
+      if (s.heat >= 1) { s.heat = 1; s.overheat = true; fx.notice('🌡️ Sobrecalentado: vuelve a pulsar en la franja azul', '#ff6a00'); sfx.bump(); }
+    }
+    const dmg = surge ? st.dmg * SURGE.dmgMul : st.dmg;
+    // autoapuntado suave (cono estrecho): primero piratas, apuntando a donde VAN a estar; luego asteroides
     let dir = b.f, best = null, bestA = 0.3;
     for (const p of s.pirates) {
       const d = dist(p.pos, sh.pos), ang = angleTo(sh.pos, sh.yaw, sh.pitch, p.pos);
-      if (d < 800 && ang < 0.35 && (!best || ang < bestA)) { best = p.pos; bestA = ang; }
+      if (d < 800 && ang < AIM_CONE && (!best || ang < bestA)) { best = p.vel ? leadPos(sh.pos, p.pos, p.vel, BOLT_SPEED) : p.pos; bestA = ang; }
     }
     if (!best) {
       for (const a of s.sys.asteroids) {
@@ -1516,11 +1607,14 @@ export function updateSpace(dt) {
     if (best) dir = norm(sub(best, sh.pos));
     sh.side = -sh.side;
     const from = add(add(sh.pos, scale(b.r, sh.side * 2.2)), scale(b.f, 4));
-    s.bolts.push({ pos: from, vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg });
-    // EQUIPO fabricado: láser doble, metralla y plasma
-    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, 950), scale(b.f, speed)), life: 0.85, dmg: st.dmg * gearBoost(save, 'laser2') });
-    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), 950), scale(b.f, speed)), life: 0.6, dmg: st.dmg * 0.6 * gearBoost(save, 'flak') });
-    if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: st.dmg * 3 * gearBoost(save, 'plasma'), plasma: true });
+    s.bolts.push({ pos: from, vel: add(scale(dir, BOLT_SPEED), scale(b.f, speed)), life: 0.85, dmg, surge });
+    // EQUIPO fabricado: láser doble, metralla y plasma (también calientan)
+    if (hasGear(save, 'laser2')) s.bolts.push({ pos: add(add(sh.pos, scale(b.r, -sh.side * 2.2)), scale(b.f, 4)), vel: add(scale(dir, BOLT_SPEED), scale(b.f, speed)), life: 0.85, dmg: dmg * gearBoost(save, 'laser2'), surge });
+    if (hasGear(save, 'flak')) for (const k of [-1, 1]) s.bolts.push({ pos: from, vel: add(scale(norm(add(dir, scale(b.r, k * 0.08))), BOLT_SPEED), scale(b.f, speed)), life: 0.6, dmg: dmg * 0.6 * gearBoost(save, 'flak'), surge });
+    if (hasGear(save, 'plasma') && (sh.shots = (sh.shots || 0) + 1) % 3 === 0) {
+      s.bolts.push({ pos: from, vel: add(scale(dir, 700), scale(b.f, speed)), life: 1.1, dmg: dmg * 3 * gearBoost(save, 'plasma'), plasma: true });
+      if (!surge) s.heat += GEAR_HEAT.plasma;
+    }
     sfx.swish();
   }
 
@@ -1543,6 +1637,7 @@ export function updateSpace(dt) {
     for (const p of s.pirates) {
       if (!p.alive || dist(p.pos, bo.pos) > Math.max(6, p.size * 1.4)) continue;
       damagePirate(s, p, bo.dmg);
+      if (s.t - (s.zapT || 0) > 0.07) { s.zapT = s.t; sfx.zap(); }
       hit = true;
       break;
     }
@@ -1616,7 +1711,7 @@ export function updateSpace(dt) {
     const d = dist(a.pos, sh.pos);
     if (d < a.r + 4) {
       sh.pos = add(a.pos, scale(norm(sub(sh.pos, a.pos)), a.r + 5));
-      hurt(s, 12);
+      hurt(s, 12, 'rock');
     }
   }
   // repoblar el cinturón lejos de ti (siempre hay qué minar)

@@ -831,8 +831,9 @@ export function renderSpace(dt) {
         ctx.shadowBlur = 0;
         return;
       }
-      ctx.strokeStyle = shotCol;
-      ctx.lineWidth = Math.max(1.5, p.s * 0.8);
+      // SOBRECARGA: disparos magenta, más gruesos
+      ctx.strokeStyle = bo.surge ? '#ff2bd6' : shotCol;
+      ctx.lineWidth = Math.max(1.5, p.s * (bo.surge ? 1.3 : 0.8));
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);

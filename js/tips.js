@@ -32,6 +32,11 @@ export const TIPS = {
   race: [['guia', 'CARRERA: llega primero. Aquí chocar no mata, pero frena. Con DASH u overdrive sacas a los rivales de la pista.']],
   campaign: [['guia', 'CAMPAÑA: cada nivel tiene META y 3 estrellas. Las pistas son siempre las mismas: apréndetelas.']],
   relic: [['guia', 'Una RELIQUIA: dura toda la expedición. Las ves arriba del mapa.']],
+  galCombat: [
+    ['guia', '¡Primera baja! Encadena bajas para la RACHA: cuanto más larga, más paga cada pirata. Si te dan en el casco, se rompe.'],
+    ['guia', 'Las bajas y las balas que te pasan ROZANDO cargan la ⚡ SOBRECARGA: tócala (o V) y durante 6 s disparas sin calor y con más daño.'],
+    ['guia', 'El tonel (doble toque) es invulnerable solo al empezar: hazlo justo cuando llega la bala para un ESQUIVE PERFECTO. Y si el láser se sobrecalienta, vuelve a pulsar cuando el calor pase por la franja azul.'],
+  ],
   worldEvent: [['guia', 'La galaxia está viva: ofensivas piratas y el enjambre avanzan con cada salto. Míralo en 🎒 → NOTICIAS.']],
 };
 export const TIP_KEYS = Object.keys(TIPS);

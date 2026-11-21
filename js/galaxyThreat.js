@@ -4,12 +4,19 @@
 // - NIVEL DE BÚSQUEDA (⭐): sube al hacer daño a los piratas; con ⭐⭐ o más, te mandan cazadores.
 // - ÉLITES con rasgos: más frecuentes cuanto mayor es la amenaza.
 import { shipStats } from './galaxyData.js';
+import { hasGear, gearBoost } from './crafting.js';
 
 // ---------- Poder y amenaza ----------
 const BASE = shipStats({}, 'viper', 'explorer');
 const dps = (st) => st.dmg / st.fireCd;
-export function power(st) {
-  const off = dps(st) / dps(BASE);
+// El equipo fabricado y los misiles también pegan: cuánto multiplican el daño del láser
+// (láser doble ≈ otro cañón, metralla, plasma cada 3 tiros, torreta, misiles por nivel)
+export function gearDpsK(save, missileLvl = 0) {
+  const k = (id, w) => (hasGear(save, id) ? w * gearBoost(save, id) : 0);
+  return 1 + k('laser2', 0.85) + k('flak', 0.6) + k('plasma', 0.55) + k('turret', 0.3) + missileLvl * 0.06;
+}
+export function power(st, gearK = 1) {
+  const off = (dps(st) * gearK) / dps(BASE);
   const tough = (st.shield + st.hull) / (BASE.shield + BASE.hull);
   return (off + tough) / 2;
 }
