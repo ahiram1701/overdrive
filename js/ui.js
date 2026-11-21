@@ -29,7 +29,7 @@ import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
-import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
+import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -2517,6 +2517,11 @@ export const ui = {
       tap(b, () => { if (pecioWorkshopBuy(w.id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } });
       box.append(b);
     }
+    // CANJE: las 🔩 que sobran, a 🪙
+    const ex = el('button', `st-up${save.pecio.piezas >= EXCHANGE.piezas ? ' afford' : ''}`, `<span class="su-icon">♻️</span><span class="su-body"><b>Chatarrero</b><small>Cambia ${EXCHANGE.piezas} 🔩 por ${EXCHANGE.coins} 🪙 para el Runner y la Arena</small></span><span class="su-cost">${EXCHANGE.piezas} 🔩</span>`);
+    ex.id = 'btnPecioExchange';
+    tap(ex, () => { if (exchangePiezas(save)) { persist(); sfx.coin(4); setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); } });
+    box.append(ex);
   },
   // PLANTA 9 superada: salir con todo o seguir en el modo sin fin
   showPecioExit(s) {
@@ -2639,7 +2644,7 @@ export const ui = {
     $('peTitle').className = r.won || r.endless ? 'won' : 'dead';
     setText('peDepth', `PLANTA ${r.depth}`);
     $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Jefes', r.bosses || 0], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
-    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>`;
+    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}`;
     // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
     const vb = $('peVault');
     vb.innerHTML = '';

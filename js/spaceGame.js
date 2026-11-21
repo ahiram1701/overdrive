@@ -1718,6 +1718,7 @@ function combatGain(s, kind, streak = false) {
   const c = s.combat;
   if (streak) {
     const w = bumpStreak(c);
+    progress('galStreak', c.streak);
     if (w) fx.banner(w, `racha x${c.streak} · 💰 ×${streakMul(c.streak).toFixed(1)}`, '#ffe600');
   }
   if (addSurge(c, kind)) { fx.notice('⚡ SOBRECARGA LISTA · botón ⚡ (o V)', '#ff2bd6', 2.4); sfx.milestone(); }

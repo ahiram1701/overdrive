@@ -37,7 +37,7 @@ Cada juego tiene su **🏆 nave exclusiva**, que se gana jugándolo y luego sirv
 
 ## Características
 
-- **Una sola progresión para todo:** tu nave del hangar (con su árbol de mejoras y su estilo) juega en los cuatro juegos. Rango de piloto, **99 logros** con estilos exclusivos, misiones diarias, colección y prestigio.
+- **Una sola progresión para todo:** tu nave del hangar (con su árbol de mejoras y su estilo) juega en los cuatro juegos. Rango de piloto, **104 logros** con estilos exclusivos, misiones diarias, colección y prestigio.
 - **Motor 3D propio sobre Canvas 2D:** proyección, recorte contra el plano cercano y orden por profundidad hechos a mano. La Galaxia corre a ~2 ms por fotograma en el móvil y una sala de Pecios, por debajo de 1 ms.
 - **Pensado para el móvil:** controles táctiles por gestos y joystick virtual, vibración (Android), textos que se ajustan a cualquier pantalla y modo a pantalla completa.
 - **PWA:** se instala desde el navegador, funciona sin conexión y **se actualiza sola** al volver al menú (la versión instalada aparece en Ajustes).
@@ -116,7 +116,8 @@ El **cuerpo** te dice qué es y el **chevrón** (▲ ▼) qué hacer, igual en t
 2. Al final de cada tramo, una **bifurcación**: elige carril según la recompensa (☠️ Riesgo x2, 🛒 Tienda, 🎁 Cofre, 🛡️ Escudo, 🪙 Monedas, 🃏 Cartas raras).
 3. Después **eliges 1 de 3 cartas**. Las cartas cambian las reglas y se combinan en sinergias.
 4. **Cada 3 tramos, un jefe.** Esquiva sus disparos y **pasa por sus núcleos verdes** antes de que escape: tocarlos le hace daño, y con DASH el golpe es **crítico (doble)**. El núcleo blindado del Censor solo cede al DASH.
-5. Al morir ganas **gemas 💎** para el hangar, y las **🪙 que no gastaste** van a tu cartera.
+5. **🔥 Presión:** desde el tramo 9, cada 3 tramos sube un nivel (hasta 6): las filas vienen más juntas, hay más sucesos y, tras tres vueltas, los biomas cambian de orden. Logros a los tramos 25 y 40.
+6. Al morir ganas **gemas 💎** para el hangar, y las **🪙 que no gastaste** van a tu cartera.
 
 #### 🌍 Biomas, set pieces y eventos
 
@@ -456,6 +457,8 @@ El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con 
 - **Sinergias:** algunos objetos (raros o mejores) son de un **set**: con 2 y 3 piezas puestas ganan un extra (🔩 **Chatarrero**: más 🔩 y una llave por planta · 🎯 **Cazador**: más daño y cadencia · 🗿 **Coloso**: más vida y escudo). Los legendarios pueden ser **★ únicos**, con efecto propio: **Corazón del Reactor** (tus balas queman), **Ancla** (los pozos no te tragan) y **Llave maestra** (cofres sin llave). La pausa muestra los sets activos.
 - **Explorar:** algunos cofres son **😈 mímicos** (muerden y cierran la sala, pero sueltan buen botín; el 🔍 Escáner los delata). Las **paredes agrietadas** esconden una **💎 sala oculta**: embístelas con 💨. En las salas de trampas, el **🔌 interruptor** apaga el suelo eléctrico. La tienda vende consumibles y la 📦 caja misteriosa; el altar ofrece también un 🩸 **pacto** (−1 de vida máxima por un objeto épico o mejor).
 - **🔐 Bóveda** (150 🔩, para siempre): al acabar una partida guardas 1 objeto y empiezas la siguiente con él puesto.
+- **♻️ Chatarrero** (en el taller): cambia 50 🔩 que te sobren por 100 🪙 para el Runner y la Arena.
+- Cada partida da también **💎 gemas y XP de rango**, como los otros juegos (más cuanto más hondo llegues y más jefes venzas).
 - **💀 Jefes cada 3 plantas** (guardan la salida; la escotilla aparece al vencerlos), con **fase 2** a media vida:
   - planta 3, **Guardián de carga**: marca una franja y embiste; si se estrella contra la pared queda aturdido y recibe el doble (en fase 2, más a menudo y con drones de apoyo);
   - planta 6, **Enjambre médico**: la reina se cura mientras vivan sus nodos (rayos verdes); a media vida se divide;
@@ -473,7 +476,9 @@ El 4.º juego: **acción en 3D** dentro de pecios y estaciones abandonadas, con 
 
 Un juego distinto dentro de OVERDRIVE, al estilo *survivors*.
 - **Vista cenital:** te mueves libre (arrastra el dedo como un joystick, o WASD/flechas) y **tu nave dispara sola**.
-- **Oleadas cada vez más grandes** de 6 tipos de enemigo: el Embestidor avisa con una línea antes de cargar, el Divisor se parte en dos al morir… Un **élite** por minuto suelta un cofre con una mejora gratis.
+- **Oleadas cada vez más grandes** de 9 tipos de enemigo: el Embestidor avisa con una línea antes de cargar, el Divisor se parte en dos al morir… El enjambre llega ya a los 0:15. Un **élite** por minuto suelta un cofre con una mejora gratis.
+  - **desde el minuto 5:** el 🛡️ **Escudero** (los de su alrededor, dentro de su anillo azul, reciben la mitad de daño: ve primero a por él), el 🎯 **Francotirador** (se queda lejos, apunta con una línea roja y dispara fuerte) y el **Nido** (lento y duro, suelta fragmentos sin parar);
+  - **sucesos de partida** cada ~2 min, durante 20 s: 💰 **fiebre del oro** (gemas dobles), 🔥 **frenesí** (muchos más enemigos, más XP) y 🌑 **eclipse** (casi no se ve).
 - **Subes de nivel cada pocos segundos** y eliges 1 de 3 mejoras:
   - hasta 4 armas (Blásteres, Escopeta, Lanza, Pulso, Lanzallamas, Misiles, Orbes);
   - hasta 4 pasivas, cada una de 5 niveles;

@@ -8,7 +8,7 @@ import { baseStats, applyCard, offerCards, SHIPS, CARD_BY_ID, shipLvls, applyShi
 import { newPlayer, updatePlayer, hookTarget } from './player.js';
 import { BIOMES, FORK_REWARDS, updateWorld, spawnBoss, hurtBoss, screenOf, breakObj, bossRz, sweep, fireLaser, hammerLane, runSpeed, SCRIPTS } from './world.js';
 import { ABILITIES, newAbility, trigger, tickAbility, canUse, onNearMissCd, isActive } from './abilities.js';
-import { baseSpeed, trackSpeed } from './pacing.js';
+import { baseSpeed, trackSpeed, pressureOf, pressureEvent, biomeIndex } from './pacing.js';
 import { project } from './render.js';
 import { ui } from './ui.js';
 import { missions } from './missions.js';
@@ -185,7 +185,7 @@ function startSection() {
   const isBoss = r.race ? false : node ? node.type === 'boss' : lv ? !!lv.boss : r.mods.has('bosses') ? r.section % 2 === 1 : r.section % 3 === 2;
   // sector mezclado: los tramos alternan entre sus dos biomas
   const mixed = lv && lv.biome2 != null && (lv.sections - r.camp.left) % 2 === 1;
-  r.biome = BIOMES[r.race ? r.race.track.biome : node ? (r.exp.act * 2 + node.row) % BIOMES.length : lv ? (mixed ? lv.biome2 : lv.biome) : r.section % BIOMES.length];
+  r.biome = BIOMES[r.race ? r.race.track.biome : node ? (r.exp.act * 2 + node.row) % BIOMES.length : lv ? (mixed ? lv.biome2 : lv.biome) : biomeIndex(r.section, BIOMES.length)];
   if (r.camp) r.camp.left--;
   r.risk = r.riskNext || node?.type === 'elite'; // ÉLITE: x2 puntos y filas más juntas
   r.riskNext = false;
@@ -203,6 +203,11 @@ function startSection() {
   // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
   r.hunters = Math.max(0, r.hunters - 1);
   progress('section', r.section + 1);
+  // PRESIÓN: avisa cada vez que sube un nivel
+  // (solo en el Runner infinito: la campaña, la expedición y las carreras tienen su propia dificultad)
+  const pr = r.race || r.camp || r.exp ? 0 : pressureOf(r.section);
+  if (pr > (r.pressure || 0)) fx.notice(`🔥 PRESIÓN ${pr}: filas más juntas y más sucesos`, '#ff6a00', 2.2);
+  r.pressure = pr;
   if (r.section + 1 >= 4 && r.mods.size) progress('modsRun', r.mods.size);
   if (isBoss) {
     r.sectionEnd = Infinity;
@@ -214,7 +219,7 @@ function startSection() {
     // el evento se decide al empezar el tramo: sacarlo del RNG más tarde mezclaría su tirada con las de la pista
     // CAOS: evento en todos los tramos. La tirada se hace exactamente igual que sin él (en el tramo 1
     // no se tira): así el resto de la pista no se mueve y las semillas siguen dando la misma pista
-    const evRoll = r.section >= 1 && r.rng.chance(0.6);
+    const evRoll = r.section >= 1 && r.rng.chance(pressureEvent(r.pressure || 0));
     r.nextEventAt = evRoll || (r.section >= 1 && r.mods.has('chaos')) ? r.time + r.rng.range(5, 10) : Infinity;
     r.pendingEvent = r.rng.pick(EVENTS);
     // SET PIECE: a partir del tramo 3, a veces el tramo trae una secuencia guionizada

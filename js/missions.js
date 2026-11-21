@@ -17,6 +17,7 @@ export const POOL = [
   { kind: 'mult', mode: 'best', diff: 'easy', n: 30, text: 'Llega a x30 de combo' },
   { kind: 'arenaKills', mode: 'sum', diff: 'easy', n: 300, text: 'Elimina 300 enemigos en la ARENA' },
   { kind: 'pecioRoom', mode: 'sum', diff: 'easy', n: 8, text: 'Limpia 8 salas en PECIOS' },
+  { kind: 'pirate', mode: 'sum', diff: 'easy', n: 8, text: 'Abate 8 piratas en la GALAXIA' },
 
   { kind: 'perfect', mode: 'sum', diff: 'medium', n: 25, text: 'Haz 25 near-miss PERFECTOS' },
   { kind: 'near', mode: 'sum', diff: 'medium', n: 100, text: 'Haz 100 near-miss' },
@@ -30,6 +31,8 @@ export const POOL = [
   { kind: 'hunter', mode: 'sum', diff: 'medium', n: 2, text: 'Escapa del Cazador 2 veces' },
   { kind: 'arenaTime', mode: 'best', diff: 'medium', n: 300, text: 'Sobrevive 5 minutos en la ARENA' },
   { kind: 'pecioFloor', mode: 'best', diff: 'medium', n: 4, text: 'Llega a la planta 4 de PECIOS' },
+  { kind: 'galContact', mode: 'sum', diff: 'medium', n: 2, text: 'Resuelve 2 contactos en ruta en la GALAXIA' },
+  { kind: 'galStreak', mode: 'best', diff: 'medium', n: 6, text: 'Llega a una racha x6 en la GALAXIA' },
 
   { kind: 'perfect', mode: 'sum', diff: 'hard', n: 40, text: 'Haz 40 near-miss PERFECTOS' },
   { kind: 'boss', mode: 'sum', diff: 'hard', n: 2, text: 'Derrota a 2 jefes' },
@@ -39,6 +42,8 @@ export const POOL = [
   { kind: 'mult', mode: 'best', diff: 'hard', n: 99, text: 'Llega a x99 de combo' },
   { kind: 'od', mode: 'sum', diff: 'hard', n: 10, text: 'Activa el OVERDRIVE 10 veces' },
   { kind: 'pecioBoss', mode: 'sum', diff: 'hard', n: 1, text: 'Vence a un jefe de PECIOS' },
+  { kind: 'galIncursionWave', mode: 'best', diff: 'hard', n: 7, text: 'Llega a la oleada 7 de la INCURSIÓN (GALAXIA)' },
+  { kind: 'arenaTime', mode: 'best', diff: 'hard', n: 600, text: 'Aguanta los 10:00 de la ARENA' },
 ];
 
 // Las 3 misiones de un día: una de cada dificultad y de tipos distintos.

@@ -170,6 +170,12 @@ export const ACHIEVEMENTS = [
   { id: 'pecioLegend', kind: 'pecioLegend', mode: 'sum', n: 1, tier: 'silver', name: 'Pieza de museo', desc: 'Equípate un objeto LEGENDARIO en PECIOS' },
   { id: 'pecioRooms', kind: 'pecioRoom', mode: 'sum', n: 50, tier: 'bronze', name: 'Barrendero', desc: 'Limpia 50 salas en PECIOS' },
   { id: 'pecioDeep', kind: 'pecioDepth', mode: 'best', n: 15, tier: 'gold', name: 'Sin fondo', desc: 'Llega a la planta 15 de PECIOS (modo sin fin)' },
+  // RUNNER con presión y GALAXIA rediseñada (siempre al final)
+  { id: 'sec25', kind: 'section', mode: 'best', n: 25, tier: 'gold', name: 'Bajo presión', desc: 'Llega al tramo 25 del RUNNER' },
+  { id: 'sec40', kind: 'section', mode: 'best', n: 40, tier: 'gold', name: 'Inquebrantable', desc: 'Llega al tramo 40 del RUNNER' },
+  { id: 'galStreak', kind: 'galStreak', mode: 'best', n: 20, tier: 'gold', name: 'As del vacío', desc: 'Llega a una RACHA x20 en la GALAXIA' },
+  { id: 'galContacts', kind: 'galContact', mode: 'sum', n: 25, tier: 'silver', name: 'Buen samaritano', desc: 'Resuelve 25 contactos en ruta en la GALAXIA' },
+  { id: 'galIncGold', kind: 'galIncursionWave', mode: 'best', n: 10, tier: 'gold', name: 'Sector limpio', desc: 'Supera las 10 oleadas de una INCURSIÓN de la GALAXIA' },
 ];
 export const ACH_GEMS = T;
 
