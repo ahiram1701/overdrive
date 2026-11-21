@@ -1188,3 +1188,6 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
 #secTag.hidden { display: none; }
 #secTag .sec-bar { display: block; width: 74px; height: 4px; border-radius: 3px; background: rgba(255,255,255,.18); overflow: hidden; }
 #secTag .sec-bar b { display: block; height: 100%; background: var(--yellow); transform-origin: left; transform: scaleX(0); }
+/* GALAXIA: dificultad en Ajustes */
+#btnGalDiff b em { font-style: normal; color: var(--cyan); }
+#btnGalDiff small { grid-column: 2 / 4; color: var(--muted); font-size: 11px; text-align: left; line-height: 1.3; }

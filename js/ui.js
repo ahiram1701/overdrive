@@ -22,6 +22,7 @@ import { world, WAR_TIME } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
+import { DIFFS, diffOf, nextDiff } from './galaxyRisk.js';
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
@@ -443,6 +444,7 @@ export const ui = {
     $('setSfxVol').addEventListener('change', () => sfx.coin(3));
     tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
+    tap($('btnGalDiff'), () => { save.galaxy.difficulty = nextDiff(diffOf(save.galaxy)); persist(); ui.syncToggles(); });
     tap($('btnResume'), () => {
       if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
       else if (G.mode === 'pecioPaused') { G.mode = 'pecio'; musicDuck(false); ui.hideAll(); ui.showPecioHUD(true); }
@@ -489,6 +491,10 @@ export const ui = {
     $('tgText').classList.toggle('off', save.settings.text === 'min');
     $('tgInvert').classList.toggle('off', !save.settings.invertY);
     $('tgLevel').classList.toggle('off', !save.settings.autoLevel);
+    const gd = DIFFS[diffOf(save.galaxy)];
+    $('galDiffIcon').textContent = gd.icon;
+    $('galDiffName').textContent = gd.name;
+    $('galDiffDesc').textContent = gd.desc;
     $('setSens').value = save.settings.sens ?? 1;
     $('setMusicVol').value = save.settings.musicVol ?? 0.7;
     $('setSfxVol').value = save.settings.sfxVol ?? 1;

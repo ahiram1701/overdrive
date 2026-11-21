@@ -137,6 +137,50 @@ test('escuadrillas y enjambres: alas que siguen al líder; si cae, se dispersan'
   expect(errors).toEqual([]);
 });
 
+// ---------- Riesgo real (dificultad Piloto) ----------
+test('piloto: morir cuesta el remolque y medio casco; la carga queda en tu pecio y se recupera', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true, galRisk: true }, galaxy: { credits: 1000, cargo: { iron: 12 }, sys: 1, home: 1, visited: [0, 1] } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, g = window.__save.galaxy;
+    window.G.god = false;
+    const deathAt = { x: 1500, y: 0, z: 1500 };
+    s.ship.pos = { ...deathAt };
+    s.ship.shield = 0;
+    s.ship.hull = 1;
+    s.ebolts.push({ pos: { ...s.ship.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 50 });
+    window.D.step(1 / 60, false);
+    const after = { credits: g.credits, hull: s.ship.hull, max: window.__spaceStats().hull, cargo: g.cargo.iron, wreck: !!g.wreck, inSys: !!s.wreck };
+    // volver a por la carga
+    s.ship.pos = { ...g.wreck.pos };
+    window.D.step(1 / 30, false);
+    return { ...after, recovered: g.cargo.iron, gone: g.wreck === null };
+  });
+  expect(res.credits).toBeLessThan(1000);
+  expect(res.hull).toBeLessThan(res.max);
+  expect(res.cargo).toBe(0);
+  expect(res.wreck).toBe(true);
+  expect(res.inSys).toBe(true);
+  expect(res.recovered).toBe(12);
+  expect(res.gone).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('ajustes: la dificultad de la Galaxia se cambia en ciclo y se guarda', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.goto('/?debug&nosw&seed=3');
+  await page.waitForFunction(() => !!window.G);
+  await page.locator('#btnSettings').click();
+  const name = page.locator('#galDiffName');
+  await expect(name).toHaveText('Piloto');
+  await page.locator('#btnGalDiff').click();
+  await expect(name).toHaveText('Veterano');
+  await page.locator('#btnGalDiff').click();
+  await expect(name).toHaveText('Relajado');
+  expect(await page.evaluate(() => window.__save.galaxy.difficulty)).toBe('relaxed');
+  expect(errors).toEqual([]);
+});
+
 test('zona segura: tampoco dañan el equipo fabricado, la torreta ni los misiles', async ({ page }) => {
   const errors = trackErrors(page);
   await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { up: { missile: 1 }, missiles: 4 }, galaxyGear: { owned: { laser2: true, flak: true, turret: true }, w: ['laser2', 'flak'], m: ['turret'] } });
@@ -158,5 +202,23 @@ test('zona segura: tampoco dañan el equipo fabricado, la torreta ni los misiles
   });
   expect(res.hp).toBe(res.hp0);
   expect(res.ammo).toBe(res.ammo0);
+  expect(errors).toEqual([]);
+});
+
+test('piloto: también en ORIGEN la carga queda en tu pecio', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true, galRisk: true }, galaxy: { credits: 100, cargo: { iron: 6 } } });
+  const res = await page.evaluate(() => {
+    const s = window.G.space, g = window.__save.galaxy;
+    s.ship.pos = { x: 1500, y: 0, z: 1500 };
+    s.ship.shield = 0;
+    s.ship.hull = 1;
+    s.ebolts.push({ pos: { ...s.ship.pos }, vel: { x: 0, y: 0, z: 0 }, life: 1, dmg: 50 });
+    window.D.step(1 / 60, false);
+    return { sys: s.sysId, wreck: g.wreck && g.wreck.cargo.iron, inSys: !!s.wreck };
+  });
+  expect(res.sys).toBe(0);
+  expect(res.wreck).toBe(6);
+  expect(res.inSys).toBe(true);
   expect(errors).toEqual([]);
 });

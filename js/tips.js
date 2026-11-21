@@ -37,6 +37,10 @@ export const TIPS = {
     ['guia', 'Las bajas y las balas que te pasan ROZANDO cargan la ⚡ SOBRECARGA: tócala (o V) y durante 6 s disparas sin calor y con más daño.'],
     ['guia', 'El tonel (doble toque) es invulnerable solo al empezar: hazlo justo cuando llega la bala para un ESQUIVE PERFECTO. Y si el láser se sobrecalienta, vuelve a pulsar cuando el calor pase por la franja azul.'],
   ],
+  galRisk: [
+    ['guia', 'Te han destruido. En dificultad PILOTO el remolque se paga y vuelves con medio casco: repara en la estación.'],
+    ['guia', 'Tu carga quedó en tu 🪦 PECIO, donde caíste. Vuelve a por ella antes de 3 saltos o la saquearán. Si prefieres jugar tranquilo, en Ajustes → Galaxia puedes elegir RELAJADO.'],
+  ],
   worldEvent: [['guia', 'La galaxia está viva: ofensivas piratas y el enjambre avanzan con cada salto. Míralo en 🎒 → NOTICIAS.']],
 };
 export const TIP_KEYS = Object.keys(TIPS);

@@ -20,7 +20,8 @@ async function startGalaxy(page, seedSave = { v: 3, runs: 5 }) {
 
 test('galaxia: el bot mina, vuelve, atraca, vende y compra una mejora; se guarda', async ({ page }) => {
   const errors = trackErrors(page);
-  await startGalaxy(page);
+  // en Relajado: si el bot se estrella, vuelve sin tener que pagar la reparación (aquí se mide el bucle de minería)
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { difficulty: 'relaxed' } });
   await expect(page.locator('#spaceHud')).toBeVisible();
   const res = await page.evaluate(spaceBotInPage, { seconds: 180, until: 'dock', fill: 0.8 });
   expect(res.mode).toBe('station');
@@ -47,7 +48,7 @@ test('galaxia: el bot mina, vuelve, atraca, vende y compra una mejora; se guarda
 
 test('galaxia: si te destruyen, reapareces en la estación sin la carga (relajado)', async ({ page }) => {
   const errors = trackErrors(page);
-  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 50, cargo: { iron: 12 } } });
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 50, cargo: { iron: 12 }, difficulty: 'relaxed' } });
   const res = await page.evaluate(() => {
     const s = window.G.space;
     s.ship.shield = 0;
@@ -104,7 +105,7 @@ test('galaxia: cruzar una puerta salta al sistema vecino; el mapa lo muestra y t
 test('galaxia: los piratas caen, sueltan créditos y al morir vuelves a tu estación base', async ({ page }) => {
   const errors = trackErrors(page);
   // en NIMMOR (peligro 1), con base allí
-  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 0, up: { laser: 3 }, visited: [0, 4], sys: 4, home: 4, started: true, cargo: { iron: 5 } } });
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 0, up: { laser: 3 }, visited: [0, 4], sys: 4, home: 4, started: true, cargo: { iron: 5 }, difficulty: 'relaxed' } });
   const res = await page.evaluate(() => {
     const s = window.G.space;
     window.G.god = true;
