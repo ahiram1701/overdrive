@@ -1195,3 +1195,7 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
   font: italic 900 12px var(--font); letter-spacing: 1px; color: #7df9ff; background: rgba(0,0,0,.45); border: 1px solid rgba(125,249,255,.5); white-space: nowrap; }
 .sh-cruise.alert { color: #fff; background: rgba(255,45,85,.6); border-color: #ff2d55; font-size: 14px; animation: blink .5s infinite; }
 .sh-cruise.hidden { display: none; }
+.st-cargo em.sat.up { color: #30d158; }
+.st-inc { display: flex; flex-direction: column; gap: 6px; align-items: stretch; }
+.st-inc #btnIncursion { background: linear-gradient(90deg, #ff2bd6, #bf5af2); color: #fff; }
+.st-inc small { color: var(--muted); font-size: 12px; text-align: center; }

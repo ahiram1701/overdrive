@@ -49,6 +49,15 @@ export const MISSION_KINDS = {
   escort: { icon: '🛡️', name: 'Escolta' },
 };
 
+// CONTRATOS: cada oferta tiene nivel ★ / ★★ / ★★★. Los altos llevan condiciones (contrarreloj en saltos,
+// sin daño en el casco) y pagan ×2,5 / ×5. Si fallas una condición, el contrato se pierde.
+export const TIER_MUL = [0, 1, 2.5, 5];
+export const CONTRACT_MODS = { timed: { icon: '⏱️', name: 'contrarreloj' }, clean: { icon: '🛡️', name: 'sin daño en el casco' } };
+export const tierOf = (r) => (r < 0.5 ? 1 : r < 0.83 ? 2 : 3);
+export const modsFor = (tier, r) => (tier === 1 ? [] : tier === 2 ? [r < 0.5 ? 'timed' : 'clean'] : ['timed', 'clean']);
+// ¿Se acabó el plazo? (deadline se fija al aceptarlo)
+export const contractExpired = (m, jumps) => !!m.mods?.includes('timed') && m.deadline != null && jumps > m.deadline;
+
 // Ofertas del tablón de la estación `sysId`. seq cambia al aceptar/cumplir (tablón nuevo).
 // visited: sistemas visitados; jumpLvl: para no ofrecer destinos inalcanzables.
 export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {}) {
@@ -86,7 +95,14 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
       m = { kind, sys: sysId, gate: to, n: 1, text: `Escolta un carguero hasta la puerta a ${gal[to].name}`, reward: 150 + gal[sysId].danger * 60 };
     }
     // la Galaxia paga solo en créditos (antes también gemas: ahora va todo al premio)
-    if (m) out.push({ ...m, reward: m.reward + Math.round(m.reward / 60) * 60, id: `${sysId}-${seq}-${kind}`, from: sysId, progress: 0 });
+    if (!m) continue;
+    const tier = tierOf(rng.next()), mods = modsFor(tier, rng.next());
+    const hops = kind === 'escort' ? 0 : (route(gal, sysId, m.sys)?.length || 1) - 1;
+    const jumps = hops * 2 + 2; // ida y vuelta, y un poco de margen
+    const cond = mods.map((k) => (k === 'timed' ? `⏱️ ${jumps} saltos` : '🛡️ sin daño en el casco')).join(' · ');
+    const base = m.reward + Math.round(m.reward / 60) * 60;
+    out.push({ ...m, text: `${'★'.repeat(tier)} ${m.text}${cond ? ` · ${cond}` : ''}`, tier, mods, jumps,
+      reward: Math.round((base * TIER_MUL[tier]) / 10) * 10, id: `${sysId}-${seq}-${kind}`, from: sysId, progress: 0 });
   }
   return out;
 }

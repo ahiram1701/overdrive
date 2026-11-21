@@ -14,16 +14,19 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
-import { world, WAR_TIME } from './galaxyWorld.js';
+import { world, WAR_TIME, oreMul } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
 import { DIFFS, diffOf, nextDiff } from './galaxyRisk.js';
 import { INTERDICT } from './galaxyContacts.js';
+import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
+import { ENEMY_KINDS } from './galaxyEvents.js';
+const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
 import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost } from './pecio.js';
@@ -324,6 +327,7 @@ export const ui = {
     tap($('btnGalaxy'), () => newSpace());
     tap($('btnDock'), () => dock());
     tap($('btnUndock'), () => undock());
+    tap($('btnIncursion'), () => startIncursion());
     tap($('btnSell'), () => { const got = sellAll(); if (got) fx.notice(`+${got} 💰`, '#ffe600'); ui.showStation(G.space); });
     tap($('btnRepair'), () => { repair(); ui.showStation(G.space); });
     tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
@@ -1707,12 +1711,16 @@ export const ui = {
     ui.showTip('dock');
     setText('stTitle', s.atOutpost && s.outpost ? `🏗️ ${s.outpost.name}` : `🛰️ ESTACIÓN ${sd.name}`);
     ui.renderOutpost(s);
+    // INCURSIÓN DEL DÍA: tu marca de hoy
+    const ir = incursionRecord();
+    const im = ir?.medal && INC_MEDALS.find((m) => m.id === ir.medal);
+    setText('stIncursion', ir ? `Hoy: ${ir.waves}/${WAVES} oleadas · ${fmt(ir.best)} pts${im ? ` · ${im.icon}` : ''}` : `10 oleadas · medallas 🥉🥈🥇 con 💎 · hoy: ${themeName(themeOf(todayKey()))}`);
     setText('stCredits', fmt(g.credits));
     setText('stShip', shipName(save, save.ship) ? `· 🚀 «${shipName(save, save.ship)}»` : '');
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
     const drop = (k) => Math.round((1 - priceFactor(saturation(save, s.sysId, k))) * 100);
     $('stCargo').innerHTML = items.length
-      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}${drop(k) ? ` <em class="sat">📉 −${drop(k)}%</em>` : ''}</span><b>${n} × ~${marketPrice(k, s.sysId)} = ${fmt(marketValue(k, n, s.sysId))} 💰</b></div>`).join('')
+      ? items.map(([k, n]) => `<div><span>${ORES[k].icon} ${ORES[k].name}${oreMul(save, s.sysId, k) > 1 ? ' <em class="sat up">📈 escasez ×2</em>' : ''}${drop(k) ? ` <em class="sat">📉 −${drop(k)}%</em>` : ''}</span><b>${n} × ~${marketPrice(k, s.sysId)} = ${fmt(marketValue(k, n, s.sysId))} 💰</b></div>`).join('')
         + '<small class="hint">Cuanto más vendes de lo mismo aquí, menos lo pagan; se recupera mientras vuelas. Comerciar entre sistemas paga más.</small>'
       : '<small>Bodega vacía. Mina asteroides y vuelve a vender.</small>';
     $('btnSell').disabled = !items.length;
