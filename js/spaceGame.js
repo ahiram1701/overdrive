@@ -1271,7 +1271,8 @@ export function undock() {
 
 // precio al que compra/vende ESTA estación
 export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
-export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.2);
+// (×1,5: por encima de lo máximo que paga la estación con talento, reputación y mercado propio, ×1,42)
+export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5);
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
 export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore));

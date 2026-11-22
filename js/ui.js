@@ -11,7 +11,7 @@ import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, l
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL, unlockEarnedShips } from './upgrades.js';
-import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition } from './game.js';
+import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
 import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
@@ -459,6 +459,15 @@ export const ui = {
       else if (G.mode === 'pecioPaused') { G.mode = 'pecio'; musicDuck(false); ui.hideAll(); ui.showPecioHUD(true); }
       else if (G.mode === 'galaxyPaused') { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); } else resume();
     });
+    // EXPEDICIÓN: abandonar desde el mapa (toca dos veces para confirmar); atrás o Esc hacen lo mismo
+    const expQuit = $('btnExpQuit');
+    tap(expQuit, () => {
+      if (expQuit.dataset.sure) { delete expQuit.dataset.sure; expAbandon(); return; }
+      expQuit.dataset.sure = '1';
+      expQuit.textContent = '¿SEGURO? TOCA OTRA VEZ';
+      setTimeout(() => { delete expQuit.dataset.sure; expQuit.textContent = '🏳️ ABANDONAR LA EXPEDICIÓN'; }, 3000);
+    });
+    BACK.expMap = () => expQuit.click();
     tap($('btnQuit'), () => {
       // en el sin fin (Arena o Pecios) ya habías ganado: salir cobra la partida en vez de tirarla
       if (G.mode === 'arenaPaused' && arenaQuitEndless()) return;
@@ -546,6 +555,7 @@ export const ui = {
   },
 
   showMenu() {
+    G.timeWarp = 1; // (SOBRECARGA del Runner a medias: no se arrastra a otro juego)
     document.body.classList.remove('in-settings');
     musicStart('menu'); // la canción tranquila del menú (si ya suena, sigue)
     G.mode = 'menu';
@@ -1393,6 +1403,7 @@ export const ui = {
   // Mapa de campaña: sectores (se abren con estrellas) y sus niveles con las estrellas ganadas
   showCampaign() {
     G.mode = 'hangar'; // pantalla estática
+    for (const sh of document.querySelectorAll('#campaign .lvl-sheet')) sh.remove();
     G.run = null;
     G.player = null;
     ui.showHUD(false);
@@ -2431,7 +2442,6 @@ export const ui = {
   // Mapa del acto: la salida abajo y el jefe arriba. Las líneas se calculan con la fila y la
   // columna de cada nodo (sin medir el DOM): el mapa es igual en cualquier pantalla.
   showExpMap(e) {
-    if (e.relics?.length) ui.showTip('relic'); else ui.showTip('expedition');
     const act = ACTS[e.act];
     setText('emTitle', `ACTO ${e.act + 1} · ${act.name}`);
     setText('emSub', act.sub);
@@ -2464,6 +2474,7 @@ export const ui = {
       box.append(b);
     }
     show('expMap');
+    if (e.relics?.length) ui.showTip('relic'); else ui.showTip('expedition');
     // que se vea el nodo actual (abajo al principio, arriba al final del acto)
     box.querySelector('.here')?.scrollIntoView({ block: 'center' });
   },

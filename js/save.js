@@ -62,6 +62,7 @@ const DEFAULTS = {
   galaxyPlanets: {}, // { '3-1': true } planetas ya orbitados (su primera visita paga)
   galaxyAtlas: {},  // { '3-1': true } puntos de interés descubiertos (ATLAS)   // { 12: true } jefes piratas derrotados por sistema
   raceCups: {},     // { c1: 0 } mejor medalla de cada copa (0 oro, 1 plata, 2 bronce)
+  racePos: {},      // { 'c1-1': 0 } mejor puesto en cada carrera (para no pagar entero lo repetido)
   raceBest: {},     // { 'c1-1': 48.2 } mejor tiempo de cada pista
   raceTT: {},       // { 'c1-1': 0 } mejor medalla de CONTRARRELOJ de cada pista
   ghosts: {},       // { 'c1-1': { t, d: [[dist, x, y]…] } } tu mejor carrera, para correr contra ella // mejor progreso (acto*10 + fila) y expediciones completadas // mejor tiempo (s), más bajas y victorias en la ARENA
@@ -71,7 +72,7 @@ const DEFAULTS = {
 
 // Claves que son MAPAS de contenido libre: se copian enteras. Antes, merge solo copiaba claves
 // que ya existían en DEFAULTS, así que { viper: {...} } dentro de un {} vacío se perdía al cargar.
-const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems', 'outposts', 'arenaMaps', 'arenaUp', 'raceTT', 'galaxyWorld', 'tips', 'pecioUp']);
+const MAPS = new Set(['shipLvl', 'abilityUses', 'ach', 'codex', 'cosmetics', 'campaign', 'shipStats', 'raceCups', 'raceBest', 'racePos', 'ghosts', 'galaxyBoss', 'galaxyAtlas', 'shipNames', 'galaxyPlanets', 'boosts', 'talents', 'cardsOwned', 'cardLvl', 'arenaWeapons', 'factionRep', 'territory', 'bounties', 'galaxyMats', 'galaxyGear', 'story', 'galaxyMarket', 'galaxyItems', 'outposts', 'arenaMaps', 'arenaUp', 'raceTT', 'galaxyWorld', 'tips', 'pecioUp']);
 
 const clone = (o) => JSON.parse(JSON.stringify(o));
 const isObj = (o) => o && typeof o === 'object' && !Array.isArray(o);

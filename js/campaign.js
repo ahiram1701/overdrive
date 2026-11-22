@@ -54,7 +54,7 @@ export function levelStars(level, st) {
     switch (s.kind) {
       case 'finish': return !!st.finished;
       case 'boss': return !!st.bossDefeated;
-      case 'noHit': return !!(st.finished || st.bossDefeated) && st.hits === 0;
+      case 'noHit': return !!(level.boss ? st.bossDefeated : st.finished || st.bossDefeated) && st.hits === 0;
       case 'near': return st.near >= s.n;
       case 'perfect': return st.perfect >= s.n;
       case 'coins': return st.coins >= s.n;
@@ -145,6 +145,8 @@ export const starCount = (stars) => stars.filter(Boolean).length;
 // todas las estrellas, de los sectores fijos y de los generados
 export const totalStars = (save) => Object.values(camp(save)).reduce((n, st) => n + (Array.isArray(st) ? starCount(st) : 0), 0);
 export const isPassed = (save, id) => !!starsOf(save, id)[0];
+// estrellas de los niveles hechos a mano (para el logro «Constelación»)
+export const fixedStars = (save) => LEVELS.reduce((n, l) => n + starCount(starsOf(save, l.id)), 0);
 
 // Los fijos se abren con estrellas; los generados, con el jefe del sector anterior
 export function isSectorOpen(save, sectorId) {

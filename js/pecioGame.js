@@ -16,6 +16,7 @@ const P = () => G.pecio;
 
 // Una partida nueva con la nave del hangar (su vida y su habilidad ⚡)
 export function newPecio(seedOverride = null) {
+  G.timeWarp = 1;
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   const seed = seedOverride ?? (forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0);
   const ship = SHIPS.find((x) => x.id === save.ship) || SHIPS[0];
