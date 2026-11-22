@@ -58,3 +58,14 @@ test('misiones diarias y logros: la Galaxia también tiene', () => {
   assert.ok(POOL.some((m) => m.text.includes('GALAXIA') && m.diff === 'hard'));
   for (const id of ['sec25', 'sec40', 'galStreak', 'galContacts', 'galIncGold']) assert.ok(ACHIEVEMENTS.some((a) => a.id === id), id);
 });
+
+test('depuración 2: casino neto, estrella sin golpes con jefe, Constelación y compra-venta sin beneficio', async () => {
+  const { resolveEffect } = await import('../../js/expedition.js');
+  const win = resolveEffect({ coins: -30, chance: { p: 1, win: { coins: 80 }, lose: {} } }, { next: () => 0 });
+  assert.equal(win.coins, 50, 'apostar 30 y ganar 80 = +50');
+  const { levelStars, fixedStars } = await import('../../js/campaign.js');
+  const lvl = { boss: 'x', stars: [{ kind: 'noHit' }] };
+  assert.deepEqual(levelStars(lvl, { finished: true, bossDefeated: false, hits: 0 }), [false], 'si el jefe escapa, no hay estrella');
+  assert.deepEqual(levelStars(lvl, { finished: true, bossDefeated: true, hits: 0 }), [true]);
+  assert.equal(fixedStars({ campaign: { '99-1': [true, true, true] } }), 0, 'los sectores generados no cuentan');
+});

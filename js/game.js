@@ -20,7 +20,7 @@ import { ACTS, genAct, nodeById, startOf, eventFor, resolveEffect, progressOf, N
 import { TRACK_BY_ID, CUP_BY_ID, makeRivals, stepRivals, estimateFinish, standings, GHOST_DT, encodeSample, addPoints, cupMedal, ttMedal, ttTargets, rivalAdapt, MEDALS } from './race.js';
 import { MOD_BY_ID, cleanMods, modScore, modGems, mutationOf } from './modifiers.js';
 import { boomFx } from './cosfx.js';
-import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, totalStars, isPassed, FIXED_SECTORS } from './campaign.js';
+import { levelById, levelStars, recordResult, nextLevel, isLevelOpen, fixedStars, isPassed, FIXED_SECTORS } from './campaign.js';
 
 const EVENTS = [
   { id: 'invert', name: '¡CONTROLES INVERTIDOS!', sub: 'izquierda es derecha', dur: 5, color: '#ff375f' },
@@ -98,8 +98,8 @@ export function newRun(opts = false) {
   r.ability = newAbility(ship.ability, abilityMods(ship, lvls));
   G.timeWarp = 1;
   // TALENTOS del runner y POTENCIADORES elegidos (no en carreras ni en el reto diario: son justos)
-  if (hasTalent(save, 'r1')) addShields(r, 1);
-  if (hasTalent(save, 'r3')) r.coins += 60;
+  if (!track && hasTalent(save, 'r1')) addShields(r, 1);
+  if (!track && hasTalent(save, 'r3')) { r.coins += 60; r.freeCoins = 60; } // para gastar en la partida: no se llevan a la cartera
   r.deck = { owned: { ...save.cardsOwned }, lvl: { ...save.cardLvl } };
   r.boosts = track ? [] : takeBoosts(save, (id) => id !== 'start' || opts.mode === 'endless');
   if (r.boosts.includes('shield')) addShields(r, 1);
@@ -135,15 +135,24 @@ export function newRun(opts = false) {
     r.section = level.diff - 1;
   }
   if (track) r.section = track.diff - 1;
+  // MUTACIÓN DEL DÍA: el primer intento de cada día (se decide y se marca al empezar)
+  if (opts.mode === 'mutation') {
+    if (save.mutation.key !== todayKey()) save.mutation = { key: todayKey(), played: false };
+    r.mutFirst = !save.mutation.played;
+    if (r.mutFirst) { save.mutation.played = true; progress('mutation'); persist(); }
+  }
   startSection();
   musicStart('runner');
   G.mode = 'play';
-  if (save.runs === 0) ui.tutorial();
   if (r.boosts.includes('start') && r.section < 1 && !level && !track) r.section = 1; // 🚀 ARRANQUE: tramo 3
   if (r.boosts.length) { progress('boost', r.boosts.length); persist(); }
   if (r.boosts.includes('luck')) openCards({ title: '🍀 CARTA RARA', next: false, minRarity: 'rare' });
-  else if (hasTalent(save, 'r2')) openCards({ title: 'CARTA INICIAL', next: false });
+  else if (!track && hasTalent(save, 'r2')) openCards({ title: 'CARTA INICIAL', next: false });
+  if (save.runs === 0) ui.tutorial(); // al final: si no, abrir las cartas taparía la GUÍA
 }
+
+// 🪙 que van a la cartera: las de la partida, menos las 60 del talento Bolsillos (son para gastar aquí)
+const bankable = (r) => Math.max(0, r.coins - (r.freeCoins || 0));
 
 // ---------- Reliquias de la expedición ----------
 export const hasRelic = (r, id) => !!r?.exp?.relics?.includes(id);
@@ -191,8 +200,15 @@ function startSection() {
   r.riskNext = false;
   // modificador de un evento: solo dura este tramo
   for (const id of r.tempMods || []) r.mods.delete(id);
+  if (r.tempPrev) { r.shieldCap = r.tempPrev.shieldCap; r.tempPrev = null; }
   r.tempMods = [];
-  if (r.nextMod && !r.mods.has(r.nextMod)) { r.mods.add(r.nextMod); r.tempMods.push(r.nextMod); }
+  if (r.nextMod && !r.mods.has(r.nextMod)) {
+    r.mods.add(r.nextMod);
+    r.tempMods.push(r.nextMod);
+    r.tempPrev = { shieldCap: r.shieldCap };
+    MOD_BY_ID[r.nextMod]?.apply?.(r);
+    if (r.shieldCap !== undefined && r.shields > r.shieldCap) r.shields = r.shieldCap;
+  }
   r.nextMod = null;
   if (r.odNext) { r.od = 0.999; r.odNext = false; }
   r.forkPlaced = false;
@@ -202,7 +218,7 @@ function startSection() {
   r.event = null;
   // cada tramo nuevo perdona una aparición: si no, el Cazador acabaría saliendo a los 1.5 s para siempre
   r.hunters = Math.max(0, r.hunters - 1);
-  progress('section', r.section + 1);
+  if (!r.camp && !r.race && !r.exp) progress('section', r.section + 1); // «tramo N»: solo el Runner infinito
   // PRESIÓN: avisa cada vez que sube un nivel
   // (solo en el Runner infinito: la campaña, la expedición y las carreras tienen su propia dificultad)
   const pr = r.race || r.camp || r.exp ? 0 : pressureOf(r.section);
@@ -615,7 +631,12 @@ export function useAbility() {
       break;
     case 'blink': {
       // salto hacia delante: lo que queda atrás no te toca (no "cruza"), las monedas se recogen
-      const D = 35 * Math.min(a.pow, 1.3); // la distancia solo sube en el nivel 2: saltar más se salta media pista
+      let D = 35 * Math.min(a.pow, 1.3); // la distancia solo sube en el nivel 2: saltar más se salta media pista
+      // nunca por encima de una META o una BIFURCACIÓN: se quedarían sin cruzar y la partida no seguiría
+      for (const o of r.objects) {
+        const rz = o.z - r.dist;
+        if (o.alive && (o.type === 'finish' || o.type === 'fork') && rz > 0 && rz < D + 0.5) D = Math.max(0, rz - 2);
+      }
       for (const o of r.objects) {
         const rz = o.z - r.dist;
         if (!o.alive || rz <= 0 || rz > D + 0.5) continue;
@@ -782,7 +803,7 @@ export function bossDefeated() {
   const r = run();
   r.boss.dying = 2;
   r.bosses++;
-  codexAdd(save, 'bosses', r.boss.name);
+  codexAdd(save, 'bosses', r.boss.name.replace(/\s*ÉLITE$/, ''));
   progress('boss');
   if (r.shields === 0) progress('bossNoShield');
   if (r.boss.def.elite) progress('elite');
@@ -790,7 +811,7 @@ export function bossDefeated() {
   r.coins += 50;
   clearBossStuff();
   addScore(5000, null);
-  fx.banner('¡JEFE DESTRUIDO!', '+50 🪙  ·  +5 💎', '#ffe600', true);
+  fx.banner('¡JEFE DESTRUIDO!', r.camp || r.exp ? '+50 🪙' : '+50 🪙  ·  +5 💎', '#ffe600', true);
   fx.flash('#fff', 0.9);
   fx.shake(35);
   fx.vibe([100, 50, 100, 50, 250]);
@@ -800,6 +821,14 @@ export function bossDefeated() {
 
 export function bossEscaped() {
   const r = run();
+  // EXPEDICIÓN: el jefe del acto hay que vencerlo; si se escapa, vuelve a por ti
+  if (r.exp && nodeById(r.exp.map, r.exp.at)?.type === 'boss') {
+    r.boss = null;
+    clearBossStuff();
+    spawnBoss(r);
+    fx.banner('¡VUELVE!', 'hay que vencerlo para pasar de acto', '#ff2d55', true);
+    return;
+  }
   r.boss = null;
   clearBossStuff();
   r.sectionEnd = r.genZ;
@@ -959,6 +988,7 @@ function raceFinish() {
   const cupEnd = !R.solo && t.idx === 2;
   // CONTRARRELOJ: medalla por tiempo (la mejor se guarda)
   const tt = R.solo ? ttMedal(t, r.time) : null;
+  const prevTT = save.raceTT[t.id], prevPos = save.racePos[t.id], prevCup = save.raceCups[R.cup?.id];
   if (R.solo && tt !== null) {
     const prev = save.raceTT[t.id];
     save.raceTT[t.id] = prev === undefined ? tt : Math.min(prev, tt);
@@ -977,10 +1007,15 @@ function raceFinish() {
     save.raceBest[t.id] = Math.round(r.time * 100) / 100;
     save.ghosts[t.id] = { t: r.time, d: R.rec };
   }
-  const gems = Math.ceil((R.solo ? (tt !== null ? [40, 25, 15][tt] : 5) : [30, 18, 10, 5][pos] + (cupEnd && medal !== null ? [80, 50, 30][medal] : 0)) * (1 + prestigeBonus(save)));
+  // se paga entero lo que MEJORA tu marca (medalla o puesto); repetir lo mismo paga un 25 %
+  const better = R.solo ? tt !== null && (prevTT === undefined || tt < prevTT) : prevPos === undefined || pos < prevPos;
+  if (!R.solo) save.racePos[t.id] = prevPos === undefined ? pos : Math.min(prevPos, pos);
+  const base = R.solo ? (tt !== null ? [40, 25, 15][tt] : 5) : [30, 18, 10, 5][pos];
+  const cupBonus = cupEnd && medal !== null && (prevCup === undefined || medal < prevCup) ? [80, 50, 30][medal] : 0;
+  const gems = Math.ceil((base * (better ? 1 : 0.25) + cupBonus) * (1 + prestigeBonus(save)));
   save.gems += gems;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: 2, bosses: 0, missionsDone: r.missionsDone }) + (3 - pos) * 40;
-  bankCoins(save, r.coins);
+  bankCoins(save, bankable(r));
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
@@ -1113,7 +1148,7 @@ export function expEventChoice(ev, i) {
   if (eff.shields < 0) { r.shields = Math.max(0, r.shields + eff.shields); notes.push(`${eff.shields} 🛡️`); }
   if (eff.gems) { save.gems += eff.gems; persist(); notes.push(`+${eff.gems} 💎`); }
   if (eff.risk) { r.riskNext = true; notes.push('☠ próximo tramo RIESGO x2'); }
-  if (eff.mod) { r.nextMod = eff.mod; notes.push(`próximo tramo: ${eff.mod}`); }
+  if (eff.mod) { r.nextMod = eff.mod; notes.push(`próximo tramo: ${MOD_BY_ID[eff.mod]?.icon || ''} ${MOD_BY_ID[eff.mod]?.name || eff.mod}`); }
   if (eff.od) { r.odNext = true; notes.push('🔥 OVERDRIVE lleno al empezar'); }
   if ('lucky' in eff) notes.unshift(eff.lucky ? '¡SUERTE!' : 'Mala suerte…');
   const reward = notes.join(' · ');
@@ -1146,6 +1181,17 @@ export function expRest(kind) {
   openCards({ next: false, after: expShowMap });
 }
 
+// ABANDONAR la expedición desde el mapa: termina como si cayeras (cobras lo de siempre)
+export function expAbandon() {
+  const r = run();
+  if (!r?.exp || G.player?.dead) return;
+  r.extraLife = 0;
+  G.mode = 'play';
+  ui.hideAll();
+  ui.showHUD(true);
+  die();
+}
+
 // Expedición completada (los 3 jefes)
 function expWin(gems) {
   const r = run();
@@ -1155,7 +1201,7 @@ function expWin(gems) {
   save.expedition.best = Math.max(save.expedition.best, progressOf(r.exp.total, 0));
   if (r.exp.total >= ACTS.length) progress('exp4');
   const xp = (xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) + 400) * r.xpMult;
-  const banked = bankCoins(save, r.coins);
+  const banked = bankCoins(save, bankable(r));
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
@@ -1206,17 +1252,12 @@ function die() {
     const pr = progressOf(r.exp.act, nodeById(r.exp.map, r.exp.at).row);
     save.expedition.best = Math.max(save.expedition.best, pr);
   }
-  gems = Math.ceil(gems * modGems([...r.mods]) * (1 + prestigeBonus(save)));
+  gems = Math.ceil(gems * modGems([...r.mods].filter((id) => !r.tempMods?.includes(id))) * (1 + prestigeBonus(save)));
   // MUTACIÓN DEL DÍA: el primer intento de cada día paga x1,5
   let mutationBonus = false;
-  if (r.opts.mode === 'mutation') {
-    if (save.mutation.key !== todayKey()) save.mutation = { key: todayKey(), played: false };
-    if (!save.mutation.played) {
-      gems = Math.ceil(gems * 1.5);
-      mutationBonus = true;
-      save.mutation.played = true;
-    }
-    progress('mutation');
+  if (r.opts.mode === 'mutation' && r.mutFirst) {
+    gems = Math.ceil(gems * 1.5);
+    mutationBonus = true;
   }
   const prevBest = save.best;
   const isBest = r.score > save.best;
@@ -1230,7 +1271,7 @@ function die() {
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: r.section + 1, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
-  const banked = bankCoins(save, r.coins); // las 🪙 que sobran, a tu cartera
+  const banked = bankCoins(save, bankable(r)); // las 🪙 que sobran, a tu cartera
   persist();
   r.result = { exp: r.exp ? { act: r.exp.act, row: nodeById(r.exp.map, r.exp.at).row, total: r.exp.total } : null, opts: r.opts, mods: [...r.mods], mutationBonus, level: r.camp?.level.id, xp, xpBefore, rankUps, banked, achDone: r.achDone || [], prevBest, missionsDone: r.missionsDone || 0, score: r.score, dist: r.dist, maxMult: r.maxMult, near: r.nearMisses, breaks: r.breaks, section: r.section + 1, bosses: r.bosses, gems, isBest, cards: r.cards, synergies: [...r.synergies] };
 }
@@ -1261,14 +1302,14 @@ export function onFinish() {
   save.gems += extra;
   res.gems += extra;
   const xp = xpForRun({ dist: r.dist, near: r.nearMisses, section: lv.sections, bosses: r.bosses, missionsDone: r.missionsDone }) * r.xpMult;
-  const banked = bankCoins(save, r.coins);
+  const banked = bankCoins(save, bankable(r));
   const xpBefore = save.xp;
   const rankUps = addXp(save, xp);
   save.runs++;
   progress('runs');
   if (res.stars[0] && firstPass) progress('level');
   if (res.stars[0] && lv.num > FIXED_SECTORS) progress('sector', lv.num);
-  progress('stars', totalStars(save));
+  progress('stars', fixedStars(save));
   persist();
   const nx = nextLevel(lv.id);
   r.result = {

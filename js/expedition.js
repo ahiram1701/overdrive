@@ -146,7 +146,10 @@ export function resolveEffect(eff, rng) {
   if (!eff.chance) return { ...eff };
   const { chance, ...rest } = eff;
   const won = rng.next() < chance.p;
-  return { ...rest, ...(won ? chance.win : chance.lose), lucky: won };
+  const out = { ...rest, lucky: won };
+  // los números se SUMAN (apostar −30 y ganar +80 = +50 netos)
+  for (const [k, v] of Object.entries(won ? chance.win : chance.lose)) out[k] = typeof v === 'number' && typeof out[k] === 'number' ? out[k] + v : v;
+  return out;
 }
 
 // Evento de un nodo (determinista: siempre el mismo para el mismo nodo)
