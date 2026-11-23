@@ -26,8 +26,8 @@ export const fx = {
   flashA: 0,
   flashColor: '#fff',
 
-  shake(a) { this.shakeAmt = Math.min(45, Math.max(this.shakeAmt, a * fxk())); },
-  flash(color, a) { this.flashColor = color; this.flashA = Math.max(this.flashA, a * fxk()); },
+  shake(a) { if (save.settings.shake === false) return; this.shakeAmt = Math.min(45, Math.max(this.shakeAmt, a * fxk())); },
+  flash(color, a) { if (save.settings.flash === false) return; this.flashColor = color; this.flashA = Math.max(this.flashA, a * fxk()); },
   slowmo(dur, scale) { G.slowmo = Math.max(G.slowmo, dur); G.slowScale = scale; },
   hitstop(dur) { G.hitstop = Math.max(G.hitstop, dur); },
   vibe(p) {

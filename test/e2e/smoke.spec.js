@@ -200,7 +200,7 @@ test('morir muestra la pantalla de resultados y tocar reinicia', async ({ page }
   await expect(page.locator('#death')).toBeVisible();
   await expect(page.locator('#dScore')).not.toHaveText('');
   await page.waitForTimeout(800);
-  await page.locator('#death').click({ position: { x: 50, y: 50 } });
+  await page.locator('#btnDeathRetry').click();
   await page.waitForFunction(() => window.G.mode === 'play');
 });
 

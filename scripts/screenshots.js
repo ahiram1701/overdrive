@@ -177,7 +177,7 @@ try {
   await page.evaluate(() => { window.G.manual = false; document.getElementById('btnQuit').click(); });
 
   // Galaxia: recién salido de la estación, con asteroides delante
-  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnGalaxy').click(); });
+  await page.evaluate(() => { window.G.manual = true; document.getElementById('btnGalaxy').click(); document.getElementById('btnGalGo').click(); });
   await page.evaluate(() => {
     const s = window.G.space;
     s.botInput = { x: 0.15, y: 0 };

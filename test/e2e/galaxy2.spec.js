@@ -9,12 +9,14 @@ async function startGalaxy(page, save = BASE) {
   await page.addInitScript(([k, v]) => {
     if (sessionStorage.getItem('seeded')) return;
     sessionStorage.setItem('seeded', '1');
-    localStorage.setItem(k, JSON.stringify(v));
+    // la intro de la historia ya vista: su diálogo saldría a destiempo encima de la estación
+    localStorage.setItem(k, JSON.stringify({ story: { seen: { 0: true } }, ...v }));
   }, [SAVE, save]);
   await page.goto('/?debug&nosw&seed=3');
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
 }
 

@@ -2,8 +2,8 @@
 <html lang="es">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0221">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#07010f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -15,7 +15,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
+<body class="booting">
   <canvas id="game"></canvas>
 
   <div id="hud" class="hidden">
@@ -76,7 +76,7 @@
   <section id="runnerHub" class="overlay hidden">
     <div class="rh-main">
       <button class="hero-card runner" id="btnPlay"><span class="hc-icon">🏁</span><span class="hc-text"><b>INFINITO</b><small>tramo a tramo, hasta donde llegues</small><small id="mBest2"></small></span></button>
-      <button class="hc-mods" id="btnMods" aria-label="Modificadores">⚙️ MODIFICADORES <small id="mMods"></small></button>
+      <button class="hc-mods" id="btnMods" aria-label="Modificadores">🎚️ MODIFICADORES <small id="mMods"></small></button>
       <span class="hc-boosts" id="mBoosts"></span>
     </div>
     <h3 class="hub-h">MODOS</h3>
@@ -91,6 +91,14 @@
   <section id="arenaHub" class="overlay hidden">
     <p class="hint">Sobrevive a las oleadas: tu nave dispara sola. Elige dónde luchar.</p>
     <div id="arenaMaps" class="arena-maps"></div>
+  </section>
+
+  <section id="galaxyHub" class="overlay hidden">
+    <button class="hero-card galaxy" id="btnGalGo"><span class="hc-icon">🌌</span><span class="hc-text"><b>DESPEGAR</b><small id="ghWhere"></small><small id="ghStory"></small></span></button>
+    <p class="gems">💰 <b id="ghCredits">0</b> créditos</p>
+    <div class="gi-block"><h3>⚖️ Dificultad</h3><div class="gh-diff" id="ghDiff" role="radiogroup" aria-label="Dificultad de la Galaxia"></div><small id="ghDiffDesc"></small></div>
+    <div class="gi-block"><h3>⚔️ Incursión del día</h3><small id="ghInc"></small></div>
+    <button class="btn ghost" id="btnGhAtlas">📖 ATLAS</button>
   </section>
 
   <section id="pecioHub" class="overlay hidden">
@@ -119,17 +127,26 @@
   <section id="settings" class="overlay hidden">
     <h2>AJUSTES</h2>
     <div class="set-list">
-      <button class="set-row" id="tgSound"><span>🔊</span><b>Sonido</b><i class="sw"></i></button>
+      <h3>Sonido</h3>
+      <button class="set-row" id="tgSound" role="switch"><span>🔊</span><b>Sonido</b><i class="sw"></i></button>
       <label class="set-row"><span>🎵</span><b>Música</b><input type="range" id="setMusicVol" min="0" max="1" step="0.05" aria-label="Volumen de la música"></label>
       <label class="set-row"><span>💥</span><b>Efectos</b><input type="range" id="setSfxVol" min="0" max="1" step="0.05" aria-label="Volumen de los efectos"></label>
-      <button class="set-row" id="tgVibe"><span>📳</span><b>Vibración</b><i class="sw"></i></button>
-      <button class="set-row" id="tgFx"><span>✨</span><b>Efectos intensos</b><i class="sw"></i></button>
-      <button class="set-row" id="tgText"><span>Aa</span><b>Textos en pantalla</b><i class="sw"></i></button>
+      <h3>Pantalla y accesibilidad</h3>
+      <button class="set-row" id="tgFx" role="switch"><span>✨</span><b>Partículas y efectos al máximo</b><i class="sw"></i></button>
+      <button class="set-row" id="tgShake" role="switch"><span>📳</span><b>Temblor de pantalla</b><i class="sw"></i></button>
+      <button class="set-row" id="tgFlash" role="switch"><span>⚡</span><b>Destellos</b><i class="sw"></i></button>
+      <button class="set-row" id="tgMotion" role="switch"><span>🌀</span><b>Animaciones de la interfaz</b><i class="sw"></i></button>
+      <button class="set-row cycle" id="btnTextSize"><span>🔠</span><b>Tamaño del texto: <em id="textSizeName">Normal</em></b></button>
+      <button class="set-row" id="tgText" role="switch"><span>💬</span><b>Textos flotantes (puntos, avisos)</b><i class="sw"></i></button>
+      <button class="set-row" id="tgTips" role="switch"><span>🤖</span><b>Consejos de la GUÍA</b><i class="sw"></i></button>
       <button class="set-row" id="btnTipsReset"><span>🔁</span><b>Repetir los consejos de la GUÍA</b></button>
+      <h3>Controles</h3>
+      <button class="set-row" id="tgVibe" role="switch"><span>📳</span><b>Vibración</b><i class="sw"></i></button>
+      <label class="set-row"><span>🎚️</span><b>Sensibilidad (Galaxia)</b><input type="range" id="setSens" min="0.5" max="1.6" step="0.1" aria-label="Sensibilidad"></label>
+      <button class="set-row" id="tgInvert" role="switch"><span>↕️</span><b>Invertir eje vertical</b><i class="sw"></i></button>
+      <button class="set-row" id="tgRollBtns" role="switch"><span>↻</span><b>Botones de alabeo ↺ ↻</b><i class="sw"></i></button>
       <h3>Galaxia</h3>
-      <label class="set-row"><span>🎚️</span><b>Sensibilidad</b><input type="range" id="setSens" min="0.5" max="1.6" step="0.1"></label>
-      <button class="set-row" id="tgInvert"><span>↕️</span><b>Invertir eje vertical</b><i class="sw"></i></button>
-      <button class="set-row" id="tgLevel"><span>🧭</span><b>Nivelar la nave sola</b><i class="sw"></i></button>
+      <button class="set-row" id="tgLevel" role="switch"><span>🧭</span><b>Nivelar la nave sola</b><i class="sw"></i></button>
       <button class="set-row" id="btnGalDiff"><span id="galDiffIcon">🚀</span><b>Dificultad: <em id="galDiffName">Piloto</em></b><small id="galDiffDesc"></small></button>
     </div>
     <p class="hint">Runner: desliza ← → ↑ ↓ · doble toque = DASH</p>
@@ -145,9 +162,9 @@
     <button data-nav="codex" id="btnCodex"><span>📖</span><small>Colección</small></button>
   </nav>
 
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
-  <div id="dialog" class="dialog hidden">
+  <div id="dialog" class="dialog hidden" role="dialog" aria-modal="true" aria-labelledby="dlName">
     <div class="dl-card">
       <div class="dl-who"><span id="dlIcon"></span><b id="dlName"></b></div>
       <p id="dlText"></p>
@@ -309,54 +326,60 @@
   </div>
 
   <section id="station" class="overlay hidden">
-    <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
-    <p class="gems">💰 <b id="stCredits">0</b> créditos <span id="stShip" class="st-ship"></span></p>
-    <div class="st-block st-inc"><button class="btn" id="btnIncursion">⚔️ INCURSIÓN DEL DÍA</button><small id="stIncursion"></small></div>
-    <div class="st-block" id="stOutpost"></div>
-    <div class="st-block" id="stFaction"></div>
-    <div class="st-block">
-      <h3>Mercado</h3>
+    <div class="st-top">
+      <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
+      <p class="gems">💰 <b id="stCredits">0</b> créditos <span id="stShip" class="st-ship"></span></p>
+      <div class="st-jump" role="navigation" aria-label="Secciones de la estación">
+        <button data-go="stSecMarket">🛒 Mercado</button><button data-go="stSecShip">🔧 Nave</button><button data-go="stSecJobs">📋 Misiones</button><button data-go="stSecFaction">🏳️ Facción</button>
+      </div>
+    </div>
+    <div class="st-block" id="stSecMarket">
+      <h3>🛒 Mercado</h3>
       <div id="stCargo" class="st-cargo"></div>
       <button class="btn" id="btnSell">VENDER TODO</button>
       <div id="stBuy" class="st-buy"></div>
+    </div>
+    <div class="st-block">
+      <h3>🧰 Suministros</h3>
+      <div id="stSupplies" class="st-ups"></div>
+    </div>
+    <div class="st-block" id="stSecShip">
+      <h3>🔧 Taller</h3>
+      <div id="stUpgrades" class="st-ups"></div>
     </div>
     <div class="st-block">
       <h3>🚀 Astillero</h3>
       <div id="stShipyard" class="st-ups"></div>
     </div>
     <div class="st-block">
-      <h3>Taller</h3>
-      <div id="stUpgrades" class="st-ups"></div>
-    </div>
-    <div class="st-block">
-      <h3>🛒 Suministros</h3>
-      <div id="stSupplies" class="st-ups"></div>
-    </div>
-    <div class="st-block">
-      <h3>🌟 Talentos de la Galaxia</h3>
-      <div id="stTalents" class="tal-tree"></div>
-    </div>
-    <div class="st-block">
-      <h3>🔧 Fabricación</h3>
+      <h3>⚙️ Fabricación</h3>
       <div id="stMats" class="st-mats"></div>
       <div id="stSlots" class="st-slots"></div>
       <div id="stCraft" class="st-ups"></div>
     </div>
     <div class="st-block">
-      <h3>Tablón de misiones</h3>
+      <h3>🌟 Talentos de la Galaxia</h3>
+      <div id="stTalents" class="tal-tree"></div>
+    </div>
+    <div class="st-block st-inc" id="stSecJobs"><button class="btn" id="btnIncursion">⚔️ INCURSIÓN DEL DÍA</button><small id="stIncursion"></small></div>
+    <div class="st-block">
+      <h3>📋 Tablón de contratos</h3>
       <div id="stMissions" class="st-missions"></div>
     </div>
     <div class="st-block">
       <h3>🎯 Se busca</h3>
       <div id="stBounties" class="st-missions"></div>
     </div>
-    <div class="st-block" id="stRepairBox">
-      <h3>Reparar</h3>
-      <button class="btn" id="btnRepair">REPARAR</button>
+    <div class="st-block" id="stSecFaction"><div id="stFaction"></div></div>
+    <div class="st-block" id="stOutpost"></div>
+    <div class="st-links">
+      <button class="btn ghost" id="btnAtlas">📖 ATLAS</button>
+      <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>
     </div>
-    <button class="btn big" id="btnUndock">🚀 ZARPAR</button>
-    <button class="btn ghost" id="btnAtlas">📖 ATLAS</button>
-    <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>
+    <div class="st-foot">
+      <div id="stRepairBox"><button class="btn" id="btnRepair">REPARAR</button></div>
+      <button class="btn big" id="btnUndock">🚀 ZARPAR</button>
+    </div>
   </section>
 
   <section id="atlas" class="overlay hidden">
@@ -481,7 +504,7 @@
     <p class="hint">Más difícil = más puntos y gemas. Se guardan para la próxima.</p>
     <div id="modTotal" class="mod-total"></div>
     <div id="modList" class="mod-grid"></div>
-    <button class="btn big" id="btnModsPlay">🏁 RUNNER</button>
+    <button class="btn big" id="btnModsPlay">▶ JUGAR INFINITO</button>
   </section>
 
   <section id="campaign" class="overlay hidden">
@@ -531,13 +554,12 @@
     <h2 class="dead">DESTRUIDO</h2>
     <div id="dNew" class="newrec hidden">¡NUEVO RÉCORD!</div>
     <div id="dScore" class="bigscore">0</div>
+    <div class="d-rewards"><div id="dGems" class="gems"></div><div id="dXp" class="rank"></div></div>
+    <button class="btn big" id="btnDeathRetry">↻ REINTENTAR</button>
     <div id="dGrid" class="grid"></div>
     <div id="dExtra" class="hint"></div>
     <div id="dBuild" class="build"></div>
     <div id="dMissions" class="missions compact"></div>
-    <div id="dGems" class="gems"></div>
-    <div id="dXp" class="rank"></div>
-    <p class="hint blink">toca para reintentar</p>
     <button class="btn ghost" id="btnMenu">MENÚ</button>
   </section>
 

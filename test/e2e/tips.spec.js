@@ -10,6 +10,7 @@ test('primeros pasos: la GUÍA explica la Galaxia y pausa; luego empieza la hist
   await page.goto('/?debug&nosw&tips');
   await page.waitForFunction(() => !!window.G);
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await expect(page.locator('#dialog')).toBeVisible();
   await expect(page.locator('#dlName')).toHaveText('GUÍA');
   // el fin de un salto pone el modo en 'galaxy': aun así, nada se mueve mientras lees

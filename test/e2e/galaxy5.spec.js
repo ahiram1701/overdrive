@@ -14,6 +14,7 @@ async function startGalaxy(page, seedSave = { v: 3, runs: 5, tips: { galaxy: tru
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   await page.evaluate(() => { const sh = window.G.space.ship; sh.pos = { x: 1500, y: 0, z: 1500 }; sh.throttle = 0; window.D.step(1 / 30, false); });
 }

@@ -2,12 +2,15 @@
   --sp-1: 4px; --sp-2: 8px; --sp-3: 12px; --sp-4: 16px; --r-1: 10px; --r-2: 14px; --r-3: 20px;
   --bg: #07010f;
   --fg: #ffffff;
-  --muted: #b8a9d9;
+  --muted: #cbc0e8; /* contraste AA sobre el fondo */
   --pink: #ff2bd6;
   --cyan: #00e5ff;
   --yellow: #ffe600;
   --panel: rgba(12, 4, 28, 0.82);
   --font: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --tap: 44px; /* zona táctil mínima */
+  --fs-xs: 12px; --fs-sm: 13px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 22px; --fs-h: 28px;
+  --ok: #30d158; --danger: #ff2d55; --warn: #ff9f0a; --epic: #bf5af2; --ice: #7df9ff;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -386,6 +389,8 @@ h3 { margin: 10px 0 0; font: 800 14px var(--font); color: var(--muted); text-tra
 @media (prefers-reduced-motion: reduce) {
   .btn.big, .r-epic, .newrec, .blink, .c-syn, #chestBox.shaking, .node.afford, #abilityBtn.active { animation: none; }
 }
+/* MOVIMIENTO REDUCIDO (Ajustes): ninguna animación en bucle */
+body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after { animation-iteration-count: 1 !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
 
 /* tutorial */
 #tutorial {
@@ -1203,3 +1208,73 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
 .st-inc small { color: var(--muted); font-size: 12px; text-align: center; }
 .sh-streak.low { top: calc(env(safe-area-inset-top, 0px) + 150px); }
 .sh-obj { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+
+/* GALAXIA: pantalla de entrada */
+#galaxyHub .hero-card.galaxy { width: min(440px, 100%); min-height: 110px; flex-direction: row; align-items: center; gap: var(--sp-3); padding: var(--sp-4); border: 2px solid var(--cyan); background: linear-gradient(140deg, rgba(0,229,255,.18), rgba(191,90,242,.2)); box-shadow: 0 0 22px rgba(0,229,255,.3); }
+#galaxyHub .hero-card .hc-icon { font-size: 42px; }
+#galaxyHub .hero-card b { font-size: 26px; }
+#galaxyHub .hero-card small { display: block; color: var(--muted); }
+#galaxyHub .gi-block { width: min(440px, 100%); }
+.gh-diff { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 6px 0; }
+.gh-d { min-height: 56px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; border-radius: var(--r-2); border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.35); color: #fff; font: 800 13px var(--font); }
+.gh-d span { font-size: 20px; }
+.gh-d.on { border-color: var(--cyan); background: rgba(0,229,255,.18); box-shadow: 0 0 12px rgba(0,229,255,.35); }
+
+/* ESTACIÓN: cabecera y pie fijos (ZARPAR y REPARAR siempre a mano) */
+#station .st-top { position: sticky; top: 0; z-index: 3; width: min(440px, 100%); padding: calc(env(safe-area-inset-top, 0px) + 8px) 0 8px; background: linear-gradient(180deg, var(--bg) 85%, transparent); display: flex; flex-direction: column; align-items: center; gap: 4px; }
+#station .st-top .st-title, #station .st-top .gems { margin: 0; }
+.st-jump { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
+.st-jump button { min-height: 44px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.45); color: #fff; font: 800 12px var(--font); }
+#station .st-block { scroll-margin-top: 150px; }
+.st-links { display: flex; gap: 8px; width: min(440px, 100%); }
+.st-links .btn { flex: 1; }
+#station .st-foot { position: sticky; bottom: 0; z-index: 3; width: min(440px, 100%); display: flex; gap: 8px; padding: 10px 0 calc(env(safe-area-inset-bottom, 0px) + 10px); background: linear-gradient(0deg, var(--bg) 80%, transparent); }
+#station .st-foot #btnUndock { flex: 1; margin: 0; }
+#station .st-foot #stRepairBox { flex: 1; }
+#station .st-foot #stRepairBox.hidden { display: none; }
+#station .st-foot #btnRepair { width: 100%; height: 100%; margin: 0; background: rgba(255,214,10,.15); border-color: var(--yellow); }
+
+/* ---------- ACCESIBILIDAD ---------- */
+:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+/* zonas táctiles de al menos 44 px (el dibujo puede ser más pequeño) */
+#pauseBtn, #arenaPause, #spacePause, #btnGalMap, #btnInv, #btnItems, .gm-zoom, .scr-back, .h-back, .gm-layer, .st-mis .btn, .deck-row .btn, .ach-eq, .gi-x, .name-btn, .pv-x { min-width: var(--tap); min-height: var(--tap); }
+#pauseBtn, #arenaPause, #spacePause, #btnGalMap, #btnInv, #btnItems { width: var(--tap); height: var(--tap); }
+#btnInv { top: calc(env(safe-area-inset-top, 0px) + 108px); }
+#btnItems { top: calc(env(safe-area-inset-top, 0px) + 158px); }
+#btnGalMap { top: calc(env(safe-area-inset-top, 0px) + 58px); }
+.item-bar { top: calc(env(safe-area-inset-top, 0px) + 158px); }
+/* HUD: nada por debajo de 12 px */
+.sh-streak small, .item-bar .ib small, .pc-btn small, .loot-vs small, .pg-row i { font-size: var(--fs-xs); }
+#btnSurge .pct { font-size: 11px; }
+/* el botón de contexto (ORBITAR, COMERCIAR) nunca encima de ATRACAR */
+#btnAct { bottom: calc(env(safe-area-inset-bottom, 0px) + 320px); }
+/* botones de alabeo ocultables (el doble toque ya hace el tonel) */
+body.no-roll .roll-btn { display: none; }
+/* TAMAÑO DE TEXTO de los menús */
+body.text-s .overlay { zoom: .92; }
+body.text-l .overlay { zoom: 1.12; }
+/* bloqueado: candado y borde discontinuo, sin apagar el texto */
+.item.locked, .sector.locked { border-style: dashed; }
+/* AJUSTES por grupos */
+.set-list h3 { margin: 14px 0 2px; font: 900 var(--fs-xs) var(--font); letter-spacing: 2px; color: var(--muted); text-transform: uppercase; }
+.set-row.cycle em { font-style: normal; color: var(--cyan); }
+/* GUÍA: saltar */
+.dl-acts .dl-skip { background: transparent; border-color: rgba(255,255,255,.25); color: var(--muted); }
+
+/* avisos: borde según el tipo */
+.toast.ok { border-color: var(--ok); }
+.toast.warn { border-color: var(--warn); }
+.toast.err { border-color: var(--danger); }
+
+/* pantalla final: las recompensas, justo bajo la puntuación */
+.d-rewards { display: flex; flex-direction: column; align-items: center; gap: 4px; width: min(420px, 100%); padding: 10px; border-radius: var(--r-2); background: rgba(255,230,0,.07); border: 1px solid rgba(255,230,0,.35); }
+.d-rewards .gems, .d-rewards .rank { margin: 0; }
+#death #btnDeathRetry { margin: 6px 0; }
+/* primer pintado: nada se puede tocar hasta que la UI está lista */
+body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { pointer-events: none; opacity: .6; }
+/* pie de la estación compacto: una línea por botón */
+#station .st-foot .btn { min-height: 56px; padding: 10px 12px; white-space: nowrap; }
+#station .st-foot #btnUndock { font-size: 22px; }
+#station .st-foot #btnRepair { font-size: 15px; }
+/* lo que se enfoca o se desplaza a la vista nunca queda bajo la cabecera ni el pie fijos */
+#station { scroll-padding-top: 170px; scroll-padding-bottom: 96px; }

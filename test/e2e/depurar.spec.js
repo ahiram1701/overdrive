@@ -17,6 +17,7 @@ async function boot(page, seedSave = { v: 3, runs: 5, tips: TIPS }) {
 }
 async function galaxy(page) {
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   await page.evaluate(() => { const sh = window.G.space.ship; sh.pos = { x: 1500, y: 0, z: 1500 }; sh.throttle = 0; window.D.step(1 / 30, false); });
 }
@@ -45,6 +46,7 @@ test('sobrecarga: 5 bajas la llenan, el botón muestra el % y sigue cargada al v
   await page.locator('#btnQuit').click();
   await expect(page.locator('#btnGalaxy')).toBeVisible();
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   await page.evaluate(() => window.D.step(1 / 30));
   expect(await page.evaluate(() => window.G.space.combat.surge)).toBe(1);
@@ -56,6 +58,7 @@ test('incursión aislada: tu casco y lo del sistema vuelven al acabar; la baliza
   const errors = trackErrors(page);
   await boot(page, { v: 3, runs: 5, tips: TIPS, galaxyItems: { beacon: 1 } });
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   const before = await page.evaluate(() => {
     const s = window.G.space;
@@ -101,6 +104,7 @@ test('salto en curso: no se puede atracar', async ({ page }) => {
   const errors = trackErrors(page);
   await boot(page);
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   const res = await page.evaluate(() => {
     const s = window.G.space;

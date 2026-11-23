@@ -201,7 +201,7 @@ test('AJUSTES desde la pausa de Pecios vuelve a su pausa y SEGUIR devuelve la pa
 
 // AJUSTES desde la pausa: ningún control de la partida queda por encima (Galaxia, Arena, Runner y Pecios)
 for (const [game, start, pause, controls] of [
-  ['Galaxia', () => document.getElementById('btnGalaxy').click(), 'spacePause', ['btnFire', 'btnBoost', 'btnRollL', 'throttleBox', 'btnGalMap']],
+  ['Galaxia', () => { document.getElementById('btnGalaxy').click(); document.getElementById('btnGalGo').click(); }, 'spacePause', ['btnFire', 'btnBoost', 'btnRollL', 'throttleBox', 'btnGalMap']],
   ['Arena', () => { document.getElementById('btnArena').click(); document.querySelector('#arenaMaps .arena-map:not(.locked)').click(); }, 'arenaPause', ['arenaAbility', 'ahTime']],
   ['Runner', () => document.getElementById('btnPlay').click(), 'pauseBtn', ['abilityBtn', 'speed']],
   ['Pecios', () => { document.getElementById('btnPecio').click(); document.getElementById('btnPecioPlay').click(); }, 'pcPause', ['pcPause']],
