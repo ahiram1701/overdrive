@@ -14,6 +14,7 @@ async function startGalaxy(page, extra = {}) {
   await page.waitForFunction(() => !!window.G);
   await page.evaluate(() => { window.G.manual = true; });
   await page.locator('#btnGalaxy').click();
+  await page.locator('#btnGalGo').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');
 }
 

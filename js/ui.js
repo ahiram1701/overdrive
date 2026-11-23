@@ -46,12 +46,26 @@ import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTale
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'pecioHub', 'pecioShop', 'pecioEnd', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'galaxyHub', 'pecioHub', 'pecioShop', 'pecioEnd', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
 const BACK = {}; // id de pantalla -> qué hace "atrás" (botón ←, Esc o el atrás de Android)
 let current = null, pushed = false, skipPop = false;
+
+// EN PARTIDA: una entrada en el historial, para que el «atrás» del móvil pause en vez de cerrar la app
+function guardBack() {
+  try { if (!pushed) { history.pushState({ overdrive: 1 }, ''); pushed = true; } } catch { /* sin historial */ }
+}
+
+// preferencias que van en el <body> (texto, animaciones, alabeo)
+function applyBodyPrefs() {
+  const S = save.settings, b = document.body;
+  b.classList.toggle('reduce-motion', S.motion === false);
+  b.classList.toggle('no-roll', S.rollBtns === false);
+  b.classList.toggle('text-s', S.textSize === 's');
+  b.classList.toggle('text-l', S.textSize === 'l');
+}
 
 function show(id) {
   for (const o of OVERLAYS) $(o).classList.toggle('hidden', o !== id);
@@ -62,9 +76,14 @@ function show(id) {
   // historial: una sola entrada mientras hay una pantalla abierta, para que el "atrás" del móvil
   // la cierre en vez de salir de la app; al volver al menú por la UI se consume esa entrada
   try {
-    if (BACK[id] && !pushed) { history.pushState({ overdrive: 1 }, ''); pushed = true; } else if (!BACK[id] && pushed) { pushed = false; skipPop = true; history.back(); }
+    // (show(null) = volver a jugar: la entrada se queda, para que el «atrás» pause la partida)
+    if (BACK[id] && !pushed) { history.pushState({ overdrive: 1 }, ''); pushed = true; } else if (id !== null && !BACK[id] && pushed) { pushed = false; skipPop = true; history.back(); }
   } catch { /* sin historial: da igual */ }
   current = id;
+  if (id && !['play', 'arena', 'galaxy', 'pecio'].includes(G.mode)) {
+    const sec = $(id), f = sec && (sec.querySelector('.scr-back') || sec.querySelector('button:not([disabled])'));
+    if (f && document.activeElement?.closest?.('.overlay') !== sec) setTimeout(() => f.focus({ preventScroll: true }), 0);
+  }
 }
 
 // Cabecera común: ← y título, igual en todas las pantallas
@@ -80,9 +99,11 @@ function screenHeader(id, title, onBack) {
 
 // Aviso breve en la capa del DOM (se ve también en pantallas donde el lienzo no se dibuja)
 let toastT = 0;
-export function toast(text) {
+// kind: '' (normal) · 'ok' · 'warn' · 'err' (el borde cambia de color)
+export function toast(text, kind = '') {
   const t = $('toast');
   t.textContent = text;
+  for (const k of ['ok', 'warn', 'err']) t.classList.toggle(k, k === kind);
   t.classList.remove('hidden');
   t.classList.remove('pop');
   void t.offsetWidth;
@@ -324,12 +345,16 @@ export const ui = {
     tap($('pcDash'), () => pecioDash());
     tap($('pcAbility'), () => pecioAbility());
     tap($('pcPause'), () => ui.pause());
-    tap($('btnGalaxy'), () => newSpace());
+    tap($('btnGalaxy'), () => ui.showGalaxyHub());
+    tap($('btnGalGo'), () => newSpace());
+    tap($('btnGhAtlas'), () => { ui.atlasBack = 'hub'; ui.showAtlas(); });
     tap($('btnDock'), () => dock());
     tap($('btnUndock'), () => undock());
     tap($('btnIncursion'), () => startIncursion());
-    tap($('btnSell'), () => { const got = sellAll(); if (got) fx.notice(`+${got} 💰`, '#ffe600'); ui.showStation(G.space); });
+    tap($('btnSell'), () => { const got = sellAll(); if (got) toast(`+${fmt(got)} 💰 por la carga`, 'ok'); ui.showStation(G.space); });
     tap($('btnRepair'), () => { repair(); ui.showStation(G.space); });
+    // ESTACIÓN: la barra de arriba lleva a cada sección
+    for (const b of document.querySelectorAll('#station .st-jump button')) tap(b, () => $(b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' }));
     tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
     tap($('spacePause'), () => ui.pause());
     tap($('btnGalMap'), () => ui.showGalMap());
@@ -414,6 +439,7 @@ export const ui = {
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
     screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
     screenHeader('pecioHub', '🏚️ PECIOS', () => ui.showMenu());
+    screenHeader('galaxyHub', '🌌 GALAXIA', () => ui.showMenu());
     tap($('btnRunner'), () => ui.showRunnerHub());
     screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
     tap($('btnCrateOk'), () => ui.showStore());
@@ -427,7 +453,7 @@ export const ui = {
     screenHeader('campaign', '🗺️ CAMPAÑA', () => ui.showRunnerHub());
     screenHeader('mods', '⚙️ MODIFICADORES', () => ui.showRunnerHub());
     screenHeader('raceCups', '🏆 CARRERAS', () => ui.showRunnerHub());
-    screenHeader('atlas', '📖 ATLAS', () => ui.showStation(G.space));
+    screenHeader('atlas', '📖 ATLAS', () => { if (ui.atlasBack === 'hub' || !G.space) { ui.atlasBack = null; ui.showGalaxyHub(); } else ui.showStation(G.space); });
     screenHeader('galInv', '🎒 TU NAVE', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     screenHeader('galMap', '🗺️ MAPA GALÁCTICO', () => { G.mode = 'galaxy'; musicDuck(false); ui.hideAll(); ui.showSpaceHUD(true); });
     BACK.hangar = () => { ui.preview = null; ui.showMenu(); };
@@ -436,7 +462,7 @@ export const ui = {
       if (skipPop) { skipPop = false; return; }
       pushed = false;
       if (BACK[current]) BACK[current]();
-      else if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy') ui.pause();
+      else if (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio') ui.pause();
     });
     addEventListener('keydown', (e) => {
       if (e.key === 'Escape' && BACK[current] && !['play', 'arena', 'galaxy'].includes(G.mode)) { e.preventDefault(); BACK[current](); }
@@ -484,9 +510,9 @@ export const ui = {
       useAbility();
     });
     tap($('btnMenu'), () => ui.showMenu());
-    $('death').addEventListener('click', () => {
+    // REINTENTAR con su botón (antes, tocar en cualquier sitio reiniciaba: al deslizar para ver las misiones, también)
+    tap($('btnDeathRetry'), () => {
       if (performance.now() - ui.deathAt < 700) return;
-      unlockAudio();
       newRun(G.run?.opts);
     });
     const toggles = [['tgSound', 'sound'], ['tgVibe', 'vibe'], ['tgFx', 'fx']];
@@ -504,10 +530,20 @@ export const ui = {
       persist();
       ui.syncToggles();
     });
+    // opciones de accesibilidad: interruptores simples
+    for (const [id, key] of [['tgShake', 'shake'], ['tgFlash', 'flash'], ['tgMotion', 'motion'], ['tgTips', 'tips'], ['tgRollBtns', 'rollBtns']]) {
+      tap($(id), () => { save.settings[key] = save.settings[key] === false; persist(); ui.syncToggles(); });
+    }
+    tap($('btnTextSize'), () => { const o = ['s', 'm', 'l']; save.settings.textSize = o[(o.indexOf(save.settings.textSize || 'm') + 1) % 3]; persist(); ui.syncToggles(); });
     ui.syncToggles();
+    document.body.classList.remove('booting'); // la UI ya responde
   },
 
   syncToggles() {
+    const S = save.settings;
+    for (const [id, on] of [['tgShake', S.shake !== false], ['tgFlash', S.flash !== false], ['tgMotion', S.motion !== false], ['tgTips', S.tips !== false], ['tgRollBtns', S.rollBtns !== false]]) $(id).classList.toggle('off', !on);
+    setText('textSizeName', { s: 'Pequeño', m: 'Normal', l: 'Grande' }[S.textSize || 'm']);
+    applyBodyPrefs();
     $('tgSound').classList.toggle('off', !save.settings.sound);
     $('tgVibe').classList.toggle('off', !save.settings.vibe);
     $('tgFx').classList.toggle('off', !save.settings.fx);
@@ -521,6 +557,8 @@ export const ui = {
     $('setSens').value = save.settings.sens ?? 1;
     $('setMusicVol').value = save.settings.musicVol ?? 0.7;
     $('setSfxVol').value = save.settings.sfxVol ?? 1;
+    // interruptores accesibles: role=switch + aria-checked (encendido = sin la clase off)
+    for (const b of document.querySelectorAll('.set-row[role="switch"]')) b.setAttribute('aria-checked', String(!b.classList.contains('off')));
   },
 
   // de Ajustes a la pausa de la que viniste: la partida sigue pausada, tal cual
@@ -549,6 +587,7 @@ export const ui = {
 
   showHUD(on) {
     $('hud').classList.toggle('hidden', !on);
+    if (on) guardBack();
     const mods = on && G.run?.mods ? [...G.run.mods] : [];
     $('modTag').classList.toggle('hidden', !mods.length);
     $('modTag').textContent = mods.map((id) => MOD_BY_ID[id].icon).join('');
@@ -649,8 +688,8 @@ export const ui = {
         <span class="am-rec">${rec ? `${fmtTime(rec.best)}${rec.wins ? ` · 🏆${rec.wins}` : ''}` : open ? '›' : ''}</span>`);
       b.dataset.map = id;
       b.style.setProperty('--am', M.grid.replace(/[\d.]+\)$/, '1)'));
-      b.disabled = !open;
-      if (open) tap(b, () => newArena({ map: id }));
+      b.setAttribute('aria-disabled', String(!open));
+      tap(b, () => (open ? newArena({ map: id }) : toast(`🔒 ${M.name}: ${M.unlock.text}`, 'warn')));
       box.append(b);
     }
     show('arenaHub');
@@ -1330,7 +1369,7 @@ export const ui = {
         const n = cardNode(c, run, `<span class="c-price">🪙 ${p}</span>`);
         if (run.coins < p) n.classList.add('poor');
         tap(n, () => {
-          if (run.coins < p) { fx.vibe(60); n.classList.add('shake'); setTimeout(() => n.classList.remove('shake'), 300); return; }
+          if (run.coins < p) { fx.vibe(60); n.classList.add('shake'); setTimeout(() => n.classList.remove('shake'), 300); toast(`Faltan ${p - run.coins} 🪙`, 'err'); return; }
           run.coins -= p;
           c.sold = true;
           pickCard(c.id);
@@ -1486,7 +1525,7 @@ export const ui = {
     // un poco después de despegar, y solo si sigues volando (si abriste el mapa, espera al próximo)
     if (on && G.mode === 'galaxy') setTimeout(() => { if (G.mode === 'galaxy') storyIntro(); }, 400);
     $('spaceHud').classList.toggle('hidden', !on);
-    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
+    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); guardBack(); }
   },
 
   renderDeck() {
@@ -1768,7 +1807,11 @@ export const ui = {
       b.dataset.up = id;
       b.disabled = c === null;
       tap(b, () => {
-        if (!buyUpgrade(id)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
+        if (!buyUpgrade(id)) {
+          b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300);
+          if (c !== null) toast(g.credits < c ? `Faltan ${fmt(c - g.credits)} 💰` : `Faltan materiales: ${ui.costText(mats)}`, 'err');
+          return;
+        }
         fx.vibe([20, 30, 60]);
         ui.showStation(s);
       });
@@ -1991,7 +2034,7 @@ export const ui = {
       }
       tap(b, () => {
         if (has) { equipGear(save, id); persist(); again(); return; }
-        if (!craft(save, id, disc)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); return; }
+        if (!craft(save, id, disc)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); toast('Faltan créditos o materiales', 'err'); return; }
         persist();
         sfx.chest();
         progress('craft');
@@ -2041,16 +2084,23 @@ export const ui = {
         b.id = 'btnDialog';
         tap(b, () => { if (last) close(); else { i++; draw(); } });
         acts.append(b);
+        if (!last && opts.skip !== false) {
+          const k = el('button', 'btn dl-skip', 'SALTAR');
+          k.id = 'btnDialogSkip';
+          tap(k, close);
+          acts.append(k);
+        }
       }
     };
     box.classList.remove('hidden');
     draw();
+    $('btnDialog')?.focus({ preventScroll: true });
   },
 
   // PRIMEROS PASOS: un consejo de la GUÍA la primera vez que pasa algo (pausa la partida mientras
   // se lee). En los tests (?debug) no salen, salvo con ?tips: no estorban a los bots.
   showTip(id, onClose = null) {
-    if (!TIPS[id] || tipSeen(save, id)) return false;
+    if (!TIPS[id] || tipSeen(save, id) || save.settings.tips === false) return false;
     if (G.debug && !new URLSearchParams(location.search).has('tips')) return false;
     markTip(save, id);
     persist();
@@ -2510,6 +2560,30 @@ export const ui = {
 
   // ---------- ARENA ----------
   // ---------- PECIOS ----------
+  // GALAXIA: pantalla de entrada (dónde estás, la historia, la dificultad y la Incursión de hoy)
+  showGalaxyHub() {
+    G.mode = 'hangar'; // pantalla estática
+    ui.showHUD(false);
+    const g = save.galaxy, cur = diffOf(g);
+    setText('ghWhere', g.started ? `en ${GAL[g.sys ?? 0].name} · ${g.visited?.length || 1} sistemas visitados` : 'empiezas en ORIGEN: explora, mina, comercia y lucha');
+    setText('ghStory', g.started ? `📖 ${chapterLabel(save)}` : '');
+    setText('ghCredits', fmt(g.credits || 0));
+    const box = $('ghDiff');
+    box.innerHTML = '';
+    for (const k of Object.keys(DIFFS)) {
+      const d = DIFFS[k], b = el('button', `gh-d${k === cur ? ' on' : ''}`, `<span>${d.icon}</span><b>${d.name}</b>`);
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(k === cur));
+      b.dataset.diff = k;
+      tap(b, () => { g.difficulty = k; persist(); ui.showGalaxyHub(); });
+      box.append(b);
+    }
+    setText('ghDiffDesc', DIFFS[cur].desc);
+    const ir = incursionRecord();
+    const im = ir?.medal && INC_MEDALS.find((m) => m.id === ir.medal);
+    setText('ghInc', ir ? `Hoy: ${ir.waves}/${WAVES} oleadas · ${fmt(ir.best)} pts${im ? ` · ${im.icon}` : ''} · se juega desde cualquier estación` : `10 oleadas con medallas 🥉🥈🥇 que dan 💎 · hoy: ${themeName(themeOf(todayKey()))} · se juega desde cualquier estación`);
+    show('galaxyHub');
+  },
   showPecioHub() {
     G.mode = 'hangar'; // pantalla estática
     G.pecio = null;
@@ -2576,7 +2650,7 @@ export const ui = {
   },
   showPecioHUD(on) {
     $('pecioHud').classList.toggle('hidden', !on);
-    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); }
+    if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); guardBack(); }
   },
   updatePecioHUD() {
     const s = G.pecio;
@@ -2691,7 +2765,7 @@ export const ui = {
 
   showArenaHUD(on) {
     $('arenaHud').classList.toggle('hidden', !on);
-    if (on) $('hud').classList.add('hidden');
+    if (on) { $('hud').classList.add('hidden'); guardBack(); }
   },
 
   updateArenaHUD() {
