@@ -3,6 +3,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { genGalaxy, mainSystems } from '../../js/galaxy.js';
+import { loadFrom } from '../../js/save.js';
 import { POI_KINDS, LORE, loreOf, poisOf, ATLAS_PERKS, perksFor, allPois } from '../../js/galaxyMissions.js';
 import { planetInfo } from '../../js/galaxyEvents.js';
 import { chapters, genChapter, storySystems } from '../../js/story.js';
@@ -58,4 +59,11 @@ test('lo oculto no entra en la historia, las campañas ni los carteles', () => {
   for (const f of Object.keys(CAMPAIGNS)) for (let i = 0; i < CAMP_LEN; i++) assert.ok(!hidden.has(campaignStep(gal, f, i).sys));
   for (let seq = 0; seq < 20; seq++) for (const b of bountyBoard(gal, 0, seq)) assert.ok(!hidden.has(b.sys));
   assert.equal(pirateSystemsTotal(gal), pirateSystemsTotal(mainSystems(gal)));
+});
+
+test('la semilla y el ciclo de la galaxia se conservan al cargar la partida', () => {
+  const s = loadFrom(JSON.stringify({ v: 6, galaxy: { started: true, seed: 12345, cycle: 2 } }));
+  assert.equal(s.galaxy.seed, 12345);
+  assert.equal(s.galaxy.cycle, 2);
+  assert.equal(loadFrom(null).galaxy.seed, null);
 });
