@@ -20,8 +20,8 @@ import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWant
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
-import { currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
-import { FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
+import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
+import { CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, stalkerVisible, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
 import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
@@ -58,6 +58,12 @@ const calcStats = () => {
   if (hasTalent(save, 'g5')) st.shield += 20;
   if (hasGear(save, 'hold')) st.cargo += Math.round(15 * gearBoost(save, 'hold'));
   if (hasGear(save, 'reactive')) st.regen *= 1.6 * gearBoost(save, 'reactive');
+  // equipo de FACCIÓN
+  if (hasGear(save, 'ligaHold')) st.cargo += Math.round(30 * gearBoost(save, 'ligaHold'));
+  if (hasGear(save, 'ligaHull')) st.hull = Math.round(st.hull * 1.35 * gearBoost(save, 'ligaHull'));
+  if (hasGear(save, 'coalShield')) { st.shield = Math.round(st.shield * 1.3 * gearBoost(save, 'coalShield')); st.regen *= 1.3; }
+  if (hasGear(save, 'coalLance')) st.dmg *= 1.2 * gearBoost(save, 'coalLance');
+  if (hasGear(save, 'pirTeeth')) { st.dmg *= 1.3 * gearBoost(save, 'pirTeeth'); st.shield = Math.round(st.shield * 0.9); }
   if (perks().includes('alien')) st.shield += 40;
   return st;
 };
@@ -223,13 +229,15 @@ function gainMats(s, drops) {
 // ---------- Historia: LA SEÑAL ----------
 export const storyChapter = () => currentChapter(save, GAL);
 function storyHit(s, ev) {
+  campHit(s, ev);
   const done = storyEvent(save, GAL, ev);
   if (!done) return;
   const r = done.reward, g = gal();
   g.credits += r.credits || 0;
   for (const [k, n] of Object.entries(r.mats || {})) addMat(save, k, n);
   if (r.ship && !save.ships.includes(r.ship)) save.ships.push(r.ship);
-  if (r.chassis && !g.hulls.includes(r.chassis)) { g.hulls = [...g.hulls, r.chassis]; progress('chassis', g.hulls.length); }
+  for (const c of [r.chassis, r.chassis2]) if (c && !g.hulls.includes(c)) { g.hulls = [...g.hulls, c]; progress('chassis', g.hulls.length); }
+  if (done.end === 'act3') { progress('ending'); const sd = SIDES[storyState(save).ending]; if (sd) fx.banner(`${sd.icon} ${sd.ending}`, `¡chasis ${CHASSIS[r.chassis2]?.name || ''} en el astillero!`, '#ffd60a', true, 3.5); }
   fx.banner(`${done.chronicle ? '📜' : '📖'} ${done.title.toUpperCase()}`, `${done.chronicle ? 'crónica' : 'capítulo'} completada · +${r.credits || 0} 💰${r.ship ? ' · ¡nueva nave ERRANTE!' : ''}${r.chassis ? ' · ¡chasis ERRANTE Mk II!' : ''}`, '#bf5af2', true);
   sfx.milestone();
   progress('chapter');
@@ -243,9 +251,29 @@ function storyHit(s, ev) {
   if (next) storyState(save).seen[storyState(save).ch] = true;
   spawnStoryBoss(s);
 }
+// CAMPAÑA DE FACCIÓN: los mismos sucesos que la historia hacen avanzar el encargo activo
+function campHit(s, ev) {
+  const done = campaignEvent(save, GAL, ev);
+  if (!done) return;
+  const g = gal(), C = CAMPAIGNS[done.f];
+  g.credits += done.reward.credits;
+  for (const [k, n] of Object.entries(done.reward.mats || {})) addMat(save, k, n);
+  addRep(save, done.f, 6);
+  if (done.last && !g.hulls.includes(C.chassis)) { g.hulls = [...g.hulls, C.chassis]; progress('chassis', g.hulls.length); }
+  if (done.last) progress('factionCamp');
+  fx.banner(`${FACTIONS[done.f].icon} ${C.title.toUpperCase()} ${done.i + 1}/${CAMP_LEN}`, done.last ? `¡campaña completa! chasis ${CHASSIS[C.chassis].name} en el astillero` : `+${done.reward.credits} 💰 · siguiente encargo en cualquier estación`, FACTIONS[done.f].color, true, 3);
+  sfx.milestone();
+  persist();
+}
+export function startCampaign(f) {
+  if (!acceptCampaign(save, f)) return false;
+  persist();
+  return true;
+}
+export const campaignNow = () => activeCampaign(save, GAL);
 export function storyChoose(pick) {
   const s = S();
-  addRep(save, pick, 20);
+  if (pick === 'free') { addRep(save, 'pir', 25); addRep(save, 'liga', -8); addRep(save, 'coal', -8); } else addRep(save, pick, 20);
   storyHit(s, { type: 'choice', pick });
 }
 // diálogo de entrada si no se ha visto (al despegar en la galaxia)
@@ -282,6 +310,8 @@ function spawnStoryBoss(s) {
 function storyBase(s) {
   const ch = storyChapter();
   if (ch && ch.goal.kind === 'base' && ch.goal.sys === s.sysId && !s.base) spawnBase(s);
+  const cp = campaignNow();
+  if (cp && cp.kind === 'base' && cp.sys === s.sysId && !s.base) spawnBase(s); // la de la campaña, también
 }
 
 // LA REINA DEL ENJAMBRE: pone drones; mientras la protejan 3 o más, su escudo lo aguanta todo
@@ -409,6 +439,17 @@ function updateStoryMarker(s, dt) {
     if (ch.goal.kind === 'scan') s.scanStory = Math.min(1, s.markerT / markerTime('scan'));
     if (s.markerT >= markerTime(ch.goal.kind)) { s.markerT = 0; s.scanStory = 0; storyHit(s, { type: ch.goal.kind, sys: s.sysId }); }
   } else s.markerT = Math.max(0, (s.markerT || 0) - dt);
+}
+// BALIZA de la CAMPAÑA de facción (al otro lado del sistema que la de la historia)
+function updateCampMarker(s, dt) {
+  const cp = campaignNow();
+  if (!cp || !['reach', 'scan'].includes(cp.kind) || cp.sys !== s.sysId) { s.campMarker = null; return; }
+  const m = markerPos(s.sysId);
+  s.campMarker = { x: -m.x, y: m.y, z: m.z };
+  if (dist(s.campMarker, s.ship.pos) < 70) {
+    s.campT = (s.campT || 0) + dt;
+    if (s.campT >= markerTime(cp.kind)) { s.campT = 0; campHit(s, { type: cp.kind, sys: s.sysId }); }
+  } else s.campT = Math.max(0, (s.campT || 0) - dt);
 }
 
 // ---------- Amenaza: daño a piratas, rasgos de élite, corbetas, minadores y cazadores ----------
@@ -1226,7 +1267,7 @@ export function spaceBoost() {
   if (!s || G.mode !== 'galaxy' || s.ship.boostCd > 0) return;
   if (s.inhibited) { fx.notice('🧲 Un INHIBIDOR cerca anula el impulso: derríbalo', '#bf5af2'); sfx.bump(); return; }
   s.ship.boostT = 1.6;
-  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 / gearBoost(save, 'warpdrv') : 1) * (CHASSIS[gal().chassis]?.boostCd ?? 1);
+  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 / gearBoost(save, 'warpdrv') : 1) * (hasGear(save, 'pirBoost') ? 0.6 / gearBoost(save, 'pirBoost') : 1) * (CHASSIS[gal().chassis]?.boostCd ?? 1);
   sfx.dash();
   fx.vibe(20);
 }
@@ -1292,7 +1333,7 @@ export function sellAll() {
   }
   if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
-  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys)); // facción y Mercado propio pagan más
+  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1)); // facción y Mercado propio pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -1319,7 +1360,7 @@ export function buyOre(ore, n = 1) {
 // ASTILLERO: comprar y cambiar de chasis (en cualquier estación)
 export function buyChassis(id) {
   const g = gal(), c = CHASSIS[id];
-  if (!c || c.story || g.hulls.includes(id) || g.credits < c.cost) return false;
+  if (!c || c.story || c.faction || g.hulls.includes(id) || g.credits < c.cost) return false;
   g.credits -= c.cost;
   g.hulls = [...g.hulls, id];
   progress('chassis', g.hulls.length);
@@ -2126,6 +2167,7 @@ export function updateSpace(dt) {
   updateBase(s, dt);
   updateDevourer(s, dt);
   updateStoryMarker(s, dt);
+  updateCampMarker(s, dt);
   updateEvent(s, dt);
   updateEscort(s, dt);
   updateScan(s, dt);
@@ -2337,13 +2379,16 @@ function updateObjective(s) {
   }
   // HISTORIA: el capítulo actual (después de lo que eliges tú: caza y liberar este sistema)
   const ch = storyChapter();
-  if (ch && ch.goal.kind !== 'choice') {
+  // (la Crónica no se acaba: si has aceptado una campaña de facción, va antes que ella)
+  if (ch && ch.goal.kind !== 'choice' && !(ch.chronicle && campaignNow())) {
     const gsys = ch.goal.sys;
     const text = `📖 ${chapterLabel(save)} · ${ch.goal.text}${ch.goal.n > 1 ? ` (${storyState(save).n}/${ch.goal.n})` : ''}${ch.goal.kind === 'scan' && s.scanStory ? ` · ${Math.round(s.scanStory * 100)}%` : ''}`;
     if (gsys !== s.sysId) {
       const path = route(GAL, s.sysId, gsys);
       const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
       if (gate && canJump(GAL[path[1]], g.up.jump || 0)) { s.objective = { kind: 'story', text }; s.target = gate.pos; return; }
+      // sin SALTO suficiente: la historia no se esconde; dice qué mejorar (y te lleva a la estación)
+      if (gate) { s.objective = { kind: 'story', text: `${text} · 🌀 mejora SALTO a ${jumpNeeded(GAL[path[1]])}` }; s.target = s.sys.station.pos; return; }
     } else {
       let t = null;
       if (ch.goal.kind === 'reach' || ch.goal.kind === 'scan') t = s.storyMarker;
@@ -2352,6 +2397,23 @@ function updateObjective(s) {
       else if (ch.goal.kind === 'boss') t = s.devourer ? (s.devourer.eyes.find((ey) => ey.alive)?.pos || s.devourer.pos) : s.pirates.find((p) => p.story)?.pos;
       else if (ch.goal.kind === 'kill') t = s.pirates.slice().sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos;
       if (t) { s.objective = { kind: 'story', text }; s.target = t; return; }
+    }
+  }
+  // CAMPAÑA DE FACCIÓN activa: después de la historia
+  const cp = campaignNow();
+  if (cp) {
+    const ctext = `${FACTIONS[cp.f].icon} ${CAMPAIGNS[cp.f].title} ${cp.i + 1}/${CAMP_LEN} · ${cp.text}${cp.n > 1 ? ` (${save.factionCamp.n || 0}/${cp.n})` : ''}`;
+    if (cp.sys !== s.sysId) {
+      const path = route(GAL, s.sysId, cp.sys);
+      const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
+      if (gate && canJump(GAL[path[1]], g.up.jump || 0)) { s.objective = { kind: 'camp', text: ctext }; s.target = gate.pos; return; }
+    } else {
+      let t = null;
+      if (cp.kind === 'reach' || cp.kind === 'scan') t = s.campMarker;
+      else if (cp.kind === 'dock' || cp.kind === 'sell') t = s.sys.station.pos;
+      else if (cp.kind === 'base') t = s.base?.pos;
+      else if (cp.kind === 'kill') t = s.pirates.filter((p) => p.alive).sort((a, b) => dist(a.pos, sh.pos) - dist(b.pos, sh.pos))[0]?.pos;
+      if (t) { s.objective = { kind: 'camp', text: ctext }; s.target = t; return; }
     }
   }
   // MISIÓN activa: te lleva al sistema y, allí, a su objetivo

@@ -32,6 +32,10 @@ export const CHASSIS = {
   interceptor: { name: 'Interceptor', icon: '🛩️', cost: 16500, desc: 'Rapidísimo y ágil, pero frágil.', mult: { speed: 1.3, turn: 1.3, hull: 0.7, shield: 0.85, cargo: 0.7 }, slots: { w: 3, m: 1 }, scale: 0.85 },
   warship: { name: 'Acorazado', icon: '🛡️', cost: 30000, desc: 'Un muro: casco y escudo enormes, lento.', mult: { hull: 1.7, shield: 1.7, dmg: 1.15, speed: 0.75, turn: 0.75 }, slots: { w: 3, m: 3 }, scale: 1.35 },
   corsair: { name: 'Corsario', icon: '🏴', cost: 45000, desc: '+4 misiles, fija antes y el impulso recarga mucho más rápido.', mult: { speed: 1.1, dmg: 1.1 }, slots: { w: 2, m: 3 }, scale: 1, missiles: 4, lockMul: 1.6, boostCd: 0.6 },
+  // de una FACCIÓN: su campaña (o tu final de la historia). No se venden
+  minero: { name: 'Excavadora', icon: '⛏️', cost: 0, faction: 'liga', desc: 'De los jefes de mina: bodega gigante y casco de roca.', mult: { cargo: 2.6, hull: 1.6, shield: 1.15, dmg: 1.05, speed: 0.9, turn: 0.9 }, slots: { w: 2, m: 3 }, scale: 1.3 },
+  centinela: { name: 'Centinela', icon: '☀️', cost: 0, faction: 'coal', desc: 'De la Coalición: escudo enorme, ágil y fija misiles antes.', mult: { speed: 1.15, turn: 1.2, shield: 1.7, hull: 1.1, dmg: 1.1 }, slots: { w: 3, m: 2 }, scale: 1, lockMul: 1.4, missiles: 2 },
+  saqueador: { name: 'Saqueadora', icon: '🏴‍☠️', cost: 0, faction: 'pir', desc: 'Pirata: rapidísima, muerde fuerte y lleva 6 misiles más.', mult: { speed: 1.3, turn: 1.25, dmg: 1.3, hull: 0.95, cargo: 0.9 }, slots: { w: 3, m: 2 }, scale: 0.95, missiles: 6, boostCd: 0.5 },
   // solo con la historia (fin del Acto III): no se vende
   errante2: { name: 'Errante Mk II', icon: '🌌', cost: 0, story: true, desc: 'Forjada con el metal vivo de la Señal: lo mejor de todos los chasis.', mult: { speed: 1.2, turn: 1.15, hull: 1.35, shield: 1.35, dmg: 1.2, cargo: 1.4 }, slots: { w: 3, m: 3 }, scale: 1.1, missiles: 2, lockMul: 1.3, boostCd: 0.75 },
 };

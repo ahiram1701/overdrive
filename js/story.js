@@ -48,7 +48,7 @@ function act1(gal) {
       outro: [['brak', 'Esto no lo ha forjado nadie de esta galaxia, chaval. Y está… caliente.'], ['brak', 'La Liga y la Coalición querrán quedárselo. Tú decides quién.']] },
     { title: 'Elección', goal: { kind: 'choice', n: 1, text: 'Decide a quién entregas el fragmento' }, reward: { credits: 780 },
       intro: [['brak', 'La Liga lo usará para encontrar minas nuevas. La Coalición, para estudiarlo. ¿Para quién?']],
-      choice: [['liga', '⛏️ A la Liga Minera'], ['coal', '☀️ A la Coalición Solar']],
+      choice: [['liga', '⛏️ A la Liga Minera'], ['coal', '☀️ A la Coalición Solar'], ['free', '🏴‍☠️ Me lo quedo yo']],
       outro: [['ilen', 'Hecho. Y ahora sabemos de dónde viene: más allá del cinturón pirata.']] },
     { title: 'Emboscada', goal: { kind: 'kill', sys: S.c, n: 5, text: `Abre paso: abate 5 piratas en ${N(S.c)}` }, reward: { credits: 1200 },
       intro: [['brak', `Los piratas también buscan el fragmento. Te esperan en ${N(S.c)}.`]],
@@ -77,7 +77,7 @@ function act2(gal) {
       outro: [['vex', 'Me llamo Vex. Los míos le rezan a la Reina: le dan naves a cambio de no ser devorados.'], ['vex', 'Yo me harté. Os ayudo… si me protegéis.']] },
     { title: 'Lealtades', goal: { kind: 'choice', n: 1, text: 'Decide quién protege a Vex' }, reward: { credits: 1400 },
       intro: [['vex', 'La Liga me daría trabajo en las minas. La Coalición me interrogaría hasta secarme. ¿Con quién voy?']],
-      choice: [['liga', '⛏️ Que trabaje con la Liga'], ['coal', '☀️ Que lo custodie la Coalición']],
+      choice: [['liga', '⛏️ Que trabaje con la Liga'], ['coal', '☀️ Que lo custodie la Coalición'], ['free', '🏴‍☠️ Que vuele conmigo']],
       outro: [['vex', 'Trato hecho. Ahora escucha: la colmena se alimenta de mineral. Córtale el suministro.']] },
     { title: 'Colmena', goal: { kind: 'kill', sys: S.c, n: 8, text: `Limpia el enjambre: abate 8 enemigos en ${N(S.c)}` }, reward: { credits: 2400, mats: { circuitos: 4 } },
       intro: [['vex', `${N(S.c)} está plagado de drones de la Reina. Si caen, la colmena se debilita.`]],
@@ -98,8 +98,9 @@ function act2(gal) {
 }
 
 // ACTO III · EL ORIGEN: la Señal no era una víctima; fue ella quien despertó al Devorador
-function act3(gal) {
+function act3(gal, al = null) {
   const S = storySystems(gal, 3), N = (id) => gal[id].name;
+  const V = al ? ACT3_SIDE[al] : null;
   return [
     { title: 'Mentiras', goal: { kind: 'reach', sys: S.a, n: 1, text: `Vuelve a la primera baliza del eco, en ${N(S.a)}` }, reward: { credits: 3500 },
       intro: [['ilen', 'Las palabras de la Reina no me dejan dormir. Revisemos la baliza original.'], ['ilen', `Está en ${N(S.a)}. Vamos.`]],
@@ -109,7 +110,7 @@ function act3(gal) {
       outro: [['brak', 'Late al ritmo de la Señal. No era un mensaje de auxilio: era una llamada.'], ['vex', 'Mi banda decía lo mismo: alguien llamó al Devorador. Y a la Reina.']] },
     { title: 'El fragmento', goal: { kind: 'choice', n: 1, text: 'Decide qué hacer con el fragmento' }, reward: { credits: 3000 },
       intro: [['brak', 'Podemos fundirlo en la Liga para que calle, o dárselo a la Coalición para rastrear a la Señal. ¿Qué hacemos?']],
-      choice: [['liga', '⛏️ Fundirlo en la Liga'], ['coal', '☀️ Rastrear con la Coalición']],
+      choice: [['liga', '⛏️ Fundirlo en la Liga'], ['coal', '☀️ Rastrear con la Coalición'], ['free', '🏴‍☠️ Usarlo yo misma']],
       outro: [['ilen', 'Sea como sea, ya sabemos dónde se esconde: en el sistema más remoto de todos.']] },
     { title: 'Guardianes', goal: { kind: 'kill', sys: S.c, n: 10, text: `Abate 10 guardianes de la Señal en ${N(S.c)}` }, reward: { credits: 4500, mats: { circuitos: 6 } },
       intro: [['vex', `La Señal ha comprado a mis antiguos jefes. Patrullan ${N(S.c)}.`]],
@@ -120,18 +121,57 @@ function act3(gal) {
     { title: 'Coordenadas', goal: { kind: 'scan', sys: S.e, n: 1, text: `Escanea el rastro de la Señal en ${N(S.e)}` }, reward: { credits: 5200, mats: { artefactos: 3 } },
       intro: [['ilen', `El rastro pasa por ${N(S.e)}. Escanéalo con calma: necesito la lectura completa.`]],
       outro: [['ilen', 'Ya está. Y algo viene a por nosotros… lo conozco.']] },
-    { title: 'El Heraldo renacido', goal: { kind: 'boss', boss: 'herald', hpMul: 2.2, sys: S.e, n: 1, text: `Derrota al Heraldo renacido en ${N(S.e)}` }, reward: { credits: 6000, mats: { nucleos: 3 } },
+    V ? V.ch7(S, N) : { title: 'El Heraldo renacido', goal: { kind: 'boss', boss: 'herald', hpMul: 2.2, sys: S.e, n: 1, text: `Derrota al Heraldo renacido en ${N(S.e)}` }, reward: { credits: 6000, mats: { nucleos: 3 } },
       intro: [['heraldo', 'Pequeña nave. La Señal me ha devuelto la vida. Y esta vez no caeré.']],
       outro: [['heraldo', 'Ella… no quiere salvaros… quiere… otro Devorador…'], ['ilen', 'Está creando uno nuevo. Más grande. Tenemos que llegar antes.']] },
-    { title: 'El Devorador Primordial', goal: { kind: 'boss', boss: 'primordial', sys: S.f, n: 1, text: `Derrota al Devorador Primordial en ${N(S.f)}` }, reward: { credits: 15000, chassis: 'errante2' }, end: 'act3',
+    { title: 'El Devorador Primordial', goal: { kind: 'boss', boss: 'primordial', sys: S.f, n: 1, text: `Derrota al Devorador Primordial en ${N(S.f)}` }, reward: { credits: 15000, chassis: 'errante2', ...(V ? { chassis2: V.chassis } : {}) }, end: 'act3', ending: al || undefined,
       intro: [['senal', 'Bienvenida, viajera. Mira lo que he creado: el primero de todos.'], ['ilen', 'Cuatro ojos esta vez. Mismo plan: los ojos, luego el núcleo. ¡Ve!']],
-      outro: [['senal', '…no… yo era… la última voz…'], ['ilen', 'Se acabó. La Señal ha callado de verdad.'], ['brak', 'Te has ganado esto, chaval: la ERRANTE Mk II, forjada con su metal vivo. Búscala en el astillero.'], ['ilen', 'Y la galaxia sigue llena de historias. Te las iré contando: la Crónica no termina.']] },
+      outro: [['senal', '…no… yo era… la última voz…'], ['ilen', 'Se acabó. La Señal ha callado de verdad.'], ['brak', 'Te has ganado esto, chaval: la ERRANTE Mk II, forjada con su metal vivo. Búscala en el astillero.'], ...(V ? V.ending : []), ['ilen', 'Y la galaxia sigue llena de historias. Te las iré contando: la Crónica no termina.']] },
   ];
 }
 
+// TU BANDO: lo que más elegiste en las tres decisiones (Liga, Coalición o por tu cuenta). Cambia el capítulo 7
+// del Acto III (aliado y jefe), el final y la nave única que te llevas.
+export const SIDES = {
+  liga: { icon: '⛏️', name: 'Liga Minera', ending: 'EL FINAL DE LA LIGA' },
+  coal: { icon: '☀️', name: 'Coalición Solar', ending: 'EL FINAL DE LA COALICIÓN' },
+  free: { icon: '🏴‍☠️', name: 'Por tu cuenta', ending: 'EL FINAL LIBRE' },
+};
+const ACT3_SIDE = {
+  liga: {
+    chassis: 'minero',
+    ch7: (S, N) => ({ title: 'Las minas resisten', goal: { kind: 'boss', boss: 'herald', hpMul: 2.2, sys: S.e, n: 1, text: `Defiende las minas de ${N(S.e)}: derrota al Heraldo renacido` }, reward: { credits: 6500, mats: { nucleos: 3, chatarra: 10 } },
+      intro: [['brak', `La Liga no se arrodilla, chaval. El Heraldo ataca nuestras minas en ${N(S.e)}: mis mineros te cubren.`], ['heraldo', 'Mineros… polvo para el Devorador.']],
+      outro: [['brak', '¡Las minas siguen en pie! La Liga te debe una. Y la Liga paga sus deudas.'], ['ilen', 'Ahora, el origen de todo.']] }),
+    ending: [['brak', 'La Liga ha votado: eres socia de honor. Toma la EXCAVADORA, la nave de los jefes de mina.'], ['brak', 'Mientras haya mineral, nadie volverá a pasar hambre en esta galaxia.']],
+  },
+  coal: {
+    chassis: 'centinela',
+    ch7: (S, N) => ({ title: 'La Reina renacida', goal: { kind: 'boss', boss: 'queen', hpMul: 1.8, sys: S.e, n: 1, text: `Derrota a la Reina renacida en ${N(S.e)} con la Coalición` }, reward: { credits: 6500, mats: { nucleos: 3, circuitos: 6 } },
+      intro: [['ilen', `Con el rastro de la Coalición lo vemos: la Señal ha resucitado a la Reina en ${N(S.e)}.`], ['reina', 'Chispa… volvemos a vernos. Esta vez mis hijas no caerán.']],
+      outro: [['reina', 'La Señal… mintió… también a mí…'], ['ilen', 'La Coalición ya cierra el cerco. Vamos al final.']] }),
+    ending: [['ilen', 'La Coalición te nombra Centinela: vigilarás las rutas que salvaste. Tu nave te espera en el astillero.'], ['ilen', 'Ciencia y escudos. Que nada vuelva a despertar ahí fuera sin que lo sepamos.']],
+  },
+  free: {
+    chassis: 'saqueador',
+    ch7: (S, N) => ({ title: 'Sin banderas', goal: { kind: 'boss', boss: 'herald', hpMul: 2.4, sys: S.e, n: 1, text: `Sin nadie a tu lado: derrota al Heraldo renacido en ${N(S.e)}` }, reward: { credits: 8000, mats: { nucleos: 4 } },
+      intro: [['vex', `Ni Liga ni Coalición, ¿eh? Me gusta. Pero el Heraldo te espera en ${N(S.e)} y nadie va a cubrirte.`], ['heraldo', 'Una nave sin bandera… nadie llorará tu chatarra.']],
+      outro: [['vex', 'Sola contra eso. Ahora sí te respetan los míos.'], ['ilen', 'Vamos a por la Señal. A tu manera.']] }),
+    ending: [['vex', 'Los piratas te llaman capitana. Te hemos guardado una nave: la SAQUEADORA. Sin papeles, sin preguntas.'], ['vex', 'La galaxia es grande, y ahora es tuya de verdad.']],
+  },
+};
+// el bando que más elegiste (empate: la última elección)
+export function alignment(save) {
+  const st = storyState(save), list = Object.values(st.choices || {});
+  if (!list.length) return null;
+  const n = (k) => list.filter((x) => x === k).length;
+  const best = Math.max(n('liga'), n('coal'), n('free'));
+  return n(st.choice) === best ? st.choice : ['liga', 'coal', 'free'].find((k) => n(k) === best);
+}
+
 // todos los capítulos escritos a mano, en orden; cada uno con su acto
-export function chapters(gal) {
-  return [act1(gal), act2(gal), act3(gal)].flatMap((list, a) => list.map((c) => ({ ...c, act: a + 1 })));
+export function chapters(gal, al = null) {
+  return [act1(gal), act2(gal), act3(gal, al)].flatMap((list, a) => list.map((c) => ({ ...c, act: a + 1 })));
 }
 
 // ---------- LA CRÓNICA: capítulos generados sin fin (deterministas por número) ----------
@@ -168,15 +208,16 @@ export function genChapter(gal, i) {
   const sys = rng.pick(near.length ? near : pool.filter((x) => x.danger <= want).length ? pool.filter((x) => x.danger <= want) : pool).id;
   const N = gal[sys].name;
   const n = kind === 'kill' ? 5 + Math.min(10, cycle * 2) : kind === 'sell' ? 15 + Math.min(30, cycle * 5) : 1;
-  const boss = isBoss ? (cycle % 2 ? 'queen' : 'herald') : undefined;
+  const boss = isBoss ? ['herald', 'queen', 'devourer'][cycle % 3] : undefined;
+  const who = { herald: 'del Heraldo', queen: 'de la Reina', devourer: 'del Devorador' }[boss];
   const goal = isBoss
-    ? { kind: 'boss', boss, hpMul: +(1 + 0.15 * cycle).toFixed(2), sys, n: 1, text: `Derrota al eco ${boss === 'queen' ? 'de la Reina' : 'del Heraldo'} en ${N}` }
+    ? { kind: 'boss', boss, hpMul: +(1 + 0.15 * cycle).toFixed(2), sys, n: 1, text: `Derrota al eco ${who} en ${N}` }
     : { kind, sys, n, text: GOAL_TEXT[kind](N, n) };
-  const [who, line] = rng.pick(CRON_LINES[kind]);
+  const [speaker, line] = rng.pick(CRON_LINES[kind]);
   const reward = { credits: 2500 + 350 * i, mats: { chatarra: 4 + cycle, ...(i % 10 === 9 ? { nucleos: 2 } : {}), ...(isBoss ? { artefactos: 2 } : {}) } };
   return {
     title: `Crónica #${i + 1} · ${CRON_TITLES[i % CRON_TITLES.length]}`, act: 4, chronicle: i + 1, goal, reward,
-    intro: [[who, isBoss ? `${line(N)} ${boss === 'queen' ? 'Una nueva Reina ha nacido de la colmena.' : 'Alguien ha vuelto a vestir el manto del Heraldo.'}` : line(N)]],
+    intro: [[speaker, isBoss ? `${line(N)} ${{ queen: 'Una nueva Reina ha nacido de la colmena.', herald: 'Alguien ha vuelto a vestir el manto del Heraldo.', devourer: 'Algo grande come estrellas otra vez.' }[boss]}` : line(N)]],
     outro: [rng.pick(CRON_DONE)],
   };
 }
@@ -191,7 +232,7 @@ export const storyState = (save) => {
 // la historia escrita a mano se acaba; la Crónica, no
 export const storyDone = (save, gal) => storyState(save).ch >= chapters(gal).length;
 export const currentChapter = (save, gal) => {
-  const ch = storyState(save).ch, hand = chapters(gal);
+  const ch = storyState(save).ch, hand = chapters(gal, alignment(save));
   return hand[ch] || genChapter(gal, ch - hand.length);
 };
 // "Acto II · 3/8" (para el HUD y el panel)
@@ -210,7 +251,8 @@ export function storyEvent(save, gal, ev) {
   const g = ch.goal, st = storyState(save);
   const hit = g.kind === ev.type && (g.sys === undefined || g.sys === ev.sys) && (!g.boss || g.boss === ev.boss);
   if (!hit) return null;
-  if (g.kind === 'choice') st.choice = ev.pick;
+  if (g.kind === 'choice') { st.choice = ev.pick; st.choices = { ...(st.choices || {}), [ch.act]: ev.pick }; }
+  if (ch.end === 'act3') st.ending = ch.ending || alignment(save) || 'coal';
   st.n += Math.max(1, ev.amount || 1);
   if (st.n < g.n) return null;
   st.ch++;

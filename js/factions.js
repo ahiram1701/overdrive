@@ -107,3 +107,60 @@ export function nemesisUp(b) {
 }
 
 export const hopsTo = (gal, a, b) => (route(gal, a, b)?.length ?? 99) - 1;
+
+// ---------- CAMPAÑAS DE FACCIÓN: 5 encargos seguidos y, al final, su chasis exclusivo ----------
+export const CAMP_LEN = 5;
+export const CAMPAIGNS = {
+  liga: { who: 'brak', need: 20, chassis: 'minero', kinds: ['sell', 'dock', 'kill', 'reach', 'base'], title: 'Contratos de la Liga' },
+  coal: { who: 'ilen', need: 20, chassis: 'centinela', kinds: ['kill', 'scan', 'reach', 'dock', 'base'], title: 'Patrulla de la Coalición' },
+  pir: { who: 'vex', need: 15, chassis: 'saqueador', kinds: ['reach', 'kill', 'scan', 'sell', 'base'], title: 'Trabajos de Vex' },
+};
+const CAMP_TEXT = {
+  reach: (n) => `Lleva un mensaje a la baliza de ${n}`,
+  scan: (n) => `Escanea la anomalía de ${n}`,
+  dock: (n) => `Entrega un cargamento en la estación de ${n}`,
+  sell: (n, k) => `Vende ${k} de mineral en ${n}`,
+  kill: (n, k) => `Abate ${k} piratas en ${n}`,
+  base: (n) => `Destruye la base pirata de ${n}`,
+};
+// el encargo i (0-4) de la facción f: determinista; cada vez más lejos y más duro
+export function campaignStep(gal, f, i) {
+  const C = CAMPAIGNS[f], kind = C.kinds[i % C.kinds.length];
+  const rng = makeRng(hashString(`camp-${f}-${i}`));
+  const want = Math.min(Math.max(...gal.map((s) => s.danger)), 1 + i);
+  // donde hay que atracar o vender, nunca en un sistema pirata (no te dejan); las bases, solo en los piratas
+  const okSys = (s) => s.id !== 0 && (['dock', 'sell'].includes(kind) ? ownerOf(s) !== 'pir' : kind === 'base' ? ownerOf(s) === 'pir' : true);
+  const pool = gal.filter(okSys);
+  const near = pool.filter((s) => s.danger === want);
+  const sys = rng.pick(near.length ? near : pool).id;
+  const n = kind === 'kill' ? 4 + 2 * i : kind === 'sell' ? 10 + 5 * i : 1;
+  return { f, i, kind, sys, n, text: CAMP_TEXT[kind](gal[sys].name, n), reward: { credits: 2500 + 1500 * i, mats: { chatarra: 4 + 2 * i, ...(i >= 3 ? { nucleos: i - 2 } : {}) } }, last: i === CAMP_LEN - 1 };
+}
+export const campState = (save) => { save.factionCamp ||= {}; return save.factionCamp; };
+export const campStep = (save, f) => campState(save)[f] || 0;
+export const campDone = (save, f) => campStep(save, f) >= CAMP_LEN;
+// ¿se te abre? Liga y Coalición, desde Amigo; la de Vex, con algo de reputación pirata o si alguna vez elegiste ir por tu cuenta
+export function campOpen(save, f) {
+  if (f === 'pir') return repOf(save, 'pir') >= CAMPAIGNS.pir.need || Object.values(save.story?.choices || {}).includes('free');
+  return repOf(save, f) >= CAMPAIGNS[f].need;
+}
+export function acceptCampaign(save, f) {
+  if (!CAMPAIGNS[f] || !campOpen(save, f) || campDone(save, f)) return false;
+  const st = campState(save);
+  st.active = f;
+  st.n = 0;
+  return true;
+}
+export const activeCampaign = (save, gal) => { const f = campState(save).active; return f && !campDone(save, f) ? campaignStep(gal, f, campStep(save, f)) : null; };
+// un suceso de la galaxia (los mismos que la historia): devuelve el encargo si se acaba de completar
+export function campaignEvent(save, gal, ev) {
+  const step = activeCampaign(save, gal);
+  if (!step || step.kind !== ev.type || step.sys !== ev.sys) return null;
+  const st = campState(save);
+  st.n = (st.n || 0) + Math.max(1, ev.amount || 1);
+  if (st.n < step.n) return null;
+  st[step.f] = campStep(save, step.f) + 1;
+  st.n = 0;
+  if (campDone(save, step.f)) st.active = null;
+  return step;
+}

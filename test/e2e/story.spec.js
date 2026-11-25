@@ -176,7 +176,7 @@ test('astillero: la Errante Mk II no se vende; con ella ganada se usa como cualq
   await startGalaxy(page, { galaxy: { started: true, credits: 999999 } });
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
-  await expect(page.locator('#stShipyard .st-up.locked')).toContainText('Acto III');
+  await expect(page.locator('#stShipyard .st-up.locked').filter({ hasText: 'Errante' })).toContainText('Acto III');
   expect(await page.locator('[data-chassis="errante2"]').count()).toBe(0);
   await page.evaluate(() => { window.__save.galaxy.hulls = [...window.__save.galaxy.hulls, 'errante2']; });
   await page.locator('#btnUndock').click();

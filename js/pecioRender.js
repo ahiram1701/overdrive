@@ -540,6 +540,7 @@ function minimap(ctx, s, W) {
   const rooms = s.floor.rooms, t = performance.now() / 1000;
   const known = new Set(s.visited);
   for (const id of s.visited) for (const n of Object.values(openDoors(s, id))) known.add(n);
+  if (s.pool?.radar) for (const [id, r] of Object.entries(rooms)) if (!r.hidden) known.add(id); // RADAR del taller
   ctx.fillStyle = 'rgba(0,0,0,.45)';
   ctx.fillRect(x0 - 6, y0 - 6, size + 12, size + 12);
   ctx.strokeStyle = 'rgba(255,255,255,.12)';
