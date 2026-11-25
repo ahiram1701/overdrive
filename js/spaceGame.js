@@ -16,10 +16,10 @@ import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { chipBonus, genChip, addChip, CHIP_TIERS, chipText, GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
-import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
+import { killValue, gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
-import { MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
-import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
+import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
+import { priceDrift, unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
@@ -523,10 +523,12 @@ function pirateTraits(s, p, d, dt) {
   // PORTANAVES: suelta drones (como mucho 4 a la vez)
   if (p.kind === 'carrier' && p.state !== 'patrol') {
     p.launchT = (p.launchT ?? 3) - dt;
-    if (p.launchT <= 0 && s.pirates.filter((q) => q.alive && q.mother === p).length < 4) {
+    const live = s.pirates.filter((q) => q.alive && q.mother === p).length;
+    if (p.launchT <= 0 && live < 4) {
       p.launchT = 8;
       const n0 = s.pirates.length;
       spawnPirate(s, false, 'drone', add(p.pos, { x: 0, y: -6, z: 14 })); // (un grupo de drones)
+      s.pirates.splice(n0 + (4 - live)); // como mucho 4 a la vez
       for (const q of s.pirates.slice(n0)) { q.mother = p; q.state = 'attack'; q.aware = true; }
       fx.notice('🛸 La portanaves lanza drones: tumba la nodriza', '#ff9f0a');
     }
@@ -829,7 +831,7 @@ function updatePirates(s, dt) {
     // ALERTA: patrullan su zona hasta verte
     if (!p.aware && !playerSafe && spots(d, false)) alertPirate(s, p);
     // estados: atacar, evadir tras cruzarse, huir con poca vida, merodear si estás a salvo (o no te ha visto)
-    if (!p.boss && p.hp < p.max * (p.flees ? 0.5 : 0.25) && p.state !== 'flee') { p.state = 'flee'; p.t = 0; }
+    if (!p.boss && !p.contract && p.hp < p.max * (p.flees ? 0.5 : 0.25) && p.state !== 'flee') { p.state = 'flee'; p.t = 0; } // (el objetivo de un contrato no huye)
     if (p.state === 'attack' && d < 70) { p.state = 'evade'; p.t = 0; }
     if (p.state === 'evade' && p.t > 1.4) p.state = 'attack';
     if (playerSafe && p.state === 'attack') p.state = 'patrol';
@@ -986,7 +988,7 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = Math.round((1 + (chipBonus(save).bounty || 0) / 100) * (p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())) * cycleK());
+  const value = Math.round((1 + (chipBonus(save).bounty || 0) / 100) * killValue(d, p.boss) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())) * cycleK());
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   if (!p.inc) s.sysKills = (s.sysKills || 0) + 1;
   if (!p.inc) addWanted(gal(), 'kill');
@@ -1360,7 +1362,18 @@ export function dock() {
   storyHit(s, { type: 'dock', sys: s.sysId });
   persist();
   ui.showStation(s);
+  collectOutposts();
   progress('dock');
+}
+// PUESTOS AVANZADOS: rinden créditos por cada salto que das; se cobran al atracar (como mucho 20 saltos)
+function collectOutposts() {
+  const g = gal(), inc = outpostIncome(save);
+  const n = Math.min(20, (g.jumps || 0) - (g.incomeAt ?? (g.jumps || 0)));
+  g.incomeAt = g.jumps || 0;
+  if (!inc || n <= 0) return;
+  g.credits += inc * n;
+  persist();
+  fx.notice(`🏗️ Tus puestos: +${inc * n} 💰 (${n} saltos)`, '#30d158', 3);
 }
 
 export function undock() {
@@ -1380,12 +1393,12 @@ export function undock() {
 export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 // (×1,5: por encima de lo máximo que paga la estación con talento, reputación y mercado propio, ×1,42)
 // (y con una ESCASEZ del mismo mineral en esta estación, también ×2: nunca se gana comprando y revendiendo aquí)
-export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5 * oreMul(save, sysId, ore));
+export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5 * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
-export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore));
+export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
 // lo que pagaría por n unidades (cada una algo menos)
-export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore));
+export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
 
 export function sellAll() {
   const g = gal(), sys = S()?.sysId ?? 0;
@@ -1683,6 +1696,9 @@ export function startCycle() {
   save.galaxyMarket = {};
   // los puestos no tienen sitio en la galaxia nueva: se devuelve todo lo invertido en ellos
   for (const o of Object.values(save.outposts || {})) {
+    // lo guardado en su almacén vuelve a tu bodega y a tus materiales
+    for (const [k, n] of Object.entries(o.store?.cargo || {})) g.cargo[k] = (g.cargo[k] || 0) + n;
+    for (const [k, n] of Object.entries(o.store?.mats || {})) addMat(save, k, n);
     g.credits += FOUND_COST;
     for (const [k, l] of Object.entries(o.mods || {})) for (let i = 0; i < l; i++) g.credits += OUTPOST_MODS[k]?.costs[i] || 0;
   }

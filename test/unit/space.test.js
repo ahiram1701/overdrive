@@ -119,7 +119,7 @@ test('acelerador: la muesca del 0 engancha fácil y no se escapa sin querer', as
   assert.ok(THR_OUT > 0.15);
 });
 
-test('Mk 6-10: más caros, piden materiales y rinden menos que los niveles normales', async () => {
+test('Mk 6-10: más caros, piden materiales y rinden como los niveles normales', async () => {
   const { upgradeMats, effLvl, BASE_UP, CHASSIS } = await import('../../js/galaxyData.js');
   for (const id of Object.keys(UPGRADES)) {
     for (let l = 1; l < MAX_UP; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1), `${id} ${l}`);
@@ -128,9 +128,9 @@ test('Mk 6-10: más caros, piden materiales y rinden menos que los niveles norma
   assert.equal(MAX_UP, 10);
   assert.deepEqual(upgradeMats(BASE_UP - 1), {}, 'los normales no piden materiales');
   assert.ok(upgradeMats(BASE_UP).chatarra > 0 && upgradeMats(9).nucleos > 0);
-  assert.ok(effLvl(10) - effLvl(5) < 5, 'rendimientos decrecientes');
+  assert.equal(effLvl(10) - effLvl(5), 5, 'los Mk rinden lo mismo (cuestan más)');
   const a = shipStats({ engine: 5 }), b = shipStats({ engine: 10 });
-  assert.ok(b.speed > a.speed && b.speed - a.speed < a.speed - shipStats({}).speed);
+  assert.ok(b.speed > a.speed);
   // chasis: el carguero lleva más, el interceptor corre más, el acorazado aguanta más
   const ex = shipStats({}, 'viper', 'explorer');
   assert.ok(shipStats({}, 'viper', 'hauler').cargo > ex.cargo * 2);

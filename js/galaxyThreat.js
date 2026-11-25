@@ -13,7 +13,7 @@ const dps = (st) => st.dmg / st.fireCd;
 // (láser doble ≈ otro cañón, metralla, plasma cada 3 tiros, torreta, misiles por nivel)
 export function gearDpsK(save, missileLvl = 0) {
   const k = (id, w) => (hasGear(save, id) ? w * gearBoost(save, id) : 0);
-  return 1 + k('laser2', 0.85) + k('flak', 0.6) + k('plasma', 0.55) + k('turret', 0.3) + missileLvl * 0.06;
+  return 1 + k('laser2', 0.85) + k('flak', 0.6) + k('plasma', 0.55) + k('turret', 0.3) + k('rail', 0.35) + k('burst', 0.4) + k('beam', 0.25) + k('ion', 0.15) + missileLvl * 0.06;
 }
 export function power(st, gearK = 1) {
   const off = (dps(st) * gearK) / dps(BASE);
@@ -23,9 +23,14 @@ export function power(st, gearK = 1) {
 // hasta un poco de mejora no cambia nada (el principio sigue igual); después sube, con tope
 export const THREAT_FREE = 1.3;
 export const THREAT_MAX = 4;
-export const threatOf = (pw) => Math.min(THREAT_MAX, 1 + Math.max(0, pw - THREAT_FREE) * 0.55);
+// (sigue a tu poder más DESPACIO que antes —exponente 0,7—: mejorar la nave se nota)
+export const THREAT_EXP = 0.7;
+export const threatOf = (pw) => Math.min(THREAT_MAX, 1 + Math.max(0, pw - THREAT_FREE) ** THREAT_EXP * 0.55);
 export const extraPirates = (t) => Math.min(4, Math.floor((t - 1) * 1.5));
-export const rewardMul = (t) => Math.sqrt(t);
+// y el premio crece igual que la amenaza (antes, con su raíz)
+export const rewardMul = (t) => t;
+// créditos base por abatir a un pirata (o a un jefe) en un sistema de peligro d
+export const killValue = (d, boss = false) => (boss ? 600 + d * 150 : 38 + d * 27);
 // marcas de amenaza para el HUD: ▲ (de 0 a 4)
 export const threatTier = (t) => Math.max(0, Math.min(4, Math.round((t - 1) / 0.75)));
 

@@ -3,6 +3,8 @@
 // (las 10 primeras a precio completo; luego −2% por unidad, hasta −60%), y se recupera con el tiempo.
 // Así no castiga las ventas pequeñas, sino vaciar la bodega siempre en el mismo sitio.
 
+import { makeRng, hashString } from './rng.js';
+
 export const SAT_FREE = 15; // unidades que una estación compra sin bajar el precio
 export const SAT_PER_UNIT = 0.02;
 export const SAT_MAX = 0.6;
@@ -73,3 +75,8 @@ export function takeItem(save, id) {
   inv(save)[id]--;
   return true;
 }
+
+// RUTAS COMERCIALES: cada estación paga cada mineral algo distinto, y cambia cada 6 saltos (×0,8 a ×1,3)
+export const DRIFT_EVERY = 6;
+export const priceDrift = (sys, ore, jumps = 0) => +makeRng(hashString(`drift-${sys}-${ore}-${Math.floor(jumps / DRIFT_EVERY)}`)).range(0.8, 1.3).toFixed(3);
+export const GOOD_PRICE = 1.15;
