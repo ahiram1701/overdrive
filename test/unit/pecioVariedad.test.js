@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { genFloor, newRun, updateRun, roomOf, nearestTarget, makeElite, gainPiezas, EVENTS, ENEMY, COLS, ROWS, MID_C, MID_R, dash } from '../../js/pecio.js';
+import { genFloor, bossOf, newRun, updateRun, roomOf, nearestTarget, makeElite, gainPiezas, EVENTS, ENEMY, COLS, ROWS, MID_C, MID_R, dash } from '../../js/pecio.js';
 
 const DT = 1 / 30;
 const run = (s, sec, input = { x: 0, y: 0 }) => { const ev = []; for (let t = 0; t < sec && !s.offer && !s.over && !s.choice; t += DT) ev.push(...updateRun(s, DT, input)); return ev; };
@@ -8,6 +8,7 @@ function bossRoom(depth, hp = 60) {
   const s = newRun(11, { hp });
   s.depth = depth;
   s.floor = genFloor(11, depth);
+  s.floor.boss = bossOf(depth); // (en partida salen al azar: aquí, el de siempre de esa planta)
   s.floor.event = null;
   s.rooms = {};
   s.at = Object.keys(s.floor.rooms).find((k) => s.floor.rooms[k].type === 'boss');

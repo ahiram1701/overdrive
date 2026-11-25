@@ -39,6 +39,10 @@ export const ENEMY = {
   summoner: { name: 'Invocador', hp: 6, dmg: 1, speed: 1.8, r: 0.34, color: '#bf5af2', piezas: 3, desc: 'huye y llama drones: a por él primero', from: 4 },
   charger: { name: 'Cargador', hp: 7, dmg: 2, speed: 1.5, r: 0.38, color: '#ff6a00', piezas: 2, desc: 'golpea el suelo y suelta una onda en anillo: sáltala con 💨', from: 3 },
   roller: { name: 'Mina rodante', hp: 3, dmg: 2, speed: 2.4, r: 0.28, color: '#ff2d55', piezas: 1, desc: 'rueda pegada a las paredes y estalla al tocarte', from: 2 },
+  splitter: { name: 'Divisor', hp: 6, dmg: 1, speed: 1.9, r: 0.36, color: '#ff6ad5', piezas: 2, desc: 'al caer se parte en dos drones pequeños', from: 2 },
+  healer: { name: 'Sanador', hp: 5, dmg: 1, speed: 1.7, r: 0.32, color: '#7dffb0', piezas: 3, desc: 'se queda atrás y cura a los demás: a por él primero', from: 3 },
+  jumper: { name: 'Saltador', hp: 5, dmg: 2, speed: 1.2, r: 0.32, color: '#bfe9ff', piezas: 2, desc: 'marca un círculo a tu lado y aparece ahí: sal del círculo', from: 4 },
+  miner: { name: 'Minador', hp: 6, dmg: 1, speed: 1.6, r: 0.36, color: '#ffd60a', piezas: 2, desc: 'va dejando minas por la sala: acaba con él antes de que la llene', from: 3 },
   node: { name: 'Nodo médico', hp: 7, dmg: 1, speed: 2.8, r: 0.27, color: '#7dffb0', piezas: 1, desc: 'gira alrededor de la reina del Enjambre y la cura' },
   boss: { name: 'Jefe', hp: 0, dmg: 2, speed: 1.1, r: 0.85, color: '#ff2d55', piezas: 0, desc: 'cada 3 plantas, en la sala de la salida', boss: true },
 };
@@ -61,7 +65,22 @@ export const bossOf = (depth) => {
   const i = (depth / 3 - 1) % BOSS_ORDER.length, lap = Math.floor((depth / 3 - 1) / BOSS_ORDER.length);
   return lap % 2 === 1 ? BOSS_ALT[i] : BOSS_ORDER[i];
 };
+// JEFES AL AZAR: cada partida baraja los 6 (con su semilla) y los saca en ese orden, sin repetir hasta agotarlos
+export const BOSS_POOL = [...BOSS_ORDER, ...BOSS_ALT];
+export function bossFor(seed, depth) {
+  const order = makeRng(hashString(`bosses-${seed}`)).shuffle([...BOSS_POOL]);
+  return order[(depth / 3 - 1) % order.length];
+}
 export const ENEMY_KEYS = Object.keys(ENEMY);
+// MALDICIONES de la escotilla peligrosa: la planta siguiente es peor… y paga más
+export const CURSES = {
+  fragile: { icon: '💔', name: 'FRÁGIL', desc: 'cada golpe te quita 1 ❤️ más' },
+  dark: { icon: '🌑', name: 'TINIEBLAS', desc: 'solo ves lo que tienes cerca' },
+  horde: { icon: '👥', name: 'HORDA', desc: '+2 enemigos en cada sala' },
+  drought: { icon: '🏜️', name: 'SEQUÍA', desc: 'limpiar una sala no te cura' },
+  elite: { icon: '👑', name: 'NOBLEZA', desc: 'el triple de élites' },
+};
+export const CURSE_REWARD = 1.5; // 🔩 de la planta maldita (y el botín de sus cofres, un escalón mejor)
 
 export const ROOM_TYPES = {
   start: { icon: '🏁', name: 'Entrada' },
@@ -76,13 +95,18 @@ export const ROOM_TYPES = {
   waves: { icon: '🌊', name: 'Oleadas' },
   challenge: { icon: '⏱️', name: 'Desafío' },
   maze: { icon: '🌀', name: 'Laberinto' },
+  elite: { icon: '👑', name: 'Sala de élite' },
 };
+// la PRESIÓN (racha por limpiar deprisa e inundación si te demoras) va en las salas de pelea normales
+const PRESSURE_ROOMS = new Set(['combat', 'exit', 'elite', 'maze']);
+export const FLOOD_AT = 32; // s con la sala cerrada antes de que llegue la oleada extra
 // salas que se cierran hasta limpiarlas
-const LOCKS = new Set(['combat', 'exit', 'boss', 'waves', 'challenge']);
+const LOCKS = new Set(['combat', 'exit', 'boss', 'waves', 'challenge', 'elite']);
 
 // Losas: . suelo · # pared · P pozo (si caes, daño y vuelves a la puerta; el ESQUIVE lo salta) · M mina
 // · E suelo eléctrico (a ratos) · D puerta · C cofre (con llave) · T terminal de la tienda · A altar · X escotilla
 // · K pared agrietada (una puerta oculta: se rompe con el esquive) · S interruptor (apaga el suelo eléctrico) · s apagado
+// · J pinchos (salen a ritmo: el borde avisa antes) · < > ^ v cinta que te arrastra · Y escotilla PELIGROSA (maldición y más botín)
 const BLOCK = new Set(['#', 'C', 'T', 'A', 'K']); // macizo para todos (y tapa la vista)
 const SIGHT = new Set(['#', 'C', 'T', 'A', 'D', 'K']);
 export const blocksSight = (t) => SIGHT.has(t);
@@ -129,6 +153,7 @@ export function genFloor(seed, depth) {
   if (depth >= 2 && rng.chance(0.5)) specials.push('waves');
   if (depth >= 3 && rng.chance(0.45)) specials.push('challenge');
   if (rng.chance(0.4)) specials.push('maze');
+  if (depth >= 3 && rng.chance(0.4)) specials.push('elite');
   // el tesoro, siempre; las demás especiales, en orden al azar (si no, las últimas de la lista casi nunca salían).
   // Siempre quedan al menos 2 salas de combate.
   const order = [specials[0], ...rng.shuffle(specials.slice(1))];
@@ -152,10 +177,37 @@ export function genFloor(seed, depth) {
     }
   }
   const event = depth >= 2 && rng.chance(0.35) ? rng.pick(Object.keys(EVENTS)) : null;
-  return { seed, depth, theme: themeOf(depth), rooms, start: '2,2', exit, event };
+  return { seed, depth, theme: themeOf(depth), rooms, start: '2,2', exit, event, boss: isBossFloor(depth) ? bossFor(seed, depth) : null, curse: null };
 }
 
 export const DOOR_TILE = { up: [MID_C, 0], down: [MID_C, ROWS - 1], left: [0, MID_R], right: [COLS - 1, MID_R] };
+
+// PLANTILLAS DE SALA: la forma de cada sala de pelea. Nunca tocan la cruz central (fila MID_R y columna
+// MID_C): así las cuatro puertas siempre se comunican. `from` = planta a partir de la que salen.
+const mirror4 = (set, cells, ch) => { for (const [c, r] of cells) for (const [x, y] of [[c, r], [COLS - 1 - c, r], [c, ROWS - 1 - r], [COLS - 1 - c, ROWS - 1 - r]]) set(x, y, ch); };
+export const LAYOUTS = [
+  { id: 'scatter', w: 3, make: (t, rng, { set, free }) => { for (let i = 0, n = rng.int(2, 5); i < n; i++) { const p = free(); if (p) set(p[0], p[1], rng.chance(0.6) ? '#' : 'P'); } } },
+  { id: 'open', w: 1, make: () => {} },
+  { id: 'pillars', w: 3, make: (t, rng, { set }) => mirror4(set, [[2, 2], [2, 4]], '#') },
+  { id: 'corners', w: 2, make: (t, rng, { set }) => mirror4(set, [[1, 1], [2, 1], [1, 2]], '#') },
+  { id: 'ring', w: 2, make: (t, rng, { set }) => mirror4(set, [[2, 3], [3, 3], [2, 4], [3, 2]], '#') },
+  { id: 'corridors', w: 2, make: (t, rng, { set }) => { for (const r of [2, ROWS - 3]) for (let c = 1; c < COLS - 1; c++) set(c, r, '#'); } },
+  { id: 'columns', w: 2, make: (t, rng, { set }) => { for (const c of [2, COLS - 3]) for (let r = 2; r < ROWS - 2; r++) set(c, r, '#'); } },
+  { id: 'islands', w: 2, make: (t, rng, { set }) => mirror4(set, [[1, 3], [2, 3], [3, 3], [3, 2], [3, 1]], 'P') },
+  { id: 'moat', w: 1, make: (t, rng, { set }) => mirror4(set, [[1, 2], [2, 2], [3, 2]], 'P') },
+  { id: 'checker', w: 2, make: (t, rng, { set }) => { for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) if ((c + r) % 3 === 0 && rng.chance(0.55)) set(c, r, rng.chance(0.7) ? '#' : 'P'); } },
+  { id: 'bunkers', w: 2, make: (t, rng, { set }) => mirror4(set, [[2, 2], [3, 2], [2, 3]], '#') },
+  { id: 'diagonal', w: 1, make: (t, rng, { set }) => { for (let i = 1; i < 4; i++) { set(i, i, '#'); set(COLS - 1 - i, ROWS - 1 - i, '#'); set(COLS - 1 - i, i, 'P'); set(i, ROWS - 1 - i, 'P'); } } },
+  { id: 'minefield', w: 2, from: 3, make: (t, rng, { set, free, depth }) => { for (let i = 0, n = 3 + Math.min(4, Math.floor(depth / 2)); i < n; i++) { const p = free(); if (p) set(p[0], p[1], 'M'); } } },
+  { id: 'electric', w: 2, from: 2, make: (t, rng, { set }) => { for (const r of [3, ROWS - 4]) for (let c = 1; c < COLS - 1; c++) set(c, r, 'E'); } },
+  { id: 'spikes', w: 3, from: 2, make: (t, rng, { set }) => { for (let r = 2; r < ROWS - 2; r += 2) for (let c = 1; c < COLS - 1; c++) if (rng.chance(0.55)) set(c, r, 'J'); } },
+  { id: 'conveyor', w: 2, from: 3, make: (t, rng, { set }) => { for (let c = 1; c < COLS - 1; c++) { set(c, 2, '>'); set(c, ROWS - 3, '<'); } for (let r = 3; r < ROWS - 3; r++) { set(1, r, '^'); set(COLS - 2, r, 'v'); } } },
+  { id: 'sweeper', w: 2, from: 4, sweep: true, make: (t, rng, { set }) => mirror4(set, [[1, 1]], '#') },
+  { id: 'gauntlet', w: 1, from: 5, make: (t, rng, { set }) => { mirror4(set, [[2, 2], [2, 4]], '#'); for (let c = 1; c < COLS - 1; c++) if (c % 2) set(c, 3, 'J'); } },
+];
+export function pickLayout(rng, depth) {
+  return rng.weighted(LAYOUTS.filter((L) => !L.from || depth >= L.from).map((L) => ({ k: L, w: L.w }))).k;
+}
 
 // Una sala: losas y enemigos. La cruz central (fila MID_R y columna MID_C) siempre queda libre: así
 // todas las puertas se comunican siempre, haya lo que haya en la sala.
@@ -177,8 +229,12 @@ export function genRoom(floor, id) {
   };
   const type = room.type;
   let mazeKey = null;
-  if (type === 'combat' || type === 'exit') {
-    for (let i = 0, n = rng.int(2, 5); i < n; i++) { const p = free(); if (p) t[p[1]][p[0]] = rng.chance(0.6) ? '#' : 'P'; }
+  let sweep = null, layoutId = null;
+  if (type === 'combat' || type === 'exit' || type === 'elite') {
+    const L = pickLayout(rng, depth);
+    L.make(t, rng, { set: (c, r, ch) => { if (c > 0 && r > 0 && c < COLS - 1 && r < ROWS - 1 && t[r][c] === '.' && !onCross(c, r)) t[r][c] = ch; }, free, depth });
+    if (L.sweep && type !== 'exit') sweep = { x: MID_C + 0.5, y: MID_R + 0.5, ang: rng.range(0, Math.PI * 2), len: 3.6, spd: (rng.chance(0.5) ? 1 : -1) * (0.9 + depth * 0.04) };
+    layoutId = L.id;
   }
   if (type === 'traps') {
     for (let i = 0, n = 5 + Math.min(4, depth); i < n; i++) { const p = free(); if (p) t[p[1]][p[0]] = 'M'; }
@@ -207,11 +263,16 @@ export function genRoom(floor, id) {
   if (type === 'treasure' || type === 'hidden') t[2][2] = 'C';
   if (type === 'shop') t[2][2] = 'T';
   if (type === 'shrine') t[2][COLS - 3] = 'A';
-  if (type === 'exit') t[MID_R][MID_C] = 'X';
+  if (type === 'exit') {
+    t[MID_R][MID_C] = 'X';
+    // la escotilla PELIGROSA, con su hueco libre alrededor (la plantilla no la puede encerrar)
+    for (const [dc, dr] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) t[MID_R + 2 + dr][MID_C + 2 + dc] = '.';
+    t[MID_R + 2][MID_C + 2] = 'Y';
+  }
   // enemigos (lejos de las puertas: al entrar nunca te tocan de golpe)
   const enemies = [];
   if (type === 'boss') {
-    const kind = bossOf(depth), B = BOSSES[kind], loop = Math.floor((depth - 1) / 9);
+    const kind = floor.boss || bossOf(depth), B = BOSSES[kind], loop = Math.floor((depth - 1) / 9);
     const hp = Math.round(B.hp * (1 + 0.45 * loop + 0.08 * (depth - 3)));
     const pos = kind === 'core' ? { x: MID_C + 0.5, y: MID_R - 0.5 } : kind === 'fusion' ? { x: 2.5, y: 3.5 } : { x: MID_C + 0.5, y: 3 };
     const foes = [{ id: `${id}-boss`, kind: 'boss', boss: kind, x: pos.x, y: pos.y, ang: Math.PI, hp, max: hp, r: B.r, cd: 2, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dashT: 0, phase: 1 }];
@@ -220,8 +281,11 @@ export function genRoom(floor, id) {
     return { id, type, tiles: t, enemies: foes, cleared: false, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic: false, freeChest: false, pickups: [], powerOff: false, ambush: false, stock: null, marks: [], markT: 0 };
   }
   const nE = type === 'combat' ? Math.min(6, 2 + Math.floor(depth / 2) + rng.int(0, 1)) : type === 'exit' ? Math.min(5, 2 + Math.floor(depth / 3))
-    : type === 'waves' ? 3 : type === 'challenge' ? Math.min(6, 3 + Math.floor(depth / 3)) : type === 'maze' ? 2 + Math.floor(depth / 4) : 0;
-  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE + (floor.event === 'invasion' && nE ? 2 : 0), id, null));
+    : type === 'waves' ? 3 : type === 'challenge' ? Math.min(6, 3 + Math.floor(depth / 3)) : type === 'maze' ? 2 + Math.floor(depth / 4) : type === 'elite' ? 3 + Math.floor(depth / 4) : 0;
+  const more = nE ? (floor.event === 'invasion' ? 2 : 0) + (floor.curse === 'horde' ? 2 : 0) : 0;
+  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE + more, id, null, floor.curse === 'elite' ? 3 : 1));
+  // SALA DE ÉLITE: todos con dos rasgos (y su premio al limpiarla)
+  if (type === 'elite') for (const e of enemies) { const [a, b] = rng.shuffle(Object.keys(ELITE)); if (!e.elite) makeElite(e, a); makeElite(e, e.elite === b ? a : b); }
   const extra = {};
   if (type === 'waves') extra.waves = [3 + Math.floor(depth / 3), 4 + Math.floor(depth / 3)]; // las dos oleadas que faltan
   if (type === 'challenge') extra.timer = 15 + depth;
@@ -232,7 +296,7 @@ export function genRoom(floor, id) {
   const pickups = type === 'hidden' ? [{ id: `${id}-p0`, kind: 'cons', cons: rng.pick(CONS_KEYS), x: COLS - 2.5, y: ROWS - 3.5 }] : [];
   // laberinto: la llave, en un rincón del fondo (se deja libre su casilla)
   if (extra.keyAt) { const [kc, kr] = extra.keyAt; pickups.push({ id: `${id}-key`, kind: 'key', x: kc + 0.5, y: kr + 0.5 }); }
-  return { id, type, tiles: t, enemies, cleared: !enemies.length, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic, freeChest: type === 'hidden', pickups, powerOff: false, ambush: false, stock: null, ...extra };
+  return { id, type, tiles: t, enemies, cleared: !enemies.length, opened: false, used: false, wake: 0, flow: null, flowT: 0, mimic, freeChest: type === 'hidden', pickups, powerOff: false, ambush: false, stock: null, sweep, layout: layoutId, t: 0, ...extra };
 }
 
 export const ELITE = {
@@ -242,14 +306,18 @@ export const ELITE = {
   explosive: { icon: '💥', name: 'Explosivo' },
 };
 export function makeElite(e, trait) {
-  e.elite = trait;
-  e.speedMul = trait === 'fast' ? 1.5 : 1;
+  const first = !e.elite;
+  if (first) e.elite = trait;
+  e.traits = [...(e.traits || []), trait];
+  if (trait === 'fast') e.speedMul = 1.5;
+  else e.speedMul ||= 1;
   if (trait === 'armored') { e.hp *= 2; e.max *= 2; }
-  e.r *= 1.12;
+  if (first) e.r *= 1.12;
 }
+export const hasTrait = (e, t) => e.elite === t || !!e.traits?.includes(t);
 
 // N enemigos en casillas libres, lejos de las puertas (y de `avoid`, p. ej. el jugador). Los nuevos solo a partir de su planta.
-function placeFoes(rng, t, theme, depth, n, id, avoid) {
+function placeFoes(rng, t, theme, depth, n, id, avoid, eliteMul = 1) {
   const out = [];
   const mix = Object.entries(theme.mix).map(([k, w]) => ({ k, w }));
   for (const [k, E] of Object.entries(ENEMY)) if (E.from && depth >= E.from) mix.push({ k, w: 1 + Math.min(2, (depth - E.from) * 0.3) });
@@ -266,7 +334,7 @@ function placeFoes(rng, t, theme, depth, n, id, avoid) {
     const hp = E.hp + Math.floor((depth - 1) * 1.45); // más vida cuanto más hondo (tu equipo también crece)
     const e = { id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) };
     // ÉLITE: nombre dorado y un rasgo (más botín)
-    if (depth >= 2 && rng.chance(Math.min(0.22, 0.04 + depth * 0.02))) makeElite(e, rng.pick(Object.keys(ELITE)));
+    if (depth >= 2 && rng.chance(Math.min(0.22, 0.04 + depth * 0.02) * eliteMul)) makeElite(e, rng.pick(Object.keys(ELITE)));
     out.push(e);
   }
   return out;
@@ -301,6 +369,10 @@ export const locked = (room) => (LOCKS.has(room.type) || room.ambush) && room.en
 // 🔩 que te llevas si caes: más cuanto más hondo llegaste (si sales, todas)
 export const keptPiezas = (s) => (s.won || s.endless ? s.player.piezas : Math.floor(s.player.piezas * Math.min(1, 0.5 + 0.1 * (s.depth - 1))));
 export const energyOn = (s, room = null) => !room?.powerOff && s.time % 4 < 2.4; // el suelo eléctrico se enciende a ratos (si nadie lo ha apagado)
+// PINCHOS: salen 0,9 s de cada 2,4 (las casillas alternas, desfasadas: siempre hay paso)
+export const spikesPhase = (s, c, r) => (s.time + ((c + r) % 2) * 1.2) % 2.4;
+export const spikesOn = (s, c, r) => spikesPhase(s, c, r) < 0.9;
+export const CONVEYOR = { '>': { dx: 1, dy: 0 }, '<': { dx: -1, dy: 0 }, '^': { dx: 0, dy: -1 }, v: { dx: 0, dy: 1 } };
 // puertas de una sala que se pueden usar (la de la sala oculta no existe hasta que rompes la pared)
 export const openDoors = (s, id) => {
   const r = s.floor.rooms[id], out = {};
@@ -318,7 +390,7 @@ export function gainKey(s, ev = []) {
 // 🔩 que ganas (con el Imán y el Escáner, algo más)
 export function gainPiezas(s, n) {
   const m = s.player.mods || {};
-  const ev = s.floor?.event, mul = ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1;
+  const ev = s.floor?.event, mul = (ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1) * (s.floor?.curse ? CURSE_REWARD : 1);
   const g = Math.max(1, Math.round(n * mul * (1 + ((m.magnet || 0) + (m.scanner || 0) + (m.greed || 0) + (m.setPiezas || 0)) / 100)));
   s.player.piezas += g;
   s.found += g;
@@ -431,6 +503,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (s.over || s.offer || s.choice) return []; // con un objeto en la mano (o eligiendo en la planta 9), la partida espera
   const ev = [], p = s.player, room = roomOf(s);
   s.time += dt;
+  s.dt = dt;
   room.wake = Math.max(0, room.wake - dt);
   for (const k of ['inv', 'abCd', 'dashCd', 'boost']) p[k] = Math.max(0, p[k] - dt);
   // MOVIMIENTO: el joystick hacia arriba avanza, a los lados gira (hacia atrás, marcha atrás lenta)
@@ -484,6 +557,23 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     }
   }
   if (s.decoy) { s.decoy.t -= dt; if (s.decoy.t <= 0) s.decoy = null; }
+  // LÁSER QUE BARRE: gira alrededor del centro de la sala; esquívalo o sáltalo con 💨
+  if (room.sweep && !room.cleared) {
+    const w = room.sweep;
+    w.ang += w.spd * dt;
+    const f = fwd(w.ang), end = { x: w.x + f.x * w.len, y: w.y + f.y * w.len };
+    if (p.dashT <= 0 && segDist(p, w, end) < p.r + 0.12) hurt(s, 1, ev, 'láser');
+  }
+  // PRESIÓN: el reloj de la sala corre mientras está cerrada
+  if (locked(room) && room.wake <= 0 && PRESSURE_ROOMS.has(room.type)) {
+    room.t = (room.t || 0) + dt;
+    if (room.t > FLOOD_AT && !room.flooded) {
+      room.flooded = true;
+      room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, 2, `${room.id}-flood`, p));
+      room.flow = null;
+      ev.push({ type: 'flood' });
+    }
+  }
   // REGENERATIVO: con la sala cerrada, te repara poco a poco
   if (p.regen && locked(room) && p.hp < p.max) {
     p.regenT = (p.regenT || 0) + dt;
@@ -507,10 +597,21 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (!room.cleared && !room.enemies.some((e) => e.alive)) {
     if (room.type === 'waves') { room.pickups.push({ id: `${room.id}-rw`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'waves' }); }
     if (room.type === 'challenge' && room.timer > 0) { room.pickups.push({ id: `${room.id}-rc`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'challenge' }); }
+    if (room.type === 'elite') { room.pickups.push({ id: `${room.id}-re`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'elite' }); }
     room.cleared = true;
     s.roomsCleared++;
-    p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
+    if (s.floor.curse !== 'drought') p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
     ev.push({ type: 'cleared' });
+    // RACHA: limpiar deprisa suma; demorarse la corta
+    if (PRESSURE_ROOMS.has(room.type) && room.t > 0) {
+      const par = 6 + 2.2 * room.enemies.length;
+      if (room.t <= par && !room.flooded) {
+        s.streak = (s.streak || 0) + 1;
+        const bonus = gainPiezas(s, 2 * s.streak);
+        s.bestStreak = Math.max(s.bestStreak || 0, s.streak);
+        ev.push({ type: 'fast', streak: s.streak, piezas: bonus });
+      } else if (s.streak) { s.streak = 0; ev.push({ type: 'streakLost' }); }
+    }
     if (s.rng.chance(0.4 + (p.mods?.keyring || 0) / 100)) gainKey(s, ev);
   }
   return ev;
@@ -541,6 +642,8 @@ function floorEffects(s, room, ev) {
     ev.push({ type: 'boom', x: c + 0.5, y: r + 0.5, r: 0.6 });
     hurt(s, 2, ev, 'mina');
   } else if (t === 'E' && energyOn(s, room) && p.dashT <= 0) hurt(s, 1, ev, 'electricidad');
+  else if (t === 'J' && spikesOn(s, c, r) && p.dashT <= 0) hurt(s, 1, ev, 'pinchos');
+  else if (CONVEYOR[t] && p.dashT <= 0) { const d = CONVEYOR[t]; moveCircle(room, p, d.dx * 1.9 * (s.dt || 0), d.dy * 1.9 * (s.dt || 0)); }
   else if (t === 'S' && Math.hypot(p.x - c - 0.5, p.y - r - 0.5) < 0.5) { room.tiles[r][c] = 's'; room.powerOff = true; ev.push({ type: 'switch' }); }
 }
 
@@ -557,7 +660,7 @@ function interact(s, room, ev) {
   // puerta abierta: la cruzas en cuanto tocas el hueco (no hace falta meter el centro de la nave en la losa)
   const through = doorTouch(room, p);
   if (through) { enterRoom(s, through, ev); return true; }
-  if (tileAt(room, c0, r0) === 'X' && Math.hypot(p.x - c0 - 0.5, p.y - r0 - 0.5) < 0.45 && !locked(room)) { descend(s, ev); return true; }
+  if ((tileAt(room, c0, r0) === 'X' || tileAt(room, c0, r0) === 'Y') && Math.hypot(p.x - c0 - 0.5, p.y - r0 - 0.5) < 0.45 && !locked(room)) { descend(s, ev, tileAt(room, c0, r0) === 'Y'); return true; }
   // RECOGIDAS: objetos (eliges si te lo pones) y consumibles (a la mochila)
   for (const pk of room.pickups) {
     const d = Math.hypot(p.x - pk.x, p.y - pk.y);
@@ -604,7 +707,7 @@ function interact(s, room, ev) {
           p.hp = Math.min(p.max, p.hp + 1);
           ev.push({ type: 'chest', piezas: gain });
           // y un objeto (los cofres dan mejor botín)
-          const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) });
+          const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) + (s.floor.curse ? 1 : 0) });
           s.offer = { item, alts, pk: null };
           ev.push({ type: 'offer' });
           return true;
@@ -673,7 +776,8 @@ function updateShots(s, room, dt, ev) {
       if (e.kind === 'shield' && (b.vx * f.x + b.vy * f.y) / sp < -0.35) { ev.push({ type: 'blocked', id: e.id, x: b.x, y: b.y }); b.life = 0; }
       else {
         const p = s.player;
-        hitEnemy(s, room, e, b.dmg, ev);
+        const crit = s.rng.chance(p.crit ?? 0.08); // CRÍTICO: el doble (y se ve en amarillo)
+        hitEnemy(s, room, e, crit ? b.dmg * 2 : b.dmg, ev, crit);
         if (p.burn && e.alive) e.burnT = 3; // QUEMA (Reactor, afijo ígneo o sinergia 🔥)
         if (p.stunChance && e.alive && s.rng.chance(p.stunChance)) { e.stun = Math.max(e.stun, e.kind === 'boss' ? 0.25 : 0.6); ev.push({ type: 'frost', x: e.x, y: e.y }); }
         if (p.vamp && p.hp < p.max && s.rng.chance(p.vamp)) { p.hp++; ev.push({ type: 'leech' }); }
@@ -709,7 +813,7 @@ function updateShots(s, room, dt, ev) {
   s.shots = s.shots.filter((b) => b.life > 0);
 }
 
-function hitEnemy(s, room, e, dmg, ev) {
+function hitEnemy(s, room, e, dmg, ev, crit = false) {
   if (!e.alive) return;
   if (e.kind === 'boss' && e.boss === 'guardian' && e.stun > 0) dmg *= 2; // estrellado contra la pared: vulnerable
   if (e.hidden) return;
@@ -720,7 +824,7 @@ function hitEnemy(s, room, e, dmg, ev) {
     const p = s.player, d = Math.hypot(e.x - p.x, e.y - p.y) || 1;
     moveCircle(room, e, ((e.x - p.x) / d) * 0.1, ((e.y - p.y) / d) * 0.1, 'enemy');
   }
-  ev.push({ type: 'hit', id: e.id, dmg, x: e.x, y: e.y });
+  ev.push({ type: 'hit', id: e.id, dmg, x: e.x, y: e.y, crit });
   if (e.hp > 0) return;
   e.alive = false;
   if (e.boss === 'fusion') {
@@ -740,6 +844,7 @@ function hitEnemy(s, room, e, dmg, ev) {
     // JEFE VENCIDO: botín épico o mejor, sus 🔩, y la escotilla para bajar (los nodos caen con su reina)
     for (const o of room.enemies) if (o.kind === 'node') o.alive = false;
     room.tiles[MID_R][MID_C] = 'X';
+    if (room.tiles[MID_R + 2][MID_C + 2] === '.') room.tiles[MID_R + 2][MID_C + 2] = 'Y';
     s.bosses++;
     gainPiezas(s, BOSSES[e.boss].piezas);
     const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: 2, minTier: 2 });
@@ -750,11 +855,18 @@ function hitEnemy(s, room, e, dmg, ev) {
   else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: s.luck >= 2 ? 1 : 0 }) });
   else if (s.rng.chance(0.07)) drop({ kind: 'cons', cons: s.rng.pick(CONS_KEYS) });
   if (e.elite) gainPiezas(s, ENEMY[e.kind].piezas + 2);
-  if (e.elite === 'explosive') { // al morir, estalla alrededor
+  if (hasTrait(e, 'explosive')) { // al morir, estalla alrededor
     ev.push({ type: 'boom', x: e.x, y: e.y, r: 1.6 });
     if (d2(e, s.player) < 1.6) hurt(s, 2, ev, 'élite explosivo');
   }
   if (e.kind === 'bomb' && e.fuse !== null) explode(s, room, e, ev);
+  if (e.kind === 'splitter' && !e.small) {
+    for (const k of [-1, 1]) {
+      const hp = 2 + Math.floor(s.depth / 2);
+      room.enemies.push({ id: `${e.id}-s${k}`, kind: 'drone', small: true, x: e.x + k * 0.3, y: e.y, ang: e.ang, hp, max: hp, r: 0.24, cd: 0.6, charge: 0, aim: null, fuse: null, stun: 0.3, hitT: 0, alive: true });
+    }
+    ev.push({ type: 'spawn', x: e.x, y: e.y });
+  }
 }
 
 // donde se puede dejar algo en el suelo: si cae en un pozo, una mina o suelo eléctrico, a la casilla segura más cercana
@@ -789,6 +901,7 @@ function hurt(s, dmg, ev, src, force = false) {
     if (p.wardenStun) for (const e of room.enemies) if (e.alive && d2(e, p) < 2.2) e.stun = Math.max(e.stun, 1);
     return;
   }
+  if (s.floor?.curse === 'fragile') dmg += 1;
   p.hp -= dmg;
   p.inv = 0.9;
   ev.push({ type: 'hurt', dmg, src });
@@ -858,7 +971,7 @@ function updateEnemies(s, room, dt, ev) {
   if (!room.flow || room.flowT <= 0) { room.flow = flowField(room, p); room.flowT = 0.3; }
   for (const e of room.enemies) {
     e.px = e.x; e.py = e.y;
-    if (e.alive && e.elite === 'regen') e.hp = Math.min(e.max, e.hp + 0.6 * dt);
+    if (e.alive && hasTrait(e, 'regen')) e.hp = Math.min(e.max, e.hp + 0.6 * dt);
     if (e.orbT > 0) e.orbT -= dt;
     if (e.alive && e.burnT > 0) {
       e.burnT -= dt;
@@ -878,9 +991,9 @@ function updateEnemies(s, room, dt, ev) {
     e.cd -= dt;
     const E = ENEMY[e.kind], dist = d2(e, p);
     if (e.kind === 'boss') { updateBoss(s, room, e, dt, ev); continue; }
-    if (e.kind === 'sniper' || e.kind === 'summoner' || e.kind === 'charger' || e.kind === 'roller') { updateNewFoe(s, room, e, dt, ev, dist); continue; }
+    if (['sniper', 'summoner', 'charger', 'roller', 'healer', 'jumper', 'miner'].includes(e.kind)) { updateNewFoe(s, room, e, dt, ev, dist); continue; }
     if (e.kind === 'node') { updateNode(s, room, e, dt, ev); continue; }
-    if (e.kind === 'drone' || e.kind === 'shield' || e.kind === 'mimic') {
+    if (e.kind === 'drone' || e.kind === 'shield' || e.kind === 'mimic' || e.kind === 'splitter') {
       const want = s.decoy ? angTo(e, s.decoy) : chaseDir(room, e, p); // SEÑUELO: lo persiguen a él
       // el escudo gira despacio: por eso se le puede rodear
       e.ang += Math.max(-1, Math.min(1, angDiff(want, e.ang) / 0.2)) * (e.kind === 'shield' ? 1.3 : 6) * dt;
@@ -1170,6 +1283,51 @@ function updateNewFoe(s, room, e, dt, ev, dist) {
     e.ang = want;
     if (dist > 2.2) moveCircle(room, e, f.x * E.speed * (e.speedMul || 1) * dt, f.y * E.speed * (e.speedMul || 1) * dt, 'enemy');
     else if (e.cd <= 0) { e.charge = 0.75; ev.push({ type: 'aim', id: e.id }); }
+  } else if (e.kind === 'healer') {
+    // SANADOR: se queda atrás y, cada poco, cura a los que tenga cerca (un rayo verde lo delata)
+    keepRange(room, e, p, dt, 3.5, 6.5, E.speed * (e.speedMul || 1));
+    e.ang = angTo(e, p);
+    if (e.cd <= 0) {
+      e.cd = 2.2;
+      for (const o of room.enemies) {
+        if (!o.alive || o === e || o.kind === 'boss' || o.hp >= o.max || d2(o, e) > 3.2) continue;
+        o.hp = Math.min(o.max, o.hp + 2 + Math.floor(s.depth / 3));
+        ev.push({ type: 'heal', from: { x: e.x, y: e.y }, to: { x: o.x, y: o.y } });
+      }
+    }
+  } else if (e.kind === 'jumper') {
+    // SALTADOR: marca un círculo junto a ti (aviso) y aparece ahí; si sigues dentro, te golpea
+    if (e.jump) {
+      e.jump.t -= dt;
+      if (e.jump.t <= 0) {
+        e.x = e.jump.x; e.y = e.jump.y;
+        ev.push({ type: 'boom', x: e.x, y: e.y, r: 0.9, mine: true });
+        if (d2(p, e) < 0.9 + p.r) hurt(s, E.dmg, ev, 'saltador');
+        e.jump = null;
+        e.cd = 2.6;
+        e.stun = 0.5; // al llegar queda un instante quieto
+      }
+      return;
+    }
+    keepRange(room, e, p, dt, 3, 6, E.speed * (e.speedMul || 1));
+    e.ang = angTo(e, p);
+    if (e.cd <= 0 && dist < 8) {
+      const a = s.rng.next() * Math.PI * 2, jx = p.x + Math.cos(a) * 0.6, jy = p.y + Math.sin(a) * 0.6;
+      if (!hitsWall(room, jx, jy, e.r, 'enemy')) { e.jump = { x: jx, y: jy, t: 0.75 }; ev.push({ type: 'aim', id: e.id }); } else e.cd = 0.5;
+    }
+  } else if (e.kind === 'miner') {
+    // MINADOR: deambula a media distancia y deja minas (como mucho 6 por sala)
+    keepRange(room, e, p, dt, 3, 7, E.speed * (e.speedMul || 1));
+    if (d2(e, p) >= 3 && d2(e, p) <= 7) { const f = fwd((e.wander = (e.wander ?? e.ang) + dt * 0.9)); moveCircle(room, e, f.x * E.speed * 0.6 * dt, f.y * E.speed * 0.6 * dt, 'enemy'); }
+    e.ang = angTo(e, p);
+    const c = Math.floor(e.x), r = Math.floor(e.y);
+    if (e.cd <= 0 && room.tiles[r]?.[c] === '.' && c !== MID_C && r !== MID_R && (room.mines || 0) < 6 && d2(p, { x: c + 0.5, y: r + 0.5 }) > 1.2) {
+      room.tiles[r][c] = 'M';
+      room.mines = (room.mines || 0) + 1;
+      room.flowT = 0; // el camino se recalcula al siguiente paso (no a mitad de este)
+      e.cd = 2.8;
+      ev.push({ type: 'mineDrop', x: c + 0.5, y: r + 0.5 });
+    }
   } else if (e.kind === 'roller') {
     // MINA RODANTE: rueda en línea recta y, al chocar, gira a la derecha (sigue las paredes); estalla al tocarte
     const dirs = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
@@ -1345,12 +1503,18 @@ function enterRoom(s, dir, ev) {
   if (locked(room)) ev.push({ type: 'shut' });
 }
 
-function descend(s, ev) {
+function descend(s, ev, risky = false) {
   // al bajar de la planta 9 (la primera vez): ¿SALIR con todo o SEGUIR en el modo sin fin?
   if (s.depth === LAST_FLOOR && !s.endless) { s.choice = 'exit'; ev.push({ type: 'exitChoice' }); return; }
   s.depth++;
   gainPiezas(s, 3 + s.depth);
   s.floor = genFloor(s.seed, s.depth);
+  // ESCOTILLA PELIGROSA: la planta nueva trae una maldición (y paga más)
+  if (risky) {
+    s.floor.curse = s.rng.pick(Object.keys(CURSES));
+    if (s.floor.curse === 'dark') s.floor.event = 'blackout';
+    s.cursed = (s.cursed || 0) + 1;
+  }
   s.rooms = {};
   s.at = s.floor.start;
   s.visited = [s.at];
@@ -1360,7 +1524,7 @@ function descend(s, ev) {
   s.shots = [];
   s.player.hp = Math.min(s.player.max, s.player.hp + 1);
   if (s.player.mods?.setKeys) gainKey(s, ev);
-  ev.push({ type: 'floor', depth: s.depth, theme: s.floor.theme.name });
+  ev.push({ type: 'floor', depth: s.depth, theme: s.floor.theme.name, curse: s.floor.curse });
 }
 
 // ---------- Botín: ponerte un objeto o dejarlo ----------
@@ -1476,7 +1640,7 @@ export function botInput(s) {
   const p = s.player, room = roomOf(s), shut = locked(room);
   // fuera de una sala cerrada, lo que no ves ni puedes alcanzar no te importa (p. ej. tras un muro del laberinto)
   const foes = room.enemies.filter((e) => e.alive && !e.hidden && (shut || canSee(room, p, e) || pathNext(room, p, [[Math.floor(e.x), Math.floor(e.y)]], () => false)));
-  const avoid = (c, r) => ['M', 'P'].includes(tileAt(room, c, r)) || tileAt(room, c, r) === 'E';
+  const avoid = (c, r) => ['M', 'P', 'E', 'J'].includes(tileAt(room, c, r));
   const threat = (x, y) => foes.some((e) => (e.kind === 'bomb' && (e.fuse !== null || d2(e, { x, y }) < 1.6) && d2(e, { x, y }) < 2.1)
     || (e.kind === 'charger' && (e.charge > 0 || e.wave) && d2(e, { x, y }) < 3.7)
     || (e.kind === 'roller' && d2(e, { x, y }) < 1.4)

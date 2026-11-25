@@ -6,7 +6,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
+import { CURSES, FLOOD_AT, selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
 import { addXp, prestigeBonus } from './progress.js';
 import { TAGS, CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
@@ -154,10 +154,14 @@ function handle(s, ev) {
   for (const e of ev) {
     switch (e.type) {
       case 'fire': sfx.pew(e.weapon); break;
-      case 'hit': sfx.brk(); s.flashes.push({ kind: 'spark', x: e.x, y: e.y, t: 0.2, max: 0.2, a: Math.random() * 6.3 }); break;
+      case 'hit': sfx.brk(); s.flashes.push({ kind: 'spark', x: e.x, y: e.y, t: 0.2, max: 0.2, a: Math.random() * 6.3 });
+        s.flashes.push({ kind: 'num', x: e.x, y: e.y, text: `${Math.round(e.dmg)}${e.crit ? '!' : ''}`, color: e.crit ? '#ffe600' : '#ffffff', crit: e.crit, dx: (Math.random() - 0.5) * 18, t: 0.7, max: 0.7 });
+        if (e.crit && !(s.hitstop > 0)) s.hitstop = 0.03;
+        break;
       case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158', 2.6); } sfx.bump(); break;
       case 'kill': sfx.thud(e.big); if (e.big) { s.hitstop = 0.09; fx.shake(10); fx.vibe(40); } else fx.shake(3);
-        sfx.coin(4); fx.notice(`+${e.piezas} 🔩`, '#c8d6e5'); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 }); break;
+        sfx.coin(4); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 });
+        s.flashes.push({ kind: 'num', x: e.x, y: e.y - 0.2, text: `+${e.piezas} 🔩`, color: '#c8d6e5', t: 1, max: 1 }); break; // las 🔩, junto a la baja (antes, un aviso por cada una)
       case 'hurt': fx.flash('#f33', 0.3); fx.shake(8); fx.vibe(50); sfx.shield(); break;
       case 'absorb': fx.notice('🫧 ¡Absorbido!', '#7df9ff'); break;
       case 'dead': sfx.die(); fx.shake(25); break;
@@ -172,7 +176,7 @@ function handle(s, ev) {
         s.fade = 0.25;
         s.camSnap = true;
         const R = ROOM_TYPES[e.roomType];
-        if (e.roomType === 'boss') { const B = BOSSES[bossOf(s.depth)]; fx.banner(`💀 ${B.name}`, B.tip, B.color, true, 3); sfx.roar(); fx.shake(12); } else if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
+        if (e.roomType === 'boss') { const B = BOSSES[s.floor.boss || bossOf(s.depth)]; fx.banner(`💀 ${B.name}`, B.tip, B.color, true, 3); sfx.roar(); fx.shake(12); } else if (e.roomType !== 'combat') fx.notice(`${R.icon} ${R.name}`, '#fff');
         break;
       }
       case 'floor': {
@@ -180,6 +184,7 @@ function handle(s, ev) {
         const evn = EVENTS[s.floor.event];
         fx.banner(`🏚️ ${e.theme}`, evn ? `planta ${e.depth} · ${evn.icon} ${evn.name}` : `planta ${e.depth}`, s.floor.theme.wall, true, 2.4);
         if (evn) fx.notice(`${evn.icon} ${evn.name}: ${evn.desc}`, '#ffe600', 4);
+        if (e.curse) { const C = CURSES[e.curse]; fx.notice(`☠️ MALDICIÓN · ${C.icon} ${C.name}: ${C.desc} · ×1,5 🔩 y mejor botín`, '#ff2d55', 5); }
         sfx.milestone(); progress('pecioFloor', e.depth);
         break;
       }
@@ -201,7 +206,7 @@ function handle(s, ev) {
       case 'spawn': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.9, t: 0.3, max: 0.3 }); break;
       case 'shockwave': sfx.boom(); fx.shake(8); break;
       case 'wave': fx.banner(`🌊 OLEADA ${3 - e.left}/3`, e.left ? 'aguanta' : '¡la última!', '#7df9ff', false, 1.4); sfx.alarm?.(); break;
-      case 'reward': fx.banner('🎁 ¡PREMIO!', e.what === 'challenge' ? 'desafío superado a tiempo' : 'las 3 oleadas, superadas', '#ffcc00', false, 1.8); sfx.chest(); break;
+      case 'reward': fx.banner('🎁 ¡PREMIO!', e.what === 'challenge' ? 'desafío superado a tiempo' : e.what === 'elite' ? 'la sala de élite, limpia' : 'las 3 oleadas, superadas', '#ffcc00', false, 1.8); sfx.chest(); break;
       case 'challengeFail': fx.notice('⏱️ Se acabó el tiempo: sin premio', '#ff2d55', 2.6); break;
       case 'exitChoice': G.mode = 'pecioShop'; ui.showPecioExit(s); sfx.milestone(); break;
       case 'cleared9': progress('pecioWin'); break;
@@ -213,6 +218,11 @@ function handle(s, ev) {
       case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
       case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
       case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
+      case 'heal': s.flashes.push({ kind: 'heal', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
+      case 'mineDrop': sfx.bump(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.35, t: 0.25, max: 0.25 }); break;
+      case 'flood': fx.banner('🌊 ¡EL PECIO SE INUNDA!', `llevas más de ${FLOOD_AT} s: llegan refuerzos`, '#7df9ff', true, 2.2); sfx.alarm?.(); fx.shake(8); break;
+      case 'fast': fx.notice(`⚡ ¡RÁPIDO! Racha ×${e.streak} · +${e.piezas} 🔩`, '#ffe600', 2.4); sfx.coin(6); progress('pecioStreak', e.streak); break;
+      case 'streakLost': fx.notice('Racha perdida: limpia más deprisa', '#c8d6e5', 2); break;
       case 'regen': fx.notice('💚 +1 ❤️', '#30d158'); break;
       case 'frost': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.4, t: 0.25, max: 0.25 }); break;
       case 'phoenix': fx.banner('🪶 ¡FÉNIX!', 'vuelves con 3 ❤️ (solo una vez)', '#ff9f0a', true, 2.2); fx.flash('#ff9f0a', 0.4); sfx.milestone(); break;

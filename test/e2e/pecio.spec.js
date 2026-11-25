@@ -371,3 +371,26 @@ test('pecios builds: el cofre ofrece ELIGE 1 DE 3, se cambia de opción y se ve 
   await expect(page.locator('#pBuild')).toContainText('Danza 3/3');
   expect(errors).toEqual([]);
 });
+
+test('pecios riesgo: la escotilla ☠️ maldice la planta siguiente, y el hub explica jefes al azar y presión', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startPecio(page);
+  await page.evaluate(() => {
+    window.G.manual = true;
+    const s = window.G.pecio, room = s.rooms[s.at];
+    room.tiles[7][6] = 'Y';
+    room.cleared = true;
+    room.enemies = [];
+    Object.assign(s.player, { x: 6.5, y: 7.5 });
+    window.D.step(0.05);
+  });
+  const st = await page.evaluate(() => ({ depth: window.G.pecio.depth, curse: window.G.pecio.floor.curse }));
+  expect(st.depth).toBe(2);
+  expect(st.curse).toBeTruthy();
+  await page.locator('#pcPause').click();
+  await page.locator('#btnQuit').click().catch(() => {});
+  await page.evaluate(async () => { const { ui } = await import('/js/ui.js'); ui.showPecioHub?.(); });
+  await expect(page.locator('#pecioHub')).toContainText('al azar');
+  await expect(page.locator('#pecioHub')).toContainText('PELIGROSA');
+  expect(errors).toEqual([]);
+});
