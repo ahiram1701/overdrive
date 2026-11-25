@@ -41,7 +41,7 @@ test('anomalía: la reliquia antigua da una pieza de equipo y el Atlas cuenta su
 
 test('ciclo+: cerrado sin el final; con él, una galaxia nueva más dura que conserva lo tuyo', async ({ page }) => {
   const errors = trackErrors(page);
-  await boot(page, { galaxy: { started: true, credits: 5000, hulls: ['explorer', 'warship'], visited: [0, 1, 2], sys: 2 }, territory: { 5: 'coal' } });
+  await boot(page, { galaxy: { started: true, credits: 5000, hulls: ['explorer', 'warship'], visited: [0, 1, 2], sys: 2 }, territory: { 5: 'coal' }, galaxyBoss: { 7: true }, outposts: { 5: { name: 'P', mods: { radar: 1 }, store: { cargo: {}, mats: {} } } } });
   await page.locator('#btnGalaxy').click();
   await expect(page.locator('#ghCycle')).toContainText('Termina LA SEÑAL');
   await expect(page.locator('#btnGhCycle')).toBeHidden();
@@ -58,7 +58,8 @@ test('ciclo+: cerrado sin el final; con él, una galaxia nueva más dura que con
   expect(st.cycle).toBe(1);
   expect(st.sys).toBe(0);
   expect(st.visited).toEqual([0]);
-  expect(st.credits).toBe(5000);
+  expect(st.credits).toBe(5000 + 20000 + 7000); // + lo invertido en el puesto, devuelto
+  expect(await page.evaluate(() => [Object.keys(window.__save.galaxyBoss).length, Object.keys(window.__save.outposts).length])).toEqual([0, 0]);
   expect(st.hulls).toContain('warship');
   expect(st.terr).toBe(0);
   expect(st.name).not.toBe(before);

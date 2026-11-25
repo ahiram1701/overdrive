@@ -634,6 +634,21 @@ export function renderSpace(dt) {
       }
     } });
   }
+  // CÁPSULAS de rescate
+  for (const c of s.capsules || []) {
+    if (c.got) continue;
+    const p = project(cam, c.pos, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const R = Math.max(6, p.s * 8);
+      ctx.strokeStyle = `rgba(125,249,255,${0.5 + 0.4 * Math.sin(G.realTime * 5)})`;
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(p.x, p.y, R * 1.6, 0, Math.PI * 2); ctx.stroke();
+      ctx.font = `${Math.round(Math.max(14, R * 2))}px system-ui`;
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText('🛟', p.x, p.y);
+      ctx.textBaseline = 'alphabetic';
+    } });
+  }
   // CARGUERO de la escolta
   if (s.freighter) {
     const fr = s.freighter;
