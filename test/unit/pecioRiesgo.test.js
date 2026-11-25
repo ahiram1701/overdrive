@@ -188,3 +188,26 @@ test('críticos: a veces el doble, y el impacto lo dice', () => {
   assert.ok(crits.length > 5 && plain.length > 5);
   assert.equal(crits[0].dmg, plain[0].dmg * 2);
 });
+
+test('revisión: la ☠️ de la planta 9 cuenta si sigues; la ☠️ del jefe sale aunque el suelo esté electrificado', async () => {
+  const { chooseExit, LAST_FLOOR } = await import('../../js/pecio.js');
+  const s = newRun(20, { hp: 99 });
+  s.depth = LAST_FLOOR;
+  const room = arena(s);
+  room.tiles[MID_R + 2][MID_C + 2] = 'Y';
+  room.cleared = true;
+  Object.assign(s.player, { x: MID_C + 2.5, y: MID_R + 2.5 });
+  run(s, 0.1);
+  assert.equal(s.choice, 'exit');
+  chooseExit(s, 'continue');
+  assert.equal(s.depth, LAST_FLOOR + 1);
+  assert.ok(s.floor.curse, 'la planta 10 sale maldita');
+  // jefe: la casilla de la ☠️, electrificada por el Núcleo
+  const s2 = newRun(21, { hp: 99 });
+  const r2 = arena(s2, ['drone', MID_C + 0.5, MID_R - 1.5, { stun: 99, hp: 1, max: 1, kind: 'boss', boss: 'guardian', r: 0.6 }]);
+  r2.type = 'boss';
+  r2.tiles[MID_R + 2][MID_C + 2] = 'E';
+  s2.player.fireCd = 0;
+  run(s2, 1);
+  assert.equal(r2.tiles[MID_R + 2][MID_C + 2], 'Y');
+});
