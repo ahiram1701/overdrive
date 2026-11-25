@@ -27,9 +27,9 @@ import { INTERDICT } from './galaxyContacts.js';
 import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
-import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
-import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
-import { FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
+import { pecioLoadout, pecioSetHeat, newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
+import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
+import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopStock, FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -2594,6 +2594,9 @@ export const ui = {
     setText('phRecord', P.best ? `récord: planta ${P.best}${P.wins ? ` · 🏆 ${P.wins}` : ''} · ${P.runs} partidas` : 'tu nave entra en pecios abandonados');
     setText('phPiezas', fmt(P.piezas || 0));
     $('phInfo').innerHTML = `
+      <button class="btn ph-daily" id="btnPecioDaily"></button>
+      <div class="gi-block"><h3>🎒 Preparación</h3><small>Con qué empiezas:</small><div class="ph-loadouts" id="phLoadouts" role="radiogroup" aria-label="Cargamento"></div>
+        <div class="ph-heat"><b>🔥 Profundidad</b><button class="btn ghost" id="btnHeatDown" aria-label="Menos profundidad">−</button><b id="phHeat">0</b><button class="btn ghost" id="btnHeatUp" aria-label="Más profundidad">+</button></div><small id="phHeatDesc"></small></div>
       <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Si caes, te llevas parte de las 🔩.</small></div>
       <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
       <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
@@ -2604,13 +2607,48 @@ export const ui = {
       <div class="gi-block"><h3>🔐 Bóveda</h3><div id="phVault"></div></div>`;
     ui.renderPecioVault();
     ui.renderPecioWorkshop();
+    ui.renderPecioPrep();
     show('pecioHub');
+  },
+  renderPecioPrep() {
+    const P = save.pecio, box = $('phLoadouts');
+    if (!box) return;
+    // INMERSIÓN DEL DÍA
+    const d = P.daily?.day === todayKey() ? P.daily : null;
+    const db = $('btnPecioDaily');
+    db.innerHTML = `🌅 INMERSIÓN DEL DÍA <small>${d ? `récord de hoy: planta ${d.best}` : `la misma para todos · la primera de hoy: +${DAILY_GEMS} 💎`}</small>`;
+    if (!db.dataset.wired) { db.dataset.wired = '1'; tap(db, () => newPecio(null, { daily: true })); }
+    // CARGAMENTOS
+    box.innerHTML = '';
+    for (const [id, L] of Object.entries(LOADOUTS)) {
+      const own = !!P.loadouts?.[id], on = own && (P.loadout || 'assault') === id;
+      const b = el('button', `ph-lo${on ? ' on' : ''}${own ? '' : ' locked'}`, `<span>${L.icon}</span><b>${L.name}</b><small>${L.desc}</small>${own ? '' : `<em>${L.cost} 🔩</em>`}`);
+      b.dataset.loadout = id;
+      b.setAttribute('role', 'radio');
+      b.setAttribute('aria-checked', String(on));
+      tap(b, () => {
+        if (pecioLoadout(id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioPrep(); ui.renderPecioWorkshop(); } else toast(`Faltan ${L.cost - (save.pecio.piezas || 0)} 🔩`, 'err');
+      });
+      box.append(b);
+    }
+    // PROFUNDIDAD
+    const h = Math.min(P.heat || 0, P.heatMax || 0), mx = P.heatMax || 0;
+    setText('phHeat', h);
+    $('btnHeatDown').disabled = h <= 0;
+    $('btnHeatUp').disabled = h >= mx;
+    setHTML('phHeatDesc', mx ? (h ? `×${heatReward(h).toFixed(2).replace(/0$/, '').replace('.', ',')} de 🔩, 💎 y XP · ${HEAT_RULES.slice(0, h).map((r, i) => `${i + 1}. ${r}`).join(' · ')}` : 'Normal. Sube la profundidad para más reto y más premio.') : '🔒 Supera las 9 plantas para abrir la profundidad 1 (cada nivel, una regla más y un 15 % más de premio).');
+    if (!$('btnHeatUp').dataset.wired) {
+      $('btnHeatUp').dataset.wired = '1';
+      tap($('btnHeatUp'), () => { pecioSetHeat((save.pecio.heat || 0) + 1); ui.renderPecioPrep(); });
+      tap($('btnHeatDown'), () => { pecioSetHeat((save.pecio.heat || 0) - 1); ui.renderPecioPrep(); });
+    }
   },
   renderPecioWorkshop() {
     const box = $('phWorkshop');
     if (!box) return;
     box.innerHTML = '';
     for (const w of WORKSHOP) {
+      if (WORKSHOP.find((x) => x.branch === w.branch) === w) { const B = WORKSHOP_BRANCHES.find((x) => x.id === w.branch); box.append(el('h4', 'ws-branch', `${B.icon} ${B.name}`)); }
       const lv = workshopLevel(save.pecioUp, w.id), c = workshopCost(save.pecioUp, w.id), max = c === null;
       const b = el('button', `st-up${!max && save.pecio.piezas >= c ? ' afford' : ''}${max ? ' maxed' : ''}`, `<span class="su-icon">${w.icon}</span><span class="su-body"><b>${w.name} <small>${'●'.repeat(lv)}${'○'.repeat(w.cost.length - lv)}</small></b><small>${w.desc(Math.max(1, max ? lv : lv + 1))}</small></span><span class="su-cost">${max ? 'MÁX' : `${c} 🔩`}</span>`);
       b.dataset.pup = w.id;
@@ -2718,8 +2756,8 @@ export const ui = {
     const opts = it.slot === 'mod' && p.gear.mod1 && p.gear.mod2
       ? [['mod1', `CAMBIAR POR ${itemIcon(p.gear.mod1)} ${itemName(p.gear.mod1).toUpperCase()}`], ['mod2', `CAMBIAR POR ${itemIcon(p.gear.mod2)} ${itemName(p.gear.mod2).toUpperCase()}`]]
       : [['equip', cur ? 'CAMBIAR' : 'EQUIPAR']];
-    for (const [choice, txt] of [...opts, ['leave', 'DEJARLO EN EL SUELO']]) {
-      const b = el('button', `btn${choice === 'leave' ? ' ghost' : ''}`, txt);
+    for (const [choice, txt] of [...opts, ['scrap', `♻️ DESGUAZAR (+${scrapValue(it, s.depth)} 🔩)`], ['leave', 'DEJARLO EN EL SUELO']]) {
+      const b = el('button', `btn${choice === 'leave' || choice === 'scrap' ? ' ghost' : ''}`, txt);
       b.dataset.offer = choice;
       tap(b, () => pecioTakeOffer(choice));
       box.append(b);
@@ -2736,7 +2774,7 @@ export const ui = {
     const box = $('psItems');
     box.innerHTML = '';
     const INFO = { repair: ['🔧', 'Reparación', '+3 de vida ahora'], key: ['🗝️', 'Llave', 'abre un cofre'], box: ['📦', 'Caja misteriosa', 'un objeto, al menos raro'] };
-    for (const item of SHOP_ITEMS) {
+    for (const item of shopStock(s)) {
       const [icon, name, desc] = INFO[item] || [CONS[item].icon, CONS[item].name, `${CONS[item].desc} · llevas ${s.player.bag[item]}/3`];
       const c = shopCost(s, item);
       const b = el('button', `st-up${s.player.piezas >= c ? ' afford' : ''}`, `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">${c} 🔩</span>`);
@@ -2766,7 +2804,8 @@ export const ui = {
     $('peTitle').className = r.won || r.endless ? 'won' : 'dead';
     setText('peDepth', `PLANTA ${r.depth}`);
     $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Jefes', r.bosses || 0], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
-    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}${(r.rankUps || []).map((u) => `<br>⬆ ¡RANGO ${u.rank}! +${u.gems} 💎`).join('')}`;
+    const extra = `${r.heat ? `<br>🔥 Profundidad ${r.heat}: ×${heatReward(r.heat).toFixed(2).replace(/0$/, '').replace('.', ',')}` : ''}${r.heatUp ? `<br>🔓 ¡Profundidad ${r.heat + 1} abierta!` : ''}${r.daily ? `<br>🌅 Inmersión del día · récord de hoy: planta ${r.dailyBest}${r.dailyGems ? ` · +${r.dailyGems} 💎` : ''}` : ''}`;
+    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}${(r.rankUps || []).map((u) => `<br>⬆ ¡RANGO ${u.rank}! +${u.gems} 💎`).join('')}${extra}`;
     // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
     const vb = $('peVault');
     vb.innerHTML = '';

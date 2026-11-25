@@ -1289,3 +1289,18 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 .lc-tag { font-size: .95rem; padding: 0 4px; border-radius: 6px; background: rgba(255,255,255,.08); }
 .loot-syn { margin: 6px 0 2px; font-size: var(--fs-s, 13px); color: var(--muted); text-align: center; }
 .loot-syn.on { color: var(--warn); font-weight: 700; }
+
+/* PECIOS · hub: preparación (cargamento, profundidad), inmersión del día y taller por ramas */
+.ph-daily { width: 100%; margin: 0 0 10px; display: flex; flex-direction: column; gap: 2px; }
+.ph-daily small { font-size: var(--fs-xs, 12px); opacity: .85; }
+.ph-loadouts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; margin: 8px 0; }
+.ph-lo { min-height: var(--tap); padding: 8px; border-radius: var(--r-2); border: 2px solid rgba(255,255,255,.14); background: rgba(255,255,255,.04); color: inherit; font: inherit; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; cursor: pointer; }
+.ph-lo span { font-size: 1.3rem; }
+.ph-lo small { color: var(--muted); font-size: var(--fs-xs, 12px); }
+.ph-lo em { font-style: normal; color: var(--warn); font-size: var(--fs-xs, 12px); }
+.ph-lo.on { border-color: var(--ok); background: rgba(48,209,88,.12); }
+.ph-lo.locked { border-style: dashed; }
+.ph-heat { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
+.ph-heat .btn { min-width: var(--tap); min-height: var(--tap); padding: 0; margin: 0; }
+.ph-heat #phHeat { min-width: 2ch; text-align: center; font-size: 1.3rem; color: var(--warn); }
+.ws-branch { margin: 10px 0 4px; font-size: var(--fs-s, 13px); letter-spacing: .08em; color: var(--muted); }

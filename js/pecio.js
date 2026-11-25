@@ -4,7 +4,7 @@
 // enemigos con su aviso visible, y un bot. Las posiciones van en CASILLAS (la casilla c,r ocupa
 // [c, c+1) × [r, r+1)); el ángulo 0 mira "arriba" (fila 0) y crece hacia la derecha.
 import { makeRng, hashString } from './rng.js';
-import { genItem, genChoice, applyGear, itemPower, slotFor, currentFor, CONS_KEYS, BAG_MAX } from './pecioLoot.js';
+import { genItem, genChoice, applyGear, itemPower, slotFor, currentFor, scrapValue, CONS_KEYS, BAG_MAX } from './pecioLoot.js';
 
 export const COLS = 9, ROWS = 11;
 export const MID_C = 4, MID_R = 5;
@@ -205,8 +205,9 @@ export const LAYOUTS = [
   { id: 'sweeper', w: 2, from: 4, sweep: true, make: (t, rng, { set }) => mirror4(set, [[1, 1]], '#') },
   { id: 'gauntlet', w: 1, from: 5, make: (t, rng, { set }) => { mirror4(set, [[2, 2], [2, 4]], '#'); for (let c = 1; c < COLS - 1; c++) if (c % 2) set(c, 3, 'J'); } },
 ];
-export function pickLayout(rng, depth) {
-  return rng.weighted(LAYOUTS.filter((L) => !L.from || depth >= L.from).map((L) => ({ k: L, w: L.w }))).k;
+const TRAP_LAYOUTS = new Set(['minefield', 'electric', 'spikes', 'conveyor', 'sweeper', 'gauntlet']);
+export function pickLayout(rng, depth, traps = true) {
+  return rng.weighted(LAYOUTS.filter((L) => (!L.from || depth >= L.from) && (traps || !TRAP_LAYOUTS.has(L.id))).map((L) => ({ k: L, w: L.w }))).k;
 }
 
 // Una sala: losas y enemigos. La cruz central (fila MID_R y columna MID_C) siempre queda libre: así
@@ -231,7 +232,7 @@ export function genRoom(floor, id) {
   let mazeKey = null;
   let sweep = null, layoutId = null;
   if (type === 'combat' || type === 'exit' || type === 'elite') {
-    const L = pickLayout(rng, depth);
+    const L = pickLayout(rng, depth, !floor.pool || floor.pool.traps);
     L.make(t, rng, { set: (c, r, ch) => { if (c > 0 && r > 0 && c < COLS - 1 && r < ROWS - 1 && t[r][c] === '.' && !onCross(c, r)) t[r][c] = ch; }, free, depth });
     if (L.sweep && type !== 'exit') sweep = { x: MID_C + 0.5, y: MID_R + 0.5, ang: rng.range(0, Math.PI * 2), len: 3.6, spd: (rng.chance(0.5) ? 1 : -1) * (0.9 + depth * 0.04) };
     layoutId = L.id;
@@ -263,7 +264,8 @@ export function genRoom(floor, id) {
   if (type === 'treasure' || type === 'hidden') t[2][2] = 'C';
   if (type === 'shop') t[2][2] = 'T';
   if (type === 'shrine') t[2][COLS - 3] = 'A';
-  if (type === 'exit') {
+  if (type === 'exit' && floor.pool && !floor.pool.hatch) t[MID_R][MID_C] = 'X';
+  else if (type === 'exit') {
     t[MID_R][MID_C] = 'X';
     // la escotilla PELIGROSA, con su hueco libre alrededor (la plantilla no la puede encerrar)
     for (const [dc, dr] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) t[MID_R + 2 + dr][MID_C + 2 + dc] = '.';
@@ -273,7 +275,7 @@ export function genRoom(floor, id) {
   const enemies = [];
   if (type === 'boss') {
     const kind = floor.boss || bossOf(depth), B = BOSSES[kind], loop = Math.floor((depth - 1) / 9);
-    const hp = Math.round(B.hp * (1 + 0.45 * loop + 0.08 * (depth - 3)));
+    const hp = Math.round(B.hp * (1 + 0.45 * loop + 0.08 * (depth - 3)) * ((floor.heat || 0) >= 6 ? 1.3 : 1));
     const pos = kind === 'core' ? { x: MID_C + 0.5, y: MID_R - 0.5 } : kind === 'fusion' ? { x: 2.5, y: 3.5 } : { x: MID_C + 0.5, y: 3 };
     const foes = [{ id: `${id}-boss`, kind: 'boss', boss: kind, x: pos.x, y: pos.y, ang: Math.PI, hp, max: hp, r: B.r, cd: 2, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dashT: 0, phase: 1 }];
     if (kind === 'fusion') { foes.push({ ...foes[0], id: `${id}-boss2`, x: COLS - 2.5, cd: 3.2 }); foes[0].twin = foes[1].id; foes[1].twin = foes[0].id; }
@@ -282,8 +284,8 @@ export function genRoom(floor, id) {
   }
   const nE = type === 'combat' ? Math.min(6, 2 + Math.floor(depth / 2) + rng.int(0, 1)) : type === 'exit' ? Math.min(5, 2 + Math.floor(depth / 3))
     : type === 'waves' ? 3 : type === 'challenge' ? Math.min(6, 3 + Math.floor(depth / 3)) : type === 'maze' ? 2 + Math.floor(depth / 4) : type === 'elite' ? 3 + Math.floor(depth / 4) : 0;
-  const more = nE ? (floor.event === 'invasion' ? 2 : 0) + (floor.curse === 'horde' ? 2 : 0) : 0;
-  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE + more, id, null, floor.curse === 'elite' ? 3 : 1));
+  const more = nE ? (floor.event === 'invasion' ? 2 : 0) + (floor.curse === 'horde' ? 2 : 0) + ((floor.heat || 0) >= 5 ? 1 : 0) : 0;
+  enemies.push(...placeFoes(rng, t, floor.theme, depth, nE + more, id, null, foeMods(floor)));
   // SALA DE ÉLITE: todos con dos rasgos (y su premio al limpiarla)
   if (type === 'elite') for (const e of enemies) { const [a, b] = rng.shuffle(Object.keys(ELITE)); if (!e.elite) makeElite(e, a); makeElite(e, e.elite === b ? a : b); }
   const extra = {};
@@ -309,7 +311,7 @@ export function makeElite(e, trait) {
   const first = !e.elite;
   if (first) e.elite = trait;
   e.traits = [...(e.traits || []), trait];
-  if (trait === 'fast') e.speedMul = 1.5;
+  if (trait === 'fast') e.speedMul = (e.speedMul || 1) * 1.5;
   else e.speedMul ||= 1;
   if (trait === 'armored') { e.hp *= 2; e.max *= 2; }
   if (first) e.r *= 1.12;
@@ -317,7 +319,13 @@ export function makeElite(e, trait) {
 export const hasTrait = (e, t) => e.elite === t || !!e.traits?.includes(t);
 
 // N enemigos en casillas libres, lejos de las puertas (y de `avoid`, p. ej. el jugador). Los nuevos solo a partir de su planta.
-function placeFoes(rng, t, theme, depth, n, id, avoid, eliteMul = 1) {
+// lo que cambia a los enemigos de una planta: maldición NOBLEZA y PROFUNDIDAD
+export function foeMods(floor = {}) {
+  const h = floor.heat || 0;
+  return { eliteMul: (floor.curse === 'elite' ? 3 : 1) * (h >= 1 ? 1.5 : 1) * (h >= 8 ? 2 : 1), hpMul: h >= 2 ? 1.15 : 1, speedMul: h >= 9 ? 1.15 : 1 };
+}
+function placeFoes(rng, t, theme, depth, n, id, avoid, mods = {}) {
+  const { eliteMul = 1, hpMul = 1, speedMul = 1 } = mods;
   const out = [];
   const mix = Object.entries(theme.mix).map(([k, w]) => ({ k, w }));
   for (const [k, E] of Object.entries(ENEMY)) if (E.from && depth >= E.from) mix.push({ k, w: 1 + Math.min(2, (depth - E.from) * 0.3) });
@@ -331,8 +339,8 @@ function placeFoes(rng, t, theme, depth, n, id, avoid, eliteMul = 1) {
     }
     if (!p) continue;
     const kind = rng.weighted(mix).k, E = ENEMY[kind];
-    const hp = E.hp + Math.floor((depth - 1) * 1.45); // más vida cuanto más hondo (tu equipo también crece)
-    const e = { id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) };
+    const hp = Math.round((E.hp + Math.floor((depth - 1) * 1.45)) * hpMul); // más vida cuanto más hondo (tu equipo también crece)
+    const e = { speedMul, id: `${id}-${i}`, kind, x: p[0] + 0.5, y: p[1] + 0.5, ang: Math.PI, hp, max: hp, r: E.r, cd: rng.range(0.4, 1.4), charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true, dir: rng.int(0, 3) };
     // ÉLITE: nombre dorado y un rasgo (más botín)
     if (depth >= 2 && rng.chance(Math.min(0.22, 0.04 + depth * 0.02) * eliteMul)) makeElite(e, rng.pick(Object.keys(ELITE)));
     out.push(e);
@@ -345,6 +353,7 @@ function placeFoes(rng, t, theme, depth, n, id, avoid, eliteMul = 1) {
 export function newRun(seed, ship = {}) {
   const floor = genFloor(seed, 1);
   const s = {
+    pool: ship.pool || null, heat: Math.max(0, Math.min(HEAT_MAX, ship.heat || 0)), daily: !!ship.daily,
     luck: ship.luck || 0, endless: false, choice: null, bosses: 0,
     seed, depth: 1, floor, rooms: {}, at: floor.start, time: 0, over: false, won: false,
     rng: makeRng(hashString(`run-${seed}`)),
@@ -358,12 +367,22 @@ export function newRun(seed, ship = {}) {
   };
   // lo que traigas de la bóveda (un objeto guardado de la partida anterior) ya va puesto
   for (const it of ship.gear || []) s.player.gear[slotFor(s.player, it)] = it;
+  if (s.heat >= 10) s.player.baseMax = Math.max(2, s.player.baseMax - 1); // PROFUNDIDAD 10: un corazón menos
+  if (ship.crit) s.player.crit = ship.crit;
+  if (ship.piezas) s.player.piezas = ship.piezas;
   applyGear(s.player);
   s.player.hp = s.player.max;
+  prepFloor(s, floor);
   s.rooms[floor.start] = genRoom(floor, floor.start);
   return s;
 }
 export const roomOf = (s, id = s.at) => (s.rooms[id] ||= genRoom(s.floor, id));
+// lo de la partida que cambia cómo se genera cada planta (lo desbloqueado y la profundidad)
+function prepFloor(s, floor) {
+  floor.pool = s.pool;
+  floor.heat = s.heat;
+  if (s.pool && !s.pool.elite) for (const r of Object.values(floor.rooms)) if (r.type === 'elite') r.type = 'combat';
+}
 export const tileAt = (room, c, r) => (c < 0 || r < 0 || c >= COLS || r >= ROWS ? '#' : room.tiles[r][c]);
 export const locked = (room) => (LOCKS.has(room.type) || room.ambush) && room.enemies.some((e) => e.alive);
 // 🔩 que te llevas si caes: más cuanto más hondo llegaste (si sales, todas)
@@ -569,7 +588,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     room.t = (room.t || 0) + dt;
     if (room.t > FLOOD_AT && !room.flooded) {
       room.flooded = true;
-      room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, 2, `${room.id}-flood`, p));
+      room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, 2, `${room.id}-flood`, p, foeMods(s.floor)));
       room.flow = null;
       ev.push({ type: 'flood' });
     }
@@ -588,16 +607,16 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   // OLEADAS: al caer una, llega la siguiente (lejos de ti)
   if (!room.cleared && room.waves?.length && !room.enemies.some((e) => e.alive)) {
     const n = room.waves.shift();
-    room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, n, `${room.id}-w${room.waves.length}`, p));
+    room.enemies.push(...placeFoes(s.rng, room.tiles, s.floor.theme, s.depth, n, `${room.id}-w${room.waves.length}`, p, foeMods(s.floor)));
     room.wake = 0.8;
     room.flow = null;
     ev.push({ type: 'wave', left: room.waves.length });
   }
   // ¿sala limpia?
   if (!room.cleared && !room.enemies.some((e) => e.alive)) {
-    if (room.type === 'waves') { room.pickups.push({ id: `${room.id}-rw`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'waves' }); }
-    if (room.type === 'challenge' && room.timer > 0) { room.pickups.push({ id: `${room.id}-rc`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'challenge' }); }
-    if (room.type === 'elite') { room.pickups.push({ id: `${room.id}-re`, kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'elite' }); }
+    if (room.type === 'waves') { room.pickups.push({ id: `${room.id}-rw`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'waves' }); }
+    if (room.type === 'challenge' && room.timer > 0) { room.pickups.push({ id: `${room.id}-rc`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'challenge' }); }
+    if (room.type === 'elite') { room.pickups.push({ id: `${room.id}-re`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'elite' }); }
     room.cleared = true;
     s.roomsCleared++;
     if (s.floor.curse !== 'drought') p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
@@ -612,7 +631,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
         ev.push({ type: 'fast', streak: s.streak, piezas: bonus });
       } else if (s.streak) { s.streak = 0; ev.push({ type: 'streakLost' }); }
     }
-    if (s.rng.chance(0.4 + (p.mods?.keyring || 0) / 100)) gainKey(s, ev);
+    if (s.rng.chance(0.4 + (p.mods?.keyring || 0) / 100 - ((s.heat || 0) >= 7 ? 0.15 : 0))) gainKey(s, ev);
   }
   return ev;
 }
@@ -707,7 +726,7 @@ function interact(s, room, ev) {
           p.hp = Math.min(p.max, p.hp + 1);
           ev.push({ type: 'chest', piezas: gain });
           // y un objeto (los cofres dan mejor botín)
-          const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) + (s.floor.curse ? 1 : 0) });
+          const [item, ...alts] = genChoice(s.rng, s.depth, { pool: s.pool, bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) + (s.floor.curse ? 1 : 0) });
           s.offer = { item, alts, pk: null };
           ev.push({ type: 'offer' });
           return true;
@@ -844,15 +863,15 @@ function hitEnemy(s, room, e, dmg, ev, crit = false) {
     // JEFE VENCIDO: botín épico o mejor, sus 🔩, y la escotilla para bajar (los nodos caen con su reina)
     for (const o of room.enemies) if (o.kind === 'node') o.alive = false;
     room.tiles[MID_R][MID_C] = 'X';
-    if (room.tiles[MID_R + 2][MID_C + 2] === '.') room.tiles[MID_R + 2][MID_C + 2] = 'Y';
+    if (room.tiles[MID_R + 2][MID_C + 2] === '.' && (!s.pool || s.pool.hatch)) room.tiles[MID_R + 2][MID_C + 2] = 'Y';
     s.bosses++;
     gainPiezas(s, BOSSES[e.boss].piezas);
-    const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: 2, minTier: 2 });
+    const [item, ...alts] = genChoice(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 2 });
     drop({ kind: 'item', item, alts });
     ev.push({ type: 'bossDown', boss: e.boss, name: BOSSES[e.boss].name });
-  } else if (e.kind === 'mimic') drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }) });
-  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }) });
-  else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: s.luck >= 2 ? 1 : 0 }) });
+  } else if (e.kind === 'mimic') drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }) });
+  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1 }) });
+  else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: s.luck >= 2 ? 1 : 0 }) });
   else if (s.rng.chance(0.07)) drop({ kind: 'cons', cons: s.rng.pick(CONS_KEYS) });
   if (e.elite) gainPiezas(s, ENEMY[e.kind].piezas + 2);
   if (hasTrait(e, 'explosive')) { // al morir, estalla alrededor
@@ -1509,6 +1528,7 @@ function descend(s, ev, risky = false) {
   s.depth++;
   gainPiezas(s, 3 + s.depth);
   s.floor = genFloor(s.seed, s.depth);
+  prepFloor(s, s.floor);
   // ESCOTILLA PELIGROSA: la planta nueva trae una maldición (y paga más)
   if (risky) {
     s.floor.curse = s.rng.pick(Object.keys(CURSES));
@@ -1522,7 +1542,7 @@ function descend(s, ev, risky = false) {
   s.entry = { x: MID_C + 0.5, y: MID_R + 0.5, ang: 0 };
   Object.assign(s.player, { x: s.entry.x, y: s.entry.y, ang: 0, vel: 0, dashT: 0 });
   s.shots = [];
-  s.player.hp = Math.min(s.player.max, s.player.hp + 1);
+  if ((s.heat || 0) < 4) s.player.hp = Math.min(s.player.max, s.player.hp + 1); // (PROFUNDIDAD 4: bajar ya no cura)
   if (s.player.mods?.setKeys) gainKey(s, ev);
   ev.push({ type: 'floor', depth: s.depth, theme: s.floor.theme.name, curse: s.floor.curse });
 }
@@ -1537,7 +1557,10 @@ export function takeOffer(s, choice) {
   const synBefore = { ...(p.syn || {}) };
   // lo que dejas o te quitas queda en el suelo (marcado como descartado: el bot no vuelve a por ello)
   const drop = (item) => room.pickups.push({ id: `${item.id}-f`, kind: 'item', item, x: p.x, y: p.y, cool: true, declined: true });
-  if (choice === 'leave') { drop(o.item); ev.push({ type: 'left' }); } else {
+  if (choice === 'leave') { drop(o.item); ev.push({ type: 'left' }); } else if (choice === 'scrap') {
+    const got = gainPiezas(s, scrapValue(o.item, s.depth));
+    ev.push({ type: 'scrap', piezas: got });
+  } else {
     const slot = choice === 'mod1' || choice === 'mod2' ? choice : slotFor(p, o.item);
     const old = p.gear[slot], oldMax = p.max;
     p.gear[slot] = o.item;
@@ -1602,9 +1625,20 @@ export function useCons(s, k) {
 
 // TIENDA (🔩 de la partida) y ALTAR
 export const SHOP_ITEMS = ['repair', 'key', 'kit', 'emp', 'warp', 'box'];
-export const shopCost = (s, item) => ({ repair: 6 + s.depth, key: 8 + s.depth, kit: 7 + s.depth, emp: 9 + s.depth, warp: 10 + s.depth, box: 28 + 3 * s.depth }[item]);
+const SHOP_BASE = { repair: 6, key: 8, kit: 7, emp: 9, warp: 10, box: 28 };
+// los precios suben con la planta (y con la PROFUNDIDAD 3)
+export const shopCost = (s, item) => (SHOP_BASE[item] ? Math.round((SHOP_BASE[item] + s.depth * (item === 'box' ? 3 : 1.5)) * ((s.heat || 0) >= 3 ? 1.3 : 1)) : undefined);
+// lo que vende ESTA tienda: siempre reparación, y 3 cosas más que cambian en cada planta
+export function shopStock(s, room = roomOf(s)) {
+  if (!room.stock) {
+    const rng = makeRng(hashString(`shop-${s.seed}-${s.depth}-${room.id}`));
+    room.stock = ['repair', ...rng.shuffle(SHOP_ITEMS.filter((k) => k !== 'repair')).slice(0, 3)];
+  }
+  return room.stock;
+}
 export function buy(s, item) {
   const c = shopCost(s, item), p = s.player;
+  if (roomOf(s).type === 'shop' && !shopStock(s).includes(item)) return [{ type: 'empty' }];
   if (!c || p.piezas < c) return [{ type: 'poor' }];
   if (item === 'repair' && p.hp >= p.max) return [{ type: 'full' }];
   if (CONS_KEYS.includes(item) && p.bag[item] >= p.bagMax) return [{ type: 'bagFull', cons: item }];
@@ -1613,7 +1647,7 @@ export function buy(s, item) {
   if (item === 'key') p.keys++;
   if (CONS_KEYS.includes(item)) p.bag[item]++;
   if (item === 'box') { // caja misteriosa: un objeto, al menos raro
-    s.offer = { item: genItem(s.rng, s.depth, { bonus: 1, minTier: 1 }), pk: null };
+    s.offer = { item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1, minTier: 1 }), pk: null };
     return [{ type: 'bought', item }, { type: 'offer' }];
   }
   return [{ type: 'bought', item }];
@@ -1629,7 +1663,7 @@ export function pray(s, pick) {
   else p.bonusMax -= 1;
   applyGear(p);
   const ev = [{ type: 'blessed', pick }];
-  if (pick === 'pact') { s.offer = { item: genItem(s.rng, s.depth, { bonus: 2, minTier: 2 }), pk: null }; ev.push({ type: 'offer' }); }
+  if (pick === 'pact') { s.offer = { item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 2 }), pk: null }; ev.push({ type: 'offer' }); }
   return ev;
 }
 
@@ -1758,28 +1792,75 @@ export function chooseExit(s, pick) {
 }
 
 // ---------- El TALLER de Pecios (mejoras para siempre, con 🔩) ----------
+// TALLER en 3 ramas: CASCO (la nave), ARSENAL (qué sale en el botín) y CARTOGRAFÍA (cómo son las plantas)
+export const WORKSHOP_BRANCHES = [
+  { id: 'hull', icon: '🛠️', name: 'Casco' },
+  { id: 'arsenal', icon: '⚔️', name: 'Arsenal' },
+  { id: 'map', icon: '🗺️', name: 'Cartografía' },
+];
 export const WORKSHOP = [
   { id: 'hull', icon: '❤️', name: 'Casco reforzado', desc: (l) => `empiezas con +${l} de vida máxima`, cost: [40, 80, 140, 220, 320] },
   { id: 'keys', icon: '🗝️', name: 'Llavero', desc: (l) => `empiezas con ${l} llave${l > 1 ? 's' : ''}`, cost: [60, 150] },
   { id: 'pack', icon: '🎒', name: 'Mochila', desc: (l) => (l >= 2 ? 'empiezas con un kit y caben 4 de cada' : 'empiezas con un kit de reparación'), cost: [50, 160] },
   { id: 'luck', icon: '🍀', name: 'Olfato', desc: (l) => `más botín de los enemigos${l >= 2 ? ' y mejor' : ''}${l >= 3 ? '; cofres aún mejores' : ''}`, cost: [80, 170, 300] },
   { id: 'power', icon: '⚡', name: 'Calibración', desc: (l) => `+${l} de daño del disparo`, cost: [120, 280] },
+  { id: 'arsCannon', branch: 'arsenal', icon: '☄️', name: 'Armería', desc: () => 'el Cañón y los afijos de arma (fuego, hielo, sangre, muelle) salen en el botín', cost: [90] },
+  { id: 'arsPlating', branch: 'arsenal', icon: '💠', name: 'Blindajes especiales', desc: () => 'reflectante, espinas, regenerativo y ablativo salen en el botín', cost: [110] },
+  { id: 'arsSets', branch: 'arsenal', icon: '⛈️', name: 'Planos de set', desc: () => 'los sets Tormenta, Espectro y Guardián salen en el botín', cost: [140] },
+  { id: 'arsUniques', branch: 'arsenal', icon: '★', name: 'Reliquias', desc: () => 'los únicos Prisma, Cristal, Cometa, Relicario y Fénix salen en el botín', cost: [220] },
+  { id: 'arsCrit', branch: 'arsenal', icon: '🎯', name: 'Mira fina', desc: (l) => `+${4 * l} % de golpe crítico`, cost: [100, 240] },
+  { id: 'mapHatch', branch: 'map', icon: '☠️', name: 'Escotilla peligrosa', desc: () => 'la salida tiene una escotilla ☠️: maldición a cambio de ×1,5 🔩 y mejor botín', cost: [60] },
+  { id: 'mapTraps', branch: 'map', icon: '⚠️', name: 'Planos avanzados', desc: () => 'salas con pinchos, cintas, campos de minas y láser que barre (más variadas, más duras)', cost: [80] },
+  { id: 'mapElite', branch: 'map', icon: '👑', name: 'Salas de élite', desc: () => 'salen salas de élite: enemigos con 2 rasgos y un premio al limpiarlas', cost: [150] },
+  { id: 'mapRadar', branch: 'map', icon: '📡', name: 'Radar', desc: () => 'el minimapa enseña todas las salas de la planta desde que entras', cost: [180] },
 ];
+for (const w of WORKSHOP) w.branch ||= 'hull';
 export const workshopLevel = (up, id) => Math.min(up?.[id] || 0, WORKSHOP.find((w) => w.id === id).cost.length);
 export const workshopCost = (up, id) => WORKSHOP.find((w) => w.id === id).cost[workshopLevel(up, id)] ?? null;
 // lo que el taller le da a la nave al empezar
 export function workshopShip(up = {}) {
   const L = (id) => workshopLevel(up, id);
-  return { hpBonus: L('hull'), keys: L('keys'), bag: L('pack') ? { kit: 1 } : {}, bagMax: L('pack') >= 2 ? BAG_MAX + 1 : BAG_MAX, luck: L('luck'), bonusDmg: L('power') };
+  return {
+    hpBonus: L('hull'), keys: L('keys'), bag: L('pack') ? { kit: 1 } : {}, bagMax: L('pack') >= 2 ? BAG_MAX + 1 : BAG_MAX, luck: L('luck'), bonusDmg: L('power'),
+    crit: 0.08 + 0.04 * L('arsCrit'),
+    pool: { cannon: !!L('arsCannon'), platings: !!L('arsPlating'), sets: !!L('arsSets'), uniques: !!L('arsUniques'), hatch: !!L('mapHatch'), traps: !!L('mapTraps'), elite: !!L('mapElite'), radar: !!L('mapRadar') },
+  };
 }
 
 // RECOMPENSAS comunes de una partida de PECIOS: gemas y XP de rango (como la Arena y el Runner)
-export function pecioRewards({ depth, bosses = 0, rooms = 0, kills = 0, won = false }) {
+// (las gemas cuentan sobre todo las salas limpias y los jefes: una partida corta también rinde)
+export function pecioRewards({ depth, bosses = 0, rooms = 0, kills = 0, won = false, heat = 0 }) {
+  const k = heatReward(heat);
   return {
-    gems: Math.floor(depth * 2.5) + bosses * 10 + Math.floor(kills / 30) + (won ? 40 : 0),
-    xp: Math.floor(depth * 60 + rooms * 12 + kills * 0.5 + bosses * 120),
+    gems: Math.round((Math.floor(rooms * 0.8 + depth * 1.5) + bosses * 10 + Math.floor(kills / 30) + (won ? 40 : 0)) * k),
+    xp: Math.floor((depth * 60 + rooms * 12 + kills * 0.5 + bosses * 120) * k),
   };
 }
+// PROFUNDIDAD (dificultad, 0-10): cada nivel añade una regla y paga un 15 % más. Se abre la siguiente al salir de la planta 9
+export const HEAT_MAX = 10;
+export const HEAT_RULES = [
+  'un 50 % más de élites',
+  'enemigos con un 15 % más de vida',
+  'la tienda, un 30 % más cara',
+  'bajar de planta ya no cura',
+  '+1 enemigo en cada sala',
+  'jefes con un 30 % más de vida',
+  'menos llaves al limpiar salas',
+  'el doble de élites',
+  'enemigos un 15 % más rápidos',
+  'empiezas con 1 ❤️ menos',
+];
+export const heatReward = (h = 0) => 1 + 0.15 * Math.max(0, Math.min(HEAT_MAX, h));
+// CARGAMENTOS: con qué equipo empiezas (se compran una vez con 🔩)
+export const LOADOUTS = {
+  assault: { icon: '🔱', name: 'Asalto', desc: 'un Abanico común', cost: 0, gear: () => [{ id: 'lo-w', slot: 'weapon', kind: 'spread', tier: 0, dmg: 0, rate: 0.9, bounces: 0, orbs: 0 }] },
+  tank: { icon: '🛡️', name: 'Tanque', desc: 'un Blindaje raro (+2 ❤️)', cost: 200, gear: () => [{ id: 'lo-p', slot: 'plating', kind: 'plating', tier: 1, hp: 2, shield: 0 }] },
+  ghost: { icon: '💨', name: 'Fantasma', desc: 'Reflejos y Señuelo comunes', cost: 250, gear: () => [{ id: 'lo-m1', slot: 'mod', kind: 'reflex', tier: 0, val: 15 }, { id: 'lo-m2', slot: 'mod', kind: 'decoy', tier: 0, val: 1.5 }] },
+  scav: { icon: '🧲', name: 'Chatarrero', desc: 'un Imán común, +1 🗝️ y 20 🔩 para la tienda', cost: 250, keys: 1, piezas: 20, gear: () => [{ id: 'lo-m', slot: 'mod', kind: 'magnet', tier: 0, val: 20 }] },
+};
+// INMERSIÓN DEL DÍA: la misma planta para todos ese día
+export const dailySeed = (day) => hashString(`pecio-daily-${day}`);
+export const DAILY_GEMS = 15;
 // CANJE: las 🔩 que sobran pasan a 🪙 (la cartera del Runner y la Arena)
 export const EXCHANGE = { piezas: 50, coins: 100 };
 export function exchangePiezas(save) {

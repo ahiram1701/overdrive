@@ -1,12 +1,13 @@
 // PECIOS: la partida en marcha (entrada, paso de simulación, eventos → sonido y efectos, final). Las
 // reglas, en pecio.js; el dibujo 3D, en pecioRender.js.
 import { G } from './state.js';
+import { todayKey } from './rng.js';
 import { save, persist } from './save.js';
 import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { CURSES, FLOOD_AT, selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
+import { LOADOUTS, HEAT_MAX, heatReward, dailySeed, DAILY_GEMS, CURSES, FLOOD_AT, selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
 import { addXp, prestigeBonus } from './progress.js';
 import { TAGS, CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
@@ -15,18 +16,24 @@ import { ui, dialogPaused } from './ui.js';
 const P = () => G.pecio;
 
 // Una partida nueva con la nave del hangar (su vida y su habilidad ⚡)
-export function newPecio(seedOverride = null) {
+// opts.daily: la INMERSIÓN DEL DÍA (misma planta para todos ese día; con el cargamento básico, sin profundidad ni bóveda)
+export function newPecio(seedOverride = null, opts = {}) {
   G.timeWarp = 1;
+  const daily = !!opts.daily, day = todayKey();
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
-  const seed = seedOverride ?? (forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0);
+  const seed = daily ? dailySeed(day) : seedOverride ?? (forced !== null ? Number(forced) >>> 0 : (Math.random() * 2 ** 32) >>> 0);
   const ship = SHIPS.find((x) => x.id === save.ship) || SHIPS[0];
   // la vida, de tu nave del hangar; lo demás que traes, del TALLER de Pecios
   const ws = workshopShip(save.pecioUp);
   const hp = 6 + Math.round(((SHIP_ARENA[ship.id]?.hp || 100) - 100) / 25) + ws.hpBonus;
   // LA BÓVEDA: el objeto que guardaste en la partida anterior sale contigo (y la bóveda queda vacía)
-  const vault = save.pecio.vault;
-  save.pecio.vault = null;
-  const s = newRun(seed, { hp, ability: ship.ability, gear: vault ? [vault] : [], keys: ws.keys, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg });
+  const vault = daily ? null : save.pecio.vault;
+  if (!daily) save.pecio.vault = null;
+  // CARGAMENTO (el equipo con el que empiezas) y PROFUNDIDAD
+  const loId = !daily && save.pecio.loadouts?.[save.pecio.loadout] ? save.pecio.loadout : 'assault', lo = LOADOUTS[loId] || LOADOUTS.assault;
+  const heat = daily ? 0 : Math.max(0, Math.min(save.pecio.heat || 0, save.pecio.heatMax || 0, HEAT_MAX));
+  const s = newRun(seed, { hp, ability: ship.ability, gear: [...lo.gear(), ...(vault ? [vault] : [])], keys: ws.keys + (lo.keys || 0), piezas: lo.piezas || 0, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg, crit: ws.crit, pool: ws.pool, heat, daily });
+  s.day = day;
   Object.assign(s, { ship, flashes: [], endT: 0, fade: 0, input: { x: 0, y: 0 }, stick: false, camSnap: true, turnIn: 0 });
   G.pecio = s;
   G.run = null;
@@ -43,7 +50,7 @@ export function newPecio(seedOverride = null) {
   persist();
   progress('pecio');
   // el cartel de la planta espera a que se cierre la GUÍA (si no, se acaba debajo de ella)
-  s.introBanner = [`🏚️ ${s.floor.theme.name}`, 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
+  s.introBanner = [`🏚️ ${s.floor.theme.name}`, daily ? '🌅 INMERSIÓN DEL DÍA · planta 1' : heat ? `planta 1 · 🔥 profundidad ${heat}` : 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
   if (vault) fx.notice(`🔐 De la bóveda: ${itemIcon(vault)} ${itemName(vault)}`, RARITY[vault.tier].color);
   ui.showTip?.('pecio');
 }
@@ -107,6 +114,28 @@ export function pecioQuitEndless() {
   s.won = true;
   finish(s);
   return true;
+}
+// CARGAMENTOS: comprar (una vez) y elegir
+export function pecioLoadout(id) {
+  const L = LOADOUTS[id];
+  if (!L) return false;
+  const sp = save.pecio;
+  sp.loadouts ||= { assault: true };
+  if (!sp.loadouts[id]) {
+    if ((sp.piezas || 0) < L.cost) return false;
+    sp.piezas -= L.cost;
+    sp.loadouts[id] = true;
+    sfx.chest?.();
+  }
+  sp.loadout = id;
+  persist();
+  return true;
+}
+// PROFUNDIDAD: de 0 a la más honda que hayas abierto
+export function pecioSetHeat(h) {
+  save.pecio.heat = Math.max(0, Math.min(h, save.pecio.heatMax || 0, HEAT_MAX));
+  persist();
+  return save.pecio.heat;
 }
 export function pecioWorkshopBuy(id) {
   const c = workshopCost(save.pecioUp, id);
@@ -212,6 +241,7 @@ function handle(s, ev) {
       case 'cleared9': progress('pecioWin'); break;
       case 'endless': fx.banner('♾️ MODO SIN FIN', 'las plantas siguen, cada vez más duras', '#bf5af2', true, 2.4); break;
       case 'left': fx.notice('Lo dejas en el suelo', '#c8d6e5'); break;
+      case 'scrap': fx.notice(`♻️ Desguazado: +${e.piezas} 🔩`, '#c8d6e5'); sfx.coin(5); break;
       case 'drop': if (e.kind === 'item') { fx.notice('✨ ¡Botín en el suelo!', '#ffcc00'); sfx.chest(); } break;
       case 'pickup': fx.notice(`${CONS[e.cons].icon} +1 ${CONS[e.cons].name}`, '#7df9ff'); sfx.coin(3); break;
       case 'bagFull': fx.notice(`${CONS[e.cons].icon} Ya llevas ${s.player.bagMax}`, '#ff9f0a', 2.6); break;
@@ -248,12 +278,23 @@ function handle(s, ev) {
 // Fin: te llevas parte de las 🔩 (todas si sales)
 function finish(s) {
   if (G.mode === 'pecioEnd') return;
-  const kept = keptPiezas(s);
+  const kept = Math.round(keptPiezas(s) * heatReward(s.heat));
   save.pecio.piezas += kept;
   save.pecio.best = Math.max(save.pecio.best || 0, s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR));
   if (s.cleared9) save.pecio.wins = (save.pecio.wins || 0) + 1;
+  // al salir de la planta 9, se abre la PROFUNDIDAD siguiente
+  let heatUp = false;
+  if (s.cleared9 && !s.daily && (s.heat || 0) + 1 > (save.pecio.heatMax || 0) && (s.heat || 0) < HEAT_MAX) { save.pecio.heatMax = (s.heat || 0) + 1; heatUp = true; }
+  // INMERSIÓN DEL DÍA: su récord de hoy y, la primera vez, gemas
+  let dailyGems = 0;
+  if (s.daily) {
+    const d = save.pecio.daily ||= { day: '', best: 0, paid: false };
+    if (d.day !== s.day) Object.assign(d, { day: s.day, best: 0, paid: false });
+    d.best = Math.max(d.best || 0, s.depth);
+    if (!d.paid) { d.paid = true; dailyGems = DAILY_GEMS; save.gems += DAILY_GEMS; }
+  }
   // gemas y XP de rango, como en los otros juegos
-  const rw = pecioRewards({ depth: s.depth, bosses: s.bosses, rooms: s.roomsCleared, kills: s.kills, won: s.won || s.cleared9 });
+  const rw = pecioRewards({ depth: s.depth, bosses: s.bosses, rooms: s.roomsCleared, kills: s.kills, won: s.won || s.cleared9, heat: s.heat });
   const gems = Math.ceil(rw.gems * (1 + prestigeBonus(save)));
   save.gems += gems;
   const rankUps = addXp(save, rw.xp);
@@ -261,7 +302,7 @@ function finish(s) {
   persist();
   const gear = {};
   for (const k of SLOTS) if (s.player.gear[k]) gear[k] = s.player.gear[k];
-  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best, gems, xp: rw.xp, rankUps };
+  s.result = { won: s.won, endless: s.endless, bosses: s.bosses, depth: s.endless ? s.depth : Math.min(s.depth, LAST_FLOOR), rooms: s.roomsCleared, kills: s.kills, found: s.player.piezas, kept, wallet: save.pecio.piezas, best: save.pecio.best, gear, bestItem: s.best, gems, xp: rw.xp, rankUps, heat: s.heat || 0, heatUp, daily: s.daily, dailyGems, dailyBest: s.daily ? save.pecio.daily.best : 0 };
   G.mode = 'pecioEnd';
   s.endT = s.won ? 1.6 : 1.1;
   musicStop();

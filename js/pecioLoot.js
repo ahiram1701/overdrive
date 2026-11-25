@@ -134,28 +134,33 @@ export function rollTier(rng, depth, bonus = 0) {
   return 3;
 }
 
+// LO DESBLOQUEADO en el taller (Arsenal). Sin `pool` (tests, bots), sale todo
+export const BASE_SETS = ['scrap', 'hunter', 'colossus'];
+export const BASE_UNIQUES = ['reactor', 'anchor', 'masterkey'];
 const RATE = { rapid: 1.4, pierce: 0.85, blast: 0.8, bounce: 0.95, spread: 0.9, arc: 0.9, orbit: 0.75, cannon: 0.42 };
 // Un objeto al azar (slot opcional para forzar uno; minTier para "al menos raro")
-export function genItem(rng, depth, { bonus = 0, slot = null, minTier = 0 } = {}) {
+export function genItem(rng, depth, { bonus = 0, slot = null, minTier = 0, pool = null } = {}) {
   const tier = Math.max(minTier, rollTier(rng, depth, bonus));
   const sl = slot || rng.weighted([{ k: 'weapon', w: 4 }, { k: 'plating', w: 3 }, { k: 'mod', w: 4 }]).k;
   const id = `it${Math.floor(rng.next() * 1e9).toString(36)}`;
   if (sl === 'weapon') {
-    const kind = rng.pick(Object.keys(WEAPONS));
+    const kind = rng.pick(Object.keys(WEAPONS).filter((k) => k !== 'cannon' || !pool || pool.cannon));
     const dmg = kind === 'spread' || kind === 'rapid' ? Math.max(0, tier - 1) : kind === 'cannon' ? 3 + tier : tier;
     const rate = RATE[kind] + (kind === 'rapid' ? 0.1 * tier : 0);
     const it = { id, slot: 'weapon', kind, tier, dmg, rate, bounces: kind === 'bounce' ? 1 + Math.min(2, tier) : 0, orbs: kind === 'orbit' ? 2 + Math.floor(tier / 2) : 0 };
-    if (tier >= 1 && rng.chance(0.25 + 0.15 * tier)) it.affix = rng.pick(Object.keys(AFFIXES));
-    return extras(rng, it);
+    if ((!pool || pool.cannon) && tier >= 1 && rng.chance(0.25 + 0.15 * tier)) it.affix = rng.pick(Object.keys(AFFIXES));
+    return extras(rng, it, pool);
   }
   if (sl === 'plating') {
-    const kind = rng.pick(['plating', 'plating', 'reflect', 'thorns', 'regen', 'ablative']);
+    const kind = !pool || pool.platings ? rng.pick(['plating', 'plating', 'reflect', 'thorns', 'regen', 'ablative']) : 'plating';
     const P = PLATINGS[kind];
-    return extras(rng, { id, slot: 'plating', kind, tier, hp: P.hp(tier), shield: P.shield(tier) });
+    return extras(rng, { id, slot: 'plating', kind, tier, hp: P.hp(tier), shield: P.shield(tier) }, pool);
   }
   const kind = rng.pick(Object.keys(MODULES));
-  return extras(rng, { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] });
+  return extras(rng, { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] }, pool);
 }
+// DESGUACE: las 🔩 que te dan por un objeto que no quieres
+export const scrapValue = (it, depth = 1) => 3 + 4 * it.tier + Math.floor(depth / 2) + (it.unique ? 6 : 0);
 // ELIGE 1 DE 3: tres objetos (procura que no sean de la misma ranura)
 export function genChoice(rng, depth, opts = {}) {
   const out = [genItem(rng, depth, opts)];
@@ -167,10 +172,10 @@ export function genChoice(rng, depth, opts = {}) {
   return out;
 }
 // a veces, parte de un SET (raros o mejores) o un LEGENDARIO ÚNICO
-function extras(rng, it) {
-  if (it.tier >= 1 && rng.chance(0.3)) it.set = rng.pick(Object.keys(SETS));
+function extras(rng, it, pool = null) {
+  if (it.tier >= 1 && rng.chance(0.3)) it.set = rng.pick(!pool || pool.sets ? Object.keys(SETS) : BASE_SETS);
   if (it.tier === 3 && rng.chance(0.35)) {
-    const ids = Object.keys(UNIQUES).filter((k) => UNIQUES[k].slot === it.slot);
+    const ids = Object.keys(UNIQUES).filter((k) => UNIQUES[k].slot === it.slot && (!pool || pool.uniques || BASE_UNIQUES.includes(k)));
     if (ids.length) it.unique = rng.pick(ids);
   }
   return it;

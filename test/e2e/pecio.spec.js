@@ -87,7 +87,7 @@ test('pecios: al caer, pantalla final y te llevas parte de las 🔩', async ({ p
     s.player.inv = 0;
     const room = s.rooms[s.at];
     room.wake = 0;
-    room.enemies = [{ id: 'x', kind: 'drone', x: s.player.x + 0.6, y: s.player.y, ang: 0, hp: 4, max: 4, r: 0.32, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true }];
+    room.enemies = [{ id: 'x', kind: 'drone', x: s.player.x + 0.6, y: s.player.y, ang: 0, hp: 999, max: 999, r: 0.32, cd: 0, charge: 0, aim: null, fuse: null, stun: 0, hitT: 0, alive: true }];
   });
   await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 15000 }); // con toda la batería en paralelo, el dron puede tardar
   await expect(page.locator('#peTitle')).toHaveText('DESTRUIDO');
@@ -392,5 +392,36 @@ test('pecios riesgo: la escotilla ☠️ maldice la planta siguiente, y el hub e
   await page.evaluate(async () => { const { ui } = await import('/js/ui.js'); ui.showPecioHub?.(); });
   await expect(page.locator('#pecioHub')).toContainText('al azar');
   await expect(page.locator('#pecioHub')).toContainText('PELIGROSA');
+  expect(errors).toEqual([]);
+});
+
+test('pecios meta: cargamentos, profundidad, taller por ramas e inmersión del día', async ({ page }) => {
+  const errors = trackErrors(page);
+  await page.addInitScript(([k]) => { if (sessionStorage.getItem('s')) return; sessionStorage.setItem('s', '1'); localStorage.setItem(k, JSON.stringify({ v: 6, runs: 5, settings: { sound: false }, pecio: { best: 9, runs: 3, piezas: 600, wins: 1, heatMax: 2 } })); }, ['overdrive-save-v1']);
+  await page.goto('/?debug&nosw&seed=7');
+  await page.waitForFunction(() => !!window.G);
+  await page.locator('#btnPecio').click();
+  await expect(page.locator('#pecioHub')).toBeVisible();
+  // cargamento: Tanque se compra y queda elegido
+  await page.locator('[data-loadout="tank"]').click();
+  await expect(page.locator('[data-loadout="tank"]')).toHaveAttribute('aria-checked', 'true');
+  expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(400);
+  // profundidad: hasta la abierta (2)
+  await page.locator('#btnHeatUp').click();
+  await page.locator('#btnHeatUp').click();
+  await expect(page.locator('#phHeat')).toHaveText('2');
+  await expect(page.locator('#btnHeatUp')).toBeDisabled();
+  // taller con sus ramas
+  await expect(page.locator('.ws-branch')).toHaveCount(3);
+  // la partida empieza con el blindaje del Tanque y la profundidad elegida
+  await page.locator('#btnPecioPlay').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(await page.evaluate(() => ({ h: window.G.pecio.heat, pl: window.G.pecio.player.gear.plating?.id }))).toEqual({ h: 2, pl: 'lo-p' });
+  // la inmersión del día
+  await page.evaluate(async () => { const { pecioQuitEndless } = await import('/js/pecioGame.js'); window.G.pecio.endless = true; pecioQuitEndless(); });
+  await page.locator('#btnPecioMenu').click();
+  await page.locator('#btnPecioDaily').click();
+  await page.waitForFunction(() => window.G.mode === 'pecio');
+  expect(await page.evaluate(() => ({ d: window.G.pecio.daily, h: window.G.pecio.heat }))).toEqual({ d: true, h: 0 });
   expect(errors).toEqual([]);
 });
