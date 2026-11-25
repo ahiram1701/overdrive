@@ -8,14 +8,14 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
-import { genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
-import { poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
+import { GALAXY_SEED, genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
+import { LORE, poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
 import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
 import { progress } from './game.js';
 import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
-import { MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
+import { GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
 import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
@@ -35,7 +35,20 @@ const SAFE_R = 380; // zona segura alrededor de la estación
 const MAGNET_R = 75;
 const BARREL = ROLL.anim; // duración del tonel (s); invulnerable solo al principio (ROLL.invuln)
 const ORBIT_R = 160; // a esta distancia de la superficie aparece ORBITAR
-export const GAL = genGalaxy();
+// LA GALAXIA de esta partida: cada partida nueva tiene su semilla (las empezadas antes conservan la de siempre).
+// Es siempre el mismo array (otros módulos lo importan): al cambiar de semilla se rellena de nuevo.
+export const GAL = [];
+export function useGalaxy(seed) {
+  if (GAL.length && GAL.seed === seed) return;
+  GAL.length = 0;
+  GAL.push(...genGalaxy(seed));
+  GAL.seed = seed;
+}
+useGalaxy(save.galaxy?.seed ?? GALAXY_SEED);
+// CICLO+: tras el final de LA SEÑAL, una galaxia nueva cada vez más dura (y que paga más)
+export const galaxyCycle = () => save.galaxy?.cycle || 0;
+export const cycleOpen = () => !!save.story?.ending;
+const cycleK = () => 1 + 0.2 * galaxyCycle();
 
 const gal = () => save.galaxy;
 // stats de la nave: mejoras del taller + mejoras únicas del ATLAS
@@ -65,6 +78,7 @@ const calcStats = () => {
   if (hasGear(save, 'coalLance')) st.dmg *= 1.2 * gearBoost(save, 'coalLance');
   if (hasGear(save, 'pirTeeth')) { st.dmg *= 1.3 * gearBoost(save, 'pirTeeth'); st.shield = Math.round(st.shield * 0.9); }
   if (perks().includes('alien')) st.shield += 40;
+  if (perks().includes('legend')) { st.dmg *= 1.1; st.hull = Math.round(st.hull * 1.1); }
   return st;
 };
 
@@ -72,7 +86,7 @@ const calcStats = () => {
 const fmtK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
 // AMENAZA: los piratas se refuerzan con el PODER de tu nave (ver galaxyThreat.js)
 export const shipPower = () => power(stats(), gearDpsK(save, gal().up.missile || 0));
-export const threat = () => threatOf(shipPower());
+export const threat = () => threatOf(shipPower()) * (1 + 0.25 * galaxyCycle());
 export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], worldTerritory(save)); // con lo perdido en las ofensivas
 const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
 const B = () => { save.bounties.done ||= {}; return save.bounties; };
@@ -94,6 +108,9 @@ function face(sh, yaw, pitch = 0) {
 export function newSpace() {
   const forced = G.debug ? new URLSearchParams(location.search).get('seed') : null;
   const g = gal();
+  // la primera vez, la semilla de esta partida (en los tests y en las partidas ya empezadas, la de siempre)
+  if (g.seed == null) g.seed = !g.started && !G.debug ? (Math.random() * 2 ** 31) >>> 0 : GALAXY_SEED;
+  useGalaxy(g.seed);
   if (!g.visited?.length) g.visited = [0];
   const st = stats();
   const s = {
@@ -126,6 +143,7 @@ export function newSpace() {
 // Construye el sistema `id`. Si vienes de `fromId`, apareces junto a la puerta que lleva de vuelta.
 function enterSystem(s, id, fromId) {
   const def = GAL[id];
+  if (def.hidden && fromId !== null && fromId !== undefined) { fx.banner(`🌀 ${def.name}`, 'sistema oculto: mineral oscuro, jefes y piratas de élite', '#c58cff', true, 3); progress('galHidden'); }
   const killedThere = s.sysKills || 0; // abatidos en el sistema del que vienes (para el nivel de búsqueda)
   s.sysKills = 0;
   s.cleared = false; // SISTEMA DESPEJADO se anuncia una vez por visita
@@ -920,7 +938,7 @@ function killPirate(s, p) {
   sfx.boom();
   fx.shake(p.boss ? 25 : 8);
   const d = GAL[s.sysId].danger;
-  const value = Math.round((p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())));
+  const value = Math.round((p.boss ? 600 + d * 150 : 38 + d * 27) * (perks().includes('oracle') ? 2 : 1) * rewardMul(p.threat || 1) * (p.elite ? 2 : 1) * mul * wantedBonus(stars(gal())) * cycleK());
   if (pp && mul > 1.05) fx.score(`💰 ×${mul.toFixed(1)}`, value, pp.x, pp.y, '#ffe600');
   if (!p.inc) s.sysKills = (s.sysKills || 0) + 1;
   if (!p.inc) addWanted(gal(), 'kill');
@@ -1267,7 +1285,7 @@ export function spaceBoost() {
   if (!s || G.mode !== 'galaxy' || s.ship.boostCd > 0) return;
   if (s.inhibited) { fx.notice('🧲 Un INHIBIDOR cerca anula el impulso: derríbalo', '#bf5af2'); sfx.bump(); return; }
   s.ship.boostT = 1.6;
-  s.ship.boostCd = (perks().includes('warp') ? 2.3 : 3.5) * (hasGear(save, 'warpdrv') ? 0.65 / gearBoost(save, 'warpdrv') : 1) * (hasGear(save, 'pirBoost') ? 0.6 / gearBoost(save, 'pirBoost') : 1) * (CHASSIS[gal().chassis]?.boostCd ?? 1);
+  s.ship.boostCd = 3.5 * (hasGear(save, 'warpdrv') ? 0.65 / gearBoost(save, 'warpdrv') : 1) * (hasGear(save, 'pirBoost') ? 0.6 / gearBoost(save, 'pirBoost') : 1) * (CHASSIS[gal().chassis]?.boostCd ?? 1);
   sfx.dash();
   fx.vibe(20);
 }
@@ -1333,7 +1351,7 @@ export function sellAll() {
   }
   if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
-  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1)); // facción y Mercado propio pagan más
+  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1) * (perks().includes('cartographer') ? 1.1 : 1) * cycleK()); // facción, Mercado propio, Atlas y ciclo pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -1525,26 +1543,69 @@ function updateEscort(s, dt) {
 // ---------- Descubrimientos ----------
 function updateScan(s, dt) {
   const sh = s.ship;
-  const poi = s.pois.find((p) => !save.galaxyAtlas[p.id] && dist(p.pos, sh.pos) < SCAN_R);
+  const far = perks().includes('scanner');
+  const poi = s.pois.find((p) => !save.galaxyAtlas[p.id] && dist(p.pos, sh.pos) < SCAN_R * (far ? 2 : 1));
   s.scanning = poi || null;
   if (!poi) { s.scanT = Math.max(0, s.scanT - dt * 2); return; }
   s.scanT += dt;
-  if (s.scanT < SCAN_TIME) return;
+  if (s.scanT < SCAN_TIME * (far ? 0.5 : 1)) return;
   s.scanT = 0;
   const before = perks();
-  save.galaxyAtlas[poi.id] = true;
+  const nth = atlasCount();
+  save.galaxyAtlas[poi.id] = nth + 1; // su número en el Atlas: cada uno cuenta una historia distinta
+  const lore = LORE[nth % LORE.length];
   const g = gal();
   g.credits += poi.reward;
   addXp(save, poi.reward);
-  fx.banner(`${POI_KINDS[poi.kind].icon} ${POI_KINDS[poi.kind].name.toUpperCase()} DESCUBIERTA`, poi.lore, POI_KINDS[poi.kind].color, true);
+  fx.banner(`${POI_KINDS[poi.kind].icon} ${POI_KINDS[poi.kind].name.toUpperCase()} DESCUBIERTA`, lore, POI_KINDS[poi.kind].color, true);
   fx.notice(`+${poi.reward} 💰 · ATLAS ${atlasCount()}`, '#ffe600');
   sfx.chest();
   progress('discover');
-  gainMats(s, { artefactos: 1 });
+  gainMats(s, { artefactos: 1, ...(perks().includes('salvager') ? { chatarra: 2 } : {}) });
+  anomaly(s, poi);
   missionEvent(s, { type: 'scan', poi: poi.id });
   const fresh = ATLAS_PERKS.filter((pk) => perks().includes(pk.id) && !before.includes(pk.id));
   for (const pk of fresh) fx.banner(`✨ ${pk.name}`, pk.desc, '#ffe600', true);
   persist();
+}
+
+// ANOMALÍAS: lo que pasa al escanear cada una
+function anomaly(s, poi) {
+  const K = POI_KINDS[poi.kind], g = gal();
+  if (K.effect === 'ambush') {
+    for (let i = 0; i < 3; i++) spawnPirate(s, false, 'drone', add(poi.pos, { x: 70 * (i - 1), y: 20, z: 60 }));
+    gainMats(s, { chatarra: 6, nucleos: 1 });
+    fx.notice('⚠️ ¡La estación tenía guardianes!', '#ff9f0a', 3);
+  } else if (K.effect === 'gear') {
+    const free = Object.keys(GEAR).filter((id) => !GEAR[id].faction && !owns(save, id));
+    if (free.length) {
+      const id = s.rng.pick(free);
+      gear(save).owned[id] = true;
+      fx.banner(`🗿 ${GEAR[id].icon} ${GEAR[id].name.toUpperCase()}`, 'la reliquia era equipo: móntalo en el taller', '#ffd60a', true, 3);
+    } else gainMats(s, { artefactos: 3 });
+  } else if (K.effect === 'ore') {
+    const k = Math.max(0, Math.min(10, stats().cargo - cargoCount(g.cargo)));
+    g.cargo.dark = (g.cargo.dark || 0) + k;
+    fx.notice(k ? `🌫️ +${k} de mineral oscuro en la bodega` : '🌫️ Bodega llena: no cabe el mineral de la nebulosa', '#64d2ff', 3);
+  } else if (K.effect === 'credits') {
+    g.credits += poi.reward * 2;
+    fx.notice(`📻 Recompensa antigua: +${poi.reward * 2} 💰`, '#30d158', 3);
+  }
+}
+// CICLO+: una galaxia nueva (otra semilla). Te llevas la nave, los chasis, el equipo, los talentos, el Atlas y la historia
+export function startCycle() {
+  if (!cycleOpen() || S()) return false;
+  const g = gal();
+  g.cycle = galaxyCycle() + 1;
+  g.seed = G.debug ? GALAXY_SEED + g.cycle : (Math.random() * 2 ** 31) >>> 0;
+  Object.assign(g, { sys: 0, home: 0, visited: [0], missions: [], wreck: null, jumps: 0, wanted: 0, routeTo: null });
+  save.territory = {};
+  save.galaxyWorld = {};
+  if (save.bounties) save.bounties.active = null;
+  useGalaxy(g.seed);
+  progress('galCycle', g.cycle);
+  persist();
+  return true;
 }
 
 // ---------- Contactos en ruta (ver galaxyContacts.js) ----------

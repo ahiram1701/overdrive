@@ -22,6 +22,7 @@ const ROMAN = ['I', 'II', 'III', 'IV'];
 // Sistemas de la historia: en cada acto, el k-ésimo sistema de cada anillo de peligro (por id).
 // Acto I: el primero de cada anillo y el más lejano para el final.
 export function storySystems(gal, act = 1) {
+  gal = gal.filter((s) => !s.hidden); // (los sistemas ocultos no entran en la historia)
   const ring = (d) => gal.filter((s) => s.danger === d).sort((a, b) => a.id - b.id);
   const far = [...gal].sort((a, b) => b.danger - a.danger || a.id - b.id);
   const k = act - 1;
@@ -197,13 +198,13 @@ const GOAL_TEXT = {
 // i: número de crónica (0 = la primera, tras el Acto III)
 export function genChapter(gal, i) {
   const rng = makeRng(hashString(`cronica-${i}`));
-  const cycle = Math.floor(i / 5), top = Math.max(...gal.map((s) => s.danger));
+  const cycle = Math.floor(i / 5), top = Math.max(...gal.filter((s) => !s.hidden).map((s) => s.danger));
   const isBoss = i % 5 === 4;
   const kind = isBoss ? 'boss' : rng.pick(['reach', 'scan', 'dock', 'sell', 'kill', 'kill', 'base']);
   // el peligro sube y vuelve a empezar (para pasar por toda la galaxia); atracar y vender, nunca en un sistema pirata
   const want = Math.min(top, 1 + (i % top) + (isBoss ? 2 : 0));
   const ok = (sys) => !['dock', 'sell'].includes(kind) || ownerOf(sys) !== 'pir';
-  const pool = gal.filter((sys) => sys.id !== 0 && ok(sys));
+  const pool = gal.filter((sys) => sys.id !== 0 && !sys.hidden && ok(sys));
   const near = pool.filter((sys) => sys.danger === want);
   const sys = rng.pick(near.length ? near : pool.filter((x) => x.danger <= want).length ? pool.filter((x) => x.danger <= want) : pool).id;
   const N = gal[sys].name;

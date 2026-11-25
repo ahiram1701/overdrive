@@ -5,6 +5,10 @@ import { ORES } from './galaxyData.js';
 
 export const GALAXY_SEED = 7;
 export const N_SYSTEMS = 30;
+// SISTEMAS OCULTOS: tras un agujero de gusano junto a los sistemas más lejanos. Piden Salto Mk 6-10
+export const HIDDEN_N = 5;
+export const isHidden = (s) => !!s?.hidden;
+export const mainSystems = (gal) => gal.filter((s) => !s.hidden);
 
 const SYL = ['ka', 'ri', 'on', 'ze', 'tal', 'mor', 'vex', 'lu', 'dra', 'sen', 'qua', 'nim', 'or', 'phe', 'zan', 'tu', 'ix', 'bel', 'cor', 'ya'];
 const STARS = [
@@ -80,7 +84,30 @@ export function genGalaxy(seed = GALAXY_SEED) {
     s.pirates = s.id === 0 ? 0 : Math.min(6, s.danger);
     s.boss = s.danger >= 4 && r.next() < 0.5;
   }
+  addHidden(sys, seed);
   return sys;
+}
+function addHidden(sys, seed) {
+  const rng = makeRng(hashString(`hidden-${seed}`));
+  const hosts = [...sys].sort((a, b) => b.danger - a.danger || a.id - b.id).slice(0, HIDDEN_N);
+  const names = new Set(sys.map((s) => s.name));
+  hosts.forEach((h, i) => {
+    let name = nameOf(rng);
+    while (names.has(name)) name = nameOf(rng);
+    names.add(name);
+    const a = rng.range(0, Math.PI * 2), clamp = (v) => Math.max(30, Math.min(970, v));
+    const s = { id: sys.length, name, x: clamp(h.x + Math.cos(a) * 95), y: clamp(h.y + Math.sin(a) * 95), links: [h.id], hidden: true, wormhole: h.id };
+    h.links.push(s.id);
+    s.danger = 7 + i; // Salto Mk 6, 7, 8, 9 y 10
+    s.star = { kind: 'violeta', color: '#c58cff' };
+    s.ore = 'dark';
+    s.planets = rng.int(2, 4);
+    s.prices = {};
+    for (const k of Object.keys(ORES)) s.prices[k] = Math.round(ORES[k].price * (k === 'dark' ? 0.7 : 1.2) * rng.range(0.9, 1.3));
+    s.pirates = 6;
+    s.boss = true;
+    sys.push(s);
+  });
 }
 
 // salto necesario para entrar en un sistema (los dos primeros anillos, libres)
