@@ -51,6 +51,12 @@ export function attackTarget(p, me, d, ctx = {}) {
       const ring = norm(add(scale(me.r, Math.cos(a)), scale({ x: 0, y: 1, z: 0 }, Math.sin(a) * 0.6)));
       return add(me.pos, scale(ring, ORBIT_R));
     }
+    case 'carrier': case 'mender': case 'wraith': {
+      // se quedan lejos: la nodriza suelta drones, el reparador cura desde atrás, el tirador apunta
+      const keep = p.kind === 'wraith' ? 900 : 650;
+      if (d < keep - 100) return add(p.pos, scale(norm(sub(p.pos, me.pos)), 300));
+      return d > keep + 150 ? me.pos : p.pos;
+    }
     case 'bomber': {
       // a distancia de misil: si te acercas, se aparta
       if (d < KEEP_R[0]) return add(p.pos, scale(norm(sub(p.pos, me.pos)), 400));
@@ -83,7 +89,7 @@ export function fireStep(p, baseCd) {
 // Inhibidor cerca: ni impulso ni salto
 export const inhibited = (pirates, pos) => pirates.some((p) => p.alive && p.kind === 'inhibitor' && dist(p.pos, pos) < INHIBIT_R);
 // El acechador se ve solo de cerca (o un instante al disparar o al recibir)
-export const stalkerVisible = (p, d) => p.kind !== 'stalker' || d < STALK_R || p.flash > 0 || (p.revealT || 0) > 0;
+export const stalkerVisible = (p, d) => (p.kind !== 'stalker' && p.kind !== 'wraith') || d < STALK_R || p.flash > 0 || (p.revealT || 0) > 0 || (p.kind === 'wraith' && p.aimT > 0);
 
 // Tipos nuevos lejos de ORIGEN (se suman a corbeta y minador)
 export function rareKind(danger, threat, r) {
@@ -91,6 +97,10 @@ export function rareKind(danger, threat, r) {
   if (danger >= 4 && r < 0.15) return 'stalker';
   if ((danger >= 3 || threat >= 1.8) && r < 0.23) return 'corvette';
   if ((danger >= 3 || threat >= 1.8) && r < 0.31) return 'minelayer';
+  if (danger >= 3 && r < 0.36) return 'frigate';
+  if (danger >= 2 && r < 0.4) return 'mender';
+  if (danger >= 4 && r < 0.44) return 'carrier';
+  if (danger >= 5 && r < 0.48) return 'wraith';
   return null;
 }
 

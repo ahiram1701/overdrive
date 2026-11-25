@@ -52,6 +52,10 @@ export const GEAR = {
   flak: { slot: 'w', icon: '💥', name: 'Metralla', desc: 'Cada disparo se abre en abanico de 3.', cost: { credits: 1200, chatarra: 12, circuitos: 4 } },
   plasma: { slot: 'w', icon: '🟣', name: 'Cañón de plasma', desc: 'Cada 3er disparo es una bola que hace x3 de daño.', cost: { credits: 1800, chatarra: 10, nucleos: 2 } },
   turret: { slot: 'w', icon: '🗼', name: 'Torreta automática', desc: 'Dispara sola al pirata más cercano.', cost: { credits: 2200, circuitos: 8, nucleos: 2 } },
+  rail: { slot: 'w', icon: '🎯', name: 'Cañón de riel', desc: 'Cada 4º disparo es un proyectil que atraviesa a todos (×2 de daño).', cost: { credits: 2600, circuitos: 6, nucleos: 2 } },
+  burst: { slot: 'w', icon: '🎆', name: 'Flak de área', desc: 'Tus disparos estallan: dañan también a los de alrededor.', cost: { credits: 2400, chatarra: 14, circuitos: 4 } },
+  beam: { slot: 'w', icon: '〰️', name: 'Haz continuo', desc: 'Disparas un 45% más rápido, cada tiro un 25% más flojo (y calienta menos).', cost: { credits: 2000, circuitos: 6 } },
+  ion: { slot: 'w', icon: '🔵', name: 'Cañón iónico', desc: 'Triple contra escudos de élite y atraviesa el escudo frontal de las fragatas.', cost: { credits: 2200, circuitos: 5, artefactos: 1 } },
   // módulos
   reactive: { slot: 'm', icon: '🛡️', name: 'Escudo reactivo', desc: 'El escudo se regenera un 60% más rápido.', cost: { credits: 800, chatarra: 6, circuitos: 2 } },
   bigmag: { slot: 'm', icon: '🧲', name: 'Imán grande', desc: 'Atraes mineral y botín desde el doble de lejos.', cost: { credits: 600, chatarra: 8 } },
@@ -121,4 +125,67 @@ export function dropsOf(kind, { boss = false, bounty = false, base = false } = {
   if (kind === 'interceptor' || kind === 'drone') return { chatarra: 1, circuitos: 1 };
   if (kind === 'bomber') return { chatarra: 3, circuitos: 1 };
   return { chatarra: 2 };
+}
+
+// ---------- CHIPS: botín con rareza y afijos (élites, jefes y sistemas ocultos los sueltan) ----------
+// Se llevan hasta 2 montados (aparte de las armas y módulos); el resto se desguaza por créditos y chatarra.
+export const CHIP_TIERS = [
+  { id: 'common', name: 'Común', color: '#c8d6e5', n: 1 },
+  { id: 'rare', name: 'Raro', color: '#0a84ff', n: 2 },
+  { id: 'epic', name: 'Épico', color: '#bf5af2', n: 2 },
+  { id: 'legendary', name: 'Legendario', color: '#ffcc00', n: 3 },
+];
+export const AFFIX = {
+  dmg: { icon: '🔫', name: 'daño', unit: '%', base: 4, step: 3 },
+  shield: { icon: '🛡️', name: 'escudo', unit: '%', base: 5, step: 4 },
+  hull: { icon: '🧱', name: 'casco', unit: '%', base: 5, step: 4 },
+  cargo: { icon: '📦', name: 'bodega', unit: '', base: 4, step: 3 },
+  cool: { icon: '❄️', name: 'menos calor', unit: '%', base: 5, step: 4 },
+  bounty: { icon: '💰', name: 'créditos por baja', unit: '%', base: 5, step: 4 },
+  missile: { icon: '🚀', name: 'misiles', unit: '', base: 1, step: 0.6 },
+  regen: { icon: '💚', name: 'regeneración', unit: '%', base: 8, step: 6 },
+};
+export const CHIP_MAX = 2;
+export const CHIP_BAG = 12;
+// un chip nuevo: la rareza sube con el peligro (y con `bonus`: jefes y sistemas ocultos)
+export function genChip(rng, danger, bonus = 0) {
+  const r = rng.next() - bonus * 0.18 - danger * 0.03;
+  const tier = r < 0.06 ? 3 : r < 0.25 ? 2 : r < 0.6 ? 1 : 0;
+  const keys = rng.shuffle(Object.keys(AFFIX)).slice(0, CHIP_TIERS[tier].n);
+  const affixes = keys.map((k) => ({ k, v: Math.round((AFFIX[k].base + AFFIX[k].step * (tier + rng.range(0, 1.5))) * 10) / 10 }));
+  for (const a of affixes) if (AFFIX[a.k].unit === '') a.v = Math.max(1, Math.round(a.v));
+  return { id: `ch${Math.floor(rng.next() * 1e9).toString(36)}`, tier, affixes };
+}
+export const chipText = (c) => c.affixes.map((a) => `${AFFIX[a.k].icon} +${a.v}${AFFIX[a.k].unit} ${AFFIX[a.k].name}`).join(' · ');
+export const chipValue = (c) => ({ credits: 150 + 220 * c.tier, chatarra: 2 + 2 * c.tier });
+export const chips = (save) => { save.galaxyChips ||= { bag: [], on: [] }; return save.galaxyChips; };
+// suma de los afijos de los chips montados
+export function chipBonus(save) {
+  const C = chips(save), out = {};
+  for (const c of C.bag) if (C.on.includes(c.id)) for (const a of c.affixes) out[a.k] = (out[a.k] || 0) + a.v;
+  return out;
+}
+export function addChip(save, c) {
+  const C = chips(save);
+  if (C.bag.length >= CHIP_BAG) return false;
+  C.bag.push(c);
+  return true;
+}
+export function toggleChip(save, id) {
+  const C = chips(save);
+  if (C.on.includes(id)) { C.on = C.on.filter((x) => x !== id); return false; }
+  if (!C.bag.some((c) => c.id === id)) return false;
+  if (C.on.length >= CHIP_MAX) C.on.shift();
+  C.on.push(id);
+  return true;
+}
+export function scrapChip(save, id) {
+  const C = chips(save), c = C.bag.find((x) => x.id === id);
+  if (!c) return null;
+  C.bag = C.bag.filter((x) => x !== c);
+  C.on = C.on.filter((x) => x !== id);
+  const v = chipValue(c);
+  save.galaxy.credits += v.credits;
+  addMat(save, 'chatarra', v.chatarra);
+  return v;
 }

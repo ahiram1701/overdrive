@@ -78,6 +78,11 @@ export const ENEMY_KINDS = {
   // lejos de ORIGEN (peligro 4+)
   inhibitor: { name: 'Inhibidor', hpK: 1.7, speedK: 0.5, turnK: 0.6, size: 10, mesh: 'brick' }, // cerca de él no hay impulso ni salto
   stalker: { name: 'Acechador', hpK: 0.9, speedK: 1.4, turnK: 1.6, size: 5, mesh: 'spectra', dmgK: 1.6 }, // invisible hasta que está encima
+  // nuevos: cada uno pide otra forma de pelear
+  carrier: { name: 'Portanaves', hpK: 4, speedK: 0.45, turnK: 0.45, size: 15, mesh: 'kaiju' }, // lanza drones: tumba la nodriza
+  frigate: { name: 'Fragata', hpK: 3, speedK: 0.6, turnK: 0.55, size: 12, mesh: 'titan' }, // escudo de frente: dale por detrás
+  wraith: { name: 'Tirador fantasma', hpK: 0.8, speedK: 0.9, turnK: 1, size: 6, mesh: 'ghost', dmgK: 1.2 }, // invisible: solo se ve al apuntar
+  mender: { name: 'Reparador', hpK: 1.2, speedK: 0.8, turnK: 0.9, size: 8, mesh: 'manta' }, // cura a los suyos: a por él primero
 };
 
 // Mezcla según el peligro: lo nuevo aparece al alejarse de ORIGEN

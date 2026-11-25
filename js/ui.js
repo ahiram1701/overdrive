@@ -33,7 +33,7 @@ import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopSt
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
-import { gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
+import { chips as chipsOf, chipText, toggleChip, scrapChip, CHIP_TIERS, CHIP_MAX, CHIP_BAG, gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
 import { CAMPAIGNS, CAMP_LEN, campOpen, campStep, campDone, FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
 import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
@@ -2019,6 +2019,7 @@ export const ui = {
 
   // TALLER de fabricación: materiales, huecos montados y recetas (créditos + materiales)
   renderCraft(again) {
+    ui.renderChips(again);
     const g = gear(save);
     const disc = G.space ? workshopDisc(save, G.space.sysId) : 1; // Taller de tu puesto
     $('stMats').innerHTML = Object.entries(MATS).map(([k, m]) => `<span title="${m.desc}">${m.icon} <b>${matOf(save, k)}</b> <small>${m.name}</small></span>`).join('');
@@ -2120,6 +2121,28 @@ export const ui = {
     persist();
     ui.showDialog(TIPS[id], null, { onClose });
     return true;
+  },
+
+  // CHIPS: botín con afijos; hasta 2 montados, el resto se desguaza
+  renderChips(again) {
+    const box = $('stChips');
+    if (!box) return;
+    const C = chipsOf(save);
+    setText('stChipsInfo', `${C.on.length}/${CHIP_MAX} montados · ${C.bag.length}/${CHIP_BAG} en la bolsa`);
+    box.innerHTML = C.bag.length ? '' : '<small>Los sueltan los jefes, las élites y los piratas de los sistemas ocultos.</small>';
+    for (const c of C.bag) {
+      const T = CHIP_TIERS[c.tier], on = C.on.includes(c.id);
+      const row = el('div', `st-up chip${on ? ' on' : ''}`, `<span class="su-icon" style="color:${T.color}">💠</span><span class="su-body"><b style="color:${T.color}">${T.name}${on ? ' · MONTADO' : ''}</b><small>${chipText(c)}</small></span>`);
+      const eq = el('button', 'btn ghost', on ? 'QUITAR' : 'MONTAR');
+      eq.dataset.chip = c.id;
+      tap(eq, () => { toggleChip(save, c.id); persist(); (again || ui.renderChips)(); });
+      const sc = el('button', 'btn ghost', '♻️');
+      sc.dataset.chipScrap = c.id;
+      sc.setAttribute('aria-label', 'Desguazar chip');
+      tap(sc, () => { const v = scrapChip(save, c.id); if (v) { persist(); toast(`♻️ +${v.credits} 💰 · +${v.chatarra} 🔩`, 'ok'); (again || ui.renderChips)(); } });
+      row.append(eq, sc);
+      box.append(row);
+    }
   },
 
   // ATLAS: lo descubierto, con su historia, y las mejoras únicas que da explorar

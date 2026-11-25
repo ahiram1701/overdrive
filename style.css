@@ -1304,3 +1304,9 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 .ph-heat .btn { min-width: var(--tap); min-height: var(--tap); padding: 0; margin: 0; }
 .ph-heat #phHeat { min-width: 2ch; text-align: center; font-size: 1.3rem; color: var(--warn); }
 .ws-branch { margin: 10px 0 4px; font-size: var(--fs-s, 13px); letter-spacing: .08em; color: var(--muted); }
+
+/* GALAXIA · chips con afijos en el taller */
+.st-sub { margin: 14px 0 6px; font-size: var(--fs-s, 13px); letter-spacing: .08em; color: var(--muted); }
+.st-up.chip { display: flex; align-items: center; gap: 8px; }
+.st-up.chip .btn { min-width: var(--tap); min-height: var(--tap); margin: 0; padding: 0 10px; }
+.st-up.chip.on { border-color: var(--ok); }

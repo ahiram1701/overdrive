@@ -74,6 +74,8 @@ export const MISSION_KINDS = {
   deliver: { icon: '📦', name: 'Entrega' },
   scan: { icon: '📡', name: 'Exploración' },
   escort: { icon: '🛡️', name: 'Escolta' },
+  rescue: { icon: '🛟', name: 'Rescate' },
+  hit: { icon: '🗡️', name: 'Asesinato' },
 };
 
 // CONTRATOS: cada oferta tiene nivel ★ / ★★ / ★★★. Los altos llevan condiciones (contrarreloj en saltos,
@@ -94,7 +96,7 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
     return r && r.length - 1 <= 3 && Math.max(0, s.danger - 1) <= jumpLvl;
   });
   const out = [];
-  const tries = ['hunt', 'deliver', 'scan', 'escort'];
+  const tries = ['hunt', 'deliver', 'scan', 'escort', 'rescue', 'hit'];
   rng.shuffle(tries);
   for (const kind of tries) {
     if (out.length >= 3) break;
@@ -120,6 +122,17 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
       if (gal[sysId].links.length === 0) continue;
       const to = rng.pick(gal[sysId].links);
       m = { kind, sys: sysId, gate: to, n: 1, text: `Escolta un carguero hasta la puerta a ${gal[to].name}`, reward: 150 + gal[sysId].danger * 60 };
+    } else if (kind === 'rescue') {
+      const opts = reach.filter((s) => s.id !== 0);
+      if (!opts.length) continue;
+      const t = rng.pick(opts);
+      m = { kind, sys: t.id, n: 3, text: `Rescata 3 cápsulas de escape en ${t.name}`, reward: 140 + t.danger * 70 };
+    } else if (kind === 'hit') {
+      const opts = reach.filter((s) => s.pirates > 0 && s.danger >= 2);
+      if (!opts.length) continue;
+      const t = rng.pick(opts);
+      const who = rng.pick(['Kael el Rojo', 'Sira Dientefino', 'Morv el Gordo', 'la Viuda Ixa', 'Tobb Tres Ojos', 'Nara Sinluz']);
+      m = { kind, sys: t.id, n: 1, target: who, text: `Acaba con ${who} (va escoltado) en ${t.name}`, reward: 260 + t.danger * 110 };
     }
     // la Galaxia paga solo en créditos (antes también gemas: ahora va todo al premio)
     if (!m) continue;
@@ -146,7 +159,9 @@ export function advanceMissions(list, ev) {
     const hit = (m.kind === 'hunt' && ev.type === 'kill' && ev.sys === m.sys)
       || (m.kind === 'deliver' && ev.type === 'dock' && ev.sys === m.sys)
       || (m.kind === 'scan' && ev.type === 'scan' && ev.poi === m.poi)
-      || (m.kind === 'escort' && ev.type === 'escort' && ev.sys === m.sys && ev.gate === m.gate);
+      || (m.kind === 'escort' && ev.type === 'escort' && ev.sys === m.sys && ev.gate === m.gate)
+      || (m.kind === 'rescue' && ev.type === 'rescue' && ev.sys === m.sys)
+      || (m.kind === 'hit' && ev.type === 'hit' && ev.id === m.id);
     if (!hit) continue;
     m.progress++;
     if (missionDone(m)) done.push(m);

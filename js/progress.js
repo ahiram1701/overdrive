@@ -181,6 +181,7 @@ export const ACHIEVEMENTS = [
   { id: 'galEnding', kind: 'ending', mode: 'sum', n: 1, tier: 'gold', name: 'Tu final', desc: 'Termina LA SEÑAL con el final de tu bando' },
   { id: 'galHidden', kind: 'galHidden', mode: 'sum', n: 1, tier: 'silver', name: 'Al otro lado', desc: 'Cruza un agujero de gusano hasta un sistema oculto de la GALAXIA' },
   { id: 'galCycle', kind: 'galCycle', mode: 'best', n: 1, tier: 'gold', name: 'Otra vez desde ORIGEN', desc: 'Empieza el CICLO+ de la GALAXIA' },
+  { id: 'galChip', kind: 'galChip', mode: 'sum', n: 10, tier: 'silver', name: 'Coleccionista de chips', desc: 'Consigue 10 chips de botín en la GALAXIA' },
   { id: 'pecioStreak', kind: 'pecioStreak', mode: 'best', n: 5, tier: 'silver', name: 'Sin respiro', desc: 'Encadena una RACHA ×5 limpiando salas deprisa en PECIOS' },
   { id: 'pecioSyn', kind: 'pecioSynergy', mode: 'sum', n: 1, tier: 'silver', name: 'Combo de chatarra', desc: 'Enciende una SINERGIA en PECIOS (3 piezas con la misma etiqueta)' },
 ];
