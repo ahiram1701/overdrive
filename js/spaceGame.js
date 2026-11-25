@@ -18,7 +18,7 @@ import { hasTalent } from './economy.js';
 import { GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
-import { outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
+import { MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
@@ -1601,6 +1601,16 @@ export function startCycle() {
   Object.assign(g, { sys: 0, home: 0, visited: [0], missions: [], wreck: null, jumps: 0, wanted: 0, routeTo: null });
   save.territory = {};
   save.galaxyWorld = {};
+  // lo guardado por sistema era de la galaxia anterior: jefes vencidos, planetas, mercados y puestos
+  save.galaxyBoss = {};
+  save.galaxyPlanets = {};
+  save.galaxyMarket = {};
+  // los puestos no tienen sitio en la galaxia nueva: se devuelve todo lo invertido en ellos
+  for (const o of Object.values(save.outposts || {})) {
+    g.credits += FOUND_COST;
+    for (const [k, l] of Object.entries(o.mods || {})) for (let i = 0; i < l; i++) g.credits += OUTPOST_MODS[k]?.costs[i] || 0;
+  }
+  save.outposts = {};
   if (save.bounties) save.bounties.active = null;
   useGalaxy(g.seed);
   progress('galCycle', g.cycle);
