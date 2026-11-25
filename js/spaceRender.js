@@ -676,6 +676,26 @@ export function renderSpace(dt) {
       ctx.fillText('🎈 SEÑUELO', p.x, p.y - size);
     } });
   }
+  // BALIZA de la campaña de facción (dorada)
+  if (s.campMarker) {
+    const p = project(cam, s.campMarker, 1);
+    if (p) draws.push({ z: p.z, fn: () => {
+      const t = G.realTime, R = Math.max(8, p.s * 14);
+      ctx.save();
+      ctx.globalCompositeOperation = 'lighter';
+      for (let i = 0; i < 3; i++) {
+        const k = (t * 0.7 + i / 3) % 1;
+        ctx.strokeStyle = `rgba(255,214,10,${1 - k})`;
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, R * (0.5 + k * 2), 0, Math.PI * 2); ctx.stroke();
+      }
+      ctx.restore();
+      ctx.fillStyle = '#ffd60a';
+      ctx.font = 'italic 900 12px system-ui';
+      ctx.textAlign = 'center';
+      ctx.fillText(`⚑ ENCARGO${s.campT > 0 ? ` ${Math.round((s.campT / 2) * 100)}%` : ''}`, p.x, p.y - R * 2.6);
+    } });
+  }
   // BALIZA de la historia
   if (s.storyMarker) {
     const p = project(cam, s.storyMarker, 1);

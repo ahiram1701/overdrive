@@ -53,6 +53,7 @@ const DEFAULTS = {
   arena: { best: 0, kills: 0, wins: 0, bossBest: 0, map: 'grid' },
   pecio: { best: 0, runs: 0, piezas: 0, wins: 0, vault: null, vaultOpen: false, loadout: 'assault', loadouts: { assault: true }, heat: 0, heatMax: 0, daily: { day: '', best: 0, paid: false } }, // PECIOS: planta más honda, partidas, 🔩 (su moneda) y la bóveda
   pecioUp: {}, // PECIOS: el taller (mejoras para siempre, con 🔩)
+  factionCamp: { active: null, n: 0, liga: 0, coal: 0, pir: 0 }, // GALAXIA: campañas de facción (encargo en el que vas de cada una)
   arenaUp: {},      // taller de la ARENA { hp: 2, reroll: 1 }
   arenaMaps: {},    // { belt: { best: 412, wins: 1 } } récord y victorias de cada mapa de la ARENA
   expedition: { best: 0, wins: 0 },

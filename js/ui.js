@@ -14,7 +14,7 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
@@ -33,9 +33,9 @@ import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopSt
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
-import { MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
+import { gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
-import { FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
+import { CAMPAIGNS, CAMP_LEN, campOpen, campStep, campDone, FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
 import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
 import { ABILITIES, readiness, newAbility } from './abilities.js';
 import { levelById, visibleSectors, frontier, FIXED_SECTORS, starsOf, starCount, totalStars, isSectorOpen, isLevelOpen } from './campaign.js';
@@ -1824,6 +1824,7 @@ export const ui = {
     for (const [id, c] of Object.entries(CHASSIS)) {
       const own = g.hulls.includes(id), cur = g.chassis === id;
       if (c.story && !own) { yard.append(el('div', 'st-up locked', `<span class="su-icon">${c.icon}</span><span class="su-body"><b>${c.name}</b><small>${c.desc}</small></span><span class="su-cost">📖 Acto III</span>`)); continue; }
+      if (c.faction && !own) { yard.append(el('div', 'st-up locked', `<span class="su-icon">${c.icon}</span><span class="su-body"><b>${c.name}</b><small>${c.desc}</small></span><span class="su-cost">${FACTIONS[c.faction].icon} Campaña</span>`)); continue; }
       const mm = Object.entries(c.mult).map(([k, v]) => `${{ speed: 'velocidad', turn: 'giro', hull: 'casco', shield: 'escudo', cargo: 'bodega', dmg: 'daño' }[k]} ${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`).join(' · ');
       const b = el('button', `st-up${cur ? ' on' : !own && g.credits >= c.cost ? ' afford' : ''}`, `<span class="su-icon">${c.icon}</span>
         <span class="su-body"><b>${c.name} <em>🔫${c.slots.w} ⚙️${c.slots.m}</em></b><small>${c.desc}</small>${mm ? `<small class="cr-cost">${mm}</small>` : ''}</span>
@@ -1898,6 +1899,17 @@ export const ui = {
       b.dataset.fshop = it.id;
       b.disabled = has || !okLvl;
       tap(b, () => { if (buyFactionItem(it)) { toast(`🎨 ${item.name} desbloqueado`); ui.showStation(s); } });
+      fb.append(b);
+    }
+    // CAMPAÑAS DE FACCIÓN: la de esta estación y, en cualquiera, la de Vex (los piratas no te dejan atracar)
+    const campAct = campaignNow();
+    for (const f of [own, 'pir'].filter((x, i, a) => x && CAMPAIGNS[x] && a.indexOf(x) === i)) {
+      const C = CAMPAIGNS[f], cst = campStep(save, f), on = campAct?.f === f;
+      const desc = campDone(save, f) ? `✔ completada · chasis ${CHASSIS[C.chassis].name}` : on ? `${cst + 1}/${CAMP_LEN} · ${campAct.text}` : campOpen(save, f) ? `${cst}/${CAMP_LEN} hechos · al final, el chasis ${CHASSIS[C.chassis].icon} ${CHASSIS[C.chassis].name}` : f === 'pir' ? '🔒 Elige alguna vez ir «por tu cuenta» en la historia (o gana reputación pirata)' : `🔒 Reputación Amiga (${C.need}) con ${FACTIONS[f].name}`;
+      const b = el('button', `st-up camp${on ? ' on' : ''}`, `<span class="su-icon">${FACTIONS[f].icon}</span><span class="su-body"><b>${C.title}</b><small>${desc}</small></span><span class="su-cost">${campDone(save, f) ? '✔' : on ? 'ACTIVA' : campOpen(save, f) ? 'ACEPTAR' : '🔒'}</span>`);
+      b.dataset.camp = f;
+      b.disabled = campDone(save, f) || on || !campOpen(save, f);
+      tap(b, () => { if (startCampaign(f)) { toast(`${FACTIONS[f].icon} ${C.title}: ${campaignNow().text}`, 'ok'); ui.showStation(s); } });
       fb.append(b);
     }
     // SE BUSCA: piratas con nombre; uno activo a la vez
@@ -2020,8 +2032,9 @@ export const ui = {
     for (const [id, it] of Object.entries(GEAR)) {
       const has = owns(save, id), on = g[it.slot].includes(id);
       const cost = ui.costText(Object.fromEntries(Object.entries(it.cost).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n])));
+      const lockF = it.faction && !gearAllowed(save, id) ? `🔒 ${FACTIONS[it.faction].icon} ${it.minLvl === 'aliado' ? 'Aliado' : 'Amigo'} con ${FACTIONS[it.faction].name}` : '';
       const b = el('button', `st-up${!has && canCraft(save, id, disc) ? ' afford' : ''}${on ? ' on' : ''}`, `<span class="su-icon">${it.icon}</span>
-        <span class="su-body"><b>${it.name} <em>${it.slot === 'w' ? 'arma' : 'módulo'}</em></b><small>${it.desc}</small><small class="cr-cost">${has ? (on ? '✔ MONTADO · toca para quitar' : 'fabricado · toca para montar') : cost}</small></span>
+        <span class="su-body"><b>${it.name} <em>${it.slot === 'w' ? 'arma' : 'módulo'}</em></b><small>${it.desc}</small><small class="cr-cost">${has ? (on ? '✔ MONTADO · toca para quitar' : 'fabricado · toca para montar') : lockF || cost}</small></span>
         <span class="su-cost">${has ? (on ? '✔' : '＋') : 'FABRICAR'}</span>`);
       b.dataset.gear = id;
       // NIVELES del equipo fabricado (1-5)

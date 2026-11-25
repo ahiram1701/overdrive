@@ -10,6 +10,7 @@ export const MATS = {
 };
 
 import { CHASSIS } from './galaxyData.js';
+import { repOf, lvlAtLeast } from './factions.js';
 
 export const SLOTS = { w: 2, m: 2 }; // los del Explorador; cada chasis tiene los suyos
 export const slotsOf = (save) => (CHASSIS[save.galaxy?.chassis] || CHASSIS.explorer).slots;
@@ -57,7 +58,16 @@ export const GEAR = {
   warpdrv: { slot: 'm', icon: '🌀', name: 'Motor de curvatura', desc: 'El impulso recarga un 35% antes.', cost: { credits: 1100, circuitos: 4, artefactos: 1 } },
   hold: { slot: 'm', icon: '📦', name: 'Bodega extra', desc: '+15 de bodega.', cost: { credits: 900, chatarra: 10 } },
   rapid: { slot: 'm', icon: '🚀', name: 'Lanzamisiles rápido', desc: '+2 misiles y vuelan un 30% más rápido.', cost: { credits: 1500, circuitos: 4, nucleos: 1 } },
+  // de FACCIÓN: solo con su reputación (Amigo o Aliado)
+  ligaHold: { slot: 'm', faction: 'liga', minLvl: 'amigo', icon: '⛏️', name: 'Bodega de la Liga', desc: '+30 de bodega y el mineral se vende un 6% más.', cost: { credits: 2400, chatarra: 12 } },
+  ligaHull: { slot: 'm', faction: 'liga', minLvl: 'aliado', icon: '🪨', name: 'Blindaje de roca', desc: '+35% de casco.', cost: { credits: 4200, chatarra: 16, nucleos: 2 } },
+  coalShield: { slot: 'm', faction: 'coal', minLvl: 'amigo', icon: '☀️', name: 'Escudo solar', desc: '+30% de escudo y se regenera un 30% más rápido.', cost: { credits: 2400, circuitos: 6 } },
+  coalLance: { slot: 'w', faction: 'coal', minLvl: 'aliado', icon: '🔆', name: 'Lanza solar', desc: '+20% de daño del láser.', cost: { credits: 4200, circuitos: 8, nucleos: 2 } },
+  pirBoost: { slot: 'm', faction: 'pir', minLvl: 'amigo', icon: '💨', name: 'Inyector pirata', desc: 'El impulso recarga un 40% antes.', cost: { credits: 2200, chatarra: 10, circuitos: 3 } },
+  pirTeeth: { slot: 'w', faction: 'pir', minLvl: 'aliado', icon: '🦷', name: 'Dientes de sierra', desc: '+30% de daño, pero −10% de escudo.', cost: { credits: 4000, chatarra: 14, nucleos: 2 } },
 };
+// ¿tu reputación con su facción te deja fabricarla?
+export const gearAllowed = (save, id) => !GEAR[id]?.faction || lvlAtLeast(repOf(save, GEAR[id].faction), GEAR[id].minLvl);
 
 export const matOf = (save, k) => save.galaxyMats?.[k] || 0;
 export const addMat = (save, k, n = 1) => { save.galaxyMats[k] = matOf(save, k) + n; return n; };
@@ -76,7 +86,7 @@ export const hasGear = (save, id) => equippedGear(save).includes(id);
 export const discCost = (c, disc = 1) => Object.fromEntries(Object.entries(c).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n]));
 export function canCraft(save, id, disc = 1) {
   const it = GEAR[id];
-  if (!it || owns(save, id)) return false;
+  if (!it || owns(save, id) || !gearAllowed(save, id)) return false;
   return Object.entries(discCost(it.cost, disc)).every(([k, n]) => (k === 'credits' ? save.galaxy.credits >= n : matOf(save, k) >= n));
 }
 

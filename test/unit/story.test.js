@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { genGalaxy } from '../../js/galaxy.js';
 import { loadFrom } from '../../js/save.js';
 import { GEAR, MATS, SLOTS, addMat, canCraft, craft, equipGear, gear, hasGear, dropsOf } from '../../js/crafting.js';
-import { chapters, storySystems, storyEvent, storyState, currentChapter, storyDone, CAST, ACT_LEN, chapterLabel, genChapter } from '../../js/story.js';
+import { chapters, storySystems, storyEvent, storyState, currentChapter, alignment, storyDone, CAST, ACT_LEN, chapterLabel, genChapter } from '../../js/story.js';
 import { ownerOf } from '../../js/factions.js';
 
 const gal = genGalaxy();
@@ -38,7 +38,8 @@ test('historia: actos de 8 capítulos, sistemas cada vez más lejos y que se pue
   const s = loadFrom(null);
   // nada que no sea su objetivo hace avanzar
   assert.equal(storyEvent(s, gal, { type: 'kill', sys: 0 }), null);
-  for (const c of chs) {
+  for (let i = 0; i < chs.length; i++) {
+    const c = chapters(gal, alignment(s))[i]; // (el Acto III depende del bando que eliges)
     assert.equal(currentChapter(s, gal).title, c.title);
     const g = c.goal;
     let done = null;
