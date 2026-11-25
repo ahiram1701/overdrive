@@ -32,7 +32,7 @@ export function newPecio(seedOverride = null, opts = {}) {
   // CARGAMENTO (el equipo con el que empiezas) y PROFUNDIDAD
   const loId = !daily && save.pecio.loadouts?.[save.pecio.loadout] ? save.pecio.loadout : 'assault', lo = LOADOUTS[loId] || LOADOUTS.assault;
   const heat = daily ? 0 : Math.max(0, Math.min(save.pecio.heat || 0, save.pecio.heatMax || 0, HEAT_MAX));
-  const s = newRun(seed, { hp, ability: ship.ability, gear: [...lo.gear(), ...(vault ? [vault] : [])], keys: ws.keys + (lo.keys || 0), piezas: lo.piezas || 0, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg, crit: ws.crit, pool: ws.pool, heat, daily });
+  const s = newRun(seed, { hp, ability: ship.ability, gear: [...lo.gear(), ...(vault ? [vault] : [])], keys: ws.keys + (lo.keys || 0), piezas: lo.piezas || 0, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg, crit: ws.crit, pool: daily ? null : ws.pool, heat, daily }); // (la del día, con todo abierto: la misma planta para todos)
   s.day = day;
   Object.assign(s, { ship, flashes: [], endT: 0, fade: 0, input: { x: 0, y: 0 }, stick: false, camSnap: true, turnIn: 0 });
   G.pecio = s;
