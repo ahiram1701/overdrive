@@ -163,7 +163,7 @@ const ACT3_SIDE = {
 // el bando que más elegiste (empate: la última elección)
 export function alignment(save) {
   const st = storyState(save), list = Object.values(st.choices || {});
-  if (!list.length) return null;
+  if (!list.length) return st.choice || null; // (guardados de antes: solo recordaban la última elección)
   const n = (k) => list.filter((x) => x === k).length;
   const best = Math.max(n('liga'), n('coal'), n('free'));
   return n(st.choice) === best ? st.choice : ['liga', 'coal', 'free'].find((k) => n(k) === best);

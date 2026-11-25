@@ -2407,6 +2407,8 @@ function updateObjective(s) {
       const path = route(GAL, s.sysId, cp.sys);
       const gate = path && s.sys.gates.find((gt) => gt.to === path[1]);
       if (gate && canJump(GAL[path[1]], g.up.jump || 0)) { s.objective = { kind: 'camp', text: ctext }; s.target = gate.pos; return; }
+      // sin SALTO suficiente: lo dice y te lleva a la estación (como la historia)
+      if (gate) { s.objective = { kind: 'camp', text: `${ctext} · 🌀 mejora SALTO a ${jumpNeeded(GAL[path[1]])}` }; s.target = s.sys.station.pos; return; }
     } else {
       let t = null;
       if (cp.kind === 'reach' || cp.kind === 'scan') t = s.campMarker;

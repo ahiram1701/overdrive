@@ -147,8 +147,11 @@ export function campOpen(save, f) {
 export function acceptCampaign(save, f) {
   if (!CAMPAIGNS[f] || !campOpen(save, f) || campDone(save, f)) return false;
   const st = campState(save);
+  // cada campaña guarda su avance a medias: cambiar de una a otra no lo pierde
+  st.prog = { ...(st.prog || {}) };
+  if (st.active) st.prog[st.active] = st.n || 0;
   st.active = f;
-  st.n = 0;
+  st.n = st.prog[f] || 0;
   return true;
 }
 export const activeCampaign = (save, gal) => { const f = campState(save).active; return f && !campDone(save, f) ? campaignStep(gal, f, campStep(save, f)) : null; };
