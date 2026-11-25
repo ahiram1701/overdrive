@@ -95,6 +95,10 @@ const TYPES = [
   { type: 'Desierto ardiente', desc: 'Dunas de vidrio y ciudades enterradas bajo la arena.' },
   { type: 'Mundo selvático', desc: 'Una sola selva que cubre el planeta entero. Se oye respirar.' },
   { type: 'Gigante violeta', desc: 'Nubes de amoniaco y estaciones colgadas de globos.' },
+  { type: 'Mundo helado', desc: 'Glaciares azules y géiseres que lanzan hielo a la órbita.' },
+  { type: 'Mundo volcánico', desc: 'Ríos de lava y una noche que nunca es oscura.' },
+  { type: 'Mundo cristalino', desc: 'Montañas de cuarzo que convierten la luz en arcoíris.' },
+  { type: 'Mundo de tormentas', desc: 'Rayos sin parar: las estaciones viven bajo tierra.' },
 ];
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 

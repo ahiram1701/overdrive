@@ -107,3 +107,17 @@ test('chasis exclusivos: no se venden; equipo de facción: pide reputación', ()
   s.factionRep.liga = 70;
   assert.ok(canCraft(s, 'ligaHull'));
 });
+
+test('revisión: cambiar de campaña no pierde el avance; un guardado antiguo usa su última elección', () => {
+  const s = loadFrom(null);
+  s.factionRep.liga = 30; s.factionRep.coal = 30;
+  acceptCampaign(s, 'liga');
+  s.factionCamp.n = 3;
+  acceptCampaign(s, 'coal');
+  assert.equal(s.factionCamp.n, 0);
+  acceptCampaign(s, 'liga');
+  assert.equal(s.factionCamp.n, 3, 'vuelve con su avance');
+  const old = loadFrom(null);
+  storyState(old).choice = 'liga';
+  assert.equal(alignment(old), 'liga');
+});

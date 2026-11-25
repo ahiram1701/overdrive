@@ -1,14 +1,15 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { genGalaxy, N_SYSTEMS, canJump, jumpNeeded, route, known, oreForDanger } from '../../js/galaxy.js';
+import { genGalaxy, N_SYSTEMS, HIDDEN_N, mainSystems, canJump, jumpNeeded, route, known, oreForDanger } from '../../js/galaxy.js';
 import { ORES } from '../../js/galaxyData.js';
 
 test('galaxia: 30 sistemas, determinista, conexa y con enlaces simétricos', () => {
   const g = genGalaxy();
-  assert.equal(g.length, N_SYSTEMS);
+  assert.equal(mainSystems(g).length, N_SYSTEMS);
+  assert.equal(g.length, N_SYSTEMS + HIDDEN_N, '+ los sistemas ocultos');
   assert.deepEqual(g, genGalaxy());
   assert.equal(g[0].name, 'ORIGEN');
-  assert.equal(new Set(g.map((s) => s.name)).size, N_SYSTEMS, 'nombres únicos');
+  assert.equal(new Set(g.map((s) => s.name)).size, g.length, 'nombres únicos');
   for (const s of g) {
     assert.ok(s.links.length >= 1);
     for (const l of s.links) assert.ok(g[l].links.includes(s.id), 'enlace en los dos sentidos');
@@ -20,8 +21,8 @@ test('peligro = saltos desde ORIGEN; lejos, mejor mineral, más piratas; jefes s
   const g = genGalaxy();
   assert.equal(g[0].danger, 0);
   assert.equal(g[0].pirates, 0, 'ORIGEN es seguro');
-  for (const s of g) {
-    for (const l of s.links) assert.ok(Math.abs(g[l].danger - s.danger) <= 1);
+  for (const s of mainSystems(g)) {
+    for (const l of s.links) if (!g[l].hidden) assert.ok(Math.abs(g[l].danger - s.danger) <= 1);
     if (s.id) assert.equal(s.ore, oreForDanger(s.danger));
     if (s.boss) assert.ok(s.danger >= 4);
     for (const k of Object.keys(ORES)) assert.ok(s.prices[k] > 0);
@@ -99,4 +100,21 @@ test('planetas: nombre, tipo y lo que compran, deterministas', async () => {
   assert.deepEqual(a, planetInfo(4, 1, 'VEGA', 2));
   assert.equal(a.name, 'VEGA II');
   assert.ok(ORES[a.buys] && a.mult > 1 && a.reward > 0);
+});
+
+test('sistemas ocultos: tras un agujero de gusano junto a lo más lejano; piden Salto Mk 6-10; otra semilla, otra galaxia', () => {
+  const g = genGalaxy();
+  const hid = g.filter((s) => s.hidden);
+  assert.equal(hid.length, HIDDEN_N);
+  assert.deepEqual(hid.map((s) => jumpNeeded(s)), [6, 7, 8, 9, 10]);
+  const top = Math.max(...mainSystems(g).map((s) => s.danger));
+  for (const h of hid) {
+    assert.deepEqual(h.links, [h.wormhole]);
+    assert.ok(g[h.wormhole].danger >= top - 1, 'cuelga de lo más lejano');
+    assert.ok(h.boss && h.ore === 'dark');
+    assert.ok(h.x >= 30 && h.x <= 970 && h.y >= 30 && h.y <= 970);
+  }
+  const other = genGalaxy(12345);
+  assert.notDeepEqual(other.map((s) => [s.x, s.y]), g.map((s) => [s.x, s.y]));
+  assert.equal(other[0].name, 'ORIGEN');
 });

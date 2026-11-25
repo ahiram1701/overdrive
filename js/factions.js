@@ -19,9 +19,9 @@ export function ownerOf(sys, territory = {}) {
   if (sys.danger >= 5 || (sys.danger === 4 && r < 0.3)) return 'pir';
   return r < 0.5 ? 'liga' : 'coal';
 }
-export const piratesHeld = (gal, territory) => gal.filter((s) => ownerOf(s, territory) === 'pir');
+export const piratesHeld = (gal, territory) => gal.filter((s) => !s.hidden && ownerOf(s, territory) === 'pir');
 export const liberatedCount = (territory) => Object.keys(territory || {}).length;
-export const pirateSystemsTotal = (gal) => gal.filter((s) => ownerOf(s, {}) === 'pir').length;
+export const pirateSystemsTotal = (gal) => gal.filter((s) => !s.hidden && ownerOf(s, {}) === 'pir').length;
 
 // ---------- Reputación (−100…100) ----------
 export const REP_LEVELS = [
@@ -67,7 +67,7 @@ export const TRAITS = {
 // 3 carteles de SE BUSCA en la estación `sysId` (deterministas por tablón)
 export function bountyBoard(gal, sysId, seq, done = {}) {
   const rng = makeRng(hashString(`bounty-${sysId}-${seq}`));
-  const far = gal.filter((s) => s.id && s.danger >= 2);
+  const far = gal.filter((s) => s.id && !s.hidden && s.danger >= 2);
   const out = [];
   for (let i = 0; i < 3 && far.length; i++) {
     const s = rng.pick(far);
@@ -127,9 +127,9 @@ const CAMP_TEXT = {
 export function campaignStep(gal, f, i) {
   const C = CAMPAIGNS[f], kind = C.kinds[i % C.kinds.length];
   const rng = makeRng(hashString(`camp-${f}-${i}`));
-  const want = Math.min(Math.max(...gal.map((s) => s.danger)), 1 + i);
+  const want = Math.min(Math.max(...gal.filter((s) => !s.hidden).map((s) => s.danger)), 1 + i);
   // donde hay que atracar o vender, nunca en un sistema pirata (no te dejan); las bases, solo en los piratas
-  const okSys = (s) => s.id !== 0 && (['dock', 'sell'].includes(kind) ? ownerOf(s) !== 'pir' : kind === 'base' ? ownerOf(s) === 'pir' : true);
+  const okSys = (s) => s.id !== 0 && !s.hidden && (['dock', 'sell'].includes(kind) ? ownerOf(s) !== 'pir' : kind === 'base' ? ownerOf(s) === 'pir' : true);
   const pool = gal.filter(okSys);
   const near = pool.filter((s) => s.danger === want);
   const sys = rng.pick(near.length ? near : pool).id;
@@ -147,8 +147,11 @@ export function campOpen(save, f) {
 export function acceptCampaign(save, f) {
   if (!CAMPAIGNS[f] || !campOpen(save, f) || campDone(save, f)) return false;
   const st = campState(save);
+  // cada campaña guarda su avance a medias: cambiar de una a otra no lo pierde
+  st.prog = { ...(st.prog || {}) };
+  if (st.active) st.prog[st.active] = st.n || 0;
   st.active = f;
-  st.n = 0;
+  st.n = st.prog[f] || 0;
   return true;
 }
 export const activeCampaign = (save, gal) => { const f = campState(save).active; return f && !campDone(save, f) ? campaignStep(gal, f, campStep(save, f)) : null; };

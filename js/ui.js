@@ -14,8 +14,8 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
-import { allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
+import { startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { loreOf, allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME, oreMul } from './galaxyWorld.js';
@@ -2134,7 +2134,7 @@ export const ui = {
     $('atPerks').innerHTML = ATLAS_PERKS.map((pk) => `<div class="${n >= pk.n ? 'on' : ''}"><b>${n >= pk.n ? '✨' : '🔒'} ${pk.name}</b><small>${pk.desc} · ${pk.n} descubrimientos</small></div>`).join('');
     const found = pois.filter((p) => save.galaxyAtlas[p.id]);
     $('atList').innerHTML = found.length
-      ? found.map((p) => `<div class="item"><span class="i-icon">${POI_KINDS[p.kind].icon}</span><span class="i-body"><b>${POI_KINDS[p.kind].name} · ${GAL[p.sys].name}</b><small>${p.lore}</small></span></div>`).join('')
+      ? found.map((p) => `<div class="item"><span class="i-icon">${POI_KINDS[p.kind].icon}</span><span class="i-body"><b>${POI_KINDS[p.kind].name} · ${GAL[p.sys].name}</b><small>${loreOf(save.galaxyAtlas, p)}</small></span></div>`).join('')
       : '<small>Aún no has descubierto nada. Busca los marcadores en cada sistema y vuela cerca para escanearlos.</small>';
     show('atlas');
   },
@@ -2579,7 +2579,7 @@ export const ui = {
     G.mode = 'hangar'; // pantalla estática
     ui.showHUD(false);
     const g = save.galaxy, cur = diffOf(g);
-    setText('ghWhere', g.started ? `en ${GAL[g.sys ?? 0].name} · ${g.visited?.length || 1} sistemas visitados` : 'empiezas en ORIGEN: explora, mina, comercia y lucha');
+    setText('ghWhere', g.started ? `en ${GAL[g.sys ?? 0].name} · ${g.visited?.length || 1} sistemas visitados${galaxyCycle() ? ` · 🌀 ciclo ${galaxyCycle()}` : ''}` : 'empiezas en ORIGEN: explora, mina, comercia y lucha');
     setText('ghStory', g.started ? `📖 ${chapterLabel(save)}` : '');
     setText('ghCredits', fmt(g.credits || 0));
     const box = $('ghDiff');
@@ -2596,6 +2596,21 @@ export const ui = {
     const ir = incursionRecord();
     const im = ir?.medal && INC_MEDALS.find((m) => m.id === ir.medal);
     setText('ghInc', ir ? `Hoy: ${ir.waves}/${WAVES} oleadas · ${fmt(ir.best)} pts${im ? ` · ${im.icon}` : ''} · se juega desde cualquier estación` : `10 oleadas con medallas 🥉🥈🥇 que dan 💎 · hoy: ${themeName(themeOf(todayKey()))} · se juega desde cualquier estación`);
+    // CICLO+
+    const cyc = galaxyCycle(), cb = $('btnGhCycle');
+    setText('ghCycle', cycleOpen()
+      ? `${cyc ? `Ciclo ${cyc}. ` : ''}Una galaxia nueva (otra semilla): piratas un 25 % más duros y pagos un 20 % mejores por cada ciclo. Te llevas la nave, los chasis, el equipo, los talentos, el Atlas y la Crónica; empiezas en ORIGEN sin sistemas liberados.`
+      : '🔒 Termina LA SEÑAL (Acto III) para abrir una galaxia nueva, más dura y mejor pagada.');
+    cb.classList.toggle('hidden', !cycleOpen());
+    cb.textContent = `🌀 EMPEZAR CICLO ${cyc + 1}`;
+    delete cb.dataset.arm;
+    if (!cb.dataset.wired) {
+      cb.dataset.wired = '1';
+      tap(cb, () => {
+        if (!cb.dataset.arm) { cb.dataset.arm = '1'; cb.textContent = '¿SEGURO? TOCA OTRA VEZ'; return; }
+        if (startCycle()) { toast(`🌀 Ciclo ${galaxyCycle()}: una galaxia nueva te espera`, 'ok'); ui.showGalaxyHub(); }
+      });
+    }
     show('galaxyHub');
   },
   showPecioHub() {
