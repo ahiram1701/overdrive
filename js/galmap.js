@@ -14,6 +14,7 @@ export const BADGES = {
   pirate: { icon: '🏴‍☠️', layer: 'fac', name: 'Sistema pirata (base): libéralo' },
   outpost: { icon: '🏗️', layer: 'fac', name: 'Tu puesto avanzado' },
   home: { icon: '🏠', layer: 'fac', name: 'Tu estación base' },
+  trade: { icon: '📈', layer: 'obj', name: 'Paga bien lo que llevas en la bodega' },
 };
 export const BADGE_KEYS = Object.keys(BADGES);
 export const LAYERS = { obj: '📋 Objetivos', fac: '🏳️ Facciones', evt: '⚡ Sucesos', dng: '☠ Peligro' };
@@ -31,6 +32,7 @@ export function badgesFor(id, ctx, layers = {}) {
     pirate: ctx.pirates?.has(id),
     outpost: ctx.outposts?.has(id),
     home: ctx.home === id,
+    trade: ctx.trade?.has(id),
   };
   const all = BADGE_KEYS.filter((k) => has[k] && on(k));
   return { shown: all.slice(0, MAX_BADGES), more: Math.max(0, all.length - MAX_BADGES) };

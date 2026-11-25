@@ -263,7 +263,7 @@ test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', a
   const after = await page.evaluate(() => ({ cargo: window.__spaceStats().cargo, c: window.__save.galaxy.credits, ch: window.__save.galaxy.chassis }));
   expect(after.ch).toBe('hauler');
   expect(after.cargo).toBeGreaterThan(cargo0 * 2);
-  expect(after.c).toBe(60000 - 11000); // el Carguero, ahora a 11K
+  expect(after.c).toBe(60000 - 14000); // el Carguero, a 14K (con el premio lineal, los chasis suben un 30 %)
   await expect(page.locator('#stSlots .slot')).toHaveCount(4); // 1 arma + 3 módulos
   // Mk 6 del motor: créditos y materiales
   const m0 = await page.evaluate(() => window.__save.galaxyMats.chatarra);
