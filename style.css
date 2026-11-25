@@ -1278,3 +1278,14 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 #station .st-foot #btnRepair { font-size: 15px; }
 /* lo que se enfoca o se desplaza a la vista nunca queda bajo la cabecera ni el pie fijos */
 #station { scroll-padding-top: 170px; scroll-padding-bottom: 96px; }
+
+/* PECIOS · botín: elige 1 de 3, etiquetas y sinergias */
+.loot-pick { display: flex; gap: 8px; justify-content: center; margin-bottom: 8px; }
+.lp-opt { min-width: var(--tap); min-height: var(--tap); padding: 6px 12px; border-radius: var(--r-2); background: rgba(255,255,255,.05); border: 2px solid color-mix(in srgb, var(--rc) 45%, transparent); color: inherit; display: flex; flex-direction: column; align-items: center; gap: 2px; font: inherit; cursor: pointer; }
+.lp-opt span { font-size: 1.5rem; line-height: 1; }
+.lp-opt small { font-size: var(--fs-xs, 12px); color: var(--muted); }
+.lp-opt.on { border-color: var(--rc); background: color-mix(in srgb, var(--rc) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 50%, transparent); }
+.lc-tags { display: flex; gap: 4px; justify-content: center; margin: 2px 0; }
+.lc-tag { font-size: .95rem; padding: 0 4px; border-radius: 6px; background: rgba(255,255,255,.08); }
+.loot-syn { margin: 6px 0 2px; font-size: var(--fs-s, 13px); color: var(--muted); text-align: center; }
+.loot-syn.on { color: var(--warn); font-weight: 700; }

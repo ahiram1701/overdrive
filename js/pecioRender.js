@@ -282,7 +282,8 @@ export function renderPecio(dt) {
       ctx.fillStyle = '#7df9ff';
       ctx.shadowColor = '#7df9ff';
       ctx.shadowBlur = save.settings.fx === false ? 0 : 10;
-      ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(2, q.s * 0.07), 0, Math.PI * 2); ctx.fill();
+      if (b.big) { ctx.fillStyle = '#ffb340'; ctx.shadowColor = '#ff9f0a'; }
+      ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(b.big ? 4 : 2, q.s * (b.big ? 0.16 : 0.07)), 0, Math.PI * 2); ctx.fill();
       ctx.shadowBlur = 0;
     }, ordAt(b.x, b.y));
   }

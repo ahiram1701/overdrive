@@ -6,9 +6,9 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
+import { selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
 import { addXp, prestigeBonus } from './progress.js';
-import { CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
+import { TAGS, CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
 
@@ -80,6 +80,14 @@ export function pecioTakeOffer(choice) {
   G.mode = 'pecio';
   ui.hideAll();
   ui.showPecioHUD(true);
+}
+// ELIGE 1 DE 3: cambia el objeto que estás mirando
+export function pecioSelectOffer(i) {
+  const s = P();
+  if (!s || !s.offer) return;
+  selectOffer(s, i);
+  sfx.coin?.(1);
+  ui.showPecioOffer(s);
 }
 // PLANTA 9: salir con todo o seguir en el modo sin fin
 export function pecioChooseExit(pick) {
@@ -205,6 +213,10 @@ function handle(s, ev) {
       case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
       case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
       case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
+      case 'regen': fx.notice('💚 +1 ❤️', '#30d158'); break;
+      case 'frost': s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.4, t: 0.25, max: 0.25 }); break;
+      case 'phoenix': fx.banner('🪶 ¡FÉNIX!', 'vuelves con 3 ❤️ (solo una vez)', '#ff9f0a', true, 2.2); fx.flash('#ff9f0a', 0.4); sfx.milestone(); break;
+      case 'synergy': { const T = TAGS[e.tag]; fx.banner(`${T.icon} ${T.name.toUpperCase()}`, T.desc, '#ffe600', true, 2.6); sfx.milestone(); progress('pecioSynergy'); break; }
       case 'mimic': fx.banner('😈 ¡MÍMICO!', 'el cofre muerde: véncelo y suelta su botín', '#ffcc00', true, 1.8); fx.shake(14); sfx.growl(); break;
       case 'secret': fx.banner('💎 ¡SALA OCULTA!', 'la pared agrietada escondía una puerta', '#7df9ff', true, 2); sfx.secret(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.8, t: 0.4, max: 0.4 }); break;
       case 'crack': fx.notice('🧱 La pared cruje… embístela con 💨', '#c8d6e5', 2.6); break;
