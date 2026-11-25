@@ -98,7 +98,7 @@ export const ROOM_TYPES = {
   elite: { icon: '👑', name: 'Sala de élite' },
 };
 // la PRESIÓN (racha por limpiar deprisa e inundación si te demoras) va en las salas de pelea normales
-const PRESSURE_ROOMS = new Set(['combat', 'exit', 'elite', 'maze']);
+const PRESSURE_ROOMS = new Set(['combat', 'exit', 'elite']); // (el laberinto no se cierra: sin reloj)
 export const FLOOD_AT = 32; // s con la sala cerrada antes de que llegue la oleada extra
 // salas que se cierran hasta limpiarlas
 const LOCKS = new Set(['combat', 'exit', 'boss', 'waves', 'challenge', 'elite']);
@@ -863,7 +863,8 @@ function hitEnemy(s, room, e, dmg, ev, crit = false) {
     // JEFE VENCIDO: botín épico o mejor, sus 🔩, y la escotilla para bajar (los nodos caen con su reina)
     for (const o of room.enemies) if (o.kind === 'node') o.alive = false;
     room.tiles[MID_R][MID_C] = 'X';
-    if (room.tiles[MID_R + 2][MID_C + 2] === '.' && (!s.pool || s.pool.hatch)) room.tiles[MID_R + 2][MID_C + 2] = 'Y';
+    // la ☠️ va aunque el Núcleo haya electrificado esa casilla (el suelo eléctrico no impide una escotilla)
+    if (room.tiles[MID_R + 2][MID_C + 2] !== '#' && (!s.pool || s.pool.hatch)) room.tiles[MID_R + 2][MID_C + 2] = 'Y';
     s.bosses++;
     gainPiezas(s, BOSSES[e.boss].piezas);
     const [item, ...alts] = genChoice(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 2 });
@@ -1524,7 +1525,7 @@ function enterRoom(s, dir, ev) {
 
 function descend(s, ev, risky = false) {
   // al bajar de la planta 9 (la primera vez): ¿SALIR con todo o SEGUIR en el modo sin fin?
-  if (s.depth === LAST_FLOOR && !s.endless) { s.choice = 'exit'; ev.push({ type: 'exitChoice' }); return; }
+  if (s.depth === LAST_FLOOR && !s.endless) { s.choice = 'exit'; s.riskyExit = risky; ev.push({ type: 'exitChoice' }); return; } // (la escotilla elegida se recuerda: si sigues, cuenta)
   s.depth++;
   gainPiezas(s, 3 + s.depth);
   s.floor = genFloor(s.seed, s.depth);
@@ -1787,7 +1788,8 @@ export function chooseExit(s, pick) {
   if (pick === 'leave') { s.won = true; s.over = true; ev.push({ type: 'win' }); return ev; }
   s.endless = true;
   ev.push({ type: 'endless' });
-  descend(s, ev);
+  descend(s, ev, !!s.riskyExit);
+  s.riskyExit = false;
   return ev;
 }
 
