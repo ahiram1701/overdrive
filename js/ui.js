@@ -29,7 +29,7 @@ import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
 import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
 import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
-import { offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
+import { FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -2598,7 +2598,8 @@ export const ui = {
       <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
       <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
       <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>
-      <div class="gi-block"><h3>💀 Jefes (cada 3 plantas)</h3>${Object.values(BOSSES).map((b, i) => `<div class="gi-row"><span style="color:${b.color}">■ ${b.name}</span><small>planta ${(i + 1) * 3}: ${b.tip}</small></div>`).join('')}<small>Tras la planta 9 eliges: salir con todo o seguir en el ♾️ modo sin fin.</small></div>
+      <div class="gi-block"><h3>💀 Jefes (cada 3 plantas, al azar)</h3>${Object.values(BOSSES).map((b) => `<div class="gi-row"><span style="color:${b.color}">■ ${b.name}</span><small>${b.tip}</small></div>`).join('')}<small>Cada partida baraja los 6: no se repiten hasta que salen todos. Tras la planta 9 eliges: salir con todo o seguir en el ♾️ modo sin fin.</small></div>
+      <div class="gi-block"><h3>☠️ Riesgo y presión</h3><small>La sala de salida tiene dos escotillas: ⬇️ la segura y ☠️ la PELIGROSA, que maldice la planta siguiente a cambio de ×1,5 🔩 y mejor botín. Limpia las salas deprisa para encadenar una ⚡ RACHA de 🔩; si te demoras más de ${FLOOD_AT} s, el pecio se inunda y llegan refuerzos.</small></div>
       <div class="gi-block"><h3>🛠️ Taller</h3><small>Mejoras para siempre, con 🔩.</small><div id="phWorkshop" class="ps-items"></div></div>
       <div class="gi-block"><h3>🔐 Bóveda</h3><div id="phVault"></div></div>`;
     ui.renderPecioVault();

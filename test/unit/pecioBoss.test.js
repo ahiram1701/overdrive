@@ -12,6 +12,7 @@ function bossRoom(depth, hp = 50) {
   const s = newRun(11, { hp });
   s.depth = depth;
   s.floor = genFloor(11, depth);
+  s.floor.boss = bossOf(depth); // (en partida salen al azar: aquí, el de siempre de esa planta)
   s.rooms = {};
   s.at = Object.keys(s.floor.rooms).find((k) => s.floor.rooms[k].type === 'boss');
   const room = roomOf(s);

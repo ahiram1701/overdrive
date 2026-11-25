@@ -177,6 +177,7 @@ export const ACHIEVEMENTS = [
   { id: 'galContacts', kind: 'galContact', mode: 'sum', n: 25, tier: 'silver', name: 'Buen samaritano', desc: 'Resuelve 25 contactos en ruta en la GALAXIA' },
   { id: 'galIncGold', kind: 'galIncursionWave', mode: 'best', n: 10, tier: 'gold', name: 'Sector limpio', desc: 'Supera las 10 oleadas de una INCURSIÓN de la GALAXIA' },
   // PECIOS rediseñado (siempre al final)
+  { id: 'pecioStreak', kind: 'pecioStreak', mode: 'best', n: 5, tier: 'silver', name: 'Sin respiro', desc: 'Encadena una RACHA ×5 limpiando salas deprisa en PECIOS' },
   { id: 'pecioSyn', kind: 'pecioSynergy', mode: 'sum', n: 1, tier: 'silver', name: 'Combo de chatarra', desc: 'Enciende una SINERGIA en PECIOS (3 piezas con la misma etiqueta)' },
 ];
 export const ACH_GEMS = T;

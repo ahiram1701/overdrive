@@ -10,7 +10,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES, ELITE } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, spikesPhase, CONVEYOR, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES, ELITE } from './pecio.js';
 import { RARITY, CONS, itemIcon } from './pecioLoot.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
@@ -26,6 +26,10 @@ const ENEMY_LOOK = {
   summoner: { mesh: 'manta', pal: { hull: '#14001f', edge: '#bf5af2', glow: '#ff2bd6' }, y: 0.5 },
   charger: { mesh: 'brick', pal: { hull: '#1f0a00', edge: '#ff6a00', glow: '#ffe600' }, y: 0.36 },
   roller: { mesh: 'nova', pal: { hull: '#1a0004', edge: '#ff2d55', glow: '#ffe600' }, y: 0.28 },
+  splitter: { mesh: 'kaiju', pal: { hull: '#1f0014', edge: '#ff6ad5', glow: '#ff2bd6' }, y: 0.4 },
+  healer: { mesh: 'manta', pal: { hull: '#03140a', edge: '#7dffb0', glow: '#30d158' }, y: 0.5 },
+  jumper: { mesh: 'ghost', pal: { hull: '#0a1420', edge: '#bfe9ff', glow: '#7df9ff' }, y: 0.42 },
+  miner: { mesh: 'brick', pal: { hull: '#1a1400', edge: '#ffd60a', glow: '#ff2d55' }, y: 0.36 },
 };
 // los jefes: una malla grande cada uno
 const BOSS_LOOK = {
@@ -126,6 +130,12 @@ export function renderPecio(dt) {
       else if (k === 'E') poly(cam, ground, q, on ? `rgba(255,230,0,${0.28 + 0.18 * Math.sin(t * 10 + c + r)})` : null, on ? '#ffe600' : 'rgba(255,230,0,.3)', 1, { base });
       else if (k === 'D') poly(cam, ground, q, shut ? 'rgba(255,45,85,.35)' : 'rgba(48,209,88,.3)', shut ? '#ff2d55' : '#30d158', 1.5, { base });
       else if (k === 'X') poly(cam, ground, q, hexA(th.accent, 0.25), th.accent, 2.5, { base, glyph: shut ? '🔒' : '⬇️' });
+      else if (k === 'Y') poly(cam, ground, q, `rgba(255,45,85,${0.22 + 0.12 * Math.sin(t * 4)})`, '#ff2d55', 2.5, { base, glyph: shut ? '🔒' : '☠️' });
+      else if (k === 'J') {
+        // PINCHOS: rojos cuando salen; el borde parpadea justo antes (0,35 s) para avisar
+        const ph = spikesPhase(s, c, r), up = ph < 0.9, warn = ph > 2.05;
+        poly(cam, ground, q, up ? 'rgba(255,45,85,.55)' : warn ? `rgba(255,45,85,${0.15 + 0.15 * Math.sin(t * 40)})` : null, up || warn ? '#ff2d55' : 'rgba(255,45,85,.35)', up ? 2 : 1, { base, glyph: up ? '▲' : null, gsize: 16 });
+      } else if (CONVEYOR[k]) poly(cam, ground, q, `rgba(125,249,255,${0.12 + 0.06 * Math.sin(t * 6 + c + r)})`, 'rgba(125,249,255,.5)', 1, { base, glyph: { '>': '▶', '<': '◀', '^': '▲', v: '▼' }[k], gsize: 14 });
       else poly(cam, ground, q, null, hexA(th.wall, 0.12), 1, { base });
       if (k === 'M') poly(cam, ground, ring(c + 0.5, 0.01, -r - 0.5, 0.16, 8), Math.floor(t * 3) % 2 ? '#ff2d55' : '#7a0018', null, 1, { bias: 0.05 });
       // TECHO (con paneles de luz): nunca se cruza en pantalla con el suelo, así que va en la misma pasada
@@ -148,6 +158,12 @@ export function renderPecio(dt) {
     if (e.kind === 'charger' && e.charge > 0) poly(cam, ground, ring(e.x, 0.02, -e.y, 3.4, 24), null, `rgba(255,106,0,${0.45 + 0.4 * Math.sin(t * 24)})`, 2.5);
     if (e.kind === 'charger' && e.wave) poly(cam, ground, ring(e.x, 0.03, -e.y, e.wave.r, 28), null, '#ffb340', 6);
     if (e.kind === 'bomb' && e.fuse !== null) poly(cam, ground, ring(e.x, 0.02, -e.y, 1.7, 20), 'rgba(255,159,10,.14)', `rgba(255,159,10,${0.5 + 0.4 * Math.sin(t * 30)})`, 2);
+    if (e.kind === 'jumper' && e.jump) poly(cam, ground, ring(e.jump.x, 0.02, -e.jump.y, 0.9, 18), 'rgba(191,233,255,.16)', `rgba(191,233,255,${0.55 + 0.4 * Math.sin(t * 30)})`, 2.5);
+  }
+  if (room.sweep && !room.cleared) {
+    const w = room.sweep, f = fwd(w.ang), nx = -f.y * 0.1, ny = f.x * 0.1, ex = w.x + f.x * w.len, ey = w.y + f.y * w.len;
+    poly(cam, ground, [[w.x + nx, 0.03, -(w.y + ny)], [ex + nx, 0.03, -(ey + ny)], [ex - nx, 0.03, -(ey - ny)], [w.x - nx, 0.03, -(w.y - ny)]], `rgba(255,45,85,${0.7 + 0.25 * Math.sin(t * 30)})`, '#ff9fb4', 1);
+    poly(cam, ground, ring(w.x, 0.02, -w.y, 0.3, 12), '#ff2d55', null);
   }
   if (room.markT > 0) {
     const k = 1 - room.markT / 1.1;
@@ -193,7 +209,10 @@ export function renderPecio(dt) {
         const pin = at(inner, 0, 0);
         if (!facing(n[0], n[1], pin[0], pin[2])) continue;
         const edge = th.wall;
-        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: '🚪', gsize: 18, o, bias: -0.5 });
+        // lo que hay al otro lado (las salas especiales se reconocen desde la puerta)
+        const nb = s.floor.rooms[s.floor.rooms[room.id]?.doors?.[side]];
+        const ng = nb && !['combat', 'start'].includes(nb.type) ? ROOM_TYPES[nb.type].icon : '🚪';
+        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: ng, gsize: 18, o, bias: -0.5 });
         if (cam.pos.y < DOOR_H) poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true, o, bias: -0.25 });
         poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true, o });
       } else if (k === 'C' || k === 'T' || k === 'A') {
@@ -237,7 +256,7 @@ export function renderPecio(dt) {
       }
       drawMesh3D(ctx, cam, L.mesh, pos, e.kind === 'boss' && e.boss === 'core' ? t * 0.8 : e.ang, e.kind === 'turret' || e.kind === 'boss' ? 0 : -0.1, e.r * (e.kind === 'boss' ? 1.15 : 1.25), L.pal, e.hitT > 0 || blink, NEAR);
       ctx.globalAlpha = 1;
-      if (e.elite) glyph(ctx, `👑${ELITE[e.elite].icon}`, q.x, q.y - q.s * 0.62, Math.max(11, q.s * 0.3));
+      if (e.elite) glyph(ctx, `👑${(e.traits || [e.elite]).map((k) => ELITE[k].icon).join('')}`, q.x, q.y - q.s * 0.62, Math.max(11, q.s * 0.3));
       if (e.burnT > 0) glyph(ctx, '🔥', q.x + q.s * 0.3, q.y - q.s * 0.3, Math.max(10, q.s * 0.26));
       if (e.stun > 0) glyph(ctx, '💫', q.x, q.y - q.s * 0.55, Math.max(10, q.s * 0.3));
       if (e.charge > 0) glyph(ctx, '❗', q.x, q.y - q.s * 0.6, Math.max(12, q.s * 0.4));
@@ -328,11 +347,11 @@ export function renderPecio(dt) {
   ctx.globalCompositeOperation = 'lighter';
   for (const f of s.flashes || []) {
     const a = Math.max(0, f.t / f.max);
-    if (f.kind === 'eshot' || f.kind === 'beam' || f.kind === 'arc') {
+    if (f.kind === 'eshot' || f.kind === 'beam' || f.kind === 'arc' || f.kind === 'heal') {
       const seg = clipSeg(toCam(cam, f.from.x, SHIP_Y, -f.from.y), toCam(cam, f.to.x, SHIP_Y, -f.to.y));
       if (!seg) continue;
       const P0 = scr(cam, seg[0]), P1 = scr(cam, seg[1]);
-      ctx.strokeStyle = f.kind === 'eshot' ? `rgba(255,45,85,${a})` : f.kind === 'arc' ? `rgba(160,200,255,${a})` : `rgba(255,230,0,${a})`;
+      ctx.strokeStyle = f.kind === 'eshot' ? `rgba(255,45,85,${a})` : f.kind === 'arc' ? `rgba(160,200,255,${a})` : f.kind === 'heal' ? `rgba(125,255,176,${a})` : `rgba(255,230,0,${a})`;
       ctx.lineWidth = f.kind === 'eshot' ? 5 : f.kind === 'arc' ? 3 : 9;
       ctx.lineCap = 'round';
       ctx.beginPath(); ctx.moveTo(P0.x, P0.y); ctx.lineTo(P1.x, P1.y); ctx.stroke();
@@ -369,6 +388,22 @@ export function renderPecio(dt) {
     }
   }
   ctx.globalCompositeOperation = 'source-over';
+  // NÚMEROS: el daño que haces (los críticos, en amarillo y más grandes) y las 🔩 que caen
+  for (const f of s.flashes || []) {
+    if (f.kind !== 'num') continue;
+    const a = Math.max(0, f.t / f.max), q = toCam(cam, f.x, SHIP_Y + 0.45 + (1 - a) * 0.55, -f.y);
+    if (q.z < NEAR * 6) continue;
+    const P = scr(cam, q), sz = Math.max(11, Math.min(f.crit ? 30 : 22, (H / q.z) * (f.crit ? 0.11 : 0.08)));
+    ctx.globalAlpha = Math.min(1, a * 1.6);
+    ctx.font = `900 ${Math.round(sz)}px system-ui`;
+    ctx.textAlign = 'center';
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(0,0,0,.75)';
+    ctx.strokeText(f.text, P.x + (f.dx || 0), P.y);
+    ctx.fillStyle = f.color;
+    ctx.fillText(f.text, P.x + (f.dx || 0), P.y);
+  }
+  ctx.globalAlpha = 1;
   // APAGÓN: solo se ve cerca de tu nave
   if (s.floor.event === 'blackout') {
     const ps = toCam(cam, p.x, SHIP_Y, -p.y);
@@ -538,7 +573,7 @@ function minimap(ctx, s, W) {
       ctx.lineWidth = 1;
       ctx.strokeRect(x + 0.5, y + 0.5, cell - 1, cell - 1);
     }
-    if (seen && r.type !== 'combat' && r.type !== 'start') glyph(ctx, ROOM_TYPES[r.type].icon, x + cell / 2, y + cell / 2, cell * 0.72);
+    if (r.type !== 'combat' && r.type !== 'start') glyph(ctx, ROOM_TYPES[r.type].icon, x + cell / 2, y + cell / 2, cell * 0.72);
     else if (!seen) glyph(ctx, '?', x + cell / 2, y + cell / 2, cell * 0.6);
   }
 }
