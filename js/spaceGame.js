@@ -1372,6 +1372,7 @@ function collectOutposts() {
   g.incomeAt = g.jumps || 0;
   if (!inc || n <= 0) return;
   g.credits += inc * n;
+  persist();
   fx.notice(`🏗️ Tus puestos: +${inc * n} 💰 (${n} saltos)`, '#30d158', 3);
 }
 

@@ -32,7 +32,7 @@ import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS
 import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopStock, FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
-import { priceDrift, GOOD_PRICE, ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
+import { GOOD_PRICE, ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
 import { chips as chipsOf, chipText, toggleChip, scrapChip, CHIP_TIERS, CHIP_MAX, CHIP_BAG, gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
 import { CAMPAIGNS, CAMP_LEN, campOpen, campStep, campDone, FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
@@ -2282,7 +2282,14 @@ export const ui = {
       outposts: new Set(Object.keys(save.outposts || {}).map(Number)),
       home: g.home ?? 0,
       // RUTAS: dónde pagan bien el mineral que más llevas (entre lo visitado)
-      trade: (() => { const top = Object.entries(g.cargo || {}).sort((a, b) => b[1] - a[1])[0]; return top && top[1] > 0 ? new Set(known_.filter((a) => g.visited.includes(a.id) && !a.hidden && priceDrift(a.id, top[0], g.jumps || 0) >= GOOD_PRICE).map((a) => a.id)) : new Set(); })(),
+      // (con el precio de venta real: base de la estación, sucesos, saturación y variación; las 3 mejores, si pagan claramente más que la media)
+      trade: (() => {
+        const top = Object.entries(g.cargo || {}).sort((a, b) => b[1] - a[1])[0];
+        if (!top || top[1] <= 0) return new Set();
+        const rows = known_.filter((a) => g.visited.includes(a.id) && !a.hidden).map((a) => ({ id: a.id, p: marketPrice(top[0], a.id) }));
+        const avg = rows.reduce((x, r) => x + r.p, 0) / (rows.length || 1);
+        return new Set(rows.filter((r) => r.p >= avg * GOOD_PRICE).sort((a, b) => b.p - a.p).slice(0, 3).map((r) => r.id));
+      })(),
     };
     const R = 9 * u;
     let svg = `<defs><marker id="gmArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffe600"/></marker></defs>`;
