@@ -523,10 +523,12 @@ function pirateTraits(s, p, d, dt) {
   // PORTANAVES: suelta drones (como mucho 4 a la vez)
   if (p.kind === 'carrier' && p.state !== 'patrol') {
     p.launchT = (p.launchT ?? 3) - dt;
-    if (p.launchT <= 0 && s.pirates.filter((q) => q.alive && q.mother === p).length < 4) {
+    const live = s.pirates.filter((q) => q.alive && q.mother === p).length;
+    if (p.launchT <= 0 && live < 4) {
       p.launchT = 8;
       const n0 = s.pirates.length;
       spawnPirate(s, false, 'drone', add(p.pos, { x: 0, y: -6, z: 14 })); // (un grupo de drones)
+      s.pirates.splice(n0 + (4 - live)); // como mucho 4 a la vez
       for (const q of s.pirates.slice(n0)) { q.mother = p; q.state = 'attack'; q.aware = true; }
       fx.notice('🛸 La portanaves lanza drones: tumba la nodriza', '#ff9f0a');
     }
@@ -829,7 +831,7 @@ function updatePirates(s, dt) {
     // ALERTA: patrullan su zona hasta verte
     if (!p.aware && !playerSafe && spots(d, false)) alertPirate(s, p);
     // estados: atacar, evadir tras cruzarse, huir con poca vida, merodear si estás a salvo (o no te ha visto)
-    if (!p.boss && p.hp < p.max * (p.flees ? 0.5 : 0.25) && p.state !== 'flee') { p.state = 'flee'; p.t = 0; }
+    if (!p.boss && !p.contract && p.hp < p.max * (p.flees ? 0.5 : 0.25) && p.state !== 'flee') { p.state = 'flee'; p.t = 0; } // (el objetivo de un contrato no huye)
     if (p.state === 'attack' && d < 70) { p.state = 'evade'; p.t = 0; }
     if (p.state === 'evade' && p.t > 1.4) p.state = 'attack';
     if (playerSafe && p.state === 'attack') p.state = 'patrol';
@@ -1693,6 +1695,9 @@ export function startCycle() {
   save.galaxyMarket = {};
   // los puestos no tienen sitio en la galaxia nueva: se devuelve todo lo invertido en ellos
   for (const o of Object.values(save.outposts || {})) {
+    // lo guardado en su almacén vuelve a tu bodega y a tus materiales
+    for (const [k, n] of Object.entries(o.store?.cargo || {})) g.cargo[k] = (g.cargo[k] || 0) + n;
+    for (const [k, n] of Object.entries(o.store?.mats || {})) addMat(save, k, n);
     g.credits += FOUND_COST;
     for (const [k, l] of Object.entries(o.mods || {})) for (let i = 0; i < l; i++) g.credits += OUTPOST_MODS[k]?.costs[i] || 0;
   }

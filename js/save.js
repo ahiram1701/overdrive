@@ -59,7 +59,7 @@ const DEFAULTS = {
   arenaMaps: {},    // { belt: { best: 412, wins: 1 } } récord y victorias de cada mapa de la ARENA
   expedition: { best: 0, wins: 0 },
   // GALAXIA: créditos, mejoras de la nave espacial, carga y progreso
-  galaxy: { credits: 0, up: { engine: 0, laser: 0, shield: 0, cargo: 0, jump: 0, missile: 0 }, missiles: 0, jumps: 0, wanted: 0, chassis: 'explorer', hulls: ['explorer'], cargo: { iron: 0, crystal: 0, plasma: 0, dark: 0 }, hull: 100, sold: false, started: false, earned: 0, sys: 0, home: 0, visited: [0], missions: [], boardSeq: 0, difficulty: 'pilot', wreck: null, incursion: null, surge: 0 },
+  galaxy: { credits: 0, up: { engine: 0, laser: 0, shield: 0, cargo: 0, jump: 0, missile: 0 }, missiles: 0, jumps: 0, wanted: 0, chassis: 'explorer', hulls: ['explorer'], cargo: { iron: 0, crystal: 0, plasma: 0, dark: 0 }, hull: 100, sold: false, started: false, earned: 0, sys: 0, home: 0, visited: [0], missions: [], boardSeq: 0, difficulty: 'pilot', wreck: null, incursion: null, surge: 0, seed: null, cycle: 0 }, // seed/cycle: la galaxia de esta partida y su Ciclo+
   galaxyBoss: {},
   galaxyPlanets: {}, // { '3-1': true } planetas ya orbitados (su primera visita paga)
   galaxyAtlas: {},  // { '3-1': true } puntos de interés descubiertos (ATLAS)   // { 12: true } jefes piratas derrotados por sistema
