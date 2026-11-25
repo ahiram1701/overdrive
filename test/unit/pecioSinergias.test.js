@@ -90,10 +90,11 @@ test('sets: 2 y 3 piezas dan su efecto', () => {
   assert.deepEqual(s.player.sets, { hunter: 3 });
   assert.match(setLines(s.player.sets)[0], /Cazador 3\/3/);
   gear(s, { weapon: W('spread', { set: 'colossus' }), mod1: { ...M('magnet'), set: 'colossus' }, mod2: { ...M('leech'), set: 'colossus' } });
-  assert.equal(s.player.max, m0 + 2);
-  assert.equal(s.player.roomShield, sh0 + 1);
+  // (3 piezas de un set también son 3 de su etiqueta: Coloso 🛡️ enciende además la Fortaleza: +1 ❤️ y +1 🫧)
+  assert.equal(s.player.max, m0 + 2 + 1);
+  assert.equal(s.player.roomShield, sh0 + 1 + 1);
   gear(s, { weapon: W('spread', { set: 'scrap' }), mod1: { ...M('magnet'), set: 'scrap' }, mod2: { ...M('leech'), set: 'scrap' } });
-  assert.equal(s.player.mods.setPiezas, 30);
+  assert.equal(s.player.mods.setPiezas, 30 + 40); // Chatarrero 🧲 ×3: también el Saqueo
   assert.ok(s.player.mods.setKeys);
 });
 

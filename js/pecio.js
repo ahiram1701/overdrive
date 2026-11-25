@@ -4,7 +4,7 @@
 // enemigos con su aviso visible, y un bot. Las posiciones van en CASILLAS (la casilla c,r ocupa
 // [c, c+1) × [r, r+1)); el ángulo 0 mira "arriba" (fila 0) y crece hacia la derecha.
 import { makeRng, hashString } from './rng.js';
-import { genItem, applyGear, itemPower, slotFor, currentFor, CONS_KEYS, BAG_MAX } from './pecioLoot.js';
+import { genItem, genChoice, applyGear, itemPower, slotFor, currentFor, CONS_KEYS, BAG_MAX } from './pecioLoot.js';
 
 export const COLS = 9, ROWS = 11;
 export const MID_C = 4, MID_R = 5;
@@ -307,6 +307,14 @@ export const openDoors = (s, id) => {
   for (const [k, v] of Object.entries(r.doors)) if (!(r.secret === k && !r.secretOpen)) out[k] = v;
   return out;
 };
+// +1 llave (con el RELICARIO, además te cura)
+export function gainKey(s, ev = []) {
+  const p = s.player;
+  p.keys++;
+  ev.push({ type: 'key' });
+  if (p.reliquary && p.hp < p.max) { p.hp++; ev.push({ type: 'leech' }); }
+  return ev;
+}
 // 🔩 que ganas (con el Imán y el Escáner, algo más)
 export function gainPiezas(s, n) {
   const m = s.player.mods || {};
@@ -324,11 +332,11 @@ const d2 = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 // Las habilidades ⚡ de cada nave, en tiempo real
 export const ABILITY = {
   nova: { name: 'Onda', desc: '3 de daño a todo lo que tengas cerca' },
-  chaos: { name: 'Caos', desc: '3 de daño a todo lo que tengas cerca' },
-  singularity: { name: 'Singularidad', desc: '3 de daño a todo lo que tengas cerca' },
+  chaos: { name: 'Caos', desc: '12 balas en todas direcciones' },
+  singularity: { name: 'Singularidad', desc: 'atrae a los cercanos hacia ti y estalla: 4 de daño' },
   laser: { name: 'Rayo', desc: 'rayo de 4 que atraviesa todo lo que tienes delante' },
-  hammer: { name: 'Martillo', desc: 'rayo de 4 que atraviesa todo lo que tienes delante' },
-  hook: { name: 'Gancho', desc: 'saltas 3 casillas hacia delante' },
+  hammer: { name: 'Martillo', desc: 'golpe en cono delante: 5 de daño y los aturde 1 s' },
+  hook: { name: 'Gancho', desc: 'atrapa al enemigo más cercano y trae el botín del suelo' },
   blink: { name: 'Parpadeo', desc: 'saltas 3 casillas hacia delante' },
   bubble: { name: 'Burbuja', desc: 'absorbes los 2 próximos golpes' },
   barrier: { name: 'Barrera', desc: 'recuperas 2 de vida y absorbes un golpe' },
@@ -455,7 +463,8 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
       const a = angTo(p, canSee(room, p, ahead) ? ahead : t); // si el punto adelantado queda tras una pared, directo a él
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
-        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * 13, vy: f.y * 13, dmg: p.dmg, life: 1.2, pierce: p.weapon === 'pierce', blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [] });
+        const big = p.weapon === 'cannon';
+        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * (big ? 9 : 13), vy: f.y * (big ? 9 : 13), dmg: p.dmg, life: big ? 1.6 : 1.2, pierce: p.weapon === 'pierce' || big, blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [], big });
       }
       p.fireCd = 1 / (p.rate * (p.boost > 0 ? 2 : 1));
       ev.push({ type: 'fire', weapon: p.weapon });
@@ -475,6 +484,11 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     }
   }
   if (s.decoy) { s.decoy.t -= dt; if (s.decoy.t <= 0) s.decoy = null; }
+  // REGENERATIVO: con la sala cerrada, te repara poco a poco
+  if (p.regen && locked(room) && p.hp < p.max) {
+    p.regenT = (p.regenT || 0) + dt;
+    if (p.regenT >= p.regen) { p.regenT = 0; p.hp++; ev.push({ type: 'regen' }); }
+  }
   if (room.wake <= 0) updateEnemies(s, room, dt, ev);
   // DESAFÍO: el reloj corre desde que entras; si se acaba antes de limpiarla, adiós premio
   if (room.type === 'challenge' && !room.cleared && room.timer > 0 && room.wake <= 0) {
@@ -497,7 +511,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     s.roomsCleared++;
     p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
     ev.push({ type: 'cleared' });
-    if (s.rng.chance(0.4 + (p.mods?.keyring || 0) / 100)) { p.keys++; ev.push({ type: 'key' }); }
+    if (s.rng.chance(0.4 + (p.mods?.keyring || 0) / 100)) gainKey(s, ev);
   }
   return ev;
 }
@@ -549,8 +563,8 @@ function interact(s, room, ev) {
     const d = Math.hypot(p.x - pk.x, p.y - pk.y);
     if (pk.cool) { if (d > 0.9) pk.cool = false; continue; }
     if (d > 0.65) continue;
-    if (pk.kind === 'item') { s.offer = { item: pk.item, pk }; ev.push({ type: 'offer' }); return true; }
-    if (pk.kind === 'key') { p.keys++; room.pickups = room.pickups.filter((x) => x !== pk); ev.push({ type: 'key' }); return false; }
+    if (pk.kind === 'item') { s.offer = { item: pk.item, alts: pk.alts || [], pk }; ev.push({ type: 'offer' }); return true; }
+    if (pk.kind === 'key') { gainKey(s, ev); room.pickups = room.pickups.filter((x) => x !== pk); return false; }
     if (p.bag[pk.cons] >= p.bagMax) { pk.cool = true; ev.push({ type: 'bagFull', cons: pk.cons }); continue; }
     p.bag[pk.cons]++;
     room.pickups = room.pickups.filter((x) => x !== pk);
@@ -590,7 +604,8 @@ function interact(s, room, ev) {
           p.hp = Math.min(p.max, p.hp + 1);
           ev.push({ type: 'chest', piezas: gain });
           // y un objeto (los cofres dan mejor botín)
-          s.offer = { item: genItem(s.rng, s.depth, { bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) }), pk: null };
+          const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) });
+          s.offer = { item, alts, pk: null };
           ev.push({ type: 'offer' });
           return true;
         }
@@ -657,13 +672,23 @@ function updateShots(s, room, dt, ev) {
       const f = fwd(e.ang), sp = Math.hypot(b.vx, b.vy) || 1;
       if (e.kind === 'shield' && (b.vx * f.x + b.vy * f.y) / sp < -0.35) { ev.push({ type: 'blocked', id: e.id, x: b.x, y: b.y }); b.life = 0; }
       else {
+        const p = s.player;
         hitEnemy(s, room, e, b.dmg, ev);
-        if (s.player.burn && e.alive) e.burnT = 3; // CORAZÓN DEL REACTOR: quema
-        // ARCO: salta a 2 enemigos cercanos
-        if (s.player.weapon === 'arc') {
+        if (p.burn && e.alive) e.burnT = 3; // QUEMA (Reactor, afijo ígneo o sinergia 🔥)
+        if (p.stunChance && e.alive && s.rng.chance(p.stunChance)) { e.stun = Math.max(e.stun, e.kind === 'boss' ? 0.25 : 0.6); ev.push({ type: 'frost', x: e.x, y: e.y }); }
+        if (p.vamp && p.hp < p.max && s.rng.chance(p.vamp)) { p.hp++; ev.push({ type: 'leech' }); }
+        // PRISMA: lo que matas estalla en 3 balas más
+        if (p.prism && !e.alive && !b.split) {
+          for (let k = 0; k < 3; k++) {
+            const fd = fwd(s.rng.next() * Math.PI * 2);
+            s.shots.push({ x: e.x, y: e.y, vx: fd.x * 12, vy: fd.y * 12, dmg: Math.max(1, Math.ceil(b.dmg / 2)), life: 0.6, pierce: false, blast: false, bounces: 0, hit: [e.id], split: true });
+          }
+        }
+        // CADENA: el Arco salta a 2 enemigos cercanos (y la sinergia ⚡, a uno más)
+        if (p.chain && !b.split) {
           let from = e;
           const done = [e.id];
-          for (let k = 0; k < 2; k++) {
+          for (let k = 0; k < p.chain; k++) {
             const nx = room.enemies.filter((o) => o.alive && !o.hidden && !done.includes(o.id) && d2(o, from) < 2.6).sort((a, c) => d2(a, from) - d2(c, from))[0];
             if (!nx) break;
             ev.push({ type: 'arc', from: { x: from.x, y: from.y }, to: { x: nx.x, y: nx.y } });
@@ -717,7 +742,8 @@ function hitEnemy(s, room, e, dmg, ev) {
     room.tiles[MID_R][MID_C] = 'X';
     s.bosses++;
     gainPiezas(s, BOSSES[e.boss].piezas);
-    drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 2 }) });
+    const [item, ...alts] = genChoice(s.rng, s.depth, { bonus: 2, minTier: 2 });
+    drop({ kind: 'item', item, alts });
     ev.push({ type: 'bossDown', boss: e.boss, name: BOSSES[e.boss].name });
   } else if (e.kind === 'mimic') drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 2, minTier: 1 }) });
   else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { bonus: 1 }) });
@@ -756,10 +782,27 @@ function hurt(s, dmg, ev, src, force = false) {
     if (t) hitEnemy(s, room, t, 3, ev);
     return;
   }
-  if (p.shield > 0 && !force) { p.shield--; p.inv = 0.5; ev.push({ type: 'absorb' }); return; }
+  const room = roomOf(s);
+  if (p.shield > 0 && !force) {
+    p.shield--; p.inv = 0.5; ev.push({ type: 'absorb' });
+    // SET GUARDIÁN: al romperse el escudo, aturde a los cercanos
+    if (p.wardenStun) for (const e of room.enemies) if (e.alive && d2(e, p) < 2.2) e.stun = Math.max(e.stun, 1);
+    return;
+  }
   p.hp -= dmg;
   p.inv = 0.9;
   ev.push({ type: 'hurt', dmg, src });
+  // ESPINAS: el que te golpea (y los que estén cerca) también lo nota
+  if (p.thorns) for (const e of room.enemies) if (e.alive && !e.hidden && d2(e, p) < 1.9 + e.r) hitEnemy(s, room, e, p.thorns, ev);
+  if (p.hp <= 0 && p.phoenix && !s.phoenixUsed) { // PLUMA DE FÉNIX: una segunda oportunidad
+    s.phoenixUsed = true;
+    p.hp = Math.min(p.max, 3);
+    p.inv = 2;
+    ev.push({ type: 'phoenix' });
+    ev.push({ type: 'boom', x: p.x, y: p.y, r: 2.2, mine: true });
+    for (const e of room.enemies) if (e.alive && d2(e, p) < 2.2) e.stun = Math.max(e.stun, 1.5);
+    return;
+  }
   if (p.hp <= 0) { p.hp = 0; s.over = true; ev.push({ type: 'dead' }); }
 }
 
@@ -820,7 +863,7 @@ function updateEnemies(s, room, dt, ev) {
     if (e.alive && e.burnT > 0) {
       e.burnT -= dt;
       e.burnAcc = (e.burnAcc || 0) + dt;
-      if (e.burnAcc >= 1) { e.burnAcc -= 1; hitEnemy(s, room, e, 1, ev); }
+      if (e.burnAcc >= 1) { e.burnAcc -= 1; hitEnemy(s, room, e, p.burnDmg || 1, ev); }
     }
     // FUSIÓN: el núcleo apagado vuelve si su gemelo aguanta
     if (!e.alive && e.downT > 0) {
@@ -1189,22 +1232,69 @@ export function dash(s) {
   p.dashT = s.floor.event === 'lowgrav' ? 0.32 : 0.22;
   if (p.mods?.decoy) s.decoy = { x: p.x, y: p.y, t: p.mods.decoy }; // SEÑUELO
   p.dashCd = p.dashMax || 1.1;
-  return [{ type: 'dash' }];
+  const ev = [{ type: 'dash' }], room = roomOf(s);
+  if (p.dashInv) p.inv = Math.max(p.inv, p.dashT + p.dashInv); // SET ESPECTRO
+  // ONDA al esquivar (sinergia 💨 o el Cometa)
+  if (p.dashNova) {
+    ev.push({ type: 'boom', x: p.x, y: p.y, r: 1.4, mine: true });
+    for (const e of room.enemies) if (e.alive && d2(e, p) < 1.4 + e.r) hitEnemy(s, room, e, p.dashNova, ev);
+  }
+  // REFLECTANTE: devuelve un golpe al enemigo más cercano que veas
+  if (p.reflect) {
+    const t = room.enemies.filter((e) => e.alive && !e.hidden && d2(e, p) < 5 && canSee(room, p, e)).sort((a, b) => d2(a, p) - d2(b, p))[0];
+    if (t) { ev.push({ type: 'arc', from: { x: p.x, y: p.y }, to: { x: t.x, y: t.y } }); hitEnemy(s, room, t, p.reflect, ev); }
+  }
+  return ev;
 }
 export function useAbility(s) {
   const p = s.player, room = roomOf(s), id = p.ability, ev = [];
   if (s.over || p.abCd > 0) return [{ type: 'cooldown' }];
   p.abCd = p.abMax;
   ev.push({ type: 'ability', id });
-  if (['nova', 'chaos', 'singularity'].includes(id)) {
+  if (id === 'nova') {
     ev.push({ type: 'boom', x: p.x, y: p.y, r: 2.3, mine: true });
     for (const e of room.enemies) if (e.alive && d2(e, p) < 2.3) hitEnemy(s, room, e, 3, ev);
     breakCrack(s, room, p, 2.3, ev);
-  } else if (id === 'laser' || id === 'hammer') {
+  } else if (id === 'chaos') {
+    // CAOS: una corona de balas (con los efectos de tu arma)
+    for (let i = 0; i < 12; i++) {
+      const f = fwd(p.ang + (i / 12) * Math.PI * 2);
+      s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * 11, vy: f.y * 11, dmg: p.dmg + 1, life: 0.9, pierce: false, blast: false, bounces: p.bounces || 0, hit: [] });
+    }
+  } else if (id === 'singularity') {
+    // SINGULARIDAD: tira de los cercanos hacia ti y luego estalla
+    for (const e of room.enemies) {
+      if (!e.alive || e.kind === 'boss' || e.kind === 'turret' || e.kind === 'node' || d2(e, p) > 4.2) continue;
+      const d = d2(e, p) || 1;
+      moveCircle(room, e, ((p.x - e.x) / d) * Math.max(0, d - 1), ((p.y - e.y) / d) * Math.max(0, d - 1), 'enemy');
+    }
+    ev.push({ type: 'boom', x: p.x, y: p.y, r: 2, mine: true });
+    for (const e of room.enemies) if (e.alive && d2(e, p) < 2) hitEnemy(s, room, e, 4, ev);
+    breakCrack(s, room, p, 2, ev);
+  } else if (id === 'hammer') {
+    // MARTILLO: golpe en cono por delante
+    ev.push({ type: 'boom', x: p.x + fwd(p.ang).x * 1.3, y: p.y + fwd(p.ang).y * 1.3, r: 1.4, mine: true });
+    for (const e of room.enemies) {
+      if (!e.alive || d2(e, p) > 2.8 || Math.abs(angDiff(angTo(p, e), p.ang)) > 0.75) continue;
+      hitEnemy(s, room, e, 5, ev);
+      if (e.alive) e.stun = Math.max(e.stun, 1);
+    }
+    breakCrack(s, room, p, 1.6, ev);
+  } else if (id === 'hook') {
+    // GANCHO: atrae al enemigo más cercano que veas (aturdido) y todo el botín del suelo
+    const t = room.enemies.filter((e) => e.alive && !e.hidden && e.kind !== 'boss' && e.kind !== 'turret' && e.kind !== 'node' && canSee(room, p, e)).sort((a, b) => d2(a, p) - d2(b, p))[0];
+    if (t) {
+      const f = fwd(p.ang), d = d2(t, p) || 1;
+      moveCircle(room, t, ((p.x - t.x) / d) * Math.max(0, d - 1.1), ((p.y - t.y) / d) * Math.max(0, d - 1.1), 'enemy');
+      t.stun = Math.max(t.stun, 1.2);
+      ev.push({ type: 'beam', from: { x: p.x + f.x * 0.2, y: p.y + f.y * 0.2 }, to: { x: t.x, y: t.y } });
+    }
+    for (const pk of room.pickups) if (!pk.declined) { pk.x = p.x + (s.rng.next() - 0.5) * 0.4; pk.y = p.y + 0.7; pk.cool = false; }
+  } else if (id === 'laser') {
     const end = rayEnd(room, p, p.ang);
     ev.push({ type: 'beam', from: { x: p.x, y: p.y }, to: end });
     for (const e of room.enemies) if (e.alive && segDist(e, p, end) < e.r + 0.25) hitEnemy(s, room, e, 4, ev);
-  } else if (id === 'hook' || id === 'blink') {
+  } else if (id === 'blink') {
     const f = fwd(p.ang);
     for (let i = 0; i < 30; i++) {
       const nx = p.x + f.x * 0.1, ny = p.y + f.y * 0.1;
@@ -1269,7 +1359,7 @@ function descend(s, ev) {
   Object.assign(s.player, { x: s.entry.x, y: s.entry.y, ang: 0, vel: 0, dashT: 0 });
   s.shots = [];
   s.player.hp = Math.min(s.player.max, s.player.hp + 1);
-  if (s.player.mods?.setKeys) s.player.keys++;
+  if (s.player.mods?.setKeys) gainKey(s, ev);
   ev.push({ type: 'floor', depth: s.depth, theme: s.floor.theme.name });
 }
 
@@ -1280,6 +1370,7 @@ export function takeOffer(s, choice) {
   if (!o) return [];
   const p = s.player, room = roomOf(s), ev = [];
   if (o.pk) room.pickups = room.pickups.filter((x) => x !== o.pk);
+  const synBefore = { ...(p.syn || {}) };
   // lo que dejas o te quitas queda en el suelo (marcado como descartado: el bot no vuelve a por ello)
   const drop = (item) => room.pickups.push({ id: `${item.id}-f`, kind: 'item', item, x: p.x, y: p.y, cool: true, declined: true });
   if (choice === 'leave') { drop(o.item); ev.push({ type: 'left' }); } else {
@@ -1291,13 +1382,30 @@ export function takeOffer(s, choice) {
     if (old) drop(old);
     if (!s.best || itemPower(o.item) > itemPower(s.best)) s.best = o.item;
     ev.push({ type: 'equip', slot, item: o.item });
+    for (const k of Object.keys(p.syn || {})) if (p.syn[k] && !synBefore[k]) ev.push({ type: 'synergy', tag: k });
   }
   s.offer = null;
   return ev;
 }
-// (bot) se lo pone si es mejor que lo que lleva en esa ranura
+// ELIGE 1 DE 3: muestra (y deja listo para coger) el objeto i de la oferta
+export function selectOffer(s, i) {
+  const o = s.offer;
+  if (!o || !o.alts?.length) return;
+  o.choices ||= [o.item, ...o.alts]; // el orden de las pestañas no cambia al elegir
+  const all = o.choices;
+  if (!all[i]) return;
+  o.item = all[i];
+  o.alts = all.filter((_, k) => k !== i);
+}
+export const offerItems = (s) => (s.offer ? s.offer.choices || [s.offer.item, ...(s.offer.alts || [])] : []);
+// (bot) elige de la oferta lo que más mejora, y se lo pone si es mejor que lo que lleva en esa ranura
 export function botOffer(s) {
-  const p = s.player, it = s.offer.item, cur = currentFor(p, it);
+  const p = s.player;
+  const gainOf = (it) => itemPower(it) - itemPower(currentFor(p, it));
+  const all = offerItems(s);
+  const best = all.reduce((a, b) => (gainOf(b) > gainOf(a) ? b : a));
+  selectOffer(s, all.indexOf(best));
+  const it = s.offer.item, cur = currentFor(p, it);
   if (itemPower(it) <= itemPower(cur)) return 'leave';
   if (it.slot === 'mod' && p.gear.mod1 && p.gear.mod2) return cur === p.gear.mod1 ? 'mod1' : 'mod2';
   return 'equip';

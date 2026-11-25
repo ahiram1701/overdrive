@@ -27,9 +27,9 @@ import { INTERDICT } from './galaxyContacts.js';
 import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
-import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
-import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, itemIcon, itemName, itemLines, setLines, currentFor } from './pecioLoot.js';
-import { ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
+import { newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
+import { RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
+import { offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, SHOP_ITEMS, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
@@ -231,7 +231,8 @@ function lootCard(it) {
   const R = LOOT_RAR[it.tier];
   const have = it.set ? G.pecio?.player?.sets?.[it.set] || 0 : 0; // cuántas de su set llevas ya
   const set = it.set ? `<small class="lc-set">${LOOT_SETS[it.set].icon} llevas ${have} de ${LOOT_SETS[it.set].name}</small>` : '';
-  return `<div class="loot-card${it.unique ? ' unique' : ''}" style="--rc:${R.color}"><span class="lc-icon">${itemIcon(it)}</span><b>${itemName(it)}</b><small class="lc-rar">${it.unique ? '★ ÚNICO · ' : ''}${R.name}</small>${itemLines(it).map((l) => `<small>${l}</small>`).join('')}${set}</div>`;
+  const tags = tagsOf(it).map((t) => `<span class="lc-tag" title="${LOOT_TAGS[t].name}">${LOOT_TAGS[t].icon}</span>`).join('');
+  return `<div class="loot-card${it.unique ? ' unique' : ''}" style="--rc:${R.color}"><span class="lc-icon">${itemIcon(it)}</span><b>${itemName(it)}</b><small class="lc-rar">${it.unique ? '★ ÚNICO · ' : ''}${R.name}</small>${tags ? `<span class="lc-tags">${tags}</span>` : ''}${itemLines(it).map((l) => `<small>${l}</small>`).join('')}${set}</div>`;
 }
 
 export function dialogPaused() {
@@ -2686,11 +2687,33 @@ export const ui = {
   },
   // BOTÍN: lo nuevo frente a lo que llevas, y elegir
   showPecioOffer(s) {
-    const it = s.offer.item, p = s.player, cur = currentFor(p, it);
-    setText('psTitle', '🎁 BOTÍN');
+    const it = s.offer.item, p = s.player, cur = currentFor(p, it), all = offerItems(s);
+    setText('psTitle', all.length > 1 ? '🎁 ELIGE 1 DE 3' : '🎁 BOTÍN');
     setHTML('psText', `<b style="color:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`);
     const box = $('psItems');
-    box.innerHTML = `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>`;
+    box.innerHTML = '';
+    if (all.length > 1) {
+      const row = el('div', 'loot-pick');
+      row.setAttribute('role', 'tablist');
+      all.forEach((o, i) => {
+        const b = el('button', `lp-opt${o === it ? ' on' : ''}`, `<span>${itemIcon(o)}</span><small>${o.slot === 'mod' ? 'Módulo' : SLOT_NAME[o.slot]}</small>`);
+        b.style.setProperty('--rc', LOOT_RAR[o.tier].color);
+        b.dataset.pick = i;
+        b.setAttribute('role', 'tab');
+        b.setAttribute('aria-selected', String(o === it));
+        b.setAttribute('aria-label', `${itemName(o)} (${LOOT_RAR[o.tier].name})`);
+        tap(b, () => { pecioSelectOffer(i); });
+        row.append(b);
+      });
+      box.append(row);
+    }
+    // ¿completa una sinergia?
+    const before = p.tags || {}, after = tagsIfEquipped(p, it);
+    const lit = Object.keys(LOOT_TAGS).filter((k) => (after[k] || 0) >= SYNERGY_AT && (before[k] || 0) < SYNERGY_AT);
+    const near = Object.keys(LOOT_TAGS).filter((k) => (after[k] || 0) === SYNERGY_AT - 1 && (before[k] || 0) < SYNERGY_AT - 1);
+    const hint = lit.length ? `<p class="loot-syn on">✨ Enciende ${lit.map((k) => `${LOOT_TAGS[k].icon} ${LOOT_TAGS[k].name}`).join(' y ')}: ${LOOT_TAGS[lit[0]].desc}</p>`
+      : near.length ? `<p class="loot-syn">${near.map((k) => `${LOOT_TAGS[k].icon} ${LOOT_TAGS[k].name}`).join(' · ')}: te faltaría 1 pieza</p>` : '';
+    box.insertAdjacentHTML('beforeend', `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>${hint}`);
     const opts = it.slot === 'mod' && p.gear.mod1 && p.gear.mod2
       ? [['mod1', `CAMBIAR POR ${itemIcon(p.gear.mod1)} ${itemName(p.gear.mod1).toUpperCase()}`], ['mod2', `CAMBIAR POR ${itemIcon(p.gear.mod2)} ${itemName(p.gear.mod2).toUpperCase()}`]]
       : [['equip', cur ? 'CAMBIAR' : 'EQUIPAR']];
@@ -2867,7 +2890,7 @@ export const ui = {
         const it = G.pecio.player.gear[k], R = LOOT_RAR[it.tier];
         return `<div class="pg-row"><span class="pg-it" style="--rc:${R.color}">${itemIcon(it)}</span><span><b>${itemName(it)}</b> <i style="color:${R.color}">${R.name}</i><small>${itemLines(it).find((l) => l.startsWith('★')) || itemLines(it)[0] || ''}</small></span></div>`;
       }).join('');
-      const sets = setLines(G.pecio.player.sets).map((l) => `<small class="pg-set">${l}</small>`).join('');
+      const sets = [...setLines(G.pecio.player.sets), ...synergyLines(G.pecio.player.tags)].map((l) => `<small class="pg-set">${l}</small>`).join('');
       $('pBuild').innerHTML = `<small>🏚️ PECIOS · planta ${G.pecio.depth}</small>${rows ? `<div class="pause-gear">${rows}${sets}</div>` : ''}`;
       show('pause');
       return;

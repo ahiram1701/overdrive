@@ -54,7 +54,8 @@ test('pecios: puertas cerradas con enemigos, esquive, habilidad y tienda', async
   });
   expect(res.locked).toBe(true);
   expect(res.blocks).toBe(true);
-  // 💨 y ⚡ desde sus botones
+  // 💨 y ⚡ desde sus botones (con el reloj parado: con la máquina cargada, el segundo de recarga se agotaba antes de mirarlo)
+  await page.evaluate(() => { window.G.manual = true; });
   await page.locator('#pcDash').click();
   expect(await page.evaluate(() => window.G.pecio.player.dashCd)).toBeGreaterThan(0);
   await page.locator('#pcAbility').click();
@@ -340,5 +341,33 @@ test('nave exclusiva: superar la planta 9 de Pecios te da el Carroñero, y se ve
     progress('pecioWin');
   });
   expect(await page.evaluate(() => window.__save.ships.includes('carronero'))).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('pecios builds: el cofre ofrece ELIGE 1 DE 3, se cambia de opción y se ve la sinergia en la pausa', async ({ page }) => {
+  const errors = trackErrors(page);
+  await startPecio(page, { pecio: { best: 2, runs: 1, piezas: 0, wins: 0, vault: null, vaultOpen: false } });
+  await page.evaluate(async () => {
+    const { genChoice, applyGear } = await import('/js/pecioLoot.js');
+    const { makeRng } = await import('/js/rng.js');
+    const s = window.G.pecio;
+    // ya lleva dos piezas 💨: la tercera enciende la Danza
+    s.player.gear.mod1 = { id: 'a', slot: 'mod', kind: 'reflex', tier: 1, val: 25 };
+    s.player.gear.mod2 = { id: 'b', slot: 'mod', kind: 'decoy', tier: 1, val: 2 };
+    applyGear(s.player);
+    const [item, ...alts] = genChoice(makeRng(4), 5, { bonus: 1 });
+    alts[0] = { id: 'r', slot: 'plating', kind: 'reflect', tier: 2, hp: 2, shield: 0 };
+    s.rooms[s.at].pickups.push({ id: 'x', kind: 'item', item, alts, x: s.player.x, y: s.player.y - 0.2 });
+  });
+  await expect(page.locator('#psTitle')).toHaveText('🎁 ELIGE 1 DE 3');
+  await expect(page.locator('[data-pick]')).toHaveCount(3);
+  const pick = page.locator('[data-pick="1"]');
+  await pick.click();
+  await expect(page.locator('[data-pick="1"]')).toHaveAttribute('aria-selected', 'true'); // las pestañas no cambian de sitio
+  await expect(page.locator('.loot-syn.on')).toContainText('Danza');
+  await page.locator('[data-offer="equip"]').click();
+  expect(await page.evaluate(() => ({ k: window.G.pecio.player.gear.plating?.kind, syn: window.G.pecio.player.syn.dodge }))).toEqual({ k: 'reflect', syn: true });
+  await page.locator('#pcPause').click();
+  await expect(page.locator('#pBuild')).toContainText('Danza 3/3');
   expect(errors).toEqual([]);
 });
