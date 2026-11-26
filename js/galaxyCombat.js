@@ -84,7 +84,7 @@ export const rollInvuln = (barrelT) => barrelT > ROLL.anim - ROLL.invuln;
 export const HEAT = { cool: 0.45, release: 0.35, ventLo: 0.6, ventHi: 0.78 };
 // calor por disparo: a más cadencia, menos por tiro (pero más por segundo)
 export const shotHeat = (fireCd) => 0.1 * Math.sqrt(fireCd / 0.2);
-export const GEAR_HEAT = { laser2: 0.035, flak: 0.03, plasma: 0.06 };
+export const GEAR_HEAT = { laser2: 0.035, flak: 0.03, plasma: 0.06, rail: 0.05, burst: 0.025, ion: 0.015 };
 // Sobrecalentado y pulsas disparo: en la franja se ventila (frío al instante); fuera, se atasca.
 export const inVent = (heat) => heat >= HEAT.ventLo && heat <= HEAT.ventHi;
 export function vent(heat) {

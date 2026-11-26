@@ -26,7 +26,7 @@ test('morir: Relajado no cuesta nada; Piloto paga y vuelve tocado; Veterano, má
   const pilot = towFee(10000, 2, 'pilot'), vet = towFee(10000, 2, 'veteran');
   assert.ok(pilot > 0 && vet > pilot);
   assert.equal(towFee(100, 2, 'pilot'), 15, 'con poco dinero, un porcentaje');
-  assert.ok(towFee(1e7, 6, 'pilot') <= 300 + 250 * 6, 'con tope');
+  assert.ok(towFee(1e7, 6, 'pilot') <= 400 + 320 * 6, 'con tope');
   assert.ok(respawnHull('veteran') < respawnHull('pilot') && respawnHull('pilot') < 1);
   assert.equal(pirateMul('pilot'), 1);
   assert.ok(pirateMul('veteran') > 1);

@@ -71,7 +71,7 @@ test('inhibidor y acechador', () => {
 
 test('tipos raros solo lejos de ORIGEN; escuadrillas desde peligro 2', () => {
   for (let r = 0; r < 1; r += 0.01) {
-    assert.equal(rareKind(1, 1, r), null);
+    assert.ok([null, 'mender'].includes(rareKind(1, 1, r)), 'cerca de ORIGEN, como mucho el reparador');
     assert.ok(!['inhibitor', 'stalker'].includes(rareKind(3, 3, r)));
   }
   assert.equal(rareKind(5, 1, 0.01), 'inhibitor');

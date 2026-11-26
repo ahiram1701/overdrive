@@ -21,7 +21,7 @@ import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, 
 import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
 import { priceDrift, unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
-import { CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
+import { piratesHeld, CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
 import { eventFor, EVENTS, MISSILE, missileAmmo, missileDmg, steerMissile, lockStep, ENEMY_KINDS, enemyKind, planetInfo } from './galaxyEvents.js';
 import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor, stalkerVisible, FIRE_CONE, CALL_TIME, CALL_ADDS } from './galaxyTactics.js';
 import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
@@ -47,7 +47,8 @@ export function useGalaxy(seed) {
 useGalaxy(save.galaxy?.seed ?? GALAXY_SEED);
 // CICLO+: tras el final de LA SEÑAL, una galaxia nueva cada vez más dura (y que paga más)
 export const galaxyCycle = () => save.galaxy?.cycle || 0;
-export const cycleOpen = () => !!save.story?.ending;
+export const cycleOpen = () => !!save.story?.ending && cyclePiratesLeft() === 0;
+export const cyclePiratesLeft = () => piratesHeld(GAL, save.territory || {}).length;
 const cycleK = () => 1 + 0.2 * galaxyCycle();
 
 const gal = () => save.galaxy;
@@ -955,7 +956,7 @@ function updatePirates(s, dt) {
 // CHIPS: botín con afijos (jefes siempre; élites y piratas de sistemas ocultos, a veces)
 function dropChip(s, p) {
   const hidden = !!GAL[s.sysId]?.hidden;
-  const chance = p.boss || p.story ? 1 : p.elite || p.contract ? 0.22 : hidden ? 0.12 : 0;
+  const chance = p.boss || p.story ? 1 : p.elite || p.contract ? 0.35 : hidden ? 0.12 : p.kind !== 'drone' ? 0.04 : 0;
   if (!chance || s.rng.next() > chance) return;
   const c = genChip(s.rng, GAL[s.sysId].danger, (p.boss || p.story ? 1 : 0) + (hidden ? 1 : 0));
   if (!addChip(save, c)) { fx.notice('💠 Bolsa de chips llena: desguaza alguno en la estación', '#ff9f0a', 2.6); return; }
@@ -1558,6 +1559,14 @@ function missionEvent(s, ev) {
 }
 
 // RESCATE (cápsulas a la deriva) y ASESINATO (un objetivo con escolta) de los contratos
+// NEBULOSA: dentro, el radar no ve nada lejos (los piratas solo se ven de cerca)
+export const NEBULA_R = 1300, NEBULA_SEE = 420;
+function updateNebula(s) {
+  const neb = s.pois?.find((p) => p.kind === 'nebula' && dist(p.pos, s.ship.pos) < NEBULA_R);
+  const was = s.fogged;
+  s.fogged = !!neb;
+  if (s.fogged && !was) fx.notice('🌫️ Dentro de la nebulosa: sin radar, solo ves lo que está cerca', '#64d2ff', 3);
+}
 function updateRescueHit(s) {
   const g = gal();
   const rm = g.missions.find((m) => m.kind === 'rescue' && m.sys === s.sysId && m.progress < m.n);
@@ -1659,12 +1668,31 @@ function updateScan(s, dt) {
 }
 
 // ANOMALÍAS: lo que pasa al escanear cada una
+// ESTACIÓN ABANDONADA: 3 oleadas de guardianes; al acabar, su botín
+export const DERELICT_WAVES = 3;
+function derelictWave(s) {
+  const d = s.derelict, before = s.pirates.length;
+  d.wave++;
+  spawnPirate(s, false, 'drone', add(d.pos, { x: 0, y: 20, z: 60 }));
+  if (d.wave >= 2) spawnPirate(s, false, 'fighter', add(d.pos, { x: 120, y: 0, z: -40 }));
+  if (d.wave >= 3) spawnPirate(s, false, 'interceptor', add(d.pos, { x: -120, y: 0, z: -40 }));
+  for (const p of s.pirates.slice(before)) p.derelict = true;
+  fx.notice(`⚠️ Estación abandonada · oleada ${d.wave}/${DERELICT_WAVES}`, '#ff9f0a', 2.6);
+}
+function updateDerelict(s) {
+  const d = s.derelict;
+  if (!d || s.pirates.some((p) => p.alive && p.derelict)) return;
+  if (d.wave < DERELICT_WAVES) { derelictWave(s); return; }
+  s.derelict = null;
+  gainMats(s, { chatarra: 12, circuitos: 4, nucleos: 2 });
+  gal().credits += 400 + 120 * GAL[s.sysId].danger;
+  fx.banner('🏚️ ESTACIÓN LIMPIA', `+${400 + 120 * GAL[s.sysId].danger} 💰 y sus materiales`, '#ff9f0a', true, 3);
+}
 function anomaly(s, poi) {
   const K = POI_KINDS[poi.kind], g = gal();
   if (K.effect === 'ambush') {
-    for (let i = 0; i < 3; i++) spawnPirate(s, false, 'drone', add(poi.pos, { x: 70 * (i - 1), y: 20, z: 60 }));
-    gainMats(s, { chatarra: 6, nucleos: 1 });
-    fx.notice('⚠️ ¡La estación tenía guardianes!', '#ff9f0a', 3);
+    s.derelict = { pos: poi.pos, wave: 0 };
+    derelictWave(s);
   } else if (K.effect === 'gear') {
     const free = Object.keys(GEAR).filter((id) => !GEAR[id].faction && !owns(save, id));
     if (free.length) {
@@ -2183,7 +2211,7 @@ export function updateSpace(dt) {
   if (s.firing && sh.fireT <= 0 && !s.overheat) {
     sh.fireT = surge ? st.fireCd / SURGE.fireMul : st.fireCd;
     if (!surge) {
-      s.heat += (shotHeat(st.fireCd) + (hasGear(save, 'laser2') ? GEAR_HEAT.laser2 : 0) + (hasGear(save, 'flak') ? GEAR_HEAT.flak : 0)) * (hasGear(save, 'beam') ? 0.7 : 1) * (1 - Math.min(60, chipBonus(save).cool || 0) / 100);
+      s.heat += (shotHeat(st.fireCd) + (hasGear(save, 'laser2') ? GEAR_HEAT.laser2 : 0) + (hasGear(save, 'flak') ? GEAR_HEAT.flak : 0) + (hasGear(save, 'burst') ? GEAR_HEAT.burst : 0) + (hasGear(save, 'ion') ? GEAR_HEAT.ion : 0)) * (hasGear(save, 'beam') ? 0.7 : 1) * (1 - Math.min(60, chipBonus(save).cool || 0) / 100);
       if (s.heat >= 1) { s.heat = 1; s.overheat = true; fx.notice('🌡️ Sobrecalentado: vuelve a pulsar en la franja azul', '#ff6a00'); sfx.bump(); }
     }
     const dmg = surge ? st.dmg * SURGE.dmgMul : st.dmg;
@@ -2216,8 +2244,10 @@ export function updateSpace(dt) {
     }
     if (hasGear(save, 'rail') && (sh.railN = (sh.railN || 0) + 1) % 4 === 0) {
       s.bolts.push({ pos: from, vel: add(scale(dir, 1400), scale(b.f, speed)), life: 0.9, dmg: dmg * 2 * gearBoost(save, 'rail'), pierce: true, rail: true, safe: inSafe });
+      if (!surge) s.heat += GEAR_HEAT.rail;
+      sfx.rail();
     }
-    sfx.swish();
+    if (hasGear(save, 'ion')) sfx.ion(); else if (hasGear(save, 'beam')) sfx.beam(); else sfx.swish();
   }
 
   // TORRETA automática (equipo): dispara sola al pirata más cercano
@@ -2341,6 +2371,8 @@ export function updateSpace(dt) {
   updateEvent(s, dt);
   updateEscort(s, dt);
   updateRescueHit(s);
+  updateDerelict(s);
+  updateNebula(s);
   updateScan(s, dt);
   updateContacts(s, dt);
   updateIncursion(s, dt);

@@ -93,14 +93,14 @@ export const stalkerVisible = (p, d) => (p.kind !== 'stalker' && p.kind !== 'wra
 
 // Tipos nuevos lejos de ORIGEN (se suman a corbeta y minador)
 export function rareKind(danger, threat, r) {
-  if (danger >= 4 && r < 0.07) return 'inhibitor';
-  if (danger >= 4 && r < 0.15) return 'stalker';
-  if ((danger >= 3 || threat >= 1.8) && r < 0.23) return 'corvette';
-  if ((danger >= 3 || threat >= 1.8) && r < 0.31) return 'minelayer';
-  if (danger >= 3 && r < 0.36) return 'frigate';
-  if (danger >= 2 && r < 0.4) return 'mender';
-  if (danger >= 4 && r < 0.44) return 'carrier';
-  if (danger >= 5 && r < 0.48) return 'wraith';
+  if (danger >= 4 && r < 0.06) return 'inhibitor';
+  if (danger >= 4 && r < 0.12) return 'stalker';
+  if ((danger >= 3 || threat >= 1.8) && r < 0.19) return 'corvette';
+  if ((danger >= 3 || threat >= 1.8) && r < 0.25) return 'minelayer';
+  if (danger >= 2 && r < 0.32) return 'frigate';
+  if (danger >= 1 && r < 0.4) return 'mender';
+  if (danger >= 3 && r < 0.46) return 'carrier';
+  if (danger >= 3 && r < 0.52) return 'wraith';
   return null;
 }
 

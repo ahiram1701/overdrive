@@ -61,11 +61,16 @@ test('pinchos a ritmo (con aviso), cinta que arrastra y láser que barre', () =>
   assert.ok(ev.some((e) => e.type === 'hurt' && e.src === 'pinchos'));
   // cinta
   const s2 = newRun(2, { hp: 9 });
-  const r2 = arena(s2);
+  const r2 = arena(s2, ['turret', COLS - 2.5, ROWS - 2.5, { stun: 99 }]);
   for (let c = 1; c < COLS - 1; c++) r2.tiles[2][c] = '>';
   Object.assign(s2.player, { x: 2.5, y: 2.5 });
   run(s2, 1);
   assert.ok(s2.player.x > 3.8, 'la cinta te lleva');
+  // con la sala limpia, las cintas se paran (no te alejan de la puerta)
+  r2.enemies[0].alive = false;
+  const x0 = s2.player.x;
+  run(s2, 1);
+  assert.ok(Math.abs(s2.player.x - x0) < 0.05, 'sala limpia: la cinta ya no arrastra');
   // láser que barre
   const s3 = newRun(3, { hp: 9 });
   const r3 = arena(s3, ['drone', 1.5, 1.5, { stun: 99, hp: 99, max: 99 }]);

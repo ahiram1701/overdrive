@@ -240,12 +240,12 @@ test('pecios P2: botín con su pantalla, mochila desde su botón y la bóveda en
   });
   await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 8000 });
   await page.locator('[data-vault="plating"]').click();
-  await expect(page.locator('#peVault')).toContainText('Guardado');
-  expect(await page.evaluate(() => window.__save.pecio.vault?.slot)).toBe('plating');
+  await expect(page.locator('#peVault')).toContainText('En la bóveda');
+  expect(await page.evaluate(() => window.__save.pecio.vaults.map((v) => v.vslot))).toEqual(['plating']);
   // la siguiente partida empieza con él puesto, y la bóveda queda vacía
   await page.locator('#btnPecioRetry').click();
   await page.waitForFunction(() => window.G.mode === 'pecio');
-  expect(await page.evaluate(() => ({ pl: window.G.pecio.player.gear.plating?.slot, vault: window.__save.pecio.vault }))).toEqual({ pl: 'plating', vault: null });
+  expect(await page.evaluate(() => ({ pl: window.G.pecio.player.gear.plating?.slot, vault: window.__save.pecio.vaults }))).toEqual({ pl: 'plating', vault: [] });
   expect(errors).toEqual([]);
 });
 

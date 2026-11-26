@@ -39,13 +39,22 @@ test('anomalía: la reliquia antigua da una pieza de equipo y el Atlas cuenta su
   expect(errors).toEqual([]);
 });
 
-test('ciclo+: cerrado sin el final; con él, una galaxia nueva más dura que conserva lo tuyo', async ({ page }) => {
+test('ciclo+: cerrado sin el final y sin liberar la galaxia; con los dos, una galaxia nueva más dura que conserva lo tuyo', async ({ page }) => {
   const errors = trackErrors(page);
   await boot(page, { galaxy: { started: true, credits: 5000, hulls: ['explorer', 'warship'], visited: [0, 1, 2], sys: 2 }, territory: { 5: 'coal' }, galaxyBoss: { 7: true }, outposts: { 5: { name: 'P', mods: { radar: 1 }, store: { cargo: {}, mats: {} } } } });
   await page.locator('#btnGalaxy').click();
   await expect(page.locator('#ghCycle')).toContainText('Termina LA SEÑAL');
   await expect(page.locator('#btnGhCycle')).toBeHidden();
   await page.evaluate(async () => { window.__save.story.ending = 'liga'; const { ui } = await import('/js/ui.js'); ui.showGalaxyHub(); });
+  // con el final pero con piratas: todavía no (dice cuántos sistemas faltan)
+  await expect(page.locator('#ghCycle')).toContainText('Libera los sistemas piratas');
+  await expect(page.locator('#btnGhCycle')).toBeHidden();
+  await page.evaluate(async () => {
+    const { GAL } = await import('/js/spaceGame.js');
+    const { piratesHeld } = await import('/js/factions.js');
+    for (const s of piratesHeld(GAL, window.__save.territory)) window.__save.territory[s.id] = 'coal';
+    const { ui } = await import('/js/ui.js'); ui.showGalaxyHub();
+  });
   const before = await page.evaluate(async () => { const { GAL } = await import('/js/spaceGame.js'); return GAL[1].name; });
   await page.locator('#btnGhCycle').click();
   await expect(page.locator('#btnGhCycle')).toContainText('SEGURO');

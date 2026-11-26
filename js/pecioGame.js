@@ -26,13 +26,13 @@ export function newPecio(seedOverride = null, opts = {}) {
   // la vida, de tu nave del hangar; lo demás que traes, del TALLER de Pecios
   const ws = workshopShip(save.pecioUp);
   const hp = 6 + Math.round(((SHIP_ARENA[ship.id]?.hp || 100) - 100) / 25) + ws.hpBonus;
-  // LA BÓVEDA: el objeto que guardaste en la partida anterior sale contigo (y la bóveda queda vacía)
-  const vault = daily ? null : save.pecio.vault;
-  if (!daily) save.pecio.vault = null;
+  // LA BÓVEDA: lo que guardaste en la partida anterior sale contigo (y la bóveda queda vacía)
+  const vault = daily ? [] : vaultItems();
+  if (!daily) { save.pecio.vault = null; save.pecio.vaults = []; }
   // CARGAMENTO (el equipo con el que empiezas) y PROFUNDIDAD
   const loId = !daily && save.pecio.loadouts?.[save.pecio.loadout] ? save.pecio.loadout : 'assault', lo = LOADOUTS[loId] || LOADOUTS.assault;
   const heat = daily ? 0 : Math.max(0, Math.min(save.pecio.heat || 0, save.pecio.heatMax || 0, HEAT_MAX));
-  const s = newRun(seed, { hp, ability: ship.ability, gear: [...lo.gear(), ...(vault ? [vault] : [])], keys: ws.keys + (lo.keys || 0), piezas: lo.piezas || 0, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg, crit: ws.crit, pool: daily ? null : ws.pool, heat, daily }); // (la del día, con todo abierto: la misma planta para todos)
+  const s = newRun(seed, { hp, ability: ship.ability, gear: [...lo.gear(), ...vault], keys: ws.keys + (lo.keys || 0), piezas: lo.piezas || 0, bag: ws.bag, bagMax: ws.bagMax, luck: ws.luck, bonusDmg: ws.bonusDmg, crit: ws.crit, pool: daily ? null : ws.pool, heat, daily }); // (la del día, con todo abierto: la misma planta para todos)
   s.day = day;
   Object.assign(s, { ship, flashes: [], endT: 0, fade: 0, input: { x: 0, y: 0 }, stick: false, camSnap: true, turnIn: 0 });
   G.pecio = s;
@@ -51,7 +51,7 @@ export function newPecio(seedOverride = null, opts = {}) {
   progress('pecio');
   // el cartel de la planta espera a que se cierre la GUÍA (si no, se acaba debajo de ella)
   s.introBanner = [`🏚️ ${s.floor.theme.name}`, daily ? '🌅 INMERSIÓN DEL DÍA · planta 1' : heat ? `planta 1 · 🔥 profundidad ${heat}` : 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
-  if (vault) fx.notice(`🔐 De la bóveda: ${itemIcon(vault)} ${itemName(vault)}`, RARITY[vault.tier].color);
+  if (vault.length) fx.notice(`🔐 De la bóveda: ${vault.map((v) => `${itemIcon(v)} ${itemName(v)}`).join(' · ')}`, RARITY[Math.max(...vault.map((v) => v.tier))].color);
   ui.showTip?.('pecio');
 }
 
@@ -63,6 +63,7 @@ export function pecioStep(dt, input) {
   s.turnIn += ((inp.x || 0) - s.turnIn) * Math.min(1, dt * 8);
   // HITSTOP: un instante congelado al tumbar algo grande (el golpe se siente)
   if (s.hitstop > 0) { s.hitstop -= dt; return; }
+  if (s.tally) s.tally.t -= dt;
   handle(s, updateRun(s, dt, inp));
   pecioMusic(s);
   if (s.over) finish(s);
@@ -152,11 +153,22 @@ export function pecioUseCons(k) {
   if (!s || G.mode !== 'pecio') return;
   handle(s, useCons(s, k));
 }
-// BÓVEDA: desde la pantalla final, guardas uno de los objetos que llevabas para la próxima partida
+// BÓVEDA: desde la pantalla final, guardas objetos de los que llevabas para la próxima partida
+// (uno por ranura; tantos como huecos tengas: si no caben, sale el más antiguo)
+export const vaultSlots = () => (save.pecio.vaultOpen ? workshopShip(save.pecioUp).vaultSlots : 0);
+export function vaultItems() {
+  const P_ = save.pecio, list = [...(P_.vaults || [])];
+  if (P_.vault && !list.some((v) => v.id === P_.vault.id)) list.unshift({ ...P_.vault, vslot: P_.vault.vslot || P_.vault.slot }); // (de la bóveda de antes)
+  return list;
+}
 export function pecioVaultStore(slot) {
   const s = P(), it = s?.result?.gear?.[slot];
   if (!it || !save.pecio.vaultOpen) return false;
-  save.pecio.vault = it;
+  const list = vaultItems().filter((v) => v.vslot !== slot && v.id !== it.id);
+  list.push({ ...it, vslot: slot });
+  while (list.length > vaultSlots()) list.shift();
+  save.pecio.vaults = list;
+  save.pecio.vault = null;
   persist();
   return true;
 }
@@ -190,7 +202,8 @@ function handle(s, ev) {
       case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158', 2.6); } sfx.bump(); break;
       case 'kill': sfx.thud(e.big); if (e.big) { s.hitstop = 0.09; fx.shake(10); fx.vibe(40); } else fx.shake(3);
         sfx.coin(4); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 });
-        s.flashes.push({ kind: 'num', x: e.x, y: e.y - 0.2, text: `+${e.piezas} 🔩`, color: '#c8d6e5', t: 1, max: 1 }); break; // las 🔩, junto a la baja (antes, un aviso por cada una)
+        // las 🔩 se ACUMULAN en un solo contador junto a las tuyas (antes, un aviso por cada baja)
+        s.tally = { n: (s.tally?.t > 0 ? s.tally.n : 0) + e.piezas, t: 1.8 }; break;
       case 'hurt': fx.flash('#f33', 0.3); fx.shake(8); fx.vibe(50); sfx.shield(); break;
       case 'absorb': fx.notice('🫧 ¡Absorbido!', '#7df9ff'); break;
       case 'dead': sfx.die(); fx.shake(25); break;

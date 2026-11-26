@@ -8,7 +8,7 @@ import { equipped, emblemOpts, DEFAULT_SHOT } from './cosmetics.js';
 import { trailFx, auraFx } from './cosfx.js';
 import { project, projectDir, norm, sub, scale, basis, dist } from './space3d.js';
 import { ORES } from './galaxyData.js';
-import { shipDef, GAL, turretPos, CHASSIS } from './spaceGame.js';
+import { NEBULA_SEE, shipDef, GAL, turretPos, CHASSIS } from './spaceGame.js';
 import { MESHES } from './mesh3d.js';
 import { canJump, jumpNeeded } from './galaxy.js';
 import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
@@ -372,6 +372,7 @@ export function renderSpace(dt) {
     const p = project(cam, pr.pos, 1);
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
     if (!stalkerVisible(pr, dist(pr.pos, sh.pos))) continue; // ACECHADOR: invisible de lejos
+    if (s.fogged && dist(pr.pos, sh.pos) > NEBULA_SEE) continue; // NEBULOSA: sin radar
     draws.push({ z: p.z, fn: () => {
       const size = pr.size || (pr.boss ? 13 : 6);
       const pal = pr.pal || (pr.boss ? { hull: '#2a0008', edge: '#ff2d55', glow: '#ffe600' } : pr.elite ? { ...(KIND_PAL[pr.kind] || KIND_PAL.fighter), edge: '#ffd60a' } : KIND_PAL[pr.kind] || KIND_PAL.fighter);
@@ -927,14 +928,16 @@ export function renderSpace(dt) {
         ctx.shadowBlur = 0;
         return;
       }
-      // SOBRECARGA: disparos magenta, más gruesos
-      ctx.strokeStyle = bo.surge ? '#ff2bd6' : shotCol;
-      ctx.lineWidth = Math.max(1.5, p.s * (bo.surge ? 1.3 : 0.8));
+      // SOBRECARGA: disparos magenta, más gruesos · RIEL: blanco y largo · IÓNICO: azul · FLAK DE ÁREA: naranja
+      ctx.strokeStyle = bo.surge ? '#ff2bd6' : bo.rail ? '#e8fbff' : bo.ion ? '#64d2ff' : bo.burst ? '#ff9f0a' : shotCol;
+      ctx.lineWidth = Math.max(1.5, p.s * (bo.surge ? 1.3 : bo.rail ? 1.6 : bo.ion ? 1.1 : 0.8));
+      if (bo.rail || bo.ion) { ctx.shadowColor = ctx.strokeStyle; ctx.shadowBlur = save.settings.fx ? 10 : 0; }
       ctx.lineCap = 'round';
       ctx.beginPath();
       ctx.moveTo(p.x, p.y);
       ctx.lineTo(q.x, q.y);
       ctx.stroke();
+      ctx.shadowBlur = 0;
     } });
   }
 
