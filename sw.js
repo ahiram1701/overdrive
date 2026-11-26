@@ -63,6 +63,7 @@ const ASSETS = [
   './js/galmap.js',
   './js/pecio.js',
   './js/pecioLoot.js',
+  './js/news.js',
   './js/pecioGame.js',
   './js/pecioRender.js',
   './js/spaceGame.js',

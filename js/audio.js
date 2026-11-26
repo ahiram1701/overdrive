@@ -156,10 +156,14 @@ export const sfx = {
       basic: ['square', 880, 440, 0.05, 0.05], spread: ['sawtooth', 700, 300, 0.07, 0.05], pierce: ['triangle', 1400, 900, 0.06, 0.07],
       bounce: ['sine', 600, 1200, 0.07, 0.07], blast: ['square', 260, 90, 0.12, 0.08], rapid: ['square', 1100, 700, 0.03, 0.035],
       arc: ['sawtooth', 1800, 400, 0.06, 0.05], orbit: ['sine', 500, 700, 0.05, 0.04],
+      cannon: ['square', 180, 60, 0.18, 0.1], shard: ['triangle', 1600, 2200, 0.05, 0.05], charge: ['sawtooth', 220, 1400, 0.16, 0.09],
     }[kind] || ['square', 880, 440, 0.05, 0.05];
     tone({ type: P[0], f: P[1], f2: P[2], dur: P[3], vol: P[4] });
     if (kind === 'arc') noise({ dur: 0.05, vol: 0.06, type: 'highpass', f: 5000 });
   },
+  rail() { tone({ type: 'sawtooth', f: 2400, f2: 300, dur: 0.14, vol: 0.12 }); noise({ dur: 0.1, vol: 0.1, type: 'highpass', f: 3000 }); },
+  ion() { tone({ type: 'sine', f: 420, f2: 900, dur: 0.08, vol: 0.1 }); },
+  beam() { tone({ type: 'triangle', f: 1300, f2: 1200, dur: 0.04, vol: 0.06 }); },
   zap() { noise({ dur: 0.08, vol: 0.12, type: 'highpass', f: 4000 }); tone({ type: 'sawtooth', f: 2200, f2: 500, dur: 0.07, vol: 0.06 }); },
   thud(big) { tone({ type: 'sine', f: big ? 140 : 220, f2: 40, dur: big ? 0.25 : 0.1, vol: big ? 0.45 : 0.22 }); noise({ dur: 0.06, vol: big ? 0.25 : 0.1, f: 1200 }); },
   growl() { tone({ type: 'sawtooth', f: 90, f2: 55, dur: 0.45, vol: 0.25, cutoff: 600 }); noise({ dur: 0.3, vol: 0.15, f: 400 }); },

@@ -14,7 +14,7 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { loreOf, allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route } from './galaxy.js';
 import { chapterLabel } from './story.js';
@@ -27,13 +27,14 @@ import { INTERDICT } from './galaxyContacts.js';
 import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
-import { pecioLoadout, pecioSetHeat, newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
+import { vaultItems, vaultSlots, pecioLoadout, pecioSetHeat, newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
+import { newsCard } from './news.js';
 import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
 import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopStock, FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
 import { GOOD_PRICE, ITEMS, ITEM_KEYS, ITEM_MAX, itemCount, buyItem, saturation, priceFactor } from './market.js';
-import { chips as chipsOf, chipText, toggleChip, scrapChip, CHIP_TIERS, CHIP_MAX, CHIP_BAG, gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
+import { chipBonus, AFFIX as CHIP_AFFIX, chips as chipsOf, chipText, toggleChip, scrapChip, CHIP_TIERS, CHIP_MAX, CHIP_BAG, gearAllowed, MATS, GEAR, slotsOf, matOf, owns, canCraft, craft, equipGear, gear, gearLvl, GEAR_MAX, gearUpCost, canUpgradeGear, upgradeGear } from './crafting.js';
 import { chapters, storyState, CAST } from './story.js';
 import { CAMPAIGNS, CAMP_LEN, campOpen, campStep, campDone, FACTIONS, repOf, repLevel, lvlAtLeast, TRAITS, liberatedCount, pirateSystemsTotal } from './factions.js';
 import { UPGRADES as SP_UP, MAX_UP, BASE_UP, upgradeMats, upgradeCost as spUpCost, repairCost, ORES, cargoCount, shipStats as galStats, GAL_KEYS } from './galaxyData.js';
@@ -2129,10 +2130,16 @@ export const ui = {
     if (!box) return;
     const C = chipsOf(save);
     setText('stChipsInfo', `${C.on.length}/${CHIP_MAX} montados · ${C.bag.length}/${CHIP_BAG} en la bolsa`);
-    box.innerHTML = C.bag.length ? '' : '<small>Los sueltan los jefes, las élites y los piratas de los sistemas ocultos.</small>';
+    box.innerHTML = C.bag.length ? '' : '<small>Los sueltan los jefes, las élites, los contratos y, a veces, cualquier pirata.</small>';
+    // COMPARAR: lo que suman los montados, y cada chip contra el más flojo de los montados
+    const pow = (c) => c.affixes.reduce((a, x) => a + x.v / (CHIP_AFFIX[x.k]?.step || 1), 0);
+    const tot = Object.entries(chipBonus(save)).map(([k, v]) => `${CHIP_AFFIX[k].icon} +${Math.round(v * 10) / 10}${CHIP_AFFIX[k].unit} ${CHIP_AFFIX[k].name}`).join(' · ');
+    if (tot) box.append(el('small', 'chip-total', `Montados: ${tot}`));
+    const weakest = Math.min(...C.bag.filter((c) => C.on.includes(c.id)).map(pow));
     for (const c of C.bag) {
       const T = CHIP_TIERS[c.tier], on = C.on.includes(c.id);
-      const row = el('div', `st-up chip${on ? ' on' : ''}`, `<span class="su-icon" style="color:${T.color}">💠</span><span class="su-body"><b style="color:${T.color}">${T.name}${on ? ' · MONTADO' : ''}</b><small>${chipText(c)}</small></span>`);
+      const cmp = !on && Number.isFinite(weakest) ? (pow(c) > weakest ? ' <span style="color:#30d158">▲ mejor que uno montado</span>' : ' <span style="color:#8e8e93">▼ peor que los montados</span>') : '';
+      const row = el('div', `st-up chip${on ? ' on' : ''}`, `<span class="su-icon" style="color:${T.color}">💠</span><span class="su-body"><b style="color:${T.color}">${T.name}${on ? ' · MONTADO' : ''}</b><small>${chipText(c)}${cmp}</small></span>`);
       const eq = el('button', 'btn ghost', on ? 'QUITAR' : 'MONTAR');
       eq.dataset.chip = c.id;
       tap(eq, () => { toggleChip(save, c.id); persist(); (again || ui.renderChips)(); });
@@ -2609,6 +2616,7 @@ export const ui = {
   // GALAXIA: pantalla de entrada (dónde estás, la historia, la dificultad y la Incursión de hoy)
   showGalaxyHub() {
     G.mode = 'hangar'; // pantalla estática
+    if (!$('news-galaxy')) $('btnGalGo').after(newsCard(save, 'galaxy', persist));
     ui.showHUD(false);
     const g = save.galaxy, cur = diffOf(g);
     setText('ghWhere', g.started ? `en ${GAL[g.sys ?? 0].name} · ${g.visited?.length || 1} sistemas visitados${galaxyCycle() ? ` · 🌀 ciclo ${galaxyCycle()}` : ''}` : 'empiezas en ORIGEN: explora, mina, comercia y lucha');
@@ -2632,7 +2640,9 @@ export const ui = {
     const cyc = galaxyCycle(), cb = $('btnGhCycle');
     setText('ghCycle', cycleOpen()
       ? `${cyc ? `Ciclo ${cyc}. ` : ''}Una galaxia nueva (otra semilla): piratas un 25 % más duros y pagos un 20 % mejores por cada ciclo. Te llevas la nave, los chasis, el equipo, los talentos, el Atlas y la Crónica; empiezas en ORIGEN sin sistemas liberados.`
-      : '🔒 Termina LA SEÑAL (Acto III) para abrir una galaxia nueva, más dura y mejor pagada.');
+      : save.story?.ending
+        ? `🔒 Libera los sistemas piratas que quedan (${cyclePiratesLeft()}) para abrir una galaxia nueva, más dura y mejor pagada.`
+        : '🔒 Termina LA SEÑAL (Acto III) y libera todos los sistemas piratas para abrir una galaxia nueva, más dura y mejor pagada.');
     cb.classList.toggle('hidden', !cycleOpen());
     cb.textContent = `🌀 EMPEZAR CICLO ${cyc + 1}`;
     delete cb.dataset.arm;
@@ -2647,6 +2657,7 @@ export const ui = {
   },
   showPecioHub() {
     G.mode = 'hangar'; // pantalla estática
+    if (!$('news-pecio')) $('btnPecioPlay').after(newsCard(save, 'pecio', persist));
     G.pecio = null;
     ui.showHUD(false);
     ui.showPecioHUD(false);
@@ -2746,7 +2757,10 @@ export const ui = {
       b.id = 'btnPecioVault';
       tap(b, () => { if (pecioVaultUnlock()) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioVault(); } });
       box.append(b);
-    } else box.innerHTML = P.vault ? `<small>Guardado para la próxima partida:</small>${lootCard(P.vault)}` : '<small>Vacía. Al acabar una partida, elige qué objeto guardar.</small>';
+    } else {
+      const list = vaultItems(), n = vaultSlots();
+      box.innerHTML = list.length ? `<small>Guardado para la próxima partida (${list.length}/${n}):</small>${list.map((v) => lootCard(v)).join('')}` : `<small>Vacía (${n} hueco${n > 1 ? 's' : ''}). Al acabar una partida, elige qué guardar.</small>`;
+    }
   },
   showPecioHUD(on) {
     $('pecioHud').classList.toggle('hidden', !on);
@@ -2762,6 +2776,7 @@ export const ui = {
     setText('pcHearts', (p.max > 8 ? `❤️ ${Math.max(0, p.hp)}/${p.max}` : '❤️'.repeat(Math.max(0, p.hp)) + '🖤'.repeat(Math.max(0, p.max - p.hp))) + (p.shield ? ` 🫧${p.shield}` : ''));
     setText('pcKeys', String(p.keys));
     setText('pcPiezas', String(p.piezas));
+    setText('pcTally', s.tally?.t > 0 ? `+${s.tally.n}` : '');
     setText('pcDashTxt', p.dashCd > 0 ? `${p.dashCd.toFixed(1)} s` : 'ESQUIVE');
     tgl($h('pcDash'), 'cool', p.dashCd > 0);
     const AB = PECIO_AB[p.ability] || PECIO_AB.phase;
@@ -2871,14 +2886,19 @@ export const ui = {
     vb.innerHTML = '';
     const kept = Object.entries(r.gear || {});
     if (kept.length && save.pecio.vaultOpen) {
-      vb.innerHTML = `<small>🔐 Guarda 1 objeto en la bóveda para la próxima partida${save.pecio.vault ? ' (sustituye al que hay)' : ''}:</small>`;
+      const vn = vaultSlots();
+      vb.innerHTML = `<small>🔐 Guarda ${vn > 1 ? `hasta ${vn} objetos` : '1 objeto'} en la bóveda para la próxima partida${vaultItems().length >= vn ? ' (sustituye al más antiguo)' : ''}:</small>`;
       const row = el('div', 'pe-vault-row', '');
       for (const [slot, it] of kept) {
         const b = el('button', 'pg-it big', itemIcon(it));
         b.style.setProperty('--rc', LOOT_RAR[it.tier].color);
         b.dataset.vault = slot;
         b.title = itemName(it);
-        tap(b, () => { if (pecioVaultStore(slot)) vb.innerHTML = `<small>🔐 Guardado: ${itemIcon(it)} ${itemName(it)} (${LOOT_RAR[it.tier].name})</small>`; });
+        tap(b, () => {
+          if (!pecioVaultStore(slot)) return;
+          for (const o of row.querySelectorAll('[data-vault]')) o.classList.toggle('on', vaultItems().some((v) => v.vslot === o.dataset.vault && v.id === r.gear[o.dataset.vault]?.id));
+          vb.querySelector('small').innerHTML = `🔐 En la bóveda (${vaultItems().length}/${vn}): ${vaultItems().map((v) => `${itemIcon(v)} ${itemName(v)}`).join(' · ')}`;
+        });
         row.append(b);
       }
       vb.append(row);

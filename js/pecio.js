@@ -39,10 +39,10 @@ export const ENEMY = {
   summoner: { name: 'Invocador', hp: 6, dmg: 1, speed: 1.8, r: 0.34, color: '#bf5af2', piezas: 3, desc: 'huye y llama drones: a por él primero', from: 4 },
   charger: { name: 'Cargador', hp: 7, dmg: 2, speed: 1.5, r: 0.38, color: '#ff6a00', piezas: 2, desc: 'golpea el suelo y suelta una onda en anillo: sáltala con 💨', from: 3 },
   roller: { name: 'Mina rodante', hp: 3, dmg: 2, speed: 2.4, r: 0.28, color: '#ff2d55', piezas: 1, desc: 'rueda pegada a las paredes y estalla al tocarte', from: 2 },
-  splitter: { name: 'Divisor', hp: 6, dmg: 1, speed: 1.9, r: 0.36, color: '#ff6ad5', piezas: 2, desc: 'al caer se parte en dos drones pequeños', from: 2 },
-  healer: { name: 'Sanador', hp: 5, dmg: 1, speed: 1.7, r: 0.32, color: '#7dffb0', piezas: 3, desc: 'se queda atrás y cura a los demás: a por él primero', from: 3 },
-  jumper: { name: 'Saltador', hp: 5, dmg: 2, speed: 1.2, r: 0.32, color: '#bfe9ff', piezas: 2, desc: 'marca un círculo a tu lado y aparece ahí: sal del círculo', from: 4 },
-  miner: { name: 'Minador', hp: 6, dmg: 1, speed: 1.6, r: 0.36, color: '#ffd60a', piezas: 2, desc: 'va dejando minas por la sala: acaba con él antes de que la llene', from: 3 },
+  splitter: { name: 'Divisor', hp: 6, dmg: 1, speed: 1.9, r: 0.36, color: '#ff6ad5', piezas: 2, desc: 'al caer se parte en dos drones pequeños', from: 1 },
+  healer: { name: 'Sanador', hp: 5, dmg: 1, speed: 1.7, r: 0.32, color: '#7dffb0', piezas: 3, desc: 'se queda atrás y cura a los demás: a por él primero', from: 2 },
+  jumper: { name: 'Saltador', hp: 5, dmg: 2, speed: 1.2, r: 0.32, color: '#bfe9ff', piezas: 2, desc: 'marca un círculo a tu lado y aparece ahí: sal del círculo', from: 3 },
+  miner: { name: 'Minador', hp: 6, dmg: 1, speed: 1.6, r: 0.36, color: '#ffd60a', piezas: 2, desc: 'va dejando minas por la sala: acaba con él antes de que la llene', from: 2 },
   node: { name: 'Nodo médico', hp: 7, dmg: 1, speed: 2.8, r: 0.27, color: '#7dffb0', piezas: 1, desc: 'gira alrededor de la reina del Enjambre y la cura' },
   boss: { name: 'Jefe', hp: 0, dmg: 2, speed: 1.1, r: 0.85, color: '#ff2d55', piezas: 0, desc: 'cada 3 plantas, en la sala de la salida', boss: true },
 };
@@ -153,7 +153,7 @@ export function genFloor(seed, depth) {
   if (depth >= 2 && rng.chance(0.5)) specials.push('waves');
   if (depth >= 3 && rng.chance(0.45)) specials.push('challenge');
   if (rng.chance(0.4)) specials.push('maze');
-  if (depth >= 3 && rng.chance(0.4)) specials.push('elite');
+  if (depth >= 2 && rng.chance(0.4)) specials.push('elite');
   // el tesoro, siempre; las demás especiales, en orden al azar (si no, las últimas de la lista casi nunca salían).
   // Siempre quedan al menos 2 salas de combate.
   const order = [specials[0], ...rng.shuffle(specials.slice(1))];
@@ -198,12 +198,12 @@ export const LAYOUTS = [
   { id: 'checker', w: 2, make: (t, rng, { set }) => { for (let r = 1; r < ROWS - 1; r++) for (let c = 1; c < COLS - 1; c++) if ((c + r) % 3 === 0 && rng.chance(0.55)) set(c, r, rng.chance(0.7) ? '#' : 'P'); } },
   { id: 'bunkers', w: 2, make: (t, rng, { set }) => mirror4(set, [[2, 2], [3, 2], [2, 3]], '#') },
   { id: 'diagonal', w: 1, make: (t, rng, { set }) => { for (let i = 1; i < 4; i++) { set(i, i, '#'); set(COLS - 1 - i, ROWS - 1 - i, '#'); set(COLS - 1 - i, i, 'P'); set(i, ROWS - 1 - i, 'P'); } } },
-  { id: 'minefield', w: 2, from: 3, make: (t, rng, { set, free, depth }) => { for (let i = 0, n = 3 + Math.min(4, Math.floor(depth / 2)); i < n; i++) { const p = free(); if (p) set(p[0], p[1], 'M'); } } },
-  { id: 'electric', w: 2, from: 2, make: (t, rng, { set }) => { for (const r of [3, ROWS - 4]) for (let c = 1; c < COLS - 1; c++) set(c, r, 'E'); } },
-  { id: 'spikes', w: 3, from: 2, make: (t, rng, { set }) => { for (let r = 2; r < ROWS - 2; r += 2) for (let c = 1; c < COLS - 1; c++) if (rng.chance(0.55)) set(c, r, 'J'); } },
-  { id: 'conveyor', w: 2, from: 3, make: (t, rng, { set }) => { for (let c = 1; c < COLS - 1; c++) { set(c, 2, '>'); set(c, ROWS - 3, '<'); } for (let r = 3; r < ROWS - 3; r++) { set(1, r, '^'); set(COLS - 2, r, 'v'); } } },
-  { id: 'sweeper', w: 2, from: 4, sweep: true, make: (t, rng, { set }) => mirror4(set, [[1, 1]], '#') },
-  { id: 'gauntlet', w: 1, from: 5, make: (t, rng, { set }) => { mirror4(set, [[2, 2], [2, 4]], '#'); for (let c = 1; c < COLS - 1; c++) if (c % 2) set(c, 3, 'J'); } },
+  { id: 'minefield', w: 2, from: 2, make: (t, rng, { set, free, depth }) => { for (let i = 0, n = 3 + Math.min(4, Math.floor(depth / 2)); i < n; i++) { const p = free(); if (p) set(p[0], p[1], 'M'); } } },
+  { id: 'electric', w: 2, from: 1, make: (t, rng, { set }) => { for (const r of [3, ROWS - 4]) for (let c = 1; c < COLS - 1; c++) set(c, r, 'E'); } },
+  { id: 'spikes', w: 3, from: 1, make: (t, rng, { set }) => { for (let r = 2; r < ROWS - 2; r += 2) for (let c = 1; c < COLS - 1; c++) if (rng.chance(0.55)) set(c, r, 'J'); } },
+  { id: 'conveyor', w: 2, from: 2, make: (t, rng, { set }) => { for (let c = 1; c < COLS - 1; c++) { set(c, 2, '>'); set(c, ROWS - 3, '<'); } for (let r = 3; r < ROWS - 3; r++) { set(1, r, '^'); set(COLS - 2, r, 'v'); } } },
+  { id: 'sweeper', w: 2, from: 3, sweep: true, make: (t, rng, { set }) => mirror4(set, [[1, 1]], '#') },
+  { id: 'gauntlet', w: 1, from: 4, make: (t, rng, { set }) => { mirror4(set, [[2, 2], [2, 4]], '#'); for (let c = 1; c < COLS - 1; c++) if (c % 2) set(c, 3, 'J'); } },
 ];
 const TRAP_LAYOUTS = new Set(['minefield', 'electric', 'spikes', 'conveyor', 'sweeper', 'gauntlet']);
 export function pickLayout(rng, depth, traps = true) {
@@ -232,7 +232,7 @@ export function genRoom(floor, id) {
   let mazeKey = null;
   let sweep = null, layoutId = null;
   if (type === 'combat' || type === 'exit' || type === 'elite') {
-    const L = pickLayout(rng, depth, !floor.pool || floor.pool.traps);
+    const L = pickLayout(rng, depth);
     L.make(t, rng, { set: (c, r, ch) => { if (c > 0 && r > 0 && c < COLS - 1 && r < ROWS - 1 && t[r][c] === '.' && !onCross(c, r)) t[r][c] = ch; }, free, depth });
     if (L.sweep && type !== 'exit') sweep = { x: MID_C + 0.5, y: MID_R + 0.5, ang: rng.range(0, Math.PI * 2), len: 3.6, spd: (rng.chance(0.5) ? 1 : -1) * (0.9 + depth * 0.04) };
     layoutId = L.id;
@@ -264,7 +264,6 @@ export function genRoom(floor, id) {
   if (type === 'treasure' || type === 'hidden') t[2][2] = 'C';
   if (type === 'shop') t[2][2] = 'T';
   if (type === 'shrine') t[2][COLS - 3] = 'A';
-  if (type === 'exit' && floor.pool && !floor.pool.hatch) t[MID_R][MID_C] = 'X';
   else if (type === 'exit') {
     t[MID_R][MID_C] = 'X';
     // la escotilla PELIGROSA, con su hueco libre alrededor (la plantilla no la puede encerrar)
@@ -376,12 +375,13 @@ export function newRun(seed, ship = {}) {
   s.rooms[floor.start] = genRoom(floor, floor.start);
   return s;
 }
+export const CHARGE_T = 1.6; // segundos de carga del Acumulador
 export const roomOf = (s, id = s.at) => (s.rooms[id] ||= genRoom(s.floor, id));
 // lo de la partida que cambia cómo se genera cada planta (lo desbloqueado y la profundidad)
 function prepFloor(s, floor) {
   floor.pool = s.pool;
   floor.heat = s.heat;
-  if (s.pool && !s.pool.elite) for (const r of Object.values(floor.rooms)) if (r.type === 'elite') r.type = 'combat';
+  if (s.pool?.floorShield && s.player) s.player.shield = Math.max(s.player.shield || 0, 1); // BURBUJA del taller
 }
 export const tileAt = (room, c, r) => (c < 0 || r < 0 || c >= COLS || r >= ROWS ? '#' : room.tiles[r][c]);
 export const locked = (room) => (LOCKS.has(room.type) || room.ambush) && room.enemies.some((e) => e.alive);
@@ -409,7 +409,7 @@ export function gainKey(s, ev = []) {
 // 🔩 que ganas (con el Imán y el Escáner, algo más)
 export function gainPiezas(s, n) {
   const m = s.player.mods || {};
-  const ev = s.floor?.event, mul = (ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1) * (s.floor?.curse ? CURSE_REWARD : 1);
+  const ev = s.floor?.event, mul = (ev === 'gold' ? 2 : ev === 'invasion' ? 1.5 : 1) * (s.floor?.curse ? (s.pool?.hatchPay ? 1.75 : CURSE_REWARD) : 1);
   const g = Math.max(1, Math.round(n * mul * (1 + ((m.magnet || 0) + (m.scanner || 0) + (m.greed || 0) + (m.setPiezas || 0)) / 100)));
   s.player.piezas += g;
   s.found += g;
@@ -544,8 +544,11 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   floorEffects(s, room, ev);
   if (s.over) return ev;
   if (interact(s, room, ev)) return ev;
+  // ACUMULADOR: se carga solo (quieto, el doble de rápido) y suelta un disparo ×3 que lo atraviesa todo
+  if (p.weapon === 'charge') p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * ((p.vel || 0) < 0.25 ? 2 : 1) * (p.boost > 0 ? 2 : 1));
   // DISPARO AUTOMÁTICO al más cercano que se vea
   p.fireCd -= dt;
+  if (p.weapon === 'charge' && (p.chg || 0) < CHARGE_T) p.fireCd = Math.max(p.fireCd, 0.01);
   if (p.fireCd <= 0) {
     const t = nearestTarget(s, room);
     if (t) {
@@ -555,10 +558,11 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
       const a = angTo(p, canSee(room, p, ahead) ? ahead : t); // si el punto adelantado queda tras una pared, directo a él
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
-        const big = p.weapon === 'cannon';
-        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * (big ? 9 : 13), vy: f.y * (big ? 9 : 13), dmg: p.dmg, life: big ? 1.6 : 1.2, pierce: p.weapon === 'pierce' || big, blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [], big });
+        const charged = p.weapon === 'charge', big = p.weapon === 'cannon' || charged;
+        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * (big ? 9 : 13), vy: f.y * (big ? 9 : 13), dmg: charged ? p.dmg * 3 : p.dmg, life: big ? 1.6 : 1.2, pierce: p.weapon === 'pierce' || big, blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [], big, shard: p.weapon === 'shard' });
       }
       p.fireCd = 1 / (p.rate * (p.boost > 0 ? 2 : 1));
+      if (p.weapon === 'charge') p.chg = 0;
       ev.push({ type: 'fire', weapon: p.weapon });
     } else p.fireCd = 0;
   }
@@ -616,7 +620,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (!room.cleared && !room.enemies.some((e) => e.alive)) {
     if (room.type === 'waves') { room.pickups.push({ id: `${room.id}-rw`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'waves' }); }
     if (room.type === 'challenge' && room.timer > 0) { room.pickups.push({ id: `${room.id}-rc`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'challenge' }); }
-    if (room.type === 'elite') { room.pickups.push({ id: `${room.id}-re`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'elite' }); }
+    if (room.type === 'elite') { room.pickups.push({ id: `${room.id}-re`, kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: s.pool?.eliteLoot ? 2 : 1 }), x: MID_C + 0.5, y: MID_R + 0.5 }); ev.push({ type: 'reward', what: 'elite' }); }
     room.cleared = true;
     s.roomsCleared++;
     if (s.floor.curse !== 'drought') p.hp = Math.min(p.max, p.hp + 1); // los drones de reparación de la sala te arreglan un poco
@@ -661,8 +665,8 @@ function floorEffects(s, room, ev) {
     ev.push({ type: 'boom', x: c + 0.5, y: r + 0.5, r: 0.6 });
     hurt(s, 2, ev, 'mina');
   } else if (t === 'E' && energyOn(s, room) && p.dashT <= 0) hurt(s, 1, ev, 'electricidad');
-  else if (t === 'J' && spikesOn(s, c, r) && p.dashT <= 0) hurt(s, 1, ev, 'pinchos');
-  else if (CONVEYOR[t] && p.dashT <= 0) { const d = CONVEYOR[t]; moveCircle(room, p, d.dx * 1.9 * (s.dt || 0), d.dy * 1.9 * (s.dt || 0)); }
+  else if (t === 'J' && spikesOn(s, c, r) && p.dashT <= 0 && !s.pool?.boots) hurt(s, 1, ev, 'pinchos');
+  else if (CONVEYOR[t] && p.dashT <= 0 && !s.pool?.boots && room.enemies.some((e) => e.alive)) { const d = CONVEYOR[t]; moveCircle(room, p, d.dx * 1.9 * (s.dt || 0), d.dy * 1.9 * (s.dt || 0)); }
   else if (t === 'S' && Math.hypot(p.x - c - 0.5, p.y - r - 0.5) < 0.5) { room.tiles[r][c] = 's'; room.powerOff = true; ev.push({ type: 'switch' }); }
 }
 
@@ -726,7 +730,7 @@ function interact(s, room, ev) {
           p.hp = Math.min(p.max, p.hp + 1);
           ev.push({ type: 'chest', piezas: gain });
           // y un objeto (los cofres dan mejor botín)
-          const [item, ...alts] = genChoice(s.rng, s.depth, { pool: s.pool, bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) + (s.floor.curse ? 1 : 0) });
+          const [item, ...alts] = genChoice(s.rng, s.depth, { n: s.pool?.choice4 ? 4 : 3, pool: s.pool, bonus: (room.freeChest ? 2 : 1) + (s.luck >= 3 ? 1 : 0) + (s.floor.curse ? 1 : 0) });
           s.offer = { item, alts, pk: null };
           ev.push({ type: 'offer' });
           return true;
@@ -807,6 +811,11 @@ function updateShots(s, room, dt, ev) {
             s.shots.push({ x: e.x, y: e.y, vx: fd.x * 12, vy: fd.y * 12, dmg: Math.max(1, Math.ceil(b.dmg / 2)), life: 0.6, pierce: false, blast: false, bounces: 0, hit: [e.id], split: true });
           }
         }
+        // FRAGMENTADOR: la bala se parte en dos al impactar (a los lados)
+        if (b.shard && !b.split) {
+          const a0 = Math.atan2(b.vy, b.vx);
+          for (const da of [-0.6, 0.6]) s.shots.push({ x: e.x, y: e.y, vx: Math.cos(a0 + da) * 12, vy: Math.sin(a0 + da) * 12, dmg: Math.max(1, Math.ceil(b.dmg / 2)), life: 0.55, pierce: false, blast: false, bounces: 0, hit: [e.id], split: true });
+        }
         // CADENA: el Arco salta a 2 enemigos cercanos (y la sinergia ⚡, a uno más)
         if (p.chain && !b.split) {
           let from = e;
@@ -864,14 +873,14 @@ function hitEnemy(s, room, e, dmg, ev, crit = false) {
     for (const o of room.enemies) if (o.kind === 'node') o.alive = false;
     room.tiles[MID_R][MID_C] = 'X';
     // la ☠️ va aunque el Núcleo haya electrificado esa casilla (el suelo eléctrico no impide una escotilla)
-    if (room.tiles[MID_R + 2][MID_C + 2] !== '#' && (!s.pool || s.pool.hatch)) room.tiles[MID_R + 2][MID_C + 2] = 'Y';
+    if (room.tiles[MID_R + 2][MID_C + 2] !== '#') room.tiles[MID_R + 2][MID_C + 2] = 'Y';
     s.bosses++;
     gainPiezas(s, BOSSES[e.boss].piezas);
-    const [item, ...alts] = genChoice(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 2 });
+    const [item, ...alts] = genChoice(s.rng, s.depth, { n: s.pool?.choice4 ? 4 : 3, pool: s.pool, bonus: 2, minTier: 2 });
     drop({ kind: 'item', item, alts });
     ev.push({ type: 'bossDown', boss: e.boss, name: BOSSES[e.boss].name });
   } else if (e.kind === 'mimic') drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 2, minTier: 1 }) });
-  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1 }) });
+  else if (e.kind === 'node') { /* los nodos no sueltan nada */ } else if (e.elite && s.rng.chance(s.pool?.eliteLoot ? 0.7 : 0.4)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: 1 }) });
   else if (s.rng.chance(0.05 + 0.02 * s.luck)) drop({ kind: 'item', item: genItem(s.rng, s.depth, { pool: s.pool, bonus: s.luck >= 2 ? 1 : 0 }) });
   else if (s.rng.chance(0.07)) drop({ kind: 'cons', cons: s.rng.pick(CONS_KEYS) });
   if (e.elite) gainPiezas(s, ENEMY[e.kind].piezas + 2);
@@ -1085,7 +1094,7 @@ function touchHurt(s, e, dmg, ev) {
 }
 function updateBoss(s, room, e, dt, ev) {
   const p = s.player, B = BOSSES[e.boss];
-  if (e.phase === 1 && e.hp <= e.max / 2) { e.phase = 2; ev.push({ type: 'phase', boss: e.boss, name: B.name }); enterPhase2(s, room, e, ev); }
+  if (e.phase === 1 && (e.hp <= e.max / 2 || (s.heat || 0) >= 6)) { e.phase = 2; ev.push({ type: 'phase', boss: e.boss, name: B.name }); enterPhase2(s, room, e, ev); }
   const p2 = e.phase === 2;
   if (e.boss === 'guardian') {
     if (e.dashT > 0) {
@@ -1633,7 +1642,7 @@ export const shopCost = (s, item) => (SHOP_BASE[item] ? Math.round((SHOP_BASE[it
 export function shopStock(s, room = roomOf(s)) {
   if (!room.stock) {
     const rng = makeRng(hashString(`shop-${s.seed}-${s.depth}-${room.id}`));
-    room.stock = ['repair', ...rng.shuffle(SHOP_ITEMS.filter((k) => k !== 'repair')).slice(0, 3)];
+    room.stock = ['repair', ...rng.shuffle(SHOP_ITEMS.filter((k) => k !== 'repair')).slice(0, s.pool?.shopPlus ? 4 : 3)];
   }
   return room.stock;
 }
@@ -1806,14 +1815,18 @@ export const WORKSHOP = [
   { id: 'pack', icon: '🎒', name: 'Mochila', desc: (l) => (l >= 2 ? 'empiezas con un kit y caben 4 de cada' : 'empiezas con un kit de reparación'), cost: [50, 160] },
   { id: 'luck', icon: '🍀', name: 'Olfato', desc: (l) => `más botín de los enemigos${l >= 2 ? ' y mejor' : ''}${l >= 3 ? '; cofres aún mejores' : ''}`, cost: [80, 170, 300] },
   { id: 'power', icon: '⚡', name: 'Calibración', desc: (l) => `+${l} de daño del disparo`, cost: [120, 280] },
-  { id: 'arsCannon', branch: 'arsenal', icon: '☄️', name: 'Armería', desc: () => 'el Cañón y los afijos de arma (fuego, hielo, sangre, muelle) salen en el botín', cost: [90] },
-  { id: 'arsPlating', branch: 'arsenal', icon: '💠', name: 'Blindajes especiales', desc: () => 'reflectante, espinas, regenerativo y ablativo salen en el botín', cost: [110] },
-  { id: 'arsSets', branch: 'arsenal', icon: '⛈️', name: 'Planos de set', desc: () => 'los sets Tormenta, Espectro y Guardián salen en el botín', cost: [140] },
-  { id: 'arsUniques', branch: 'arsenal', icon: '★', name: 'Reliquias', desc: () => 'los únicos Prisma, Cristal, Cometa, Relicario y Fénix salen en el botín', cost: [220] },
+  { id: 'vaultPlus', icon: '🔐', name: 'Bóveda ampliada', desc: (l) => `la bóveda guarda ${1 + l} objetos (hay que abrirla antes)`, cost: [200, 420] },
+  { id: 'hullShield', icon: '🫧', name: 'Burbuja', desc: () => 'empiezas cada planta con 1 escudo', cost: [160] },
+  { id: 'arsCannon', branch: 'arsenal', icon: '🔨', name: 'Armería', desc: () => 'las armas traen afijo (fuego, hielo, sangre, muelle) el doble de a menudo', cost: [90] },
+  { id: 'arsPlating', branch: 'arsenal', icon: '💠', name: 'Blindajes templados', desc: () => 'los blindajes especiales traen +1 ❤️ y +1 🫧', cost: [110] },
+  { id: 'arsSets', branch: 'arsenal', icon: '⛓️', name: 'Planos de set', desc: () => 'las piezas de set salen mucho más a menudo', cost: [140] },
+  { id: 'arsUniques', branch: 'arsenal', icon: '★', name: 'Reliquias', desc: () => 'los únicos legendarios salen casi el doble (y también en lo épico)', cost: [220] },
+  { id: 'arsChoice', branch: 'arsenal', icon: '🎁', name: 'Más donde elegir', desc: () => 'los cofres y los jefes ofrecen 4 objetos en vez de 3', cost: [260] },
   { id: 'arsCrit', branch: 'arsenal', icon: '🎯', name: 'Mira fina', desc: (l) => `+${4 * l} % de golpe crítico`, cost: [100, 240] },
-  { id: 'mapHatch', branch: 'map', icon: '☠️', name: 'Escotilla peligrosa', desc: () => 'la salida tiene una escotilla ☠️: maldición a cambio de ×1,5 🔩 y mejor botín', cost: [60] },
-  { id: 'mapTraps', branch: 'map', icon: '⚠️', name: 'Planos avanzados', desc: () => 'salas con pinchos, cintas, campos de minas y láser que barre (más variadas, más duras)', cost: [80] },
-  { id: 'mapElite', branch: 'map', icon: '👑', name: 'Salas de élite', desc: () => 'salen salas de élite: enemigos con 2 rasgos y un premio al limpiarlas', cost: [150] },
+  { id: 'mapHatch', branch: 'map', icon: '☠️', name: 'Cazatesoros', desc: () => 'la escotilla peligrosa paga ×1,75 🔩 (en vez de ×1,5)', cost: [60] },
+  { id: 'mapTraps', branch: 'map', icon: '🥾', name: 'Botas magnéticas', desc: () => 'los pinchos no te hacen daño y las cintas no te arrastran', cost: [80] },
+  { id: 'mapElite', branch: 'map', icon: '👑', name: 'Cazador de élites', desc: () => 'las élites sueltan botín más a menudo y mejor', cost: [150] },
+  { id: 'mapShop', branch: 'map', icon: '🛒', name: 'Contactos', desc: () => 'las tiendas tienen un artículo más', cost: [120] },
   { id: 'mapRadar', branch: 'map', icon: '📡', name: 'Radar', desc: () => 'el minimapa enseña todas las salas de la planta desde que entras', cost: [180] },
 ];
 for (const w of WORKSHOP) w.branch ||= 'hull';
@@ -1825,7 +1838,9 @@ export function workshopShip(up = {}) {
   return {
     hpBonus: L('hull'), keys: L('keys'), bag: L('pack') ? { kit: 1 } : {}, bagMax: L('pack') >= 2 ? BAG_MAX + 1 : BAG_MAX, luck: L('luck'), bonusDmg: L('power'),
     crit: 0.08 + 0.04 * L('arsCrit'),
-    pool: { cannon: !!L('arsCannon'), platings: !!L('arsPlating'), sets: !!L('arsSets'), uniques: !!L('arsUniques'), hatch: !!L('mapHatch'), traps: !!L('mapTraps'), elite: !!L('mapElite'), radar: !!L('mapRadar') },
+    // (todo el botín y las salas nuevas salen siempre: el taller los MEJORA)
+    pool: { affixPlus: !!L('arsCannon'), plateTemper: !!L('arsPlating'), setsPlus: !!L('arsSets'), uniquesPlus: !!L('arsUniques'), choice4: !!L('arsChoice'), hatchPay: !!L('mapHatch'), boots: !!L('mapTraps'), eliteLoot: !!L('mapElite'), shopPlus: !!L('mapShop'), radar: !!L('mapRadar'), floorShield: !!L('hullShield') },
+    vaultSlots: 1 + L('vaultPlus'),
   };
 }
 
@@ -1846,7 +1861,7 @@ export const HEAT_RULES = [
   'la tienda, un 30 % más cara',
   'bajar de planta ya no cura',
   '+1 enemigo en cada sala',
-  'jefes con un 30 % más de vida',
+  'los jefes empiezan ya en su fase 2 (y con un 30 % más de vida)',
   'menos llaves al limpiar salas',
   'el doble de élites',
   'enemigos un 15 % más rápidos',

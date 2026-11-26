@@ -19,7 +19,7 @@ export const nextDiff = (d) => DIFF_KEYS[(DIFF_KEYS.indexOf(d) + 1) % DIFF_KEYS.
 export function towFee(credits, danger, diff) {
   if (diff === 'relaxed') return 0;
   const vet = diff === 'veteran';
-  const pct = vet ? 0.25 : 0.15, cap = vet ? 500 + 400 * danger : 300 + 250 * danger;
+  const pct = vet ? 0.25 : 0.15, cap = vet ? 650 + 500 * danger : 400 + 320 * danger; // (los premios crecen ahora igual que la amenaza)
   return Math.max(0, Math.round(Math.min(credits * pct, cap)));
 }
 export const respawnHull = (diff) => ({ relaxed: 1, pilot: 0.5, veteran: 0.35 })[diff] ?? 0.5;

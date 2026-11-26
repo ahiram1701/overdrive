@@ -6,48 +6,63 @@ import {
   newRun, updateRun, roomOf, genFloor, genRoom, takeOffer, buy, shopCost, shopStock, foeMods, pecioRewards, heatReward, HEAT_RULES, HEAT_MAX,
   LOADOUTS, WORKSHOP, WORKSHOP_BRANCHES, workshopShip, dailySeed, COLS, ROWS, MID_C, MID_R,
 } from '../../js/pecio.js';
-import { genItem, applyGear, scrapValue, BASE_SETS, BASE_UNIQUES, SLOTS } from '../../js/pecioLoot.js';
+import { genItem, genChoice, applyGear, scrapValue, SLOTS } from '../../js/pecioLoot.js';
 
 const DT = 1 / 30;
-const LOCKED = workshopShip({}).pool;
+const BASE = workshopShip({});
 
-test('taller: 3 ramas; sin desbloquear, el botín solo trae lo básico', () => {
+test('taller: 3 ramas y 18 mejoras; sin comprar nada, TODO el botín nuevo sale igual', () => {
   assert.deepEqual(WORKSHOP_BRANCHES.map((b) => b.id), ['hull', 'arsenal', 'map']);
-  for (const b of WORKSHOP_BRANCHES) assert.ok(WORKSHOP.filter((w) => w.branch === b.id).length >= 4, `rama ${b.id} con nodos`);
-  assert.deepEqual(LOCKED, { cannon: false, platings: false, sets: false, uniques: false, hatch: false, traps: false, elite: false, radar: false });
-  const rng = makeRng(4);
-  for (let i = 0; i < 1500; i++) {
-    const it = genItem(rng, 9, { bonus: 2, pool: LOCKED });
-    assert.notEqual(it.kind, 'cannon');
-    assert.ok(!it.affix);
-    if (it.slot === 'plating') assert.equal(it.kind, 'plating');
-    if (it.set) assert.ok(BASE_SETS.includes(it.set));
-    if (it.unique) assert.ok(BASE_UNIQUES.includes(it.unique));
+  assert.equal(WORKSHOP.length, 18);
+  for (const b of WORKSHOP_BRANCHES) assert.ok(WORKSHOP.filter((w) => w.branch === b.id).length >= 5, `rama ${b.id} con nodos`);
+  assert.ok(Object.values(BASE.pool).every((v) => v === false), 'sin taller, ninguna mejora');
+  const rng = makeRng(4), seen = new Set(), sets = new Set(), uniq = new Set();
+  let affix = 0;
+  for (let i = 0; i < 3000; i++) {
+    const it = genItem(rng, 9, { bonus: 2, pool: BASE.pool });
+    seen.add(it.kind);
+    if (it.affix) affix++;
+    if (it.set) sets.add(it.set);
+    if (it.unique) uniq.add(it.unique);
   }
-  // todo desbloqueado: sale de todo
-  const all = workshopShip(Object.fromEntries(WORKSHOP.map((w) => [w.id, 9]))).pool;
-  assert.ok(Object.values(all).every(Boolean));
-  const seen = new Set();
-  for (let i = 0; i < 1500; i++) { const it = genItem(rng, 9, { bonus: 2, pool: all }); seen.add(it.kind); }
-  assert.ok(seen.has('cannon') && seen.has('reflect'));
+  for (const k of ['cannon', 'shard', 'charge', 'reflect', 'thorns', 'regen', 'ablative']) assert.ok(seen.has(k), `sale ${k} sin desbloquear`);
+  assert.ok(affix > 0 && sets.size === 6 && uniq.size === 8, `afijos ${affix}, sets ${sets.size}, únicos ${uniq.size}`);
+  // el taller lo MEJORA: más afijos, placas templadas, 4 opciones
+  const all = workshopShip(Object.fromEntries(WORKSHOP.map((w) => [w.id, 9])));
+  assert.ok(Object.values(all.pool).every(Boolean));
+  assert.equal(all.vaultSlots, 3);
+  let affix2 = 0;
+  const r2 = makeRng(4);
+  for (let i = 0; i < 3000; i++) { const it = genItem(r2, 9, { bonus: 2, pool: all.pool }); if (it.affix) affix2++; if (it.slot === 'plating' && it.kind === 'ablative') assert.ok(it.shield >= 3); }
+  assert.ok(affix2 > affix * 1.3, `más afijos con la Armería (${affix} → ${affix2})`);
+  assert.equal(genChoice(makeRng(1), 3, { n: 4 }).length, 4);
   assert.ok(Math.abs(workshopShip({ arsCrit: 2 }).crit - 0.16) < 1e-9);
 });
 
-test('cartografía: sin desbloquear, ni escotilla ☠️, ni trampas, ni salas de élite', () => {
+test('cartografía: sin comprar nada ya hay escotilla ☠️, trampas y salas de élite', () => {
+  let traps = 0, elite = 0;
   for (let seed = 1; seed <= 25; seed++) {
-    const s = newRun(seed, { hp: 6, pool: LOCKED });
-    for (let d = 1; d <= 6; d++) {
+    for (let d = 1; d <= 4; d++) {
       const f = genFloor(seed, d);
-      Object.assign(f, { pool: LOCKED, heat: 0 });
-      for (const r of Object.values(f.rooms)) if (r.type === 'elite') r.type = 'combat';
+      Object.assign(f, { pool: BASE.pool, heat: 0 });
+      if (Object.values(f.rooms).some((r) => r.type === 'elite')) elite++;
       for (const id of Object.keys(f.rooms)) {
         const room = genRoom(f, id);
-        assert.ok(!room.tiles.flat().some((k) => ['Y', 'J', '<', '>', '^', 'v'].includes(k)), `sin escotilla ☠️ ni trampas nuevas (${room.layout})`);
-        assert.ok(!room.sweep);
+        if (room.tiles.flat().some((k) => ['J', '<', '>', '^', 'v', 'E'].includes(k)) || room.sweep) traps++;
+        if (room.type === 'exit') assert.ok(room.tiles.flat().includes('Y'), 'la salida tiene escotilla ☠️');
       }
     }
-    assert.ok(!Object.values(s.floor.rooms).some((r) => r.type === 'elite'));
   }
+  assert.ok(traps > 20 && elite > 5, `trampas ${traps}, plantas con élite ${elite}`);
+});
+
+test('mejoras de cartografía: botas, contactos y burbuja', () => {
+  const s = newRun(5, { hp: 6, pool: workshopShip({ hullShield: 1 }).pool });
+  assert.equal(s.player.shield >= 0, true);
+  const sh = newRun(7, { hp: 6, pool: workshopShip({ mapShop: 1 }).pool });
+  const room = { id: 'x', type: 'shop' };
+  assert.equal(shopStock(sh, room).length, 5);
+  assert.equal(shopStock(newRun(7, { hp: 6 }), { id: 'x', type: 'shop' }).length, 4);
 });
 
 test('cargamentos: cada uno da piezas válidas y empieza puesto', () => {

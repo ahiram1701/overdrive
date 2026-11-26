@@ -111,9 +111,9 @@ export const hopsTo = (gal, a, b) => (route(gal, a, b)?.length ?? 99) - 1;
 // ---------- CAMPAÑAS DE FACCIÓN: 5 encargos seguidos y, al final, su chasis exclusivo ----------
 export const CAMP_LEN = 5;
 export const CAMPAIGNS = {
-  liga: { who: 'brak', need: 20, chassis: 'minero', kinds: ['sell', 'dock', 'kill', 'reach', 'base'], title: 'Contratos de la Liga' },
-  coal: { who: 'ilen', need: 20, chassis: 'centinela', kinds: ['kill', 'scan', 'reach', 'dock', 'base'], title: 'Patrulla de la Coalición' },
-  pir: { who: 'vex', need: 15, chassis: 'saqueador', kinds: ['reach', 'kill', 'scan', 'sell', 'base'], title: 'Trabajos de Vex' },
+  liga: { who: 'brak', need: 10, chassis: 'minero', kinds: ['sell', 'dock', 'kill', 'reach', 'base'], title: 'Contratos de la Liga' },
+  coal: { who: 'ilen', need: 10, chassis: 'centinela', kinds: ['kill', 'scan', 'reach', 'dock', 'base'], title: 'Patrulla de la Coalición' },
+  pir: { who: 'vex', need: 10, chassis: 'saqueador', kinds: ['reach', 'kill', 'scan', 'sell', 'base'], title: 'Trabajos de Vex' },
 };
 const CAMP_TEXT = {
   reach: (n) => `Lleva un mensaje a la baliza de ${n}`,

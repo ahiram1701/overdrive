@@ -1310,3 +1310,12 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 .st-up.chip { display: flex; align-items: center; gap: 8px; }
 .st-up.chip .btn { min-width: var(--tap); min-height: var(--tap); margin: 0; padding: 0 10px; }
 .st-up.chip.on { border-color: var(--ok); }
+.pc-tally { margin-left: 4px; font-style: normal; color: #30d158; font-size: 12px; }
+/* NOVEDADES de cada modo (se abre y se cierra; con punto hasta que la ves) */
+.news-card { margin: 10px 0; border: 1px solid rgba(255, 214, 10, .45); border-radius: 16px; background: rgba(255, 214, 10, .06); padding: 10px 14px; color: #fff; }
+.news-card summary { cursor: pointer; font: 900 15px var(--font); letter-spacing: .04em; color: #ffd60a; list-style: none; }
+.news-card summary::-webkit-details-marker { display: none; }
+.news-card .news-dot { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 8px; background: #ff2d55; color: #fff; font-size: 11px; }
+.news-card ul { margin: 8px 0 2px; padding-left: 18px; }
+.news-card li { margin: 4px 0; font-size: 13px; line-height: 1.35; color: #e5e5ea; }
+.chip-total { display: block; margin: 4px 0 8px; color: #30d158; }
