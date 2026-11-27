@@ -40,7 +40,7 @@ test('galaxia: pantalla de entrada con la dificultad; despegar desde ahí', asyn
   expect(errors).toEqual([]);
 });
 
-test('estación: ZARPAR siempre a la vista; REPARAR aparece con el casco dañado; la barra lleva a cada sección', async ({ page }) => {
+test('estación: ZARPAR siempre a la vista; REPARAR aparece con el casco dañado; pestañas por sección', async ({ page }) => {
   const errors = trackErrors(page);
   await boot(page);
   await page.locator('#btnGalaxy').click();
@@ -50,9 +50,21 @@ test('estación: ZARPAR siempre a la vista; REPARAR aparece con el casco dañado
   await page.locator('#btnDock').click();
   await expect(page.locator('#btnUndock')).toBeInViewport();
   await expect(page.locator('#btnRepair')).toBeInViewport();
-  await page.locator('.st-jump [data-go="stSecJobs"]').click();
+  // pestañas: solo se ve lo de la elegida, y se recuerda al volver a atracar
+  await expect(page.locator('#btnSell')).toBeVisible();
+  await expect(page.locator('#btnIncursion')).toBeHidden();
+  await page.locator('#stTabBar [data-st-tab="jobs"]').click();
+  await expect(page.locator('#stTabBar [data-st-tab="jobs"]')).toHaveAttribute('aria-selected', 'true');
   await expect(page.locator('#btnIncursion')).toBeInViewport();
+  await expect(page.locator('#btnSell')).toBeHidden();
   await expect(page.locator('#btnUndock')).toBeInViewport();
+  for (const b of await page.locator('#stTabBar button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  // no te alcanza: tiembla y avisa del motivo
+  await page.evaluate(() => { window.__save.galaxy.credits = 0; });
+  await page.locator('#stTabBar [data-st-tab="ship"]').click();
+  await page.locator('#stUpgrades [data-up="cargo"]').click();
+  await expect(page.locator('#toast')).toContainText('Faltan');
+  await expect(page.locator('#toast')).toHaveClass(/err/);
   expect(errors).toEqual([]);
 });
 

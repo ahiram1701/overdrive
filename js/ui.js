@@ -22,13 +22,13 @@ import { world, WAR_TIME, oreMul } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
-import { DIFFS, diffOf, nextDiff } from './galaxyRisk.js';
+import { DIFFS, diffOf } from './galaxyRisk.js';
 import { INTERDICT } from './galaxyContacts.js';
 import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
 import { vaultItems, vaultSlots, pecioLoadout, pecioSetHeat, newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
-import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
+import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped, statDiff } from './pecioLoot.js';
 import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopStock, FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
 import { MODULES, MOD_KEYS, MOD_MAX, outpostAt, modLvl, modCost, upgradeModule, depositAll, withdrawAll, storeCap, storeUsed, workshopDisc, radarSystems } from './outposts.js';
@@ -46,7 +46,7 @@ import { BOOSTS, MAX_BOOSTS, boostCount, buyBoost, toggleBoost, TALENTS, hasTale
 import { MODS, MOD_BY_ID, cleanMods, modScore, modGems, toggleMod, mutationOf } from './modifiers.js';
 
 const $ = (id) => document.getElementById(id);
-const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'galaxyHub', 'pecioHub', 'pecioShop', 'pecioEnd', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
+const OVERLAYS = ['menu', 'runnerHub', 'arenaHub', 'arenaChoice', 'galaxyHub', 'pecioHub', 'pecioGuide', 'pecioShop', 'pecioEnd', 'settings', 'store', 'crateOpen', 'expo', 'planet', 'station', 'galMap', 'galInv', 'atlas', 'hangar', 'achs', 'codex', 'arenaUp', 'arenaEnd', 'expMap', 'expEvent', 'expRest', 'expEnd', 'raceCups', 'racePodium', 'mods', 'campaign', 'victory', 'cards', 'shop', 'chest', 'death', 'pause'];
 
 // Pantallas con la barra inferior (navegación principal) y su cabecera "← título"
 const NAV_SCREENS = new Set(['menu', 'hangar', 'store', 'achs', 'codex']);
@@ -240,6 +240,24 @@ export function dialogPaused() {
   return !!G.dialogPause;
 }
 
+// NO TE ALCANZA (o no se puede): el botón tiembla, vibra y un aviso dice por qué. Igual en todo el juego
+function deny(b, why) {
+  if (b) { b.classList.remove('shake'); void b.offsetWidth; b.classList.add('shake'); setTimeout(() => b.classList.remove('shake'), 320); }
+  fx.vibe(50);
+  if (why) toast(why, 'err');
+}
+// faltan créditos o materiales: el aviso exacto
+const shortBy = (have, cost, unit) => `Faltan ${fmt(Math.max(0, cost - have))} ${unit}`;
+// CONFIRMAR con dos toques (nada de diálogos del navegador): el primero avisa; a los 3 s se olvida
+function sure(b, label = '¿Seguro?') {
+  if (b.dataset.sure) return true;
+  b.dataset.sure = '1';
+  const was = b.innerHTML;
+  b.innerHTML = label;
+  b.classList.add('confirm');
+  setTimeout(() => { if (b.isConnected && b.dataset.sure) { delete b.dataset.sure; b.innerHTML = was; b.classList.remove('confirm'); } }, 3000);
+  return false;
+}
 function tap(node, fn) {
   node.addEventListener('click', (e) => {
     // con un diálogo abierto, los botones de la partida (DASH, habilidad, disparo…) no hacen nada
@@ -355,8 +373,8 @@ export const ui = {
     tap($('btnSell'), () => { const got = sellAll(); if (got) toast(`+${fmt(got)} 💰 por la carga`, 'ok'); ui.showStation(G.space); });
     tap($('btnRepair'), () => { repair(); ui.showStation(G.space); });
     // ESTACIÓN: la barra de arriba lleva a cada sección
-    for (const b of document.querySelectorAll('#station .st-jump button')) tap(b, () => $(b.dataset.go).scrollIntoView({ behavior: 'smooth', block: 'start' }));
-    tap($('btnSpaceMenu'), () => { leaveSpace(); ui.showMenu(); });
+    for (const b of document.querySelectorAll('#stTabBar [data-st-tab]')) tap(b, () => { ui.stTab = b.dataset.stTab; ui.applyStTab(true); sfx.ui(); });
+    tap($('btnSpaceMenu'), () => { if (!sure($('btnSpaceMenu'), '¿SALIR? toca otra vez')) return; leaveSpace(); ui.showMenu(); });
     tap($('spacePause'), () => ui.pause());
     tap($('btnGalMap'), () => ui.showGalMap());
     tap($('btnAtlas'), () => ui.showAtlas());
@@ -440,6 +458,7 @@ export const ui = {
     screenHeader('runnerHub', '🏁 RUNNER', () => ui.showMenu());
     screenHeader('arenaHub', '⚔️ ARENA', () => ui.showMenu());
     screenHeader('pecioHub', '🏚️ PECIOS', () => ui.showMenu());
+    screenHeader('pecioGuide', '📖 GUÍA DE PECIOS', () => ui.showPecioHub());
     screenHeader('galaxyHub', '🌌 GALAXIA', () => ui.showMenu());
     tap($('btnRunner'), () => ui.showRunnerHub());
     screenHeader('store', '🛒 TIENDA', () => ui.showMenu());
@@ -477,9 +496,9 @@ export const ui = {
     tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
     tap($('btnGalDiff'), () => {
-      // en pleno vuelo no: así no se puede esquivar el coste de morir justo antes
-      if (G.space && G.mode !== 'station') { toast('⚖️ La dificultad se cambia atracado en una estación'); return; }
-      save.galaxy.difficulty = nextDiff(diffOf(save.galaxy)); persist(); ui.syncToggles();
+      // la dificultad se elige en UN sitio: el menú de Galaxia (en pleno viaje no, para no esquivar el coste de morir)
+      if (G.space) { toast('⚖️ La dificultad se elige en el menú de Galaxia, antes de despegar'); return; }
+      ui.showGalaxyHub();
     });
     tap($('btnResume'), () => {
       if (G.mode === 'arenaPaused') { G.mode = 'arena'; musicDuck(false); ui.hideAll(); ui.showArenaHUD(true); }
@@ -1709,6 +1728,8 @@ export const ui = {
     const bars = ui._shBars ||= { shield: hud.querySelector('.sh-bar.shield i'), hull: hud.querySelector('.sh-bar.hull i'), cargo: hud.querySelector('.sh-bar.cargo i'), heat: hud.querySelector('.sh-bar.heat i') };
     setTf(bars.shield, `scaleX(${(s.ship.shield / st.shield).toFixed(3)})`);
     setTf(bars.hull, `scaleX(${Math.max(0, s.ship.hull / st.hull).toFixed(3)})`);
+    setText('shShieldN', Math.ceil(Math.max(0, s.ship.shield)));
+    setText('shHullN', Math.ceil(Math.max(0, s.ship.hull)));
     const n = cargoCount(g.cargo);
     setTf(bars.cargo, `scaleX(${Math.min(1, n / st.cargo).toFixed(3)})`);
     setText('shCargo', `${n}/${st.cargo}`);
@@ -1779,6 +1800,7 @@ export const ui = {
     const ir = incursionRecord();
     const im = ir?.medal && INC_MEDALS.find((m) => m.id === ir.medal);
     setText('stIncursion', ir ? `Hoy: ${ir.waves}/${WAVES} oleadas · ${fmt(ir.best)} pts${im ? ` · ${im.icon}` : ''}` : `10 oleadas · medallas 🥉🥈🥇 con 💎 · hoy: ${themeName(themeOf(todayKey()))}`);
+    ui.applyStTab();
     setText('stCredits', fmt(g.credits));
     setText('stShip', shipName(save, save.ship) ? `· 🚀 «${shipName(save, save.ship)}»` : '');
     const items = Object.entries(g.cargo).filter(([, n]) => n > 0);
@@ -1808,11 +1830,7 @@ export const ui = {
       b.dataset.up = id;
       b.disabled = c === null;
       tap(b, () => {
-        if (!buyUpgrade(id)) {
-          b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300);
-          if (c !== null) toast(g.credits < c ? `Faltan ${fmt(c - g.credits)} 💰` : `Faltan materiales: ${ui.costText(mats)}`, 'err');
-          return;
-        }
+        if (!buyUpgrade(id)) { deny(b, c === null ? '' : g.credits < c ? shortBy(g.credits, c, '💰') : `Faltan materiales: ${ui.costText(mats)}`); return; }
         fx.vibe([20, 30, 60]);
         ui.showStation(s);
       });
@@ -1826,13 +1844,13 @@ export const ui = {
       if (c.story && !own) { yard.append(el('div', 'st-up locked', `<span class="su-icon">${c.icon}</span><span class="su-body"><b>${c.name}</b><small>${c.desc}</small></span><span class="su-cost">📖 Acto III</span>`)); continue; }
       if (c.faction && !own) { yard.append(el('div', 'st-up locked', `<span class="su-icon">${c.icon}</span><span class="su-body"><b>${c.name}</b><small>${c.desc}</small></span><span class="su-cost">${FACTIONS[c.faction].icon} Campaña</span>`)); continue; }
       const mm = Object.entries(c.mult).map(([k, v]) => `${{ speed: 'velocidad', turn: 'giro', hull: 'casco', shield: 'escudo', cargo: 'bodega', dmg: 'daño' }[k]} ${v > 1 ? '+' : ''}${Math.round((v - 1) * 100)}%`).join(' · ');
-      const b = el('button', `st-up${cur ? ' on' : !own && g.credits >= c.cost ? ' afford' : ''}`, `<span class="su-icon">${c.icon}</span>
+      const b = el('button', `st-up${cur ? ' on' : own || g.credits >= c.cost ? ' afford' : ''}`, `<span class="su-icon">${c.icon}</span>
         <span class="su-body"><b>${c.name} <em>🔫${c.slots.w} ⚙️${c.slots.m}</em></b><small>${c.desc}</small>${mm ? `<small class="cr-cost">${mm}</small>` : ''}</span>
         <span class="su-cost">${cur ? 'EN USO' : own ? 'USAR' : `${fmt(c.cost)} 💰`}</span>`);
       b.dataset.chassis = id;
       b.disabled = cur;
       tap(b, () => {
-        if (own ? useChassis(id) : buyChassis(id)) { toast(`${c.icon} ${c.name}${own ? '' : ' comprado'}`); ui.showStation(s); } else fx.vibe(50);
+        if (own ? useChassis(id) : buyChassis(id)) { toast(`${c.icon} ${c.name}${own ? '' : ' comprado'}`); ui.showStation(s); } else deny(b, own ? '' : shortBy(g.credits, c.cost, '💰'));
       });
       yard.append(b);
     }
@@ -1845,7 +1863,7 @@ export const ui = {
       const b = el('button', `st-up${mc && g.credits >= mc ? ' afford' : ''}`, `<span class="su-icon">🚀</span><span class="su-body"><b>Recargar misiles</b><small>${g.missiles || 0}/${missileMax()} a bordo</small></span><span class="su-cost">${mc ? `${fmt(mc)} 💰` : 'LLENO'}</span>`);
       b.id = 'btnRefill';
       b.disabled = !mc;
-      tap(b, () => { if (refillMissiles()) ui.showStation(s); });
+      tap(b, () => { if (refillMissiles()) ui.showStation(s); else deny(b, shortBy(g.credits, mc, '💰')); });
       sup.append(b);
     }
     for (const id of ITEM_KEYS) {
@@ -1853,7 +1871,7 @@ export const ui = {
       const b = el('button', `st-up${n < ITEM_MAX && g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">${it.icon}</span><span class="su-body"><b>${it.name} <em>×${n}/${ITEM_MAX}</em></b><small>${it.desc}</small></span><span class="su-cost">${n >= ITEM_MAX ? 'MÁX' : `${fmt(c)} 💰`}</span>`);
       b.dataset.item = id;
       b.disabled = n >= ITEM_MAX;
-      tap(b, () => { if (buyItem(save, id, itemDisc())) { persist(); sfx.coin(3); ui.showStation(s); } else fx.vibe(40); });
+      tap(b, () => { if (buyItem(save, id, itemDisc())) { persist(); sfx.coin(3); ui.showStation(s); } else deny(b, shortBy(g.credits, c, '💰')); });
       sup.append(b);
     }
     // SOBORNO: −1 ⭐ de búsqueda
@@ -1861,7 +1879,7 @@ export const ui = {
       const c = bribeCost(g, threat());
       const b = el('button', `st-up${g.credits >= c ? ' afford' : ''}`, `<span class="su-icon">🚨</span><span class="su-body"><b>Sobornar <em>${'⭐'.repeat(wantedStars(g))}</em></b><small>Te buscan: con ⭐⭐ o más te esperan cazadores. Esto quita una estrella.</small></span><span class="su-cost">${fmt(c)} 💰</span>`);
       b.id = 'btnBribe';
-      tap(b, () => { if (bribeWanted()) { toast('🚨 Una estrella menos'); sfx.coin(2); ui.showStation(s); } else fx.vibe(40); });
+      tap(b, () => { if (bribeWanted()) { toast('🚨 Una estrella menos'); sfx.coin(2); ui.showStation(s); } else deny(b, shortBy(g.credits, c, '💰')); });
       sup.append(b);
     }
     // TALENTOS DE LA GALAXIA (con créditos)
@@ -1874,8 +1892,9 @@ export const ui = {
         `<small>${i + 1}</small><b>${n.name}</b><span>${n.desc}</span><em>${has ? '✔' : `💰 ${fmt(n.cost)}`}</em>`);
       node.dataset.talent = n.id;
       tap(node, () => {
-        if (!next) return;
-        if (!buyTalent(save, n.id)) { fx.vibe(50); return; }
+        if (has) return;
+        if (!next) { deny(node, 'Antes, el talento anterior'); return; }
+        if (!buyTalent(save, n.id)) { deny(node, shortBy(g.credits, n.cost, '💰')); return; }
         progress('talent');
         persist();
         sfx.chest();
@@ -1898,7 +1917,7 @@ export const ui = {
         <span class="su-cost">${has ? '✔' : okLvl ? `${fmt(it.cost)} 💰` : `🔒 ${it.minLvl === 'amigo' ? 'Amigo' : 'Aliado'}`}</span>`);
       b.dataset.fshop = it.id;
       b.disabled = has || !okLvl;
-      tap(b, () => { if (buyFactionItem(it)) { toast(`🎨 ${item.name} desbloqueado`); ui.showStation(s); } });
+      tap(b, () => { if (buyFactionItem(it)) { toast(`🎨 ${item.name} desbloqueado`); ui.showStation(s); } else deny(b, shortBy(g.credits, it.cost, '💰')); });
       fb.append(b);
     }
     // CAMPAÑAS DE FACCIÓN: la de esta estación y, en cualquiera, la de Vex (los piratas no te dejan atracar)
@@ -1919,7 +1938,8 @@ export const ui = {
     if (act) {
       const row = el('div', 'st-mis active', `<span>🎯</span><div><b>${act.name} · nivel ${act.level}</b><small>${TRAITS[act.trait].icon} ${TRAITS[act.trait].name} · visto en ${GAL[act.sys].name} · +${fmt(act.reward)} 💰</small></div>`);
       const x = el('button', 'btn ghost', '✕');
-      tap(x, () => { abandonBounty(); ui.showStation(s); });
+      x.setAttribute('aria-label', 'Abandonar la caza');
+      tap(x, () => { if (!sure(x, '¿Seguro?')) return; abandonBounty(); ui.showStation(s); });
       row.append(x);
       bBox.append(row);
     } else {
@@ -1939,7 +1959,8 @@ export const ui = {
       const row = el('div', 'st-mis active', `<span>${MISSION_KINDS[m.kind].icon}</span><div><b>${m.text}</b><small>${m.n > 1 ? `${m.progress}/${m.n} · ` : ''}+${m.reward} 💰</small></div>`);
       const x = el('button', 'btn ghost', '✕');
       x.title = 'Abandonar';
-      tap(x, () => { abandonMission(m.id); ui.showStation(s); });
+      x.setAttribute('aria-label', 'Abandonar la misión');
+      tap(x, () => { if (!sure(x, '¿Seguro?')) return; abandonMission(m.id); ui.showStation(s); });
       row.append(x);
       mBox.append(row);
     }
@@ -1985,7 +2006,7 @@ export const ui = {
       b.dataset.module = id;
       b.disabled = !c;
       tap(b, () => {
-        if (!upgradeModule(save, s.sysId, id)) { fx.vibe(40); return; }
+        if (!upgradeModule(save, s.sysId, id)) { deny(b, 'Faltan créditos'); return; }
         progress('outpostLvl', Object.values(outpostAt(save, s.sysId).mods).reduce((a, n) => a + n, 0));
         persist();
         sfx.chest();
@@ -2042,22 +2063,37 @@ export const ui = {
       if (has) {
         const lv = gearLvl(save, id), uc = gearUpCost(id, lv);
         const ucd = uc && Object.fromEntries(Object.entries(uc).map(([k, n]) => [k, k === 'credits' ? Math.round(n * disc) : n]));
-        const up = el('span', `gear-up${uc && canUpgradeGear(save, id, disc) ? ' afford' : ''}`, `Nv ${lv}/${GEAR_MAX}${uc ? ` · ⬆ ${ui.costText(ucd)}` : ' · MÁX'}`);
+        const up = el('button', `gear-up${uc && canUpgradeGear(save, id, disc) ? ' afford' : ''}`, `Nv ${lv}/${GEAR_MAX}${uc ? ` · ⬆ ${ui.costText(ucd)}` : ' · MÁX'}`);
         up.dataset.gearUp = id;
-        if (uc) tap(up, () => { if (upgradeGear(save, id, disc)) { persist(); sfx.chest(); toast(`${it.icon} ${it.name} nivel ${lv + 1}`); again(); } else fx.vibe(40); });
-        b.querySelector('.su-body').append(up);
+        up.disabled = !uc;
+        up.setAttribute('aria-label', `Subir de nivel ${it.name}`);
+        if (uc) tap(up, () => { if (upgradeGear(save, id, disc)) { persist(); sfx.chest(); toast(`${it.icon} ${it.name} nivel ${lv + 1}`); again(); } else deny(up, `Faltan: ${ui.costText(ucd)}`); });
+        b.upBtn = up;
       }
       tap(b, () => {
         if (has) { equipGear(save, id); persist(); again(); return; }
-        if (!craft(save, id, disc)) { b.classList.add('shake'); fx.vibe(50); setTimeout(() => b.classList.remove('shake'), 300); toast('Faltan créditos o materiales', 'err'); return; }
+        if (!craft(save, id, disc)) { deny(b, `Faltan: ${ui.costText(cost)}`); return; }
         persist();
         sfx.chest();
         progress('craft');
         toast(`${it.icon} ${it.name} fabricado y montado`);
         again();
       });
-      box.append(b);
+      if (b.upBtn) { const row = el('div', 'gear-row'); row.append(b, b.upBtn); box.append(row); } else box.append(b);
     }
+  },
+
+  // ESTACIÓN por PESTAÑAS: se ve solo lo de la pestaña elegida (y se recuerda la última)
+  stTab: 'market',
+  applyStTab(top = false) {
+    const tab = ui.stTab || 'market';
+    for (const b of document.querySelectorAll('#stTabBar [data-st-tab]')) {
+      const on = b.dataset.stTab === tab;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-selected', String(on));
+    }
+    for (const blk of document.querySelectorAll('#station [data-tab]')) blk.hidden = blk.dataset.tab !== tab;
+    if (top) $('station').scrollTop = 0;
   },
 
   // DIÁLOGO de la historia: líneas con quién habla; la última puede tener una elección
@@ -2437,7 +2473,9 @@ export const ui = {
         const d = Math.hypot(list[0].x - list[1].x, list[0].y - list[1].y);
         ui.gmView.w = Math.max(220, Math.min(ui.gmFit.w * 1.6, start.v.w * (start.d / Math.max(20, d))));
         start.moved = true;
-        ui.showGalMap(ui.gmSel); // el tamaño de los símbolos depende del zoom
+        // el encuadre, al momento; el dibujo (los símbolos dependen del zoom), como mucho una vez por fotograma
+        ui.gmApplyView();
+        if (!ui.gmRaf) ui.gmRaf = requestAnimationFrame(() => { ui.gmRaf = 0; if (!$('galMap').classList.contains('hidden')) ui.showGalMap(ui.gmSel); });
         return;
       }
       const dx = list[0].x - start.a.x, dy = list[0].y - start.a.y;
@@ -2663,20 +2701,28 @@ export const ui = {
     setText('phPiezas', fmt(P.piezas || 0));
     $('phInfo').innerHTML = `
       <button class="btn ph-daily" id="btnPecioDaily"></button>
+      <button class="btn ghost ph-guide" id="btnPecioGuide">📖 GUÍA <small>enemigos · salas · jefes</small></button>
       <div class="gi-block"><h3>🎒 Preparación</h3><small>Con qué empiezas:</small><div class="ph-loadouts" id="phLoadouts" role="radiogroup" aria-label="Cargamento"></div>
         <div class="ph-heat"><b>🔥 Profundidad</b><button class="btn ghost" id="btnHeatDown" aria-label="Menos profundidad">−</button><b id="phHeat">0</b><button class="btn ghost" id="btnHeatUp" aria-label="Más profundidad">+</button></div><small id="phHeatDesc"></small></div>
-      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Al limpiar una sala, a veces queda un ❤️; cuanto más hondo, más pegan los enemigos. Si caes, te llevas parte de las 🔩.</small></div>
-      <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span style="color:${e.color}">■ ${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
-      <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
-      <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>
-      <div class="gi-block"><h3>💀 Jefes (cada 3 plantas, al azar)</h3>${Object.values(BOSSES).map((b) => `<div class="gi-row"><span style="color:${b.color}">■ ${b.name}</span><small>${b.tip}</small></div>`).join('')}<small>Cada partida baraja los 6: no se repiten hasta que salen todos. Tras la planta 9 eliges: salir con todo o seguir en el ♾️ modo sin fin.</small></div>
-      <div class="gi-block"><h3>☠️ Riesgo y presión</h3><small>La sala de salida tiene dos escotillas: ⬇️ la segura y ☠️ la PELIGROSA, que maldice la planta siguiente a cambio de ×1,5 🔩 y mejor botín. Limpia las salas deprisa para encadenar una ⚡ RACHA de 🔩; si te demoras más de ${FLOOD_AT} s, el pecio se inunda y llegan refuerzos.</small></div>
       <div class="gi-block"><h3>🛠️ Taller</h3><small>Mejoras para siempre, con 🔩.</small><div id="phWorkshop" class="ps-items"></div></div>
       <div class="gi-block"><h3>🔐 Bóveda</h3><div id="phVault"></div></div>`;
     ui.renderPecioVault();
     ui.renderPecioWorkshop();
     ui.renderPecioPrep();
+    tap($('btnPecioGuide'), () => ui.showPecioGuide());
     show('pecioHub');
+  },
+  // GUÍA de Pecios: todo lo que hay que saber, en su propia pantalla (el menú queda para jugar)
+  showPecioGuide() {
+    $('pgBody').innerHTML = `
+      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Al limpiar una sala, a veces queda un ❤️; cuanto más hondo, más pegan los enemigos. Si caes, te llevas parte de las 🔩.</small></div>
+      <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span class="gi-dot" style="--c:${e.color}">${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
+      <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
+      <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>
+      <div class="gi-block"><h3>💀 Jefes (cada 3 plantas, al azar)</h3>${Object.values(BOSSES).map((b) => `<div class="gi-row"><span class="gi-dot" style="--c:${b.color}">${b.name}</span><small>${b.tip}</small></div>`).join('')}<small>Cada partida baraja los 6: no se repiten hasta que salen todos. Tras la planta 9 eliges: salir con todo o seguir en el ♾️ modo sin fin.</small></div>
+      <div class="gi-block"><h3>☠️ Riesgo y presión</h3><small>La sala de salida tiene dos escotillas: ⬇️ la segura y ☠️ la PELIGROSA, que maldice la planta siguiente a cambio de ×1,5 🔩 y mejor botín. Limpia las salas deprisa para encadenar una ⚡ RACHA de 🔩; si te demoras más de ${FLOOD_AT} s, el pecio se inunda y llegan refuerzos.</small></div>
+`;
+    show('pecioGuide');
   },
   renderPecioPrep() {
     const P = save.pecio, box = $('phLoadouts');
@@ -2695,7 +2741,7 @@ export const ui = {
       b.setAttribute('role', 'radio');
       b.setAttribute('aria-checked', String(on));
       tap(b, () => {
-        if (pecioLoadout(id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioPrep(); ui.renderPecioWorkshop(); } else toast(`Faltan ${L.cost - (save.pecio.piezas || 0)} 🔩`, 'err');
+        if (pecioLoadout(id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioPrep(); ui.renderPecioWorkshop(); } else deny(b, shortBy(save.pecio.piezas || 0, L.cost, '🔩'));
       });
       box.append(b);
     }
@@ -2720,13 +2766,13 @@ export const ui = {
       const lv = workshopLevel(save.pecioUp, w.id), c = workshopCost(save.pecioUp, w.id), max = c === null;
       const b = el('button', `st-up${!max && save.pecio.piezas >= c ? ' afford' : ''}${max ? ' maxed' : ''}`, `<span class="su-icon">${w.icon}</span><span class="su-body"><b>${w.name} <small>${'●'.repeat(lv)}${'○'.repeat(w.cost.length - lv)}</small></b><small>${w.desc(Math.max(1, max ? lv : lv + 1))}</small></span><span class="su-cost">${max ? 'MÁX' : `${c} 🔩`}</span>`);
       b.dataset.pup = w.id;
-      tap(b, () => { if (pecioWorkshopBuy(w.id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } });
+      tap(b, () => { if (pecioWorkshopBuy(w.id)) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } else deny(b, max ? 'Ya está al máximo' : shortBy(save.pecio.piezas, c, '🔩')); });
       box.append(b);
     }
     // CANJE: las 🔩 que sobran, a 🪙
     const ex = el('button', `st-up${save.pecio.piezas >= EXCHANGE.piezas ? ' afford' : ''}`, `<span class="su-icon">♻️</span><span class="su-body"><b>Chatarrero</b><small>Cambia ${EXCHANGE.piezas} 🔩 por ${EXCHANGE.coins} 🪙 para el Runner y la Arena</small></span><span class="su-cost">${EXCHANGE.piezas} 🔩</span>`);
     ex.id = 'btnPecioExchange';
-    tap(ex, () => { if (exchangePiezas(save)) { persist(); sfx.coin(4); setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } });
+    tap(ex, () => { if (exchangePiezas(save)) { persist(); sfx.coin(4); setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioWorkshop(); ui.renderPecioVault(); } else deny(ex, shortBy(save.pecio.piezas, EXCHANGE.piezas, '🔩')); });
     box.append(ex);
   },
   // PLANTA 9 superada: salir con todo o seguir en el modo sin fin
@@ -2752,7 +2798,7 @@ export const ui = {
       box.innerHTML = `<small>Guarda 1 objeto al acabar una partida y empiezas la siguiente con él puesto.</small>`;
       const b = el('button', `st-up${P.piezas >= VAULT_COST ? ' afford' : ''}`, `<span class="su-icon">🔐</span><span class="su-body"><b>Abrir la bóveda</b><small>para siempre</small></span><span class="su-cost">${VAULT_COST} 🔩</span>`);
       b.id = 'btnPecioVault';
-      tap(b, () => { if (pecioVaultUnlock()) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioVault(); } });
+      tap(b, () => { if (pecioVaultUnlock()) { setText('phPiezas', fmt(save.pecio.piezas)); ui.renderPecioVault(); } else deny(b, shortBy(P.piezas, VAULT_COST, '🔩')); });
       box.append(b);
     } else {
       const list = vaultItems(), n = vaultSlots();
@@ -2783,7 +2829,16 @@ export const ui = {
     const sig = SLOTS.map((k) => p.gear[k]?.id || '-').join() + '|' + CONS_KEYS.map((k) => p.bag[k]).join();
     if (s.hudSig !== sig) {
       s.hudSig = sig;
-      $('pcGear').innerHTML = SLOTS.filter((k) => p.gear[k]).map((k) => `<span class="pg-it" style="--rc:${LOOT_RAR[p.gear[k].tier].color}" title="${itemName(p.gear[k])}">${itemIcon(p.gear[k])}</span>`).join('');
+      // tu equipo: tócalo para ver qué hace
+      const gb = $('pcGear');
+      gb.innerHTML = '';
+      for (const k of SLOTS.filter((x) => p.gear[x])) {
+        const it = p.gear[k], b = el('button', 'pg-it', itemIcon(it));
+        b.style.setProperty('--rc', LOOT_RAR[it.tier].color);
+        b.setAttribute('aria-label', itemName(it));
+        tap(b, () => toast(`${itemIcon(it)} ${itemName(it)} · ${itemLines(it).slice(0, 2).join(' · ')}`));
+        gb.append(b);
+      }
       const bar = $('pcBagBar');
       bar.innerHTML = '';
       for (const k of CONS_KEYS) {
@@ -2800,7 +2855,7 @@ export const ui = {
   showPecioOffer(s) {
     const it = s.offer.item, p = s.player, cur = currentFor(p, it), all = offerItems(s);
     setText('psTitle', all.length > 1 ? '🎁 ELIGE 1 DE 3' : '🎁 BOTÍN');
-    setHTML('psText', `<b style="color:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`);
+    setHTML('psText', `<b class="rar" style="--rc:${LOOT_RAR[it.tier].color}">${LOOT_RAR[it.tier].name}</b> · ${it.slot === 'mod' ? 'Módulo' : SLOT_NAME[it.slot]}`);
     const box = $('psItems');
     box.innerHTML = '';
     if (all.length > 1) {
@@ -2824,7 +2879,10 @@ export const ui = {
     const near = Object.keys(LOOT_TAGS).filter((k) => (after[k] || 0) === SYNERGY_AT - 1 && (before[k] || 0) < SYNERGY_AT - 1);
     const hint = lit.length ? `<p class="loot-syn on">✨ Enciende ${lit.map((k) => `${LOOT_TAGS[k].icon} ${LOOT_TAGS[k].name}`).join(' y ')}: ${LOOT_TAGS[lit[0]].desc}</p>`
       : near.length ? `<p class="loot-syn">${near.map((k) => `${LOOT_TAGS[k].icon} ${LOOT_TAGS[k].name}`).join(' · ')}: te faltaría 1 pieza</p>` : '';
-    box.insertAdjacentHTML('beforeend', `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>${hint}`);
+    // ▲/▼: qué ganas y qué pierdes frente a lo que llevas
+    const diff = statDiff(it, cur);
+    const vs = diff.length ? `<ul class="loot-diff">${diff.map((d) => `<li class="${d.up ? 'up' : 'down'}">${d.up ? '▲' : '▼'} ${d.txt}</li>`).join('')}</ul>` : '';
+    box.insertAdjacentHTML('beforeend', `<div class="loot-vs"><div><small>NUEVO</small>${lootCard(it)}</div><div><small>${cur ? 'LLEVAS' : 'RANURA VACÍA'}</small>${cur ? lootCard(cur) : '<div class="loot-card empty">—</div>'}</div></div>${vs}${hint}`);
     const opts = it.slot === 'mod' && p.gear.mod1 && p.gear.mod2
       ? [['mod1', `CAMBIAR POR ${itemIcon(p.gear.mod1)} ${itemName(p.gear.mod1).toUpperCase()}`], ['mod2', `CAMBIAR POR ${itemIcon(p.gear.mod2)} ${itemName(p.gear.mod2).toUpperCase()}`]]
       : [['equip', cur ? 'CAMBIAR' : 'EQUIPAR']];
@@ -2845,13 +2903,13 @@ export const ui = {
     $('btnPecioShopClose').classList.remove('hidden');
     const box = $('psItems');
     box.innerHTML = '';
-    const INFO = { repair: ['🔧', 'Reparación', '+3 de vida ahora'], key: ['🗝️', 'Llave', 'abre un cofre'], box: ['📦', 'Caja misteriosa', 'un objeto, al menos raro'] };
+    const INFO = { repair: ['🔧', 'Reparación', '+2 de vida ahora (cada vez, más cara)'], key: ['🗝️', 'Llave', 'abre un cofre'], box: ['📦', 'Caja misteriosa', 'un objeto, al menos raro'] };
     for (const item of shopStock(s)) {
       const [icon, name, desc] = INFO[item] || [CONS[item].icon, CONS[item].name, `${CONS[item].desc} · llevas ${s.player.bag[item]}/3`];
       const c = shopCost(s, item);
       const b = el('button', `st-up${s.player.piezas >= c ? ' afford' : ''}`, `<span class="su-icon">${icon}</span><span class="su-body"><b>${name}</b><small>${desc}</small></span><span class="su-cost">${c} 🔩</span>`);
       b.dataset.buy = item;
-      tap(b, () => pecioBuy(item));
+      tap(b, () => { if (s.player.piezas < c) { deny(b, shortBy(s.player.piezas, c, '🔩')); return; } pecioBuy(item); });
       box.append(b);
     }
     show('pecioShop');
@@ -2876,8 +2934,16 @@ export const ui = {
     $('peTitle').className = r.won || r.endless ? 'won' : 'dead';
     setText('peDepth', `PLANTA ${r.depth}`);
     $('peGrid').innerHTML = [['Salas', r.rooms], ['Bajas', r.kills], ['Jefes', r.bosses || 0], ['Récord', `planta ${r.best}`]].map(([k, v]) => `<div><b>${v}</b><small>${k}</small></div>`).join('');
-    const extra = `${r.heat ? `<br>🔥 Profundidad ${r.heat}: ×${heatReward(r.heat).toFixed(2).replace(/0$/, '').replace('.', ',')}` : ''}${r.heatUp ? `<br>🔓 ¡Profundidad ${r.heat + 1} abierta!` : ''}${r.daily ? `<br>🌅 Inmersión del día · récord de hoy: planta ${r.dailyBest}${r.dailyGems ? ` · +${r.dailyGems} 💎` : ''}` : ''}`;
-    $('pePiezas').innerHTML = `+${r.kept} 🔩 <small>${r.won ? 'todas' : `de ${r.found} encontradas`} · tienes ${fmt(r.wallet)}</small>${r.gems ? `<br>+${r.gems} 💎 · +${fmt(r.xp)} XP de rango` : ''}${(r.rankUps || []).map((u) => `<br>⬆ ¡RANGO ${u.rank}! +${u.gems} 💎`).join('')}${extra}`;
+    // PREMIOS, una fila cada uno
+    const rows = [
+      [`+${fmt(r.kept)} 🔩`, `${r.won ? 'todas' : `de ${fmt(r.found)} encontradas`} · tienes ${fmt(r.wallet)}`],
+      ...(r.gems ? [[`+${r.gems} 💎`, `+${fmt(r.xp)} XP de rango`]] : []),
+      ...(r.rankUps || []).map((u) => [`⬆ RANGO ${u.rank}`, `+${u.gems} 💎`]),
+      ...(r.heat ? [[`🔥 Profundidad ${r.heat}`, `premio ×${heatReward(r.heat).toFixed(2).replace(/0$/, '').replace('.', ',')}`]] : []),
+      ...(r.heatUp ? [['🔓 ¡Nueva profundidad!', `la ${r.heat + 1} ya está abierta`]] : []),
+      ...(r.daily ? [['🌅 Inmersión del día', `récord de hoy: planta ${r.dailyBest}${r.dailyGems ? ` · +${r.dailyGems} 💎` : ''}`]] : []),
+    ];
+    $('pePiezas').innerHTML = rows.map(([a, b]) => `<div class="pe-row"><b>${a}</b><small>${b}</small></div>`).join('');
     // BÓVEDA: guarda uno de los objetos que llevabas para la próxima partida
     const vb = $('peVault');
     vb.innerHTML = '';
@@ -2887,10 +2953,10 @@ export const ui = {
       vb.innerHTML = `<small>🔐 Guarda ${vn > 1 ? `hasta ${vn} objetos` : '1 objeto'} en la bóveda para la próxima partida${vaultItems().length >= vn ? ' (sustituye al más antiguo)' : ''}:</small>`;
       const row = el('div', 'pe-vault-row', '');
       for (const [slot, it] of kept) {
-        const b = el('button', 'pg-it big', itemIcon(it));
+        const b = el('button', 'pg-it big pe-vault-it', `<span>${itemIcon(it)}</span><small>${itemName(it)}</small>`);
         b.style.setProperty('--rc', LOOT_RAR[it.tier].color);
         b.dataset.vault = slot;
-        b.title = itemName(it);
+        b.setAttribute('aria-label', `Guardar ${itemName(it)} en la bóveda`);
         tap(b, () => {
           if (!pecioVaultStore(slot)) return;
           for (const o of row.querySelectorAll('[data-vault]')) o.classList.toggle('on', vaultItems().some((v) => v.vslot === o.dataset.vault && v.id === r.gear[o.dataset.vault]?.id));

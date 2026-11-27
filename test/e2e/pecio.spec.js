@@ -390,8 +390,10 @@ test('pecios riesgo: la escotilla ☠️ maldice la planta siguiente, y el hub e
   await page.locator('#pcPause').click();
   await page.locator('#btnQuit').click().catch(() => {});
   await page.evaluate(async () => { const { ui } = await import('/js/ui.js'); ui.showPecioHub?.(); });
-  await expect(page.locator('#pecioHub')).toContainText('al azar');
-  await expect(page.locator('#pecioHub')).toContainText('PELIGROSA');
+  // la explicación está en la GUÍA del menú
+  await page.locator('#btnPecioGuide').click();
+  await expect(page.locator('#pecioGuide')).toContainText('al azar');
+  await expect(page.locator('#pecioGuide')).toContainText('PELIGROSA');
   expect(errors).toEqual([]);
 });
 

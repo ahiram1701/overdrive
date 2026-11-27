@@ -211,6 +211,25 @@ function baseLines(it) {
   }
   return [MODULES[it.kind].desc(it.val)];
 }
+// COMPARAR con lo que llevas, estadística a estadística: [{ txt, up }] (up: true ▲ mejor, false ▼ peor)
+export function statDiff(it, cur) {
+  if (!it) return [];
+  const out = [];
+  const num = (k, label, fmt = (v) => `${v > 0 ? '+' : ''}${v}`) => {
+    const d = (it[k] || 0) - (cur?.[k] || 0);
+    if (Math.abs(d) > 1e-9) out.push({ txt: `${fmt(+d.toFixed(2))} ${label}`, up: d > 0 });
+  };
+  if (it.tier !== (cur?.tier ?? -1)) out.push({ txt: `rareza ${RARITY[it.tier].name.toLowerCase()}`, up: it.tier > (cur?.tier ?? -1) });
+  if (it.slot === 'weapon') {
+    num('dmg', 'de daño');
+    if (cur && Math.abs((it.rate || 1) - (cur.rate || 1)) > 1e-9) out.push({ txt: `cadencia ×${(it.rate || 1).toFixed(2).replace(/0$/, '').replace('.', ',')} (llevas ×${(cur.rate || 1).toFixed(2).replace(/0$/, '').replace('.', ',')})`, up: (it.rate || 1) > (cur.rate || 1) });
+    num('bounces', 'rebotes');
+  } else if (it.slot === 'plating') {
+    num('hp', '❤️ de vida máxima');
+    num('shield', '🫧 de escudo');
+  } else if (cur && cur.kind === it.kind) num('val', '% de efecto');
+  return out;
+}
 // Para comparar (y para que el bot elija): cuanto más raro, mejor
 export const itemPower = (it) => (it ? 10 + it.tier * 10 + (it.dmg || 0) + (it.hp || 0) + (it.shield || 0) + (it.affix ? 3 : 0) + (it.unique ? 12 : 0) + (it.set ? 3 : 0) : 0);
 
