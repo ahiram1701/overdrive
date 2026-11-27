@@ -5,8 +5,8 @@
 
 import { makeRng, hashString } from './rng.js';
 
-export const SAT_FREE = 15; // unidades que una estación compra sin bajar el precio
-export const SAT_PER_UNIT = 0.02;
+export const SAT_FREE = 10; // unidades que una estación compra sin bajar el precio
+export const SAT_PER_UNIT = 0.03;
 export const SAT_MAX = 0.6;
 export const RECOVER_SECS = 20; // cada 20 s de vuelo, una unidad menos de saturación
 

@@ -110,7 +110,7 @@ test('tienda de facción: con reputación de Amigo se compra su pintura con cré
 
 test('talentos de la Galaxia: en la estación y con créditos (las gemas no cambian)', async ({ page }) => {
   const errors = trackErrors(page);
-  await startGalaxy(page, { gems: 50, galaxy: { started: true, credits: 1500 } });
+  await startGalaxy(page, { gems: 50, galaxy: { started: true, credits: 2000 } });
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
   await stTab(page, 'ship');

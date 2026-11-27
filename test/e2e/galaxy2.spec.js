@@ -267,7 +267,7 @@ test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', a
   const after = await page.evaluate(() => ({ cargo: window.__spaceStats().cargo, c: window.__save.galaxy.credits, ch: window.__save.galaxy.chassis }));
   expect(after.ch).toBe('hauler');
   expect(after.cargo).toBeGreaterThan(cargo0 * 2);
-  expect(after.c).toBe(60000 - 14000); // el Carguero, a 14K (con el premio lineal, los chasis suben un 30 %)
+  expect(after.c).toBe(60000 - 18000); // el Carguero, a 18K
   await expect(page.locator('#stSlots .slot')).toHaveCount(4); // 1 arma + 3 módulos
   // Mk 6 del motor: créditos y materiales
   const m0 = await page.evaluate(() => window.__save.galaxyMats.chatarra);
@@ -360,7 +360,7 @@ test('sucesos: el nido del enjambre (precios hundidos) y exterminarlo', async ({
   expect(r.low).toBe(true);
   expect(r.swarm).toBe(null);
   expect(r.wiped).toBe(1);
-  expect(r.gained).toBeGreaterThanOrEqual(4000);
+  expect(r.gained).toBeGreaterThanOrEqual(2800);
   expect(r.ach).toBe(true);
   // las noticias, en el panel 🎒
   await page.locator('#btnInv').click();

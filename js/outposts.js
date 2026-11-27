@@ -106,5 +106,6 @@ export function radarSystems(save, gal) {
   return out;
 }
 
-// INGRESOS por salto de todos tus puestos: 30 cada uno, +15 por cada nivel de módulo
-export const outpostIncome = (save) => outpostList(save).reduce((a, o) => a + 30 + 15 * Object.values(o.mods || {}).reduce((x, y) => x + y, 0), 0);
+// INGRESOS por salto de todos tus puestos: 20 cada uno, +10 por cada nivel de módulo (se cobran como mucho OUTPOST_CAP saltos)
+export const OUTPOST_CAP = 12;
+export const outpostIncome = (save) => outpostList(save).reduce((a, o) => a + 20 + 10 * Object.values(o.mods || {}).reduce((x, y) => x + y, 0), 0);

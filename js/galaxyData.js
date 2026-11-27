@@ -3,12 +3,12 @@ import { makeRng, hashString } from './rng.js';
 
 // ---------- Mejoras de la nave (5 niveles cada una) ----------
 export const UPGRADES = {
-  engine: { name: 'Motor', icon: '🚀', desc: 'Más velocidad y giro.', cost: [120, 260, 480, 800, 1300] },
-  laser: { name: 'Láser', icon: '🔫', desc: 'Más daño y cadencia: minas y luchas más rápido.', cost: [100, 220, 420, 720, 1150] },
-  shield: { name: 'Escudo', icon: '🛡️', desc: 'Más escudo y se regenera antes.', cost: [110, 240, 450, 760, 1200] },
-  cargo: { name: 'Bodega', icon: '📦', desc: 'Cabe más mineral en cada viaje.', cost: [90, 200, 380, 650, 1050] },
-  jump: { name: 'Salto', icon: '🌀', desc: 'Llegas a sistemas más lejanos (y peligrosos).', cost: [150, 350, 650, 1000, 1500] },
-  missile: { name: 'Misiles', icon: '🚀', desc: 'Misiles teledirigidos: fija un blanco y dispara. Más munición y daño.', cost: [200, 380, 620, 950, 1400] },
+  engine: { name: 'Motor', icon: '🚀', desc: 'Más velocidad y giro.', cost: [190, 420, 770, 1280, 2080] },
+  laser: { name: 'Láser', icon: '🔫', desc: 'Más daño y cadencia: minas y luchas más rápido.', cost: [160, 350, 670, 1150, 1840] },
+  shield: { name: 'Escudo', icon: '🛡️', desc: 'Más escudo y se regenera antes.', cost: [180, 380, 720, 1220, 1920] },
+  cargo: { name: 'Bodega', icon: '📦', desc: 'Cabe más mineral en cada viaje.', cost: [140, 320, 610, 1040, 1680] },
+  jump: { name: 'Salto', icon: '🌀', desc: 'Llegas a sistemas más lejanos (y peligrosos).', cost: [240, 560, 1040, 1600, 2400] },
+  missile: { name: 'Misiles', icon: '🚀', desc: 'Misiles teledirigidos: fija un blanco y dispara. Más munición y daño.', cost: [320, 610, 990, 1520, 2240] },
 };
 // Niveles 1-5 normales; Mk 6-10 sin techo práctico: cada uno x1,7 de caro y pide materiales
 export const BASE_UP = 5;
@@ -16,8 +16,7 @@ export const MAX_UP = 10;
 export const upgradeCost = (id, lvl) => {
   if (lvl >= MAX_UP) return null;
   const c = UPGRADES[id].cost;
-  // los Mk, un 30 % más baratos que antes (el grind se notaba demasiado)
-  return lvl < BASE_UP ? c[lvl] : Math.round(c[BASE_UP - 1] * Math.pow(1.7, lvl - BASE_UP + 1) * 0.7 / 10) * 10;
+  return lvl < BASE_UP ? c[lvl] : Math.round(c[BASE_UP - 1] * Math.pow(1.7, lvl - BASE_UP + 1) * 0.66 / 10) * 10;
 };
 // materiales de cada Mk (desde el 6): chatarra, circuitos y, desde el 8, núcleos
 export const upgradeMats = (lvl) => (lvl < BASE_UP ? {} : { chatarra: 9 * (lvl - 4), circuitos: 3 * (lvl - 4), ...(lvl >= 7 ? { nucleos: 2 * (lvl - 6) } : {}) });
@@ -29,10 +28,10 @@ export const effLvl = (l) => l;
 // mult: multiplica los stats; slots: huecos de arma (w) y módulo (m); scale: tamaño en pantalla
 export const CHASSIS = {
   explorer: { name: 'Explorador', icon: '🛸', cost: 0, desc: 'Equilibrado: el de siempre.', mult: {}, slots: { w: 2, m: 2 }, scale: 1 },
-  hauler: { name: 'Carguero', icon: '🚛', cost: 14000, desc: 'Bodega enorme y casco duro, pero lento.', mult: { cargo: 2.2, hull: 1.3, speed: 0.8, turn: 0.8 }, slots: { w: 1, m: 3 }, scale: 1.25 },
-  interceptor: { name: 'Interceptor', icon: '🛩️', cost: 21000, desc: 'Rapidísimo y ágil, pero frágil.', mult: { speed: 1.3, turn: 1.3, hull: 0.7, shield: 0.85, cargo: 0.7 }, slots: { w: 3, m: 1 }, scale: 0.85 },
-  warship: { name: 'Acorazado', icon: '🛡️', cost: 39000, desc: 'Un muro: casco y escudo enormes, lento.', mult: { hull: 1.7, shield: 1.7, dmg: 1.15, speed: 0.75, turn: 0.75 }, slots: { w: 3, m: 3 }, scale: 1.35 },
-  corsair: { name: 'Corsario', icon: '🏴', cost: 58000, desc: '+4 misiles, fija antes y el impulso recarga mucho más rápido.', mult: { speed: 1.1, dmg: 1.1 }, slots: { w: 2, m: 3 }, scale: 1, missiles: 4, lockMul: 1.6, boostCd: 0.6 },
+  hauler: { name: 'Carguero', icon: '🚛', cost: 18000, desc: 'Bodega enorme y casco duro, pero lento.', mult: { cargo: 2.2, hull: 1.3, speed: 0.8, turn: 0.8 }, slots: { w: 1, m: 3 }, scale: 1.25 },
+  interceptor: { name: 'Interceptor', icon: '🛩️', cost: 27000, desc: 'Rapidísimo y ágil, pero frágil.', mult: { speed: 1.3, turn: 1.3, hull: 0.7, shield: 0.85, cargo: 0.7 }, slots: { w: 3, m: 1 }, scale: 0.85 },
+  warship: { name: 'Acorazado', icon: '🛡️', cost: 51000, desc: 'Un muro: casco y escudo enormes, lento.', mult: { hull: 1.7, shield: 1.7, dmg: 1.15, speed: 0.75, turn: 0.75 }, slots: { w: 3, m: 3 }, scale: 1.35 },
+  corsair: { name: 'Corsario', icon: '🏴', cost: 75000, desc: '+4 misiles, fija antes y el impulso recarga mucho más rápido.', mult: { speed: 1.1, dmg: 1.1 }, slots: { w: 2, m: 3 }, scale: 1, missiles: 4, lockMul: 1.6, boostCd: 0.6 },
   // de una FACCIÓN: su campaña (o tu final de la historia). No se venden
   minero: { name: 'Excavadora', icon: '⛏️', cost: 0, faction: 'liga', desc: 'De los jefes de mina: bodega gigante y casco de roca.', mult: { cargo: 2.6, hull: 1.6, shield: 1.15, dmg: 1.05, speed: 0.9, turn: 0.9 }, slots: { w: 2, m: 3 }, scale: 1.3 },
   centinela: { name: 'Centinela', icon: '☀️', cost: 0, faction: 'coal', desc: 'De la Coalición: escudo enorme, ágil y fija misiles antes.', mult: { speed: 1.15, turn: 1.2, shield: 1.7, hull: 1.1, dmg: 1.1 }, slots: { w: 3, m: 2 }, scale: 1, lockMul: 1.4, missiles: 2 },
@@ -74,7 +73,7 @@ export function shipStats(up, shipId = 'viper', chassisId = 'explorer') {
     dmg: (10 + l('laser') * 6) * m('dmg'),
     fireCd: Math.max(0.09, 0.2 - l('laser') * 0.022),
     shield: Math.round((60 + l('shield') * 30) * m('shield')),
-    regen: (6 + l('shield') * 2.5) * m('regen'),
+    regen: (4 + l('shield') * 2) * m('regen'),
     hull: Math.round(100 * m('hull')),
     cargo: Math.round((20 + l('cargo') * 15) * m('cargo')),
   };
@@ -89,7 +88,7 @@ export const ORES = {
 };
 export const cargoCount = (cargo) => Object.values(cargo).reduce((a, b) => a + b, 0);
 export const cargoValue = (cargo, prices = {}) => Object.entries(cargo).reduce((s, [k, n]) => s + n * (prices[k] ?? ORES[k].price), 0);
-export const repairCost = (hull, max) => Math.ceil((max - hull) * 1.8); // mantenimiento: reparar no es gratis
+export const repairCost = (hull, max) => Math.ceil((max - hull) * 4); // mantenimiento: reparar cuesta
 
 // ---------- Sistema ----------
 // El primer sistema, ORIGEN: un sol, 3 planetas, un cinturón de asteroides y una estación.

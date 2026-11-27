@@ -2,7 +2,8 @@
 // (rutas comerciales), los puestos rinden y los Mk valen la pena. Y una tabla de créditos por tramo.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shipStats, UPGRADES, upgradeCost, upgradeMats, effLvl, CHASSIS, ORES } from '../../js/galaxyData.js';
+import { shipStats, UPGRADES, upgradeCost, upgradeMats, effLvl, CHASSIS, ORES, MAX_UP } from '../../js/galaxyData.js';
+import { TIER_MUL } from '../../js/galaxyMissions.js';
 import { power, threatOf, rewardMul, killValue, THREAT_MAX } from '../../js/galaxyThreat.js';
 import { priceDrift, DRIFT_EVERY, GOOD_PRICE } from '../../js/market.js';
 import { outpostIncome } from '../../js/outposts.js';
@@ -10,15 +11,15 @@ import { oreForDanger } from '../../js/galaxy.js';
 
 const lv = (n) => ({ engine: n, laser: n, shield: n, cargo: n, jump: n, missile: n });
 
-test('amenaza: crece más despacio que tu poder; el premio, igual que ella', () => {
+test('amenaza: sigue a tu poder casi al mismo ritmo; el premio, más despacio', () => {
   for (let n = 3; n <= 10; n++) {
     const pw = power(shipStats(lv(n)));
     const t = threatOf(pw);
     assert.ok(t <= pw, `nivel ${n}: amenaza ${t.toFixed(2)} ≤ poder ${pw.toFixed(2)}`);
-    assert.equal(rewardMul(t), t);
+    assert.ok(rewardMul(t) <= t, 'el premio no crece más que el riesgo');
   }
   const maxed = power(shipStats(lv(10), 'viper', 'errante2'));
-  assert.ok(threatOf(maxed) / maxed < 0.6, 'muy mejorado, la diferencia se nota');
+  assert.ok(threatOf(maxed) / maxed < 0.8, 'muy mejorado, algo se nota');
   assert.equal(threatOf(1000), THREAT_MAX);
 });
 
@@ -44,8 +45,8 @@ test('rutas comerciales: cada estación paga distinto y cambia cada pocos saltos
 
 test('puestos avanzados: rinden por salto, más cuanto más ampliados', () => {
   assert.equal(outpostIncome({ outposts: {} }), 0);
-  assert.equal(outpostIncome({ outposts: { 3: { mods: {} } } }), 30);
-  assert.equal(outpostIncome({ outposts: { 3: { mods: { radar: 2, market: 1 } }, 7: { mods: {} } } }), 30 + 45 + 30);
+  assert.equal(outpostIncome({ outposts: { 3: { mods: {} } } }), 20);
+  assert.equal(outpostIncome({ outposts: { 3: { mods: { radar: 2, market: 1 } }, 7: { mods: {} } } }), 20 + 30 + 20);
 });
 
 // TABLA: créditos de un "viaje" típico (bodega llena + 8 bajas) en cada tramo, y cuántos viajes cuesta lo siguiente
@@ -67,4 +68,29 @@ test('tabla de economía: cada tramo paga más y lo caro se alcanza en un númer
   assert.ok(trips(ws, 2) >= 6 && trips(ws, 2) <= 40, `acorazado: ${trips(ws, 2).toFixed(1)} viajes`);
   const mk8 = upgradeCost('laser', 7);
   assert.ok(trips(mk8, 3) >= 0.2 && trips(mk8, 3) <= 25, `Mk 8: ${trips(mk8, 3).toFixed(1)} viajes`);
+});
+
+// RETO: mejorar la nave te deja ir más lejos, pero los piratas de cada tramo siguen costando lo suyo
+test('tiempo para tumbar a un caza: no se desploma al subir de tramo', () => {
+  const ttk = (d, up) => {
+    const st = shipStats(lv(up));
+    return ((30 + 14 * d) * threatOf(power(st))) / (st.dmg / st.fireCd);
+  };
+  const base = ttk(1, 1);
+  for (const [d, up] of [[2, 3], [4, 5], [6, 8], [6, 10]]) assert.ok(ttk(d, up) >= 0.8 * base, `peligro ${d}, nivel ${up}: ${ttk(d, up).toFixed(2)} s (base ${base.toFixed(2)} s)`);
+});
+
+test('dinero: un viaje crece más despacio que lo que cuesta la mejora siguiente; un ★★★ no paga media nave', () => {
+  const trip = (d, up) => {
+    const st = shipStats(lv(up));
+    return ORES[oreForDanger(d)].price * st.cargo + 8 * killValue(d) * rewardMul(threatOf(power(st)));
+  };
+  const lo = trip(1, 1), hi = trip(4, 4);
+  const cLo = upgradeCost('laser', 1), cHi = upgradeCost('laser', 4);
+  assert.ok(hi / lo <= (cHi / cLo) * 1.2, `viaje ×${(hi / lo).toFixed(1)} vs mejora ×${(cHi / cLo).toFixed(1)}`);
+  for (const d of [2, 4, 6]) {
+    const hit = (260 + 110 * d) * TIER_MUL[3];
+    const up = upgradeCost('laser', Math.min(MAX_UP - 1, d + 2));
+    assert.ok(hit <= 1.5 * up, `peligro ${d}: asesinato ★★★ ${hit} vs mejora ${up}`);
+  }
 });

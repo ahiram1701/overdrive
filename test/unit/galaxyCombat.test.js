@@ -13,7 +13,7 @@ test('racha: sube con cada baja hasta el tope, paga más y caduca sin acción', 
   assert.equal(streakMul(1), 1, 'una baja sola no multiplica');
   for (let i = 0; i < 30; i++) bumpStreak(c);
   assert.equal(c.streak, STREAK.max);
-  assert.ok(streakMul(c.streak) > 2 && streakMul(c.streak) < 2.5, 'con la racha llena, algo más de x2');
+  assert.ok(streakMul(c.streak) > 1.7 && streakMul(c.streak) <= 1.8, 'con la racha llena, hasta x1,8');
   assert.equal(c.best, STREAK.max);
   assert.ok(streakWord(20).length && streakWord(2).length && !streakWord(1));
   const out = tickCombat(c, STREAK.window + 0.1);

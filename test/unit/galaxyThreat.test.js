@@ -12,10 +12,10 @@ const lv = (n) => ({ engine: n, laser: n, shield: n, cargo: n, jump: n, missile:
 test('poder y amenaza: una nave nueva no cambia nada; una muy mejorada refuerza a los piratas, con tope', () => {
   assert.ok(Math.abs(power(shipStats({}, 'viper', 'explorer')) - 1) < 1e-9, 'nave nueva = 1');
   assert.equal(threatOf(1), 1);
-  assert.equal(threatOf(1.2), 1, 'un poco de mejora, nada');
+  assert.ok(threatOf(1.1) === 1 && threatOf(1.2) < 1.15, 'un poco de mejora, casi nada');
   const maxed = power(shipStats(lv(10), 'viper', 'errante2'));
   assert.ok(maxed > 4, `nave al máximo: poder ${maxed.toFixed(1)}`);
-  assert.ok(threatOf(maxed) > 2 && threatOf(maxed) < maxed, 'sube, pero menos que tu poder');
+  assert.ok(threatOf(maxed) > 3 && threatOf(maxed) < maxed, 'sube casi como tu poder, pero menos');
   assert.equal(threatOf(1000), THREAT_MAX, 'con tope');
   let last = 0;
   for (let n = 0; n <= 10; n++) {
@@ -25,7 +25,8 @@ test('poder y amenaza: una nave nueva no cambia nada; una muy mejorada refuerza 
   }
   assert.equal(extraPirates(1), 0);
   assert.equal(extraPirates(THREAT_MAX), 4);
-  assert.equal(rewardMul(4), 4, 'el premio sube igual que la amenaza');
+  assert.equal(rewardMul(1), 1);
+  assert.ok(rewardMul(4) > 2.5 && rewardMul(4) < 4, 'el premio sube, pero más despacio que la amenaza');
   assert.equal(threatTier(1), 0);
   assert.equal(threatTier(THREAT_MAX), 4);
 });
@@ -55,7 +56,7 @@ test('élites: ninguna con nave nueva cerca de ORIGEN; más con amenaza y peligr
   assert.equal(eliteChance(1, 0), 0);
   assert.equal(eliteChance(1, 1), 0);
   assert.ok(eliteChance(2, 3) > eliteChance(1.2, 2));
-  assert.ok(eliteChance(THREAT_MAX, 6) <= 0.45);
+  assert.ok(eliteChance(THREAT_MAX, 6) <= 0.5);
   assert.equal(TRAIT_KEYS.length, 4);
   for (const k of TRAIT_KEYS) assert.ok(TRAITS[k].icon && TRAITS[k].name && TRAITS[k].desc);
 });

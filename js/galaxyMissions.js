@@ -80,7 +80,7 @@ export const MISSION_KINDS = {
 
 // CONTRATOS: cada oferta tiene nivel ★ / ★★ / ★★★. Los altos llevan condiciones (contrarreloj en saltos,
 // sin daño en el casco) y pagan ×2,5 / ×5. Si fallas una condición, el contrato se pierde.
-export const TIER_MUL = [0, 1, 2.5, 5];
+export const TIER_MUL = [0, 1, 2, 3.5];
 export const CONTRACT_MODS = { timed: { icon: '⏱️', name: 'contrarreloj' }, clean: { icon: '🛡️', name: 'sin daño en el casco' } };
 export const tierOf = (r) => (r < 0.5 ? 1 : r < 0.83 ? 2 : 3);
 export const modsFor = (tier, r) => (tier === 1 ? [] : tier === 2 ? [r < 0.5 ? 'timed' : 'clean'] : ['timed', 'clean']);
@@ -140,7 +140,7 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
     const hops = kind === 'escort' ? 0 : (route(gal, sysId, m.sys)?.length || 1) - 1;
     const jumps = hops * 2 + 2; // ida y vuelta, y un poco de margen
     const cond = mods.map((k) => (k === 'timed' ? `⏱️ ${jumps} saltos` : '🛡️ sin daño en el casco')).join(' · ');
-    const base = m.reward + Math.round(m.reward / 60) * 60;
+    const base = m.reward;
     out.push({ ...m, text: `${'★'.repeat(tier)} ${m.text}${cond ? ` · ${cond}` : ''}`, tier, mods, jumps,
       reward: Math.round((base * TIER_MUL[tier]) / 10) * 10, id: `${sysId}-${seq}-${kind}`, from: sysId, progress: 0 });
   }

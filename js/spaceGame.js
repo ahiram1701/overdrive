@@ -18,7 +18,7 @@ import { hasTalent } from './economy.js';
 import { chipBonus, genChip, addChip, CHIP_TIERS, chipText, GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { killValue, gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
 import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
-import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST } from './outposts.js';
+import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST, OUTPOST_CAP } from './outposts.js';
 import { priceDrift, unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
 import { piratesHeld, CAMPAIGNS, campaignEvent, activeCampaign, acceptCampaign, CAMP_LEN, FACTIONS, ownerOf, addRep, repOf, repLevel, bestAlly, LIBERATE_KILLS, FACTION_SHOP, lvlAtLeast, bountyBoard, moveBounty, bountyStats, nemesisUp, TRAITS } from './factions.js';
@@ -27,7 +27,7 @@ import { attackTarget, spots, pickDiver, fireStep, inhibited, rareKind, wingsFor
 import { diffOf, towFee, respawnHull, pirateMul, matsLost, makeWreck, wreckExpired, wreckJumpsLeft, recoverWreck, WRECK_R, juicyChance, wantedBonus } from './galaxyRisk.js';
 import { CONTACTS, CONTACT_LIFE, nextContactDelay, pickContact, trapChance, contactReward, RINGS, ringPath, ringPay, CRUISE, cruiseStep, INTERDICT, interdictChance } from './galaxyContacts.js';
 import { WAVES, ARENA_R, WAVE_PAUSE, wavesFor, killScore, waveBonus, creditsFor, recordRun } from './galaxyIncursion.js';
-import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R } from './galaxyCombat.js';
+import { newCombat, bumpStreak, breakStreak, streakMul, addSurge, startSurge, surgeOn, tickCombat, SURGE, ROLL, rollCooldown, rollInvuln, HEAT, shotHeat, GEAR_HEAT, vent, AIM_CONE, BOLT_SPEED, leadPos, GRAZE_R, SHIELD_DELAY } from './galaxyCombat.js';
 
 const S = () => G.space;
 const DOCK_R = 150;
@@ -775,7 +775,7 @@ function spawnPirate(s, boss, kind = null, at = null) {
       // ALERTA: los del sistema patrullan su zona sin verte; los que llegan a por ti (at) ya te buscan
       home: { ...pos }, aware: !!at, phase: s.rng.range(0, 6.28), flank: i % 2 ? -flank : flank, orbitA: (i * Math.PI) / 2,
       yaw: s.rng.range(-3, 3), pitch: 0, hp: php, max: php, boss, alive: true, flash: 0, state: at ? 'attack' : 'patrol', t: 0, kind: k, size: boss ? 13 : K.size,
-      speed: ((boss ? 70 : 85) + d * 7) * K.speedK * (elite === 'kamikaze' ? 1.25 : 1), turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1) * (K.dmgK || 1) * Math.sqrt(t) * vet,
+      speed: ((boss ? 70 : 85) + d * 7) * K.speedK * (elite === 'kamikaze' ? 1.25 : 1), turn: (boss ? 1.1 : 1.7) * K.turnK, fireCd: s.rng.range(1, 2), dmg: ((boss ? 9 : 5) + d * 1.6) * (k === 'drone' ? 0.6 : 1) * (K.dmgK || 1) * t ** 0.75 * vet,
       missileCd: K.missiles ? 3 : 0,
       mesh: boss ? 'kaiju' : K.mesh || s.rng.pick(['raptor', 'viper', 'comet']), off: { x: s.rng.range(-1, 1), y: s.rng.range(-0.4, 0.4), z: s.rng.range(-1, 1) },
     });
@@ -1032,7 +1032,7 @@ function killPirate(s, p) {
     endContact(s);
   }
   if (defendKill(save, s.sysId, gal().jumps, GAL) === 'saved') {
-    const c = 1500 + GAL[s.sysId].danger * 250;
+    const c = 1050 + GAL[s.sysId].danger * 175;
     gal().credits += c;
     addRep(save, s.owner, 12);
     fx.banner('🛡️ OFENSIVA RECHAZADA', `${GAL[s.sysId].name} resiste · +${fmtK(c)} 💰`, '#30d158', true);
@@ -1044,7 +1044,7 @@ function killPirate(s, p) {
     s.event.left--;
     if (s.event.left <= 0) {
       s.event.done = true;
-      const c = 300 + GAL[s.sysId].danger * 80;
+      const c = 210 + GAL[s.sysId].danger * 56;
       gal().credits += c;
       addRep(save, s.owner, 10);
       fx.banner('⚔️ ASEDIO REPELIDO', `+${c} 💰 · la ${FACTIONS[s.owner]?.name || 'estación'} te lo agradece`, '#30d158', true);
@@ -1110,12 +1110,12 @@ function killBase(s) {
   fx.shake(30);
   fx.flash('#ffe600', 0.5);
   sfx.boom();
-  const value = Math.round((680 + d * 200) * rewardMul(threat()));
+  const value = Math.round((480 + d * 140) * rewardMul(threat()));
   addWanted(gal(), 'base');
   s.loot.push({ pos: { ...b.pos }, credits: value, life: 90 });
   if (b.nest) {
     const res = clearNest(save, s.sysId, gal().jumps, GAL);
-    const bonus = res === 'wiped' ? 4000 : 1200;
+    const bonus = res === 'wiped' ? 2800 : 850;
     gal().credits += bonus;
     if (res === 'wiped') { addRep(save, s.owner, 15); progress('exterminio'); }
     fx.banner(res === 'wiped' ? '✨ ENJAMBRE EXTERMINADO' : '🔥 NIDO DESTRUIDO', `+${fmtK(bonus)} 💰${res === 'wiped' ? ' · la galaxia respira' : ''}`, '#ffd60a', true);
@@ -1366,10 +1366,10 @@ export function dock() {
   collectOutposts();
   progress('dock');
 }
-// PUESTOS AVANZADOS: rinden créditos por cada salto que das; se cobran al atracar (como mucho 20 saltos)
+// PUESTOS AVANZADOS: rinden créditos por cada salto que das; se cobran al atracar (como mucho OUTPOST_CAP saltos)
 function collectOutposts() {
   const g = gal(), inc = outpostIncome(save);
-  const n = Math.min(20, (g.jumps || 0) - (g.incomeAt ?? (g.jumps || 0)));
+  const n = Math.min(OUTPOST_CAP, (g.jumps || 0) - (g.incomeAt ?? (g.jumps || 0)));
   g.incomeAt = g.jumps || 0;
   if (!inc || n <= 0) return;
   g.credits += inc * n;
@@ -2186,9 +2186,9 @@ export function updateSpace(dt) {
     s.trail.unshift(add(sh.pos, scale(sh.f, -3)));
     if (s.trail.length > 28) s.trail.length = 28;
   }
-  // escudo: se regenera tras 2 s sin daño
+  // escudo: se regenera tras SHIELD_DELAY s sin daño
   sh.hitT += dt;
-  if (sh.hitT > 2) sh.shield = Math.min(st.shield, sh.shield + st.regen * dt);
+  if (sh.hitT > SHIELD_DELAY) sh.shield = Math.min(st.shield, sh.shield + st.regen * dt);
 
   // el sol quema
   const ds = dist(sh.pos, s.sys.sun.pos);

@@ -27,7 +27,7 @@ test('taller: fabricar el láser doble lo monta y dispara dos rayos', async ({ p
   await page.locator('[data-gear="laser2"]').click();
   await expect(page.locator('#stSlots .slot.full')).toContainText('Láser doble');
   const sv = await page.evaluate(() => ({ c: window.__save.galaxy.credits, m: window.__save.galaxyMats.chatarra }));
-  expect(sv).toEqual({ c: 5000 - 900, m: 12 });
+  expect(sv).toEqual({ c: 5000 - 1300, m: 12 });
   await page.evaluate(() => document.getElementById('btnUndock').click());
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   const shots = await page.evaluate(() => {

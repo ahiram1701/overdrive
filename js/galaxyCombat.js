@@ -8,12 +8,14 @@
 // - CALOR que importa desde el principio y VENTILACIÓN activa: sobrecalentado, toca disparo en la franja
 //   y se enfría al momento; fuera de ella, se atasca.
 
+// el escudo empieza a regenerarse tras este rato sin daño
+export const SHIELD_DELAY = 3.5;
 // ---------- Racha ----------
 export const STREAK = { max: 20, window: 5 };
 const WORDS = [[20, '¡LEYENDA!'], [15, '¡IMPARABLE!'], [10, '¡AS DEL VACÍO!'], [6, '¡FURIA!'], [3, '¡EN RACHA!'], [2, '¡DOBLE!']];
 export const streakWord = (n) => WORDS.find(([k]) => n >= k)?.[1] || '';
-// x1 sin racha; +6% por cada eslabón, hasta x2,2 con la racha llena
-export const streakMul = (n) => 1 + Math.min(STREAK.max, Math.max(0, n - 1)) * 0.063;
+// x1 sin racha; +4% por cada eslabón, hasta x1,8 con la racha llena
+export const streakMul = (n) => 1 + Math.min(STREAK.max, Math.max(0, n - 1)) * 0.042;
 
 // surge: lo que ya llevabas cargado (se guarda entre sesiones)
 export function newCombat(surge = 0) {
@@ -69,7 +71,7 @@ export function tickCombat(c, dt) {
 }
 
 // ---------- Tonel ----------
-export const ROLL = { anim: 0.55, invuln: 0.3, cd: 1.3, chainWin: 1, chainAdd: 0.55, maxCd: 3.5 };
+export const ROLL = { anim: 0.55, invuln: 0.22, cd: 1.3, chainWin: 1, chainAdd: 0.55, maxCd: 3.5 };
 // enfriamiento del tonel: si lo encadenas (en cuanto vuelve a estar listo, antes de chainWin), cada vez tarda más
 export function rollCooldown(c, now) {
   c.rollChain = now - c.rollReady < ROLL.chainWin ? c.rollChain + 1 : 0;
