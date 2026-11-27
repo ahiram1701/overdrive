@@ -23,7 +23,7 @@ async function startGalaxy(page, seedSave = { v: 3, runs: 5 }) {
 test('galaxia: el bot mina, vuelve, atraca, vende y compra una mejora; se guarda', async ({ page }) => {
   const errors = trackErrors(page);
   // en Relajado: si el bot se estrella, vuelve sin tener que pagar la reparación (aquí se mide el bucle de minería)
-  await startGalaxy(page, { v: 3, runs: 5, galaxy: { difficulty: 'relaxed' } });
+  await startGalaxy(page, { v: 3, runs: 5, galaxy: { difficulty: 'relaxed', credits: 100 } });
   await expect(page.locator('#spaceHud')).toBeVisible();
   const res = await page.evaluate(spaceBotInPage, { seconds: 180, until: 'dock', fill: 0.8 });
   expect(res.mode).toBe('station');
@@ -31,11 +31,11 @@ test('galaxia: el bot mina, vuelve, atraca, vende y compra una mejora; se guarda
   await expect(page.locator('#station')).toBeVisible();
   await page.locator('#btnSell').click();
   const credits = await page.evaluate(() => window.__save.galaxy.credits);
-  expect(credits).toBeGreaterThan(100);
+  expect(credits).toBeGreaterThan(140);
   await page.locator('[data-up="cargo"]').click();
   const g = await page.evaluate(() => window.__save.galaxy);
   expect(g.up.cargo).toBe(1);
-  expect(g.credits).toBe(credits - 90);
+  expect(g.credits).toBe(credits - 140);
   // zarpar y seguir
   await page.locator('#btnUndock').click();
   await page.waitForFunction(() => window.G.mode === 'galaxy');

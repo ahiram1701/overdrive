@@ -93,11 +93,11 @@ export const TALENTS = {
     { id: 'a5', name: 'Fénix', desc: 'Revives una vez por partida con media vida.', cost: 3800 },
   ] },
   galaxy: { name: 'GALAXIA', icon: '🌌', cur: 'credits', nodes: [
-    { id: 'g1', name: 'Bodega ampliada', desc: '+10 de bodega.', cost: 1000 },
-    { id: 'g2', name: 'Santabárbara', desc: '+2 misiles de munición.', cost: 1500 },
-    { id: 'g3', name: 'Contactos', desc: 'Vendes mineral un 10% más caro.', cost: 2000 },
-    { id: 'g4', name: 'Mecánico propio', desc: 'Reparar cuesta la mitad.', cost: 1200 },
-    { id: 'g5', name: 'Escudo deflector', desc: '+20 de escudo.', cost: 2500 },
+    { id: 'g1', name: 'Bodega ampliada', desc: '+10 de bodega.', cost: 1500 },
+    { id: 'g2', name: 'Santabárbara', desc: '+2 misiles de munición.', cost: 2200 },
+    { id: 'g3', name: 'Contactos', desc: 'Vendes mineral un 10% más caro.', cost: 3000 },
+    { id: 'g4', name: 'Mecánico propio', desc: 'Reparar cuesta la mitad.', cost: 1800 },
+    { id: 'g5', name: 'Escudo deflector', desc: '+20 de escudo.', cost: 3800 },
   ] },
 };
 export const TALENT_BY_ID = Object.fromEntries(Object.values(TALENTS).flatMap((t) => t.nodes.map((n) => [n.id, n])));

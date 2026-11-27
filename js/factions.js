@@ -134,7 +134,7 @@ export function campaignStep(gal, f, i) {
   const near = pool.filter((s) => s.danger === want);
   const sys = rng.pick(near.length ? near : pool).id;
   const n = kind === 'kill' ? 4 + 2 * i : kind === 'sell' ? 10 + 5 * i : 1;
-  return { f, i, kind, sys, n, text: CAMP_TEXT[kind](gal[sys].name, n), reward: { credits: 2500 + 1500 * i, mats: { chatarra: 4 + 2 * i, ...(i >= 3 ? { nucleos: i - 2 } : {}) } }, last: i === CAMP_LEN - 1 };
+  return { f, i, kind, sys, n, text: CAMP_TEXT[kind](gal[sys].name, n), reward: { credits: 1750 + 1050 * i, mats: { chatarra: 4 + 2 * i, ...(i >= 3 ? { nucleos: i - 2 } : {}) } }, last: i === CAMP_LEN - 1 };
 }
 export const campState = (save) => { save.factionCamp ||= {}; return save.factionCamp; };
 export const campStep = (save, f) => campState(save)[f] || 0;

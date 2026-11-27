@@ -16,8 +16,8 @@ test('puestos: al atracar se cobra lo que han rendido por salto; el precio de ve
   await page.waitForFunction(() => window.G.mode === 'galaxy');
   await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
   await page.locator('#btnDock').click();
-  // 10 saltos × (30 + 15 × 2) = 600
-  expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(600);
+  // 10 saltos × (20 + 10 × 2) = 400
+  expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(400);
   const r = await page.evaluate(async () => {
     const { marketPrice, stationPrices } = await import('/js/spaceGame.js');
     const { priceDrift } = await import('/js/market.js');

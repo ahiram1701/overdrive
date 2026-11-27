@@ -47,9 +47,9 @@ test('escasez: sale en las noticias, paga ×2 ese mineral en esa estación y se 
   assert.ok(!world(save).shortage || world(save).shortage.sys !== sh.sys || world(save).shortage.ore !== sh.ore, 'se acaba');
 });
 
-test('reequilibrado: los Mk siguen subiendo pero cuestan menos; chasis más baratos', () => {
+test('precios: los Mk siguen subiendo con medida; los chasis, en orden', () => {
   const mk6 = upgradeCost('laser', BASE_UP);
   assert.ok(mk6 > upgradeCost('laser', BASE_UP - 1), 'el primer Mk sigue costando más que el nivel 5');
-  assert.ok(mk6 < 1150 * 1.7, 'pero menos que antes');
-  assert.ok(CHASSIS.corsair.cost < 60000 && CHASSIS.hauler.cost < 15000);
+  assert.ok(mk6 < upgradeCost('laser', BASE_UP - 1) * 1.7, 'y cada Mk, como mucho ×1,7 del anterior');
+  assert.ok(CHASSIS.corsair.cost > CHASSIS.warship.cost && CHASSIS.hauler.cost < CHASSIS.interceptor.cost);
 });

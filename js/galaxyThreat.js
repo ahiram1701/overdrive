@@ -21,16 +21,16 @@ export function power(st, gearK = 1) {
   return (off + tough) / 2;
 }
 // hasta un poco de mejora no cambia nada (el principio sigue igual); después sube, con tope
-export const THREAT_FREE = 1.3;
-export const THREAT_MAX = 4;
-// (sigue a tu poder más DESPACIO que antes —exponente 0,7—: mejorar la nave se nota)
-export const THREAT_EXP = 0.7;
-export const threatOf = (pw) => Math.min(THREAT_MAX, 1 + Math.max(0, pw - THREAT_FREE) ** THREAT_EXP * 0.55);
+export const THREAT_FREE = 1.1;
+export const THREAT_MAX = 6;
+// (sigue a tu poder CASI al mismo ritmo —exponente 0,9—: mejorar la nave te deja ir más lejos, no arrasar)
+export const THREAT_EXP = 0.9;
+export const threatOf = (pw) => Math.min(THREAT_MAX, 1 + Math.max(0, pw - THREAT_FREE) ** THREAT_EXP * 0.75);
 export const extraPirates = (t) => Math.min(4, Math.floor((t - 1) * 1.5));
-// y el premio crece igual que la amenaza (antes, con su raíz)
-export const rewardMul = (t) => t;
+// y el premio crece MÁS DESPACIO que la amenaza (más riesgo no es dinero fácil)
+export const rewardMul = (t) => 1 + 0.6 * (t - 1);
 // créditos base por abatir a un pirata (o a un jefe) en un sistema de peligro d
-export const killValue = (d, boss = false) => (boss ? 600 + d * 150 : 38 + d * 27);
+export const killValue = (d, boss = false) => (boss ? 500 + d * 120 : 30 + d * 20);
 // marcas de amenaza para el HUD: ▲ (de 0 a 4)
 export const threatTier = (t) => Math.max(0, Math.min(4, Math.round((t - 1) / 0.75)));
 
@@ -69,4 +69,4 @@ export const TRAITS = {
 };
 export const TRAIT_KEYS = Object.keys(TRAITS);
 // cerca de ORIGEN y con la nave casi nueva, ninguno; luego, más cuanto más amenaza y peligro
-export const eliteChance = (t, danger) => (t < 1.15 && danger < 2 ? 0 : Math.min(0.45, 0.06 * t + 0.02 * danger));
+export const eliteChance = (t, danger) => (t < 1.15 && danger < 2 ? 0 : Math.min(0.5, 0.08 * t + 0.03 * danger));

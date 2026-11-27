@@ -48,27 +48,27 @@ export const gearBoost = (save, id) => 1 + 0.12 * (gearLvl(save, id) - 1);
 
 export const GEAR = {
   // armas
-  laser2: { slot: 'w', icon: '🔫', name: 'Láser doble', desc: 'Disparas dos rayos a la vez.', cost: { credits: 900, chatarra: 8, circuitos: 2 } },
-  flak: { slot: 'w', icon: '💥', name: 'Metralla', desc: 'Cada disparo se abre en abanico de 3.', cost: { credits: 1200, chatarra: 12, circuitos: 4 } },
-  plasma: { slot: 'w', icon: '🟣', name: 'Cañón de plasma', desc: 'Cada 3er disparo es una bola que hace x3 de daño.', cost: { credits: 1800, chatarra: 10, nucleos: 2 } },
-  turret: { slot: 'w', icon: '🗼', name: 'Torreta automática', desc: 'Dispara sola al pirata más cercano.', cost: { credits: 2200, circuitos: 8, nucleos: 2 } },
-  rail: { slot: 'w', icon: '🎯', name: 'Cañón de riel', desc: 'Cada 4º disparo es un proyectil que atraviesa a todos (×2 de daño).', cost: { credits: 2600, circuitos: 6, nucleos: 2 } },
-  burst: { slot: 'w', icon: '🎆', name: 'Flak de área', desc: 'Tus disparos estallan: dañan también a los de alrededor.', cost: { credits: 2400, chatarra: 14, circuitos: 4 } },
-  beam: { slot: 'w', icon: '〰️', name: 'Haz continuo', desc: 'Disparas un 45% más rápido, cada tiro un 25% más flojo (y calienta menos).', cost: { credits: 2000, circuitos: 6 } },
-  ion: { slot: 'w', icon: '🔵', name: 'Cañón iónico', desc: 'Triple contra escudos de élite y atraviesa el escudo frontal de las fragatas.', cost: { credits: 2200, circuitos: 5, artefactos: 1 } },
+  laser2: { slot: 'w', icon: '🔫', name: 'Láser doble', desc: 'Disparas dos rayos a la vez.', cost: { credits: 1300, chatarra: 8, circuitos: 2 } },
+  flak: { slot: 'w', icon: '💥', name: 'Metralla', desc: 'Cada disparo se abre en abanico de 3.', cost: { credits: 1700, chatarra: 12, circuitos: 4 } },
+  plasma: { slot: 'w', icon: '🟣', name: 'Cañón de plasma', desc: 'Cada 3er disparo es una bola que hace x3 de daño.', cost: { credits: 2500, chatarra: 10, nucleos: 2 } },
+  turret: { slot: 'w', icon: '🗼', name: 'Torreta automática', desc: 'Dispara sola al pirata más cercano.', cost: { credits: 3100, circuitos: 8, nucleos: 2 } },
+  rail: { slot: 'w', icon: '🎯', name: 'Cañón de riel', desc: 'Cada 4º disparo es un proyectil que atraviesa a todos (×2 de daño).', cost: { credits: 3600, circuitos: 6, nucleos: 2 } },
+  burst: { slot: 'w', icon: '🎆', name: 'Flak de área', desc: 'Tus disparos estallan: dañan también a los de alrededor.', cost: { credits: 3400, chatarra: 14, circuitos: 4 } },
+  beam: { slot: 'w', icon: '〰️', name: 'Haz continuo', desc: 'Disparas un 45% más rápido, cada tiro un 25% más flojo (y calienta menos).', cost: { credits: 2800, circuitos: 6 } },
+  ion: { slot: 'w', icon: '🔵', name: 'Cañón iónico', desc: 'Triple contra escudos de élite y atraviesa el escudo frontal de las fragatas.', cost: { credits: 3100, circuitos: 5, artefactos: 1 } },
   // módulos
-  reactive: { slot: 'm', icon: '🛡️', name: 'Escudo reactivo', desc: 'El escudo se regenera un 60% más rápido.', cost: { credits: 800, chatarra: 6, circuitos: 2 } },
-  bigmag: { slot: 'm', icon: '🧲', name: 'Imán grande', desc: 'Atraes mineral y botín desde el doble de lejos.', cost: { credits: 600, chatarra: 8 } },
-  warpdrv: { slot: 'm', icon: '🌀', name: 'Motor de curvatura', desc: 'El impulso recarga un 35% antes.', cost: { credits: 1100, circuitos: 4, artefactos: 1 } },
-  hold: { slot: 'm', icon: '📦', name: 'Bodega extra', desc: '+15 de bodega.', cost: { credits: 900, chatarra: 10 } },
-  rapid: { slot: 'm', icon: '🚀', name: 'Lanzamisiles rápido', desc: '+2 misiles y vuelan un 30% más rápido.', cost: { credits: 1500, circuitos: 4, nucleos: 1 } },
+  reactive: { slot: 'm', icon: '🛡️', name: 'Escudo reactivo', desc: 'El escudo se regenera un 60% más rápido.', cost: { credits: 1100, chatarra: 6, circuitos: 2 } },
+  bigmag: { slot: 'm', icon: '🧲', name: 'Imán grande', desc: 'Atraes mineral y botín desde el doble de lejos.', cost: { credits: 800, chatarra: 8 } },
+  warpdrv: { slot: 'm', icon: '🌀', name: 'Motor de curvatura', desc: 'El impulso recarga un 35% antes.', cost: { credits: 1500, circuitos: 4, artefactos: 1 } },
+  hold: { slot: 'm', icon: '📦', name: 'Bodega extra', desc: '+15 de bodega.', cost: { credits: 1300, chatarra: 10 } },
+  rapid: { slot: 'm', icon: '🚀', name: 'Lanzamisiles rápido', desc: '+2 misiles y vuelan un 30% más rápido.', cost: { credits: 2100, circuitos: 4, nucleos: 1 } },
   // de FACCIÓN: solo con su reputación (Amigo o Aliado)
-  ligaHold: { slot: 'm', faction: 'liga', minLvl: 'amigo', icon: '⛏️', name: 'Bodega de la Liga', desc: '+30 de bodega y el mineral se vende un 6% más.', cost: { credits: 2400, chatarra: 12 } },
-  ligaHull: { slot: 'm', faction: 'liga', minLvl: 'aliado', icon: '🪨', name: 'Blindaje de roca', desc: '+35% de casco.', cost: { credits: 4200, chatarra: 16, nucleos: 2 } },
-  coalShield: { slot: 'm', faction: 'coal', minLvl: 'amigo', icon: '☀️', name: 'Escudo solar', desc: '+30% de escudo y se regenera un 30% más rápido.', cost: { credits: 2400, circuitos: 6 } },
-  coalLance: { slot: 'w', faction: 'coal', minLvl: 'aliado', icon: '🔆', name: 'Lanza solar', desc: '+20% de daño del láser.', cost: { credits: 4200, circuitos: 8, nucleos: 2 } },
-  pirBoost: { slot: 'm', faction: 'pir', minLvl: 'amigo', icon: '💨', name: 'Inyector pirata', desc: 'El impulso recarga un 40% antes.', cost: { credits: 2200, chatarra: 10, circuitos: 3 } },
-  pirTeeth: { slot: 'w', faction: 'pir', minLvl: 'aliado', icon: '🦷', name: 'Dientes de sierra', desc: '+30% de daño, pero −10% de escudo.', cost: { credits: 4000, chatarra: 14, nucleos: 2 } },
+  ligaHold: { slot: 'm', faction: 'liga', minLvl: 'amigo', icon: '⛏️', name: 'Bodega de la Liga', desc: '+30 de bodega y el mineral se vende un 6% más.', cost: { credits: 3400, chatarra: 12 } },
+  ligaHull: { slot: 'm', faction: 'liga', minLvl: 'aliado', icon: '🪨', name: 'Blindaje de roca', desc: '+35% de casco.', cost: { credits: 5900, chatarra: 16, nucleos: 2 } },
+  coalShield: { slot: 'm', faction: 'coal', minLvl: 'amigo', icon: '☀️', name: 'Escudo solar', desc: '+30% de escudo y se regenera un 30% más rápido.', cost: { credits: 3400, circuitos: 6 } },
+  coalLance: { slot: 'w', faction: 'coal', minLvl: 'aliado', icon: '🔆', name: 'Lanza solar', desc: '+20% de daño del láser.', cost: { credits: 5900, circuitos: 8, nucleos: 2 } },
+  pirBoost: { slot: 'm', faction: 'pir', minLvl: 'amigo', icon: '💨', name: 'Inyector pirata', desc: 'El impulso recarga un 40% antes.', cost: { credits: 3100, chatarra: 10, circuitos: 3 } },
+  pirTeeth: { slot: 'w', faction: 'pir', minLvl: 'aliado', icon: '🦷', name: 'Dientes de sierra', desc: '+30% de daño, pero −10% de escudo.', cost: { credits: 5600, chatarra: 14, nucleos: 2 } },
 };
 // ¿tu reputación con su facción te deja fabricarla?
 export const gearAllowed = (save, id) => !GEAR[id]?.faction || lvlAtLeast(repOf(save, GEAR[id].faction), GEAR[id].minLvl);
