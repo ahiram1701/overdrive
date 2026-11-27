@@ -187,7 +187,6 @@ function pecioMusic(s) {
   const shut = !boss && locked(room);
   music.pecio = boss ? 3 : Math.max(0, THEMES.findIndex((t) => t.id === s.floor.theme.id));
   music.intensity = boss ? 3 : shut ? 2 : 0;
-  music.bpm = boss ? 142 : shut ? 128 : 112;
 }
 
 // Eventos → sonido, avisos y destellos para el dibujo

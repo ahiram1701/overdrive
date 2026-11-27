@@ -2083,9 +2083,17 @@ export function updateSpace(dt) {
   // MÚSICA: más capas con piratas cerca, a tope con una jefa (se mira 4 veces por segundo)
   if ((s.musT = (s.musT || 0) - dt) <= 0) {
     s.musT = 0.25;
-    let near = 0, boss = false;
-    for (const p of s.pirates) if (p.alive && dist(p.pos, sh.pos) < 450) { near++; if (p.story) boss = true; }
-    music.intensity = boss ? 3 : near >= 3 ? 2 : near ? 1 : 0;
+    // con HISTÉRESIS: sube al acercarse (450) y no baja hasta que se alejan (600) y pasan 2 s
+    let near = 0, far = 0, boss = false;
+    for (const p of s.pirates) {
+      if (!p.alive) continue;
+      const d = dist(p.pos, sh.pos);
+      if (d < 450) near++;
+      if (d < 600) { far++; if (p.story) boss = true; }
+    }
+    const want = boss ? 3 : near >= 3 ? 2 : near ? 1 : 0, keep = far >= 3 ? 2 : far ? 1 : 0;
+    if (want > music.intensity) { music.intensity = want; s.musHold = 2; } else if ((s.musHold = (s.musHold || 0) - 0.25) <= 0) music.intensity = Math.max(want, Math.min(music.intensity, keep));
+    music.boss = boss;
   }
   // si alguien fija yaw/pitch a mano (estación, puertas, tests), la orientación se rehace con ellos
   if (!sh.f || sh.yaw !== sh._sy || sh.pitch !== sh._sp) face(sh, sh.yaw, sh.pitch);
