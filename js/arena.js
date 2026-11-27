@@ -834,7 +834,8 @@ export function updateArena(dt) {
   }
   if (G.mode !== 'arena') return;
   a.time += dt;
-  music.intensity = a.enemies.some((e) => e.boss && e.alive) ? 3 : Math.min(3, 1 + Math.floor(a.time / 150)); // con jefe, a tope
+  music.boss = a.enemies.some((e) => e.boss && e.alive); // con jefe, su canción (y a tope)
+  music.intensity = music.boss ? 3 : Math.min(3, 1 + Math.floor(a.time / 150));
   a.iframes = Math.max(0, a.iframes - dt);
   a.dashCd = Math.max(0, a.dashCd - dt);
   a.slowT = Math.max(0, a.slowT - dt);
