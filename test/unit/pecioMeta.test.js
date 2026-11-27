@@ -95,19 +95,19 @@ test('profundidad: cada nivel endurece algo y paga un 15 % más', () => {
   assert.ok(pecioRewards({ depth: 2, rooms: 8 }).gems >= 9);
 });
 
-test('profundidad 4: bajar de planta ya no cura', () => {
+test('bajar de planta cura 1 solo si vas por debajo de la mitad; con profundidad 4, nunca', () => {
   const down = (heat) => {
     const s = newRun(3, { hp: 6, heat });
     const room = roomOf(s);
     room.tiles = Array.from({ length: ROWS }, (_, r) => Array.from({ length: COLS }, (__, c) => (r === 0 || c === 0 || r === ROWS - 1 || c === COLS - 1 ? '#' : '.')));
     room.tiles[MID_R][MID_C] = 'X';
     Object.assign(room, { enemies: [], cleared: true });
-    s.player.hp = 3;
+    s.player.hp = 2;
     for (let i = 0; i < 5 && s.depth === 1; i++) updateRun(s, DT);
     return s.player.hp;
   };
-  assert.equal(down(0), 4);
-  assert.equal(down(4), 3);
+  assert.equal(down(0), 3);
+  assert.equal(down(4), 2);
 });
 
 test('tienda: su surtido cambia con la planta (siempre con reparación) y no vende lo que no tiene', () => {

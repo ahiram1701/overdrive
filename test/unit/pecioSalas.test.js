@@ -149,6 +149,7 @@ test('Laberinto: todo se alcanza desde el centro, y la llave del fondo se recoge
   // recoger la llave
   const s = newRun(7, { hp: 9 });
   const room = arena(s);
+  room.cleared = true; // (sin el premio de sala limpia)
   room.pickups.push({ id: 'k', kind: 'key', x: s.player.x, y: s.player.y - 0.3 });
   const k0 = s.player.keys;
   const ev = run(s, 0.1);

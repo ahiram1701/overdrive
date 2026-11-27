@@ -162,7 +162,7 @@ export function genItem(rng, depth, { bonus = 0, slot = null, minTier = 0, pool 
   return extras(rng, { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] }, pool);
 }
 // DESGUACE: las 🔩 que te dan por un objeto que no quieres
-export const scrapValue = (it, depth = 1) => 3 + 4 * it.tier + Math.floor(depth / 2) + (it.unique ? 6 : 0);
+export const scrapValue = (it, depth = 1) => 2 + 3 * it.tier + Math.floor(depth / 3) + (it.unique ? 5 : 0);
 // ELIGE 1 DE 3: tres objetos (procura que no sean de la misma ranura)
 export function genChoice(rng, depth, opts = {}) {
   const out = [genItem(rng, depth, opts)];
@@ -269,7 +269,7 @@ export function applyGear(p) {
   m.reflex = Math.min(70, m.reflex);
   m.overcharge = Math.min(65, m.overcharge + (syn.volt ? 30 : 0));
   p.mods = m;
-  p.dashMax = 1.1 * (1 - m.reflex / 100) * (syn.dodge ? 0.5 : 1);
+  p.dashMax = Math.max(0.45, 1.1 * (1 - m.reflex / 100) * (syn.dodge ? 0.5 : 1));
   p.abMax = 10 * (1 - m.overcharge / 100);
   p.roomShield = (pl ? pl.shield : 0) + (set('colossus', 3) ? 1 : 0) + (set('warden', 2) ? 1 : 0) + (syn.guard ? 1 : 0);
 }
