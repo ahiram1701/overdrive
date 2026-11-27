@@ -70,7 +70,7 @@ test('pecios: puertas cerradas con enemigos, esquive, habilidad y tienda', async
   });
   const t0 = await page.evaluate(() => window.G.pecio.time);
   await page.locator('[data-buy="repair"]').click();
-  expect(await page.evaluate(() => window.G.pecio.player.hp)).toBe(5);
+  expect(await page.evaluate(() => window.G.pecio.player.hp)).toBe(4); // la reparación cura 2
   expect(await page.evaluate(() => window.G.pecio.time)).toBe(t0);
   await page.locator('#btnPecioShopClose').click();
   expect(await page.evaluate(() => window.G.mode)).toBe('pecio');
@@ -91,10 +91,10 @@ test('pecios: al caer, pantalla final y te llevas parte de las 🔩', async ({ p
   });
   await expect(page.locator('#pecioEnd')).toBeVisible({ timeout: 15000 }); // con toda la batería en paralelo, el dron puede tardar
   await expect(page.locator('#peTitle')).toHaveText('DESTRUIDO');
-  expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(20);
+  expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(16); // al caer pronto, solo el 40 %
   await page.locator('#btnPecioMenu').click();
   await expect(page.locator('#pecioHub')).toBeVisible();
-  await expect(page.locator('#phPiezas')).toHaveText('20');
+  await expect(page.locator('#phPiezas')).toHaveText('16');
   expect(errors).toEqual([]);
 });
 
@@ -258,7 +258,7 @@ test('pecios P3: el taller mejora la nave al empezar, y tras la planta 9 se elig
   // taller: casco (+1 vida) y llavero (1 llave)
   await page.locator('[data-pup="hull"]').click();
   await page.locator('[data-pup="keys"]').click();
-  expect(await page.evaluate(() => ({ up: window.__save.pecioUp, piezas: window.__save.pecio.piezas }))).toEqual({ up: { hull: 1, keys: 1 }, piezas: 400 });
+  expect(await page.evaluate(() => ({ up: window.__save.pecioUp, piezas: window.__save.pecio.piezas }))).toEqual({ up: { hull: 1, keys: 1 }, piezas: 360 });
   const base = await page.evaluate(async () => {
     const { SHIPS } = await import('/js/upgrades.js');
     const { SHIP_ARENA } = await import('/js/arenaData.js');
@@ -405,7 +405,7 @@ test('pecios meta: cargamentos, profundidad, taller por ramas e inmersión del d
   // cargamento: Tanque se compra y queda elegido
   await page.locator('[data-loadout="tank"]').click();
   await expect(page.locator('[data-loadout="tank"]')).toHaveAttribute('aria-checked', 'true');
-  expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(400);
+  expect(await page.evaluate(() => window.__save.pecio.piezas)).toBe(200);
   // profundidad: hasta la abierta (2)
   await page.locator('#btnHeatUp').click();
   await page.locator('#btnHeatUp').click();

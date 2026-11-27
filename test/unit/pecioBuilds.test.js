@@ -30,7 +30,7 @@ test('etiquetas: cada pieza lleva las suyas y con 3 iguales se enciende la siner
   gear(s, { weapon: W('spread', { affix: 'ricochet' }), plating: PL('reflect'), mod1: M('reflex') });
   assert.equal(tagCounts(s.player.gear).dodge, 3);
   assert.ok(s.player.syn.dodge, 'Danza encendida');
-  assert.ok(Math.abs(s.player.dashMax - 1.1 * 0.75 * 0.5) < 1e-9, 'el esquive recarga el doble de rápido');
+  assert.ok(Math.abs(s.player.dashMax - Math.max(0.45, 1.1 * 0.75 * 0.5)) < 1e-9, 'el esquive recarga el doble de rápido (sin bajar de 0,45 s)');
   assert.ok(synergyLines(s.player.tags).some((l) => l.includes(TAGS.dodge.name) && l.includes(`${SYNERGY_AT}/${SYNERGY_AT}`)));
   // con 2, se ve a medias y no hace nada
   gear(s, { mod1: M('magnet') });

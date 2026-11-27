@@ -286,13 +286,13 @@ export function renderPecio(dt) {
   }
   // BOTÍN EN EL SUELO: objetos (con el color de su rareza y, los buenos, un haz de luz) y consumibles
   for (const pk of room.pickups || []) {
-    const col = pk.kind === 'item' ? RARITY[pk.item.tier].color : pk.kind === 'key' ? '#ffcc00' : '#7df9ff', o = ordAt(pk.x, pk.y);
+    const col = pk.kind === 'item' ? RARITY[pk.item.tier].color : pk.kind === 'key' ? '#ffcc00' : pk.kind === 'heart' ? '#ff375f' : '#7df9ff', o = ordAt(pk.x, pk.y);
     poly(cam, list, ring(pk.x, 0.015, -pk.y, 0.32, 14), hexA(col, 0.18), col, 2, { o, bias: -0.6 }); // (el suelo ya está pintado: va en la lista, detrás de lo de su casilla)
     if (pk.kind === 'item' && pk.item.tier >= 2) {
       const w = 0.08;
       poly(cam, list, [[pk.x - w, 0, -pk.y], [pk.x + w, 0, -pk.y], [pk.x + w, WALL_H, -pk.y], [pk.x - w, WALL_H, -pk.y]], hexA(col, 0.22 + 0.1 * Math.sin(t * 4)), null, 1, { o, bias: 0.1 });
     }
-    const g = pk.kind === 'item' ? itemIcon(pk.item) : pk.kind === 'key' ? '🗝️' : CONS[pk.cons].icon;
+    const g = pk.kind === 'item' ? itemIcon(pk.item) : pk.kind === 'key' ? '🗝️' : pk.kind === 'heart' ? '❤️' : CONS[pk.cons].icon;
     point(cam, list, pk.x, 0.45 + Math.sin(t * 3 + pk.x) * 0.06, -pk.y, (q) => glyph(ctx, g, q.x, q.y, Math.max(12, q.s * 0.42)), o);
   }
   // TUS BALAS
