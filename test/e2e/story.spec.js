@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 import { genGalaxy } from '../../js/galaxy.js';
 import { chapters } from '../../js/story.js';
 
@@ -23,6 +23,7 @@ test('taller: fabricar el láser doble lo monta y dispara dos rayos', async ({ p
   await startGalaxy(page, { galaxyMats: { chatarra: 20, circuitos: 5 } });
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
+  await stTab(page, 'craft');
   await page.locator('[data-gear="laser2"]').click();
   await expect(page.locator('#stSlots .slot.full')).toContainText('Láser doble');
   const sv = await page.evaluate(() => ({ c: window.__save.galaxy.credits, m: window.__save.galaxyMats.chatarra }));
@@ -182,6 +183,7 @@ test('astillero: la Errante Mk II no se vende; con ella ganada se usa como cualq
   await page.locator('#btnUndock').click();
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
+  await stTab(page, 'ship');
   await page.locator('[data-chassis="errante2"]').click();
   expect(await page.evaluate(() => window.__save.galaxy.chassis)).toBe('errante2');
   expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(999999);

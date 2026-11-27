@@ -136,3 +136,11 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
     maxMult: r.maxMult, score: r.score, hits: G.hits || [], uses,
   };
 }
+
+// ESTACIÓN por pestañas: abre la pestaña donde está lo que el test va a tocar
+// (si la historia tiene un diálogo abierto encima, se salta: el test va a otra cosa)
+export async function stTab(page, tab) {
+  const skip = page.locator('#dialog:not(.hidden) .dl-skip');
+  if (await skip.count()) await skip.click();
+  await page.locator(`#stTabBar [data-st-tab="${tab}"]`).click();
+}

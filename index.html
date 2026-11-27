@@ -108,6 +108,10 @@
     <div id="phInfo" class="ph-info"></div>
   </section>
 
+  <section id="pecioGuide" class="overlay hidden">
+    <div id="pgBody" class="pg-body"></div>
+  </section>
+
   <section id="pecioShop" class="overlay hidden">
     <h2 id="psTitle">🛒 TIENDA</h2>
     <p class="hint" id="psText"></p>
@@ -118,7 +122,7 @@
   <section id="pecioEnd" class="overlay hidden">
     <h2 id="peTitle" class="dead">DESTRUIDO</h2>
     <div id="peDepth" class="bigscore">PLANTA 1</div>
-    <div id="peGrid" class="grid"></div>
+    <div id="peGrid" class="grid grid4"></div>
     <div id="pePiezas" class="gems"></div>
     <div id="peVault" class="pe-vault"></div>
     <button class="btn big" id="btnPecioRetry">REINTENTAR</button>
@@ -148,7 +152,7 @@
       <button class="set-row" id="tgRollBtns" role="switch"><span>↻</span><b>Botones de alabeo ↺ ↻</b><i class="sw"></i></button>
       <h3>Galaxia</h3>
       <button class="set-row" id="tgLevel" role="switch"><span>🧭</span><b>Nivelar la nave sola</b><i class="sw"></i></button>
-      <button class="set-row" id="btnGalDiff"><span id="galDiffIcon">🚀</span><b>Dificultad: <em id="galDiffName">Piloto</em></b><small id="galDiffDesc"></small></button>
+      <button class="set-row" id="btnGalDiff"><span id="galDiffIcon">🚀</span><b>Dificultad: <em id="galDiffName">Piloto</em> ›</b><small id="galDiffDesc"></small></button>
     </div>
     <p class="hint">Runner: desliza ← → ↑ ↓ · doble toque = DASH</p>
     <p class="hint" id="appVersion"></p>
@@ -289,8 +293,8 @@
   <div id="spaceHud" class="hidden">
     <div class="sh-top">
       <div class="sh-bars">
-        <div class="sh-bar shield"><i></i></div>
-        <div class="sh-bar hull"><i></i></div>
+        <div class="sh-cargo"><span aria-hidden="true">🛡️</span><div class="sh-bar shield"><i></i></div><b id="shShieldN" aria-label="Escudo">0</b></div>
+        <div class="sh-cargo"><span aria-hidden="true">🔧</span><div class="sh-bar hull"><i></i></div><b id="shHullN" aria-label="Casco">0</b></div>
         <div class="sh-cargo"><span>📦</span><div class="sh-bar cargo"><i></i></div><b id="shCargo">0/20</b></div>
         <div class="sh-cargo"><span>🌡️</span><div class="sh-bar heat"><i></i><em class="vent" aria-hidden="true"></em></div></div>
       </div>
@@ -330,29 +334,29 @@
     <div class="st-top">
       <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
       <p class="gems">💰 <b id="stCredits">0</b> créditos <span id="stShip" class="st-ship"></span></p>
-      <div class="st-jump" role="navigation" aria-label="Secciones de la estación">
-        <button data-go="stSecMarket">🛒 Mercado</button><button data-go="stSecShip">🔧 Nave</button><button data-go="stSecJobs">📋 Misiones</button><button data-go="stSecFaction">🏳️ Facción</button>
+      <div class="dock-tabs" id="stTabBar" role="tablist" aria-label="Secciones de la estación">
+        <button role="tab" data-st-tab="market">🛒<small>Mercado</small></button><button role="tab" data-st-tab="ship">🔧<small>Nave</small></button><button role="tab" data-st-tab="craft">⚙️<small>Fabricar</small></button><button role="tab" data-st-tab="jobs">📋<small>Trabajos</small></button><button role="tab" data-st-tab="faction">🏳️<small>Facción</small></button>
       </div>
     </div>
-    <div class="st-block" id="stSecMarket">
+    <div class="st-block" id="stSecMarket" data-tab="market">
       <h3>🛒 Mercado</h3>
       <div id="stCargo" class="st-cargo"></div>
       <button class="btn" id="btnSell">VENDER TODO</button>
       <div id="stBuy" class="st-buy"></div>
     </div>
-    <div class="st-block">
+    <div class="st-block" data-tab="market">
       <h3>🧰 Suministros</h3>
       <div id="stSupplies" class="st-ups"></div>
     </div>
-    <div class="st-block" id="stSecShip">
+    <div class="st-block" id="stSecShip" data-tab="ship">
       <h3>🔧 Taller</h3>
       <div id="stUpgrades" class="st-ups"></div>
     </div>
-    <div class="st-block">
+    <div class="st-block" data-tab="ship">
       <h3>🚀 Astillero</h3>
       <div id="stShipyard" class="st-ups"></div>
     </div>
-    <div class="st-block">
+    <div class="st-block" id="stSecCraft" data-tab="craft">
       <h3>⚙️ Fabricación</h3>
       <div id="stMats" class="st-mats"></div>
       <div id="stSlots" class="st-slots"></div>
@@ -360,21 +364,21 @@
       <h3 class="st-sub">💠 Chips <small id="stChipsInfo"></small></h3>
       <div id="stChips" class="st-ups"></div>
     </div>
-    <div class="st-block">
+    <div class="st-block" data-tab="ship">
       <h3>🌟 Talentos de la Galaxia</h3>
       <div id="stTalents" class="tal-tree"></div>
     </div>
-    <div class="st-block st-inc" id="stSecJobs"><button class="btn" id="btnIncursion">⚔️ INCURSIÓN DEL DÍA</button><small id="stIncursion"></small></div>
-    <div class="st-block">
+    <div class="st-block st-inc" id="stSecJobs" data-tab="jobs"><button class="btn" id="btnIncursion">⚔️ INCURSIÓN DEL DÍA</button><small id="stIncursion"></small></div>
+    <div class="st-block" data-tab="jobs">
       <h3>📋 Tablón de contratos</h3>
       <div id="stMissions" class="st-missions"></div>
     </div>
-    <div class="st-block">
+    <div class="st-block" data-tab="jobs">
       <h3>🎯 Se busca</h3>
       <div id="stBounties" class="st-missions"></div>
     </div>
-    <div class="st-block" id="stSecFaction"><div id="stFaction"></div></div>
-    <div class="st-block" id="stOutpost"></div>
+    <div class="st-block" id="stSecFaction" data-tab="faction"><div id="stFaction"></div></div>
+    <div class="st-block" id="stOutpost" data-tab="faction"></div>
     <div class="st-links">
       <button class="btn ghost" id="btnAtlas">📖 ATLAS</button>
       <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>

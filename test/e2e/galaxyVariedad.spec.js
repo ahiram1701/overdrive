@@ -1,6 +1,6 @@
 // GALAXIA · variedad en el juego: fragata con escudo frontal, portanaves, riel que atraviesa, chips y rescate
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 const SAVE = 'overdrive-save-v1';
 async function startGalaxy(page, extra = {}) {
@@ -84,7 +84,7 @@ test('chips: un jefe suelta uno, se monta en la estación y sube el daño', asyn
     return addChip;
   });
   await page.locator('#btnDock').click();
-  await page.locator('.st-jump [data-go="stSecShip"]').click();
+  await stTab(page, 'craft');
   await page.locator('[data-chip="tst"]').click();
   await expect(page.locator('[data-chip="tst"]')).toHaveText('QUITAR');
   const after = await page.evaluate(() => window.__spaceStats().dmg);

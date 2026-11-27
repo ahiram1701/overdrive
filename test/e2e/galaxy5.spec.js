@@ -1,6 +1,6 @@
 // GALAXIA rediseñada: enemigos con táctica (alerta y radio, alto el fuego, inhibidor, acechador, escuadrillas)
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 const SAVE = 'overdrive-save-v1';
 async function startGalaxy(page, seedSave = { v: 3, runs: 5, tips: { galaxy: true, galCombat: true } }) {
@@ -167,18 +167,19 @@ test('piloto: morir cuesta el remolque y medio casco; la carga queda en tu pecio
   expect(errors).toEqual([]);
 });
 
-test('ajustes: la dificultad de la Galaxia se cambia en ciclo y se guarda', async ({ page }) => {
+test('ajustes: la dificultad de la Galaxia se ve y lleva a su menú, donde se elige y se guarda', async ({ page }) => {
   const errors = trackErrors(page);
   await page.goto('/?debug&nosw&seed=3');
   await page.waitForFunction(() => !!window.G);
   await page.locator('#btnSettings').click();
-  const name = page.locator('#galDiffName');
-  await expect(name).toHaveText('Piloto');
+  await expect(page.locator('#galDiffName')).toHaveText('Piloto');
   await page.locator('#btnGalDiff').click();
-  await expect(name).toHaveText('Veterano');
-  await page.locator('#btnGalDiff').click();
-  await expect(name).toHaveText('Relajado');
+  await expect(page.locator('#galaxyHub')).toBeVisible();
+  await page.locator('#ghDiff [data-diff="relaxed"]').click();
   expect(await page.evaluate(() => window.__save.galaxy.difficulty)).toBe('relaxed');
+  await page.locator('#galaxyHub .scr-back').click();
+  await page.locator('#btnSettings').click();
+  await expect(page.locator('#galDiffName')).toHaveText('Relajado');
   expect(errors).toEqual([]);
 });
 
@@ -283,7 +284,9 @@ test('incursión del día: oleadas en un sector sellado, puntos con la racha, me
   await startGalaxy(page);
   await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
   await page.locator('#btnDock').click();
+  await stTab(page, 'jobs');
   await expect(page.locator('#btnIncursion')).toBeVisible();
+  await stTab(page, 'jobs');
   await page.locator('#btnIncursion').click();
   const res = await page.evaluate(() => {
     const s = window.G.space;
@@ -372,6 +375,8 @@ test('incursión: sus bajas no cuentan para los contratos ni la búsqueda del si
   await startGalaxy(page, { v: 3, runs: 5, tips: { galaxy: true, galCombat: true }, galaxy: { missions: [{ id: 'h1', kind: 'hunt', sys: 0, n: 2, progress: 0, text: '★ Elimina 2 piratas en ORIGEN', reward: 300, tier: 1, mods: [], jumps: 2, deadline: 9 }] } });
   await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
   await page.locator('#btnDock').click();
+  await stTab(page, 'jobs');
+  await stTab(page, 'jobs');
   await page.locator('#btnIncursion').click();
   const res = await page.evaluate(() => {
     const s = window.G.space, g = window.__save.galaxy;
