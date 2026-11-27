@@ -75,7 +75,7 @@ test('hangar: pestaña GALAXIA compra una mejora con créditos y cada nave vuela
   await page.locator('#hTabs [data-tab="galaxia"]').click();
   await expect(page.locator('#galTab .stat')).toHaveCount(6);
   await page.locator('#galUps [data-up="engine"]').click();
-  await expect(page.locator('#galCredits')).toHaveText('380');
+  await expect(page.locator('#galCredits')).toHaveText('310'); // 500 − 190 del primer nivel de motor
   // Titán: más casco, menos velocidad que la equipada
   await page.locator('#shipCarousel .ship-chip', { hasText: 'Titán' }).click();
   await expect(page.locator('#galTab .stat em.up')).not.toHaveCount(0);
