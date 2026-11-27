@@ -1,4 +1,4 @@
-// Lo que faltaba del plan, en el juego: novedades en los menús, bóveda de varios huecos, la estación abandonada
+// Lo que faltaba del plan, en el juego: bóveda de varios huecos, la estación abandonada
 // con oleadas, la nebulosa sin radar y la comparación de chips
 import { test, expect } from '@playwright/test';
 import { trackErrors } from './helpers.js';
@@ -19,28 +19,17 @@ async function fly(page) {
   await page.waitForFunction(() => window.G.mode === 'galaxy');
 }
 
-test('novedades: tarjeta en Pecios y en Galaxia, abierta la primera vez y con su punto', async ({ page }) => {
+test('bóveda ampliada: 3 huecos en el menú de Pecios (y ya no hay tarjetas de novedades)', async ({ page }) => {
   const errors = trackErrors(page);
   await boot(page, { pecio: { best: 3, runs: 2, piezas: 0, wins: 0, vaultOpen: true }, pecioUp: { vaultPlus: 2 } });
   await page.locator('#btnPecio').click();
-  const pn = page.locator('#news-pecio');
-  await expect(pn).toBeVisible();
-  await expect(pn).toContainText('NOVEDADES DE PECIOS');
-  await expect(pn).toContainText('Fragmentador');
-  expect(await pn.evaluate((d) => d.open)).toBe(true);
-  // la bóveda ampliada: 3 huecos
   await expect(page.locator('#phVault')).toContainText('3 huecos');
-  expect(await page.evaluate(() => window.__save.news.pecio)).toBe(1);
+  await expect(page.locator('.news-card')).toHaveCount(0);
   await page.goto('/?debug&nosw&seed=3');
   await page.waitForFunction(() => !!window.G);
   await page.locator('#btnGalaxy').click();
-  await expect(page.locator('#news-galaxy')).toContainText('Ciclo+');
-  // la de Pecios ya vista: cerrada y sin punto
-  await page.goto('/?debug&nosw&seed=3');
-  await page.waitForFunction(() => !!window.G);
-  await page.locator('#btnPecio').click();
-  expect(await page.locator('#news-pecio').evaluate((d) => d.open)).toBe(false);
-  await expect(page.locator('#news-pecio .news-dot')).toHaveCount(0);
+  await expect(page.locator('#btnGalGo')).toBeVisible();
+  await expect(page.locator('.news-card')).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
