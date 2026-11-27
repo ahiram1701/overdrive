@@ -28,7 +28,6 @@ import { MEDALS as INC_MEDALS, WAVES, themeOf } from './galaxyIncursion.js';
 import { ENEMY_KINDS } from './galaxyEvents.js';
 const themeName = (k) => `día del ${(ENEMY_KINDS[k]?.name || k).toLowerCase()}`;
 import { vaultItems, vaultSlots, pecioLoadout, pecioSetHeat, newPecio, pecioDash, pecioAbility, pecioBuy, pecioPray, pecioTakeOffer, pecioSelectOffer, pecioUseCons, pecioVaultStore, pecioVaultUnlock, VAULT_COST, pecioChooseExit, pecioWorkshopBuy, pecioQuitEndless } from './pecioGame.js';
-import { newsCard } from './news.js';
 import { scrapValue, RARITY as LOOT_RAR, SLOTS, SLOT_NAME, CONS, CONS_KEYS, SETS as LOOT_SETS, TAGS as LOOT_TAGS, SYNERGY_AT, itemIcon, itemName, itemLines, setLines, synergyLines, currentFor, tagsOf, tagsIfEquipped } from './pecioLoot.js';
 import { DAILY_GEMS, LOADOUTS, HEAT_RULES, WORKSHOP_BRANCHES, heatReward, shopStock, FLOOD_AT, offerItems, ENEMY, ROOM_TYPES, ABILITY as PECIO_AB, shopCost, BOSSES, WORKSHOP, workshopLevel, workshopCost, EXCHANGE, exchangePiezas } from './pecio.js';
 import { badgesFor, BADGES, LAYERS, DANGER_COLORS, dangerColor, routeToll, placeLabels } from './galmap.js';
@@ -2616,7 +2615,6 @@ export const ui = {
   // GALAXIA: pantalla de entrada (dónde estás, la historia, la dificultad y la Incursión de hoy)
   showGalaxyHub() {
     G.mode = 'hangar'; // pantalla estática
-    if (!$('news-galaxy')) $('btnGalGo').after(newsCard(save, 'galaxy', persist));
     ui.showHUD(false);
     const g = save.galaxy, cur = diffOf(g);
     setText('ghWhere', g.started ? `en ${GAL[g.sys ?? 0].name} · ${g.visited?.length || 1} sistemas visitados${galaxyCycle() ? ` · 🌀 ciclo ${galaxyCycle()}` : ''}` : 'empiezas en ORIGEN: explora, mina, comercia y lucha');
@@ -2657,7 +2655,6 @@ export const ui = {
   },
   showPecioHub() {
     G.mode = 'hangar'; // pantalla estática
-    if (!$('news-pecio')) $('btnPecioPlay').after(newsCard(save, 'pecio', persist));
     G.pecio = null;
     ui.showHUD(false);
     ui.showPecioHUD(false);
