@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 // GALAXIA (U4): misiles, tonel, sucesos, órbita y rendimiento
 const SAVE = 'overdrive-save-v1';
@@ -182,6 +182,7 @@ test('🎒 panel de vuelo: inventario y misiones activas; pausa la partida y se 
   // una misión aceptada y una caza activa
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
+  await stTab(page, 'jobs');
   await page.locator('[data-mission]').first().click();
   await page.locator('#stBounties [data-bounty]').first().click();
   await page.evaluate(() => document.getElementById('btnUndock').click());
@@ -215,6 +216,7 @@ test('mercado y mantenimiento: vender mucho baja el precio, peaje al saltar, kit
   await page.locator('#btnDock').click();
   // primera venta de 30 y otra igual: la segunda paga menos (saturación)
   const c0 = await page.evaluate(() => window.__save.galaxy.credits);
+  await stTab(page, 'market');
   await page.locator('#btnSell').click();
   const c1 = await page.evaluate(() => window.__save.galaxy.credits);
   await page.evaluate(() => { window.__save.galaxy.cargo.iron = 30; });
@@ -223,6 +225,7 @@ test('mercado y mantenimiento: vender mucho baja el precio, peaje al saltar, kit
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
   await expect(page.locator('#stCargo .sat')).toContainText('📉');
+  await stTab(page, 'market');
   await page.locator('#btnSell').click();
   const c2 = await page.evaluate(() => window.__save.galaxy.credits);
   expect(c2 - c1).toBeLessThan(c1 - c0);
@@ -258,6 +261,7 @@ test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', a
   await page.locator('#btnDock').click();
   // chasis Carguero: más bodega y menos huecos de arma
   const cargo0 = await page.evaluate(() => window.__spaceStats().cargo);
+  await stTab(page, 'ship');
   await page.locator('[data-chassis="hauler"]').click();
   await expect(page.locator('[data-chassis="hauler"]')).toContainText('EN USO');
   const after = await page.evaluate(() => ({ cargo: window.__spaceStats().cargo, c: window.__save.galaxy.credits, ch: window.__save.galaxy.chassis }));
@@ -271,9 +275,11 @@ test('astillero, Mk 6 y niveles de equipo: todo con créditos (y materiales)', a
   expect(await page.evaluate(() => window.__save.galaxy.up.engine)).toBe(6);
   expect(await page.evaluate(() => window.__save.galaxyMats.chatarra)).toBeLessThan(m0);
   // nivel 2 del láser doble
+  await stTab(page, 'craft');
   await page.locator('[data-gear-up="laser2"]').click();
   expect(await page.evaluate(() => window.__save.galaxyGear.lvl.laser2)).toBe(2);
   // volver al Explorador (gratis)
+  await stTab(page, 'ship');
   await page.locator('[data-chassis="explorer"]').click();
   expect(await page.evaluate(() => window.__save.galaxy.chassis)).toBe('explorer');
   expect(errors).toEqual([]);
@@ -284,6 +290,7 @@ test('puesto avanzado: fundarlo en un sistema liberado, módulos, almacén y atr
   await startGalaxy(page, { ...BASE, galaxy: { started: true, credits: 60000, cargo: { iron: 10 } }, territory: { 0: 'coal' }, galaxyMats: { chatarra: 5 } });
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
+  await stTab(page, 'faction');
   await expect(page.locator('#stOutpost')).toBeVisible();
   await page.locator('#btnFound').click();
   expect(await page.evaluate(() => window.__save.galaxy.credits)).toBe(60000 - 20000);

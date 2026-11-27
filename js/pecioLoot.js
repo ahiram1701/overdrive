@@ -162,7 +162,7 @@ export function genItem(rng, depth, { bonus = 0, slot = null, minTier = 0, pool 
   return extras(rng, { id, slot: 'mod', kind, tier, val: MODULES[kind].val[tier] }, pool);
 }
 // DESGUACE: las 🔩 que te dan por un objeto que no quieres
-export const scrapValue = (it, depth = 1) => 3 + 4 * it.tier + Math.floor(depth / 2) + (it.unique ? 6 : 0);
+export const scrapValue = (it, depth = 1) => 2 + 3 * it.tier + Math.floor(depth / 3) + (it.unique ? 5 : 0);
 // ELIGE 1 DE 3: tres objetos (procura que no sean de la misma ranura)
 export function genChoice(rng, depth, opts = {}) {
   const out = [genItem(rng, depth, opts)];
@@ -210,6 +210,25 @@ function baseLines(it) {
     return [...(it.hp ? [`+${it.hp} ❤️ de vida máxima`] : []), ...(it.shield ? [`🫧 ${it.shield} de escudo al entrar en cada sala`] : []), ...(d ? [d] : [])];
   }
   return [MODULES[it.kind].desc(it.val)];
+}
+// COMPARAR con lo que llevas, estadística a estadística: [{ txt, up }] (up: true ▲ mejor, false ▼ peor)
+export function statDiff(it, cur) {
+  if (!it) return [];
+  const out = [];
+  const num = (k, label, fmt = (v) => `${v > 0 ? '+' : ''}${v}`) => {
+    const d = (it[k] || 0) - (cur?.[k] || 0);
+    if (Math.abs(d) > 1e-9) out.push({ txt: `${fmt(+d.toFixed(2))} ${label}`, up: d > 0 });
+  };
+  if (it.tier !== (cur?.tier ?? -1)) out.push({ txt: `rareza ${RARITY[it.tier].name.toLowerCase()}`, up: it.tier > (cur?.tier ?? -1) });
+  if (it.slot === 'weapon') {
+    num('dmg', 'de daño');
+    if (cur && Math.abs((it.rate || 1) - (cur.rate || 1)) > 1e-9) out.push({ txt: `cadencia ×${(it.rate || 1).toFixed(2).replace(/0$/, '').replace('.', ',')} (llevas ×${(cur.rate || 1).toFixed(2).replace(/0$/, '').replace('.', ',')})`, up: (it.rate || 1) > (cur.rate || 1) });
+    num('bounces', 'rebotes');
+  } else if (it.slot === 'plating') {
+    num('hp', '❤️ de vida máxima');
+    num('shield', '🫧 de escudo');
+  } else if (cur && cur.kind === it.kind) num('val', '% de efecto');
+  return out;
 }
 // Para comparar (y para que el bot elija): cuanto más raro, mejor
 export const itemPower = (it) => (it ? 10 + it.tier * 10 + (it.dmg || 0) + (it.hp || 0) + (it.shield || 0) + (it.affix ? 3 : 0) + (it.unique ? 12 : 0) + (it.set ? 3 : 0) : 0);
@@ -269,7 +288,7 @@ export function applyGear(p) {
   m.reflex = Math.min(70, m.reflex);
   m.overcharge = Math.min(65, m.overcharge + (syn.volt ? 30 : 0));
   p.mods = m;
-  p.dashMax = 1.1 * (1 - m.reflex / 100) * (syn.dodge ? 0.5 : 1);
+  p.dashMax = Math.max(0.45, 1.1 * (1 - m.reflex / 100) * (syn.dodge ? 0.5 : 1));
   p.abMax = 10 * (1 - m.overcharge / 100);
   p.roomShield = (pl ? pl.shield : 0) + (set('colossus', 3) ? 1 : 0) + (set('warden', 2) ? 1 : 0) + (syn.guard ? 1 : 0);
 }

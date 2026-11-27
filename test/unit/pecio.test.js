@@ -123,7 +123,7 @@ test('enemigos: torreta avisa y falla si te apartas, bomba estalla alrededor, es
   assert.ok(ev.some((e) => e.type === 'boom'));
   assert.equal(room.enemies[0].alive, false);
   assert.ok(ev.some((e) => e.type === 'hurt' && e.src === 'bomba' && e.dmg === ENEMY.bomb.dmg), 'te alcanzó');
-  assert.equal(s.player.hp, hp - ENEMY.bomb.dmg + 1, 'y al quedar la sala limpia, +1 ❤️');
+  assert.equal(s.player.hp, hp - ENEMY.bomb.dmg, 'limpiar la sala ya no cura sola');
   // ESCUDO: de frente rebota; por la espalda le entra
   s = newRun(7, { hp: 99 });
   room = arena(s, ['shield', MID_C + 0.5, 2.5, { ang: Math.PI, stun: 99 }]); // mira hacia ti (abajo)
@@ -191,9 +191,11 @@ test('🔩: si caes te llevas más cuanto más hondo; si sales, todas', () => {
   const s = newRun(1);
   s.player.piezas = 100;
   s.depth = 1;
-  assert.equal(keptPiezas(s), 50);
+  assert.equal(keptPiezas(s), 40);
   s.depth = 6;
-  assert.equal(keptPiezas(s), 100);
+  assert.equal(keptPiezas(s), 70);
+  s.depth = 9;
+  assert.equal(keptPiezas(s), 85, 'como mucho el 85 %');
   s.depth = LAST_FLOOR + 1; s.won = true;
   assert.equal(keptPiezas(s), 100);
 });

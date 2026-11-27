@@ -172,7 +172,7 @@ export function pecioVaultStore(slot) {
   persist();
   return true;
 }
-export const VAULT_COST = 150;
+export const VAULT_COST = 300;
 export function pecioVaultUnlock() {
   if (save.pecio.vaultOpen || save.pecio.piezas < VAULT_COST) return false;
   save.pecio.piezas -= VAULT_COST;
@@ -187,7 +187,6 @@ function pecioMusic(s) {
   const shut = !boss && locked(room);
   music.pecio = boss ? 3 : Math.max(0, THEMES.findIndex((t) => t.id === s.floor.theme.id));
   music.intensity = boss ? 3 : shut ? 2 : 0;
-  music.bpm = boss ? 142 : shut ? 128 : 112;
 }
 
 // Eventos → sonido, avisos y destellos para el dibujo
@@ -261,6 +260,7 @@ function handle(s, ev) {
       case 'used': fx.notice(`${CONS[e.cons].icon} ${CONS[e.cons].name}`, '#7df9ff'); sfx.od(); break;
       case 'full': fx.notice('❤️ Ya estás entero', '#c8d6e5'); break;
       case 'leech': fx.notice('🩸 +1 ❤️', '#ff2d55'); break;
+      case 'hpUp': fx.notice('❤️ +1', '#ff375f'); sfx.coin(2); break;
       case 'heal': s.flashes.push({ kind: 'heal', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
       case 'mineDrop': sfx.bump(); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.35, t: 0.25, max: 0.25 }); break;
       case 'flood': fx.banner('🌊 ¡EL PECIO SE INUNDA!', `llevas más de ${FLOOD_AT} s: llegan refuerzos`, '#7df9ff', true, 2.2); sfx.alarm?.(); fx.shake(8); break;

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 // GALAXIA (E3): facciones, territorio y cazarrecompensas
 async function startGalaxy(page, extra = {}) {
@@ -71,6 +71,7 @@ test('se busca: aceptar en la estación, el objetivo aparece en su sistema y aba
   await page.locator('#btnDock').click();
   await expect(page.locator('#stBounties [data-bounty]')).toHaveCount(3);
   await expect(page.locator('#stFaction')).toContainText('Coalición Solar');
+  await stTab(page, 'jobs');
   await page.locator('#stBounties [data-bounty]').first().click();
   const b = await page.evaluate(() => window.__save.bounties.active);
   expect(b && b.name).toBeTruthy();
@@ -98,6 +99,8 @@ test('tienda de facción: con reputación de Amigo se compra su pintura con cré
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
   await expect(page.locator('#stFaction')).toContainText('Amigo');
+  await stTab(page, 'faction');
+  await stTab(page, 'faction');
   await page.locator('[data-fshop="f-coal"]').click();
   await expect(page.locator('[data-fshop="f-coal"]')).toBeDisabled();
   expect(await page.evaluate(() => ({ c: window.__save.galaxy.credits, owned: window.__save.crates.owned }))).toEqual({ c: 1000, owned: ['f-coal'] });
@@ -110,6 +113,7 @@ test('talentos de la Galaxia: en la estación y con créditos (las gemas no camb
   await startGalaxy(page, { gems: 50, galaxy: { started: true, credits: 2000 } });
   await page.evaluate(() => window.D.step(1 / 30, false));
   await page.locator('#btnDock').click();
+  await stTab(page, 'ship');
   await page.locator('#stTalents [data-talent="g1"]').click();
   await expect(page.locator('#stTalents [data-talent="g1"]')).toHaveClass(/bought/);
   expect(await page.evaluate(() => ({ c: window.__save.galaxy.credits, g: window.__save.gems, t: window.__save.talents.g1 }))).toEqual({ c: 500, g: 50, t: true });

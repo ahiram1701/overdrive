@@ -1,6 +1,6 @@
 // GALAXIA · objetivo a largo plazo: campañas de facción en la estación y la historia que no se esconde
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 const SAVE = 'overdrive-save-v1';
 async function startGalaxy(page, extra = {}) {
@@ -24,7 +24,7 @@ test('campaña de facción: se acepta en la estación con reputación y guía el
   await startGalaxy(page, { factionRep: { liga: 30, coal: 30, pir: 0 }, story: { seen: { 0: true }, ch: 24 } });
   await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30); });
   await page.locator('#btnDock').click();
-  await page.locator('.st-jump [data-go="stSecFaction"]').click();
+  await stTab(page, 'faction');
   const btn = page.locator('[data-camp]').first();
   await expect(btn).toContainText('ACEPTAR');
   await btn.click();

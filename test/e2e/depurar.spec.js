@@ -1,6 +1,6 @@
 // DEPURACIÓN: sobrecarga que se llena y se guarda, incursión aislada, saltos, pecio, Arena sin fin y teclas
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 
 const SAVE = 'overdrive-save-v1';
 const TIPS = { galaxy: true, galCombat: true, galRisk: true, dock: true, arena: true };
@@ -70,6 +70,7 @@ test('incursión aislada: tu casco y lo del sistema vuelven al acabar; la baliza
     return s.pirates.length;
   });
   await page.locator('#btnDock').click();
+  await stTab(page, 'jobs');
   await page.locator('#btnIncursion').click();
   const res = await page.evaluate(() => {
     const s = window.G.space;

@@ -1042,7 +1042,9 @@ body.reduce-motion *, body.reduce-motion *::before, body.reduce-motion *::after 
 .st-up .mk, .su-body i .mk, .dots .mk { font-style: normal; color: rgba(255,255,255,.25); }
 .su-body i .mk.on, .dots .mk.on { color: #ff9f0a; text-shadow: 0 0 6px #ff9f0a; }
 .su-body b em.mk { color: #ff9f0a; font-style: normal; }
-.gear-up { display: inline-block; margin-top: 4px; padding: 3px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,.25); font-size: 11px; font-weight: 800; color: var(--muted); }
+.gear-row { display: flex; flex-direction: column; gap: 4px; }
+.gear-up { align-self: flex-end; min-height: 44px; margin: 0; padding: 6px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,.25); background: rgba(0,0,0,.35); font: 800 var(--fs-xs) var(--font); color: var(--muted); }
+.gear-up:disabled { opacity: .6; }
 .gear-up.afford { border-color: var(--yellow); color: var(--yellow); }
 
 /* ---------- Puestos avanzados (G3) ---------- */
@@ -1223,8 +1225,13 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
 /* ESTACIÓN: cabecera y pie fijos (ZARPAR y REPARAR siempre a mano) */
 #station .st-top { position: sticky; top: 0; z-index: 3; width: min(440px, 100%); padding: calc(env(safe-area-inset-top, 0px) + 8px) 0 8px; background: linear-gradient(180deg, var(--bg) 85%, transparent); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #station .st-top .st-title, #station .st-top .gems { margin: 0; }
-.st-jump { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; width: 100%; }
-.st-jump button { min-height: 44px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.45); color: #fff; font: 800 12px var(--font); }
+/* pestañas de la estación */
+.dock-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
+.dock-tabs button { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.45); color: var(--fg); font: 800 18px var(--font); }
+.dock-tabs button small { font: 800 var(--fs-xs) var(--font); letter-spacing: .02em; color: var(--muted); }
+.dock-tabs button.on { border-color: var(--cyan); background: rgba(0, 229, 255, .14); box-shadow: 0 0 10px rgba(0, 229, 255, .35); }
+.dock-tabs button.on small { color: var(--fg); }
+#station [data-tab][hidden] { display: none; }
 #station .st-block { scroll-margin-top: 150px; }
 .st-links { display: flex; gap: 8px; width: min(440px, 100%); }
 .st-links .btn { flex: 1; }
@@ -1253,6 +1260,9 @@ body.no-roll .roll-btn { display: none; }
 /* TAMAÑO DE TEXTO de los menús */
 body.text-s .overlay { zoom: .92; }
 body.text-l .overlay { zoom: 1.12; }
+/* y también los HUD de la partida (lo que se lee, no los botones grandes) */
+body.text-s .pc-top, body.text-s .sh-top { zoom: .92; }
+body.text-l .pc-top, body.text-l .sh-top { zoom: 1.12; }
 /* bloqueado: candado y borde discontinuo, sin apagar el texto */
 .item.locked, .sector.locked { border-style: dashed; }
 /* AJUSTES por grupos */
@@ -1287,7 +1297,7 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 .lp-opt.on { border-color: var(--rc); background: color-mix(in srgb, var(--rc) 18%, transparent); box-shadow: 0 0 12px color-mix(in srgb, var(--rc) 50%, transparent); }
 .lc-tags { display: flex; gap: 4px; justify-content: center; margin: 2px 0; }
 .lc-tag { font-size: .95rem; padding: 0 4px; border-radius: 6px; background: rgba(255,255,255,.08); }
-.loot-syn { margin: 6px 0 2px; font-size: var(--fs-s, 13px); color: var(--muted); text-align: center; }
+.loot-syn { margin: 6px 0 2px; font-size: var(--fs-sm); color: var(--muted); text-align: center; }
 .loot-syn.on { color: var(--warn); font-weight: 700; }
 
 /* PECIOS · hub: preparación (cargamento, profundidad), inmersión del día y taller por ramas */
@@ -1303,13 +1313,45 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 .ph-heat { display: flex; align-items: center; gap: 10px; margin: 6px 0 2px; }
 .ph-heat .btn { min-width: var(--tap); min-height: var(--tap); padding: 0; margin: 0; }
 .ph-heat #phHeat { min-width: 2ch; text-align: center; font-size: 1.3rem; color: var(--warn); }
-.ws-branch { margin: 10px 0 4px; font-size: var(--fs-s, 13px); letter-spacing: .08em; color: var(--muted); }
+.ws-branch { margin: 10px 0 4px; font-size: var(--fs-sm); letter-spacing: .08em; color: var(--muted); }
 
 /* GALAXIA · chips con afijos en el taller */
-.st-sub { margin: 14px 0 6px; font-size: var(--fs-s, 13px); letter-spacing: .08em; color: var(--muted); }
+.st-sub { margin: 14px 0 6px; font-size: var(--fs-sm); letter-spacing: .08em; color: var(--muted); }
 .st-up.chip { display: flex; align-items: center; gap: 8px; }
 .st-up.chip .btn { min-width: var(--tap); min-height: var(--tap); margin: 0; padding: 0 10px; }
 .st-up.chip.on { border-color: var(--ok); }
 .pc-tally { margin-left: 4px; font-style: normal; color: #30d158; font-size: 12px; }
 /* NOVEDADES de cada modo (se abre y se cierra; con punto hasta que la ves) */
 .chip-total { display: block; margin: 4px 0 8px; color: #30d158; }
+
+/* ===== UI/UX: un solo lenguaje para costes, avisos y comparaciones ===== */
+/* lo que no te alcanza: el precio en rojo (lo que sí, ya brilla en amarillo con .afford) */
+.st-up:not(.afford):not(.on):not(.locked):not(:disabled) .su-cost { color: var(--danger); }
+.shake { animation: shake .3s; }
+.confirm { border-color: var(--danger) !important; color: var(--danger) !important; box-shadow: 0 0 14px rgba(255, 45, 85, .5); }
+/* botín de Pecios: qué ganas ▲ y qué pierdes ▼ */
+.loot-diff { list-style: none; margin: 8px 0 2px; padding: 0; display: flex; flex-direction: column; gap: 3px; width: min(380px, 100%); font: 800 var(--fs-sm) var(--font); }
+.loot-diff li.up { color: var(--ok); }
+.loot-diff li.down { color: var(--danger); }
+.rar { color: var(--rc); }
+/* guía y listas con su color */
+.gi-dot::before { content: '■ '; color: var(--c); }
+.gi-dot { color: var(--c); }
+.ph-guide { width: min(420px, 100%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.ph-guide small { font: 800 var(--fs-xs) var(--font); font-style: normal; letter-spacing: .02em; opacity: .85; }
+.pg-body { display: flex; flex-direction: column; align-items: center; gap: 10px; width: min(440px, 100%); }
+/* final de Pecios: 4 cifras en una fila y premios en filas */
+.grid.grid4 { grid-template-columns: repeat(4, 1fr); gap: 10px 8px; }
+.pe-row { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; width: min(360px, 100%); padding: 6px 10px; border-radius: var(--r-1); background: var(--panel); }
+.pe-row b { font: 900 var(--fs-md) var(--font); color: var(--yellow); }
+.pe-row small { font-size: var(--fs-xs); color: var(--muted); text-align: right; }
+#pePiezas { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.pe-vault-it { width: auto !important; min-width: 64px; height: auto !important; min-height: 64px; padding: 6px 8px; display: inline-flex; flex-direction: column; gap: 2px; color: var(--fg); }
+.pe-vault-it small { max-width: 90px; font: 800 var(--fs-xs) var(--font); line-height: 1.15; }
+.pe-vault-it.on { background: rgba(48, 209, 88, .18); }
+/* HUD de Pecios: botones de mochila y equipo que se pueden tocar */
+.pc-cons { min-height: 44px; min-width: 44px; justify-content: center; }
+.pc-gear .pg-it { width: 32px; height: 32px; font-size: 16px; padding: 0; color: var(--fg); }
+/* HUD de Galaxia: escudo y casco con su número */
+.sh-cargo b { min-width: 30px; text-align: right; font-size: var(--fs-xs); }
+.sh-cargo .sh-bar { flex: 1; }

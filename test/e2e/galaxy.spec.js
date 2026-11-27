@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { trackErrors } from './helpers.js';
+import { trackErrors, stTab } from './helpers.js';
 import { spaceBotInPage } from './spaceBot.js';
 
 const SAVE = 'overdrive-save-v1';
@@ -29,9 +29,11 @@ test('galaxia: el bot mina, vuelve, atraca, vende y compra una mejora; se guarda
   expect(res.mode).toBe('station');
   expect(res.cargo).toBeGreaterThanOrEqual(15);
   await expect(page.locator('#station')).toBeVisible();
+  await stTab(page, 'market');
   await page.locator('#btnSell').click();
   const credits = await page.evaluate(() => window.__save.galaxy.credits);
   expect(credits).toBeGreaterThan(140);
+  await stTab(page, 'ship');
   await page.locator('[data-up="cargo"]').click();
   const g = await page.evaluate(() => window.__save.galaxy);
   expect(g.up.cargo).toBe(1);
@@ -146,6 +148,7 @@ test('galaxia: comercio, comprar mineral local en la estación', async ({ page }
   await startGalaxy(page, { v: 3, runs: 5, galaxy: { credits: 500, started: true } });
   await page.evaluate(() => { const s = window.G.space; s.ship.pos = { ...s.sys.station.pos }; window.D.step(1 / 30, false); document.getElementById('btnDock').click(); });
   await expect(page.locator('#station')).toBeVisible();
+  await stTab(page, 'market');
   await page.locator('#btnBuyOre').click();
   const g = await page.evaluate(() => window.__save.galaxy);
   expect(g.cargo.iron).toBe(5);
