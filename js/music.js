@@ -186,7 +186,8 @@ export function stepEvents(song, step, st = {}) {
   const lastBar = sec.bar === sec.bars - 1;
   const roll = L.snare && buildRoll(sec, k); // redoble que crece al final de la subida
   const fill = !roll && L.snare && lastBar && k >= 12 && sec.name === 'drop'; // y un remate al acabar el drop
-  if (L.kick && pat(song.kick).includes(k) && !fill) ev.push({ inst: 'kick', vel: human(song.soft ? 0.55 : 1, step, 1) });
+  const kp = pat(song.kick);
+  if (L.kick && kp.includes(k) && !fill) ev.push({ inst: 'kick', vel: human(song.soft ? 0.55 : 1, step, 1), gap: kickGap(kp, k) });
   if (k === 0 && sec.bar === 0 && intensity >= 1 && (sec.name === 'drop' || (sec.i > 0 && sec.name !== 'pausa'))) ev.push({ inst: 'crash', vel: sec.name === 'drop' ? 1 : 0.6 });
   if (roll) ev.push({ inst: 'snare', vel: human(0.35 + 0.65 * (k / 15), step, 2) });
   else if (fill) ev.push({ inst: 'snare', vel: 0.55 + (k - 12) * 0.15 });
@@ -225,6 +226,35 @@ export function stepEvents(song, step, st = {}) {
     }
   }
   return ev;
+}
+// pasos hasta el siguiente bombo del patrón (o el primero del compás siguiente)
+export function kickGap(kp, k) {
+  const nx = kp.find((x) => x > k);
+  return nx != null ? nx - k : STEPS - k + kp[0];
+}
+// SIDECHAIN: cuánto se agacha el bajo/pad con un bombo y cuánto tarda en volver (setTargetAtTime).
+// Vuelve SIEMPRE a más del 90 % antes del siguiente bombo: con bombos seguidos se agacha menos y vuelve antes
+// (antes una rampa fija de 3 pasos se cancelaba con el bombo siguiente y el bajo se quedaba hundido).
+export function duckShape(gap, spb) {
+  const depth = gap <= 2 ? 0.7 : gap <= 3 ? 0.6 : 0.45;
+  const tau = Math.min(spb * 1.2, (gap * spb * 0.8) / Math.log((1 - depth) / 0.1));
+  return { depth, tau };
+}
+// valor del sidechain `t` segundos después del bombo
+export const duckAt = ({ depth, tau }, t) => 1 - (1 - depth) * Math.exp(-t / tau);
+// INTENSIDAD AL COMPÁS: sube enseguida, pero solo baja tras 2 compases seguidos pidiendo menos
+// (que un momento de calma no apague la batería y suene a corte)
+export function nextIntensity(cur, want, low = 0) {
+  if (want >= cur) return { value: want, low: 0 };
+  if (low + 1 >= 2) return { value: want, low: 0 };
+  return { value: cur, low: low + 1 };
+}
+// POLIFONÍA: como mucho `cap` voces de un instrumento a la vez; si se pasa, se apagan las más viejas
+export const VOICE_CAP = { lead: 6, bass: 8 };
+export function pruneVoices(list, now, cap) {
+  const live = list.filter((v) => v.end > now);
+  const steal = live.length >= cap ? live.slice(0, live.length - cap + 1) : [];
+  return { keep: live.slice(steal.length), steal };
 }
 // redoble de la subida: corcheas en el penúltimo compás, semicorcheas en el último
 function buildRoll(sec, k) {

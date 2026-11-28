@@ -186,7 +186,7 @@ function pecioMusic(s) {
   const room = roomOf(s), boss = room.type === 'boss' && room.enemies.some((e) => e.kind === 'boss' && (e.alive || e.downT > 0));
   const shut = !boss && locked(room);
   music.pecio = boss ? 3 : Math.max(0, THEMES.findIndex((t) => t.id === s.floor.theme.id));
-  music.intensity = boss ? 3 : shut ? 2 : 0;
+  music.intensity = boss ? 3 : shut ? 2 : 1; // sin combate sigue el pulso (con 0 se apagaba la batería de golpe)
 }
 
 // Eventos → sonido, avisos y destellos para el dibujo

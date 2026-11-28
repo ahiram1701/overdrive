@@ -1,6 +1,6 @@
 // Todo el sonido se sintetiza con Web Audio: cero archivos, y el tono puede seguir a la velocidad/combo.
 import { save } from './save.js';
-import { SONGS, STEPS, stepEvents, midiHz } from './music.js';
+import { SONGS, STEPS, stepEvents, midiHz, duckShape, nextIntensity, pruneVoices, VOICE_CAP } from './music.js';
 
 let ctx = null, master, sfxBus, musicBus, musicFilter, noiseBuf, sfxDuck;
 
@@ -14,11 +14,12 @@ export function unlockAudio() {
   ctx = new AC();
   // LIMITADOR en la salida: nada satura, ni con todo sonando a la vez
   const limit = ctx.createDynamicsCompressor();
-  limit.threshold.value = -3;
-  limit.knee.value = 0;
-  limit.ratio.value = 20;
-  limit.attack.value = 0.002;
-  limit.release.value = 0.12;
+  // (suave: con ratio 20 y sin rodilla, cada explosión hundía la música y sonaba a corte)
+  limit.threshold.value = -1;
+  limit.knee.value = 4;
+  limit.ratio.value = 8;
+  limit.attack.value = 0.003;
+  limit.release.value = 0.25;
   master = ctx.createGain();
   master.gain.value = save.settings.sound ? 0.8 : 0;
   master.connect(limit).connect(ctx.destination);
@@ -32,8 +33,8 @@ export function unlockAudio() {
   musicBus.gain.value = 0.0001;
   // la música tiene su propio compresor (pega más, sin que los efectos la hagan bombear)…
   const mcomp = ctx.createDynamicsCompressor();
-  mcomp.threshold.value = -16;
-  mcomp.ratio.value = 3.5;
+  mcomp.threshold.value = -12;
+  mcomp.ratio.value = 2.5;
   mcomp.attack.value = 0.01;
   mcomp.release.value = 0.18;
   // …y se agacha un poco con los efectos fuertes (explosiones, golpes)
@@ -45,7 +46,13 @@ export function unlockAudio() {
   const d = noiseBuf.getChannelData(0);
   for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
 
-  setInterval(scheduler, 25);
+  startTimer();
+  // pestaña oculta: el audio se duerme (no se queda tartamudeando con el timer frenado) y despierta al volver
+  document.addEventListener('visibilitychange', () => {
+    if (!ctx) return;
+    if (document.hidden) ctx.suspend?.();
+    else { ctx.resume?.(); if (music.on) music.next = ctx.currentTime + 0.05; }
+  });
   shaperCurve = makeCurve(2.2);
   // si ya había una canción pedida (el menú suena antes del primer toque), arranca ahora
   if (music.on) { music.next = ctx.currentTime + 0.08; musicBus.gain.setTargetAtTime(musicLevel(), ctx.currentTime, 0.3); }
@@ -65,12 +72,27 @@ export function setSound(on) {
   if (master) master.gain.setTargetAtTime(on ? 0.8 : 0, ctx.currentTime, 0.02);
 }
 
-// un efecto fuerte agacha la música un momento (se oye lo que importa)
+// EL RELOJ de la música va en un Worker: sus timers no se frenan cuando el hilo principal va cargado
+// (un frame pesado de Galaxia o Pecios ya no deja huecos). Si no hay Worker, setInterval de siempre.
+function startTimer() {
+  try {
+    const src = 'let i=setInterval(()=>postMessage(0),25);onmessage=()=>{clearInterval(i)}';
+    const w = new Worker(URL.createObjectURL(new Blob([src], { type: 'text/javascript' })));
+    w.onmessage = scheduler;
+  } catch {
+    setInterval(scheduler, 25);
+  }
+}
+// un efecto MUY fuerte (explosión grande, muerte) agacha un poco la música, como mucho cada 250 ms;
+// los golpes y disparos normales no (en Pecios, cada impacto la hacía temblar)
+let lastSfxDuck = 0;
 function duckForSfx(vol, dest, t) {
-  if (dest !== sfxBus || vol < 0.45 || !sfxDuck) return;
+  if (dest !== sfxBus || vol < 0.6 || !sfxDuck || t - lastSfxDuck < 0.25) return;
+  lastSfxDuck = t;
   sfxDuck.gain.cancelScheduledValues(t);
-  sfxDuck.gain.setTargetAtTime(0.6, t, 0.01);
-  sfxDuck.gain.setTargetAtTime(1, t + 0.12, 0.15);
+  sfxDuck.gain.setValueAtTime(sfxDuck.gain.value, t);
+  sfxDuck.gain.setTargetAtTime(0.75, t, 0.01);
+  sfxDuck.gain.setTargetAtTime(1, t + 0.1, 0.12);
 }
 function tone({ type = 'square', f = 440, f2 = null, dur = 0.1, vol = 0.25, when = 0, dest = sfxBus, attack = 0.004, cutoff = 0 }) {
   if (!ctx) return;
@@ -244,7 +266,7 @@ const panner = (p) => {
 };
 
 // una voz: osciladores (desafinados) → filtro (con su envolvente) → [saturación] → envolvente → [paneo] → destinos
-function voice({ f, t, dur, vol, type = 'sawtooth', detune = [0], cutoff = 4000, cutoffEnv = 0, q = 0.7, attack = 0.01, release = 0.12, dest = musicBus, toDelay = 0, toVerb = 0, vib = 0, glide = 0, drive = false, pan = 0, sub = 0 }) {
+function voice({ f, t, dur, vol, type = 'sawtooth', detune = [0], cutoff = 4000, cutoffEnv = 0, q = 0.7, attack = 0.01, release = 0.12, dest = musicBus, toDelay = 0, toVerb = 0, vib = 0, glide = 0, drive = false, pan = 0, sub = 0, inst = null }) {
   const g = ctx.createGain(), fl = ctx.createBiquadFilter();
   fl.type = 'lowpass';
   fl.Q.value = q;
@@ -285,6 +307,7 @@ function voice({ f, t, dur, vol, type = 'sawtooth', detune = [0], cutoff = 4000,
   };
   for (const dt of detune) osc(dt, type, f);
   if (sub) osc(0, 'sine', f / 2); // un seno una octava abajo: el cuerpo del bajo
+  if (inst) track(inst, g, end + release);
 }
 
 function playEvent(e, t, spb) {
@@ -295,10 +318,8 @@ function playEvent(e, t, spb) {
       // dos capas: un clic que corta y el cuerpo (seno que cae) saturado
       noise({ dur: 0.012, vol: 0.22 * e.vel, type: 'highpass', f: 3000, when, dest: musicBus });
       kickBody(t, e.vel);
-      // sidechain: el pad y el bajo se agachan y vuelven
-      duck.gain.cancelScheduledValues(t);
-      duck.gain.setValueAtTime(0.25, t);
-      duck.gain.linearRampToValueAtTime(1, t + spb * 3);
+      // SIDECHAIN: el pad y el bajo se agachan y vuelven antes del bombo siguiente (nunca se quedan hundidos)
+      sidechain(t, duckShape(e.gap || 4, spb));
       break;
     case 'snare':
       // caja + palmada (3 golpes de ruido muy seguidos)
@@ -325,16 +346,16 @@ function playEvent(e, t, spb) {
       break;
     case 'bass':
       // REESE: dos sierras desafinadas + un seno debajo, filtro que se cierra y saturación
-      voice({ f: midiHz(e.midi), t, dur: Math.max(0.08, e.dur * spb * 0.92), vol: 0.2 * e.vel, type: 'sawtooth', detune: [-14, 14], sub: 1, cutoff: 260 + I * 180 + (od ? 600 : 0), cutoffEnv: 900 + I * 400, q: 5, attack: 0.004, release: 0.05, dest: duck, drive: true });
+      voice({ f: midiHz(e.midi), t, dur: Math.max(0.08, e.dur * spb * 0.92), vol: 0.2 * e.vel, type: 'sawtooth', detune: [-14, 14], sub: 1, cutoff: 260 + I * 180 + (od ? 600 : 0), cutoffEnv: 900 + I * 400, q: 5, attack: 0.004, release: 0.05, dest: duck, drive: true, inst: 'bass' });
       break;
     case 'arp':
       voice({ f: midiHz(e.midi), t, dur: spb * 0.75, vol: 0.05 * e.vel, type: 'sawtooth', detune: [0], cutoff: 1100 + I * 400, cutoffEnv: 2200, q: 3, attack: 0.002, release: 0.05, toDelay: 0.45, pan: e.pan || 0 });
       break;
     case 'lead': {
-      // SUPERSIERRA: 5 osciladores, filtro con envolvente, portamento y vibrato
+      // SUPERSIERRA: 3 osciladores bien abiertos (5 cargaban demasiado el móvil), filtro, portamento y vibrato
       const f = midiHz(e.midi), glide = leadHz && Math.abs(leadHz / f - 1) < 0.6 ? leadHz : 0;
       leadHz = f;
-      voice({ f, t, dur: e.dur * spb * 0.95, vol: 0.06 * e.vel, type: 'sawtooth', detune: [-18, -8, 0, 8, 18], cutoff: bright + 600, cutoffEnv: 3000, q: 1.2, attack: 0.01, release: 0.16, toDelay: 0.35, toVerb: 0.4, vib: 6, glide });
+      voice({ f, t, dur: e.dur * spb * 0.95, vol: 0.075 * e.vel, type: 'sawtooth', detune: [-16, 0, 16], cutoff: bright + 600, cutoffEnv: 3000, q: 1.2, attack: 0.01, release: 0.16, toDelay: 0.35, toVerb: 0.4, vib: 6, glide, inst: 'lead' });
       break;
     }
     case 'stinger':
@@ -346,6 +367,23 @@ function playEvent(e, t, spb) {
     default:
   }
 }
+function sidechain(t, { depth, tau }) {
+  const gn = duck.gain;
+  if (gn.cancelAndHoldAtTime) gn.cancelAndHoldAtTime(t);
+  else gn.cancelScheduledValues(t);
+  gn.setValueAtTime(depth, t);
+  gn.setTargetAtTime(1, t + 0.005, tau);
+}
+// POLIFONÍA limitada (en el móvil, demasiadas voces a la vez = chasquidos): se apaga la más vieja
+const voices = { lead: [], bass: [] };
+function track(inst, g, end) {
+  const list = voices[inst];
+  if (!list) return;
+  const { keep, steal } = pruneVoices(list, ctx.currentTime, VOICE_CAP[inst]);
+  for (const v of steal) { try { v.g.gain.cancelScheduledValues(ctx.currentTime); v.g.gain.setTargetAtTime(0.0001, ctx.currentTime, 0.02); } catch { /* ya acabó */ } }
+  keep.push({ g, end });
+  voices[inst] = keep;
+}
 function kickBody(t, vel) {
   const o = ctx.createOscillator(), g = ctx.createGain(), ws = ctx.createWaveShaper();
   ws.curve = shaperCurve;
@@ -353,7 +391,7 @@ function kickBody(t, vel) {
   o.frequency.setValueAtTime(160, t);
   o.frequency.exponentialRampToValueAtTime(45, t + 0.12);
   g.gain.setValueAtTime(0.0001, t);
-  g.gain.exponentialRampToValueAtTime(0.9 * vel, t + 0.002);
+  g.gain.exponentialRampToValueAtTime(0.7 * vel, t + 0.002);
   g.gain.exponentialRampToValueAtTime(0.0001, t + 0.28);
   o.connect(ws).connect(g).connect(musicBus);
   o.start(t);
@@ -395,7 +433,9 @@ export function songId(m = music) {
   return SONGS[m.song] ? m.song : 'menu';
 }
 const variantOf = () => (music.song === 'pecio' ? music.pecio || 0 : music.biome || 0);
-const bpmOf = (id) => (id === 'runner' ? music.bpm : SONGS[id].bpm); // el Runner la marca él según la velocidad
+// el Runner marca el tempo según la velocidad, pero solo cambia AL COMPÁS y de 2 en 2 (sin ondular el eco)
+let barBpm = 174;
+const bpmOf = (id) => (id === 'runner' ? barBpm : SONGS[id].bpm);
 
 // Pide una canción. Si ya suena, no la reinicia; si es otra, la que suena se apaga (0,4 s) y la nueva
 // entra desde su principio. Funciona antes de que haya sonido (iOS lo habilita al primer toque).
@@ -419,6 +459,8 @@ function startSong() {
   music.fadeTo = null;
   music.playing = songId();
   music.cur = { intensity: music.intensity, od: music.od, variant: variantOf() };
+  barBpm = Math.round(music.bpm / 2) * 2;
+  lowBars = 0;
   music.step = 0;
   leadHz = 0;
   music.next = ctx.currentTime + 0.06;
@@ -455,7 +497,8 @@ function scheduler() {
   }
   if (!music.playing) startSong();
   // si el timer estuvo dormido (pestaña oculta), resincronizar en vez de soltar de golpe las notas atrasadas
-  if (music.next < now - 0.05) music.next = now + 0.02;
+  // (y se sigue desde el compás siguiente: mejor un salto limpio que media frase coja)
+  if (music.next < now - 0.05) { music.next = now + 0.02; music.step = Math.ceil(music.step / STEPS) * STEPS; }
   while (music.next < now + LOOKAHEAD) {
     if (music.step % STEPS === 0) atBar(); // AL COMPÁS: capas, tonalidad y canción de jefe
     if (audible()) playStep(music.step, music.next - now);
@@ -464,8 +507,12 @@ function scheduler() {
   }
 }
 // al empezar cada compás se aplica lo que haya cambiado (intensidad, OVERDRIVE, tonalidad, jefe)
+let lowBars = 0;
 function atBar() {
-  music.cur = { intensity: music.intensity, od: music.od, variant: variantOf() };
+  const ni = nextIntensity(music.cur?.intensity ?? music.intensity, music.intensity, lowBars);
+  lowBars = ni.low;
+  music.cur = { intensity: ni.value, od: music.od, variant: variantOf() };
+  barBpm = Math.round(music.bpm / 2) * 2;
   const want = songId();
   if (want === music.playing) return;
   const toBoss = !!SONGS[want].boss;

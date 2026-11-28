@@ -2084,13 +2084,19 @@ export function updateSpace(dt) {
   if ((s.musT = (s.musT || 0) - dt) <= 0) {
     s.musT = 0.25;
     // con HISTÉRESIS: sube al acercarse (450) y no baja hasta que se alejan (600) y pasan 2 s
-    let near = 0, far = 0, boss = false;
+    // la canción de JEFA también: entra a 600, no se va hasta 900 y dura al menos 8 s (antes saltaba
+    // entre canciones al rondar los 600 y cada salto volvía al principio)
+    let near = 0, far = 0, bossIn = false, bossKeep = false;
     for (const p of s.pirates) {
       if (!p.alive) continue;
       const d = dist(p.pos, sh.pos);
       if (d < 450) near++;
-      if (d < 600) { far++; if (p.story) boss = true; }
+      if (d < 600) { far++; if (p.story) bossIn = true; }
+      if (p.story && d < 900) bossKeep = true;
     }
+    s.musBossT = Math.max(0, (s.musBossT || 0) - 0.25);
+    if (bossIn) s.musBossT = 8;
+    const boss = bossIn || (music.boss && (bossKeep || s.musBossT > 0));
     const want = boss ? 3 : near >= 3 ? 2 : near ? 1 : 0, keep = far >= 3 ? 2 : far ? 1 : 0;
     if (want > music.intensity) { music.intensity = want; s.musHold = 2; } else if ((s.musHold = (s.musHold || 0) - 0.25) <= 0) music.intensity = Math.max(want, Math.min(music.intensity, keep));
     music.boss = boss;
