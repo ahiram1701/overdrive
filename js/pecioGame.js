@@ -195,6 +195,26 @@ function pecioMusic(s) {
   music.intensity = boss ? 3 : shut ? 2 : 1; // sin combate sigue el pulso (con 0 se apagaba la batería de golpe)
 }
 
+// cada HABILIDAD con su sonido, su color y su golpe de cámara
+const ABILITY_FX = {
+  nova: { name: 'Nova', color: '#ffe600', shake: 8, snd: () => { sfx.boom(); sfx.od(); } },
+  chaos: { name: 'Caos', color: '#ff2bd6', shake: 6, snd: () => sfx.zap() },
+  singularity: { name: 'Singularidad', color: '#bf5af2', shake: 10, snd: () => { sfx.growl(); sfx.ion(); } },
+  laser: { name: 'Láser', color: '#ff2d55', shake: 5, snd: () => sfx.beam() },
+  hammer: { name: 'Martillo', color: '#ff9f0a', shake: 14, snd: () => { sfx.thud(true); sfx.boom(); } },
+  hook: { name: 'Garfio', color: '#7df9ff', shake: 4, snd: () => sfx.rail() },
+  blink: { name: 'Salto', color: '#bfe9ff', shake: 3, snd: () => sfx.dash() },
+  bubble: { name: 'Burbuja', color: '#7df9ff', shake: 2, snd: () => sfx.shield() },
+  barrier: { name: 'Barrera', color: '#30d158', shake: 3, snd: () => sfx.shield() },
+  overclock: { name: 'Sobrecarga', color: '#ffe600', shake: 4, snd: () => sfx.od() },
+  ram: { name: 'Embestida', color: '#ff6a00', shake: 9, snd: () => { sfx.dash(); sfx.thud(true); } },
+  roar: { name: 'Rugido', color: '#ff2d55', shake: 12, snd: () => sfx.roar() },
+  phase: { name: 'Fase', color: '#bfe9ff', shake: 2, snd: () => sfx.secret() },
+  surge: { name: 'Oleada', color: '#7df9ff', shake: 7, snd: () => { sfx.zap(); sfx.ion(); } },
+  quake: { name: 'Terremoto', color: '#c8743a', shake: 18, snd: () => { sfx.boom(); sfx.thud(true); } },
+  salvage: { name: 'Chatarrero', color: '#c8d6e5', shake: 3, snd: () => sfx.coin(8) },
+};
+
 // Eventos → sonido, avisos y destellos para el dibujo
 function handle(s, ev) {
   for (const e of ev) {
@@ -205,11 +225,12 @@ function handle(s, ev) {
         if (e.a != null) {
           juice.muzzle(s, e.x, e.y, e.a, big);
           // RETROCESO de cámara: un empujón hacia atrás con cada disparo (más con los gordos)
-          const f = fwd(e.a), k = (s.kick ||= { x: 0, y: 0 }), m = big ? 0.12 : 0.035;
+          const f = fwd(e.a), k = (s.kick ||= { x: 0, y: 0 }), m = ({ cannon: 0.14, charge: 0.1 + 0.12 * (e.power || 0), blast: 0.06, spread: 0.05, rapid: 0.02 })[e.weapon] ?? 0.035;
           k.x -= f.x * m; k.y -= f.y * m;
         }
         break;
       }
+      case 'weakSpot': if (!s.weakT || s.time - s.weakT > 3) { s.weakT = s.time; fx.notice('🎯 ¡PUNTO DÉBIL! Por la espalda le duele más', '#bf5af2', 2); } juice.hit(s, e.x, e.y, true); break;
       case 'spark': juice.wall(s, e.x, e.y, e.big); if (!s.tinkT || s.time - s.tinkT > 0.06) { s.tinkT = s.time; sfx.tink(); } break;
       case 'attack': if (!s.swT || s.time - s.swT > 0.25) { s.swT = s.time; sfx.swish(); } break;
       case 'hit': juice.hit(s, e.x, e.y, e.crit);
@@ -309,7 +330,7 @@ function handle(s, ev) {
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
       case 'armed': sfx.alarm?.(); break;
-      case 'ability': fx.notice('⚡ ¡Habilidad!', '#ffe600'); sfx.od(); fx.flash('#ffe600', 0.12); fx.shake(6); juice.kill(s, s.player.x, s.player.y, '#ffe600', false); break;
+      case 'ability': { const A = ABILITY_FX[e.id] || ABILITY_FX.nova; fx.notice(`⚡ ${A.name}`, A.color); A.snd(); fx.flash(A.color, 0.12); fx.shake(A.shake); juice.kill(s, s.player.x, s.player.y, A.color, false); break; }
       case 'dash': sfx.dash(); if (e.x != null) juice.dash(s, e.x, e.y, e.a); break;
       case 'win': fx.banner('🏆 ¡HAS SALIDO!', 'nueve plantas de pecio, superadas', '#ffe600', true, 2.5); break;
       default: break;

@@ -97,23 +97,38 @@ function clip(pts) {
 }
 // un polígono del mundo (lista de [x, y, z]) a la lista de dibujo
 function poly(cam, list, pts, fill, stroke, lw = 1, extra) {
-  const c = clip(pts.map(([x, y, z]) => toCam(cam, x, y, z)));
+  // descarte rápido: si todos los puntos quedan detrás de la cámara, ni se transforma el resto
+  let behind = 0;
+  const qs = new Array(pts.length);
+  for (let i = 0; i < pts.length; i++) { const q = toCam(cam, pts[i][0], pts[i][1], pts[i][2]); qs[i] = q; if (q.z < NEAR) behind++; }
+  if (behind === pts.length) return;
+  const c = behind ? clip(qs) : qs;
   if (c.length < 3) return;
   let z = 0;
   for (const q of c) z += q.z;
   // `bias`: las calcomanías (luces, minas, franjas) se ordenan justo delante de la superficie que tienen debajo
   list.push({ z: z / c.length - (extra?.bias || 0), pts: c.map((q) => scr(cam, q)), fill, stroke, lw, ...extra });
 }
+// (los colores se CACHEAN: antes se parseaba el hexadecimal en cada polígono de cada fotograma)
+const RGB = new Map();
+const rgbOf = (hex) => { let v = RGB.get(hex); if (!v) { const n = parseInt(hex.slice(1), 16); v = [(n >> 16) & 255, (n >> 8) & 255, n & 255]; RGB.set(hex, v); } return v; };
 function hexA(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+  const [r, g, b] = rgbOf(hex);
+  return `rgba(${r},${g},${b},${a})`;
 }
-// niebla: el color se apaga hacia el del ambiente con la distancia
+// niebla: el color se apaga hacia el del ambiente con la distancia (en 24 escalones, cacheados)
+const FOG = new Map();
 function fog(hex, fogHex, z) {
-  const k = Math.max(0, Math.min(0.85, (z - 3) / 9));
-  const a = parseInt(hex.slice(1), 16), b = parseInt(fogHex.slice(1), 16);
-  const m = (s) => Math.round(((a >> s) & 255) * (1 - k) + ((b >> s) & 255) * k);
-  return `rgb(${m(16)},${m(8)},${m(0)})`;
+  const step = Math.round(Math.max(0, Math.min(0.85, (z - 3) / 9)) * 24);
+  const key = `${hex}${fogHex}${step}`;
+  let c = FOG.get(key);
+  if (!c) {
+    const k = step / 24, a = rgbOf(hex), b = rgbOf(fogHex);
+    c = `rgb(${Math.round(a[0] * (1 - k) + b[0] * k)},${Math.round(a[1] * (1 - k) + b[1] * k)},${Math.round(a[2] * (1 - k) + b[2] * k)})`;
+    if (FOG.size > 4000) FOG.clear();
+    FOG.set(key, c);
+  }
+  return c;
 }
 function shade(hex, amt) {
   const n = parseInt(hex.slice(1), 16);

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { newRun, updateRun, roomOf, dash, assistAim, angOf, comboMul, COMBO_T, AIM_ASSIST, COLS, ROWS, MID_C, MID_R, ENEMY } from '../../js/pecio.js';
+import { newRun, updateRun, roomOf, dash, assistAim, angOf, comboMul, COMBO_T, AIM_ASSIST, COLS, ROWS, MID_C, MID_R, ENEMY, LAYOUTS, genFloor, genRoom } from '../../js/pecio.js';
 import { emit, stepParts, MAX_PARTS } from '../../js/pecioFx.js';
 
 const DT = 1 / 30;
@@ -89,4 +89,52 @@ test('partículas: nunca más de MAX_PARTS y desaparecen solas', () => {
   assert.equal(s.parts.length, MAX_PARTS);
   for (let i = 0; i < 30; i++) stepParts(s, 0.05);
   assert.equal(s.parts.length, 0);
+});
+
+test('acumulador con twin-stick: se carga manteniendo y sale al soltar; más carga, más daño', () => {
+  const s = newRun(9, { hp: 99 });
+  arena(s);
+  s.player.weapon = 'charge';
+  run(s, 0.4, T({ ax: 1, fire: true }));
+  assert.equal(s.shots.length, 0, 'mientras se carga no dispara');
+  run(s, 1.4, T({ ax: 1, fire: true }));
+  run(s, 1 / 30, T({ ax: 1, fire: false }));
+  assert.equal(s.shots.length, 1, 'al soltar, sale');
+  assert.ok(s.shots[0].dmg > s.player.dmg * 2.5, 'cargado a tope: casi ×3');
+  // un toque corto (menos del 30 %) no dispara
+  s.shots.length = 0;
+  run(s, 0.2, T({ ax: 1, fire: true }));
+  run(s, 1 / 30, T({ ax: 1, fire: false }));
+  assert.equal(s.shots.length, 0);
+});
+
+test('jefes: por la espalda les duele más (punto débil)', () => {
+  const dmgFrom = (behind) => {
+    const s = newRun(10, { hp: 99 });
+    const room = arena(s, ['drone', MID_C + 0.5, MID_R - 2.5]);
+    const b = room.enemies[0];
+    Object.assign(b, { kind: 'boss', boss: 'guardian', hp: 999, max: 999, ang: behind ? 0 : Math.PI, stun: 99, cd: 99 });
+    s.player.crit = 0;
+    const ev = run(s, 0.5, T({ ay: -1, fire: true }));
+    return { lost: 999 - b.hp, weak: ev.some((e) => e.type === 'weakSpot') };
+  };
+  const back = dmgFrom(true), front = dmgFrom(false);
+  assert.ok(back.weak && !front.weak);
+  assert.ok(back.lost > front.lost * 1.4);
+});
+
+test('salas en L, T y U: existen y la cruz central sigue libre (todas las puertas se comunican)', () => {
+  for (const id of ['lshape', 'tshape', 'ushape']) assert.ok(LAYOUTS.some((L) => L.id === id));
+  const seen = new Set();
+  for (let seed = 1; seed <= 60; seed++) {
+    const f = genFloor(seed, 3);
+    for (const id of Object.keys(f.rooms)) {
+      const r = genRoom(f, id);
+      if (!r?.tiles) continue;
+      seen.add(r.layout);
+      for (let c = 1; c < COLS - 1; c++) assert.notEqual(r.tiles[MID_R][c], '#');
+      for (let rr = 1; rr < ROWS - 1; rr++) assert.notEqual(r.tiles[rr][MID_C], '#');
+    }
+  }
+  for (const id of ['lshape', 'tshape', 'ushape']) assert.ok(seen.has(id), `sale la sala ${id}`);
 });
