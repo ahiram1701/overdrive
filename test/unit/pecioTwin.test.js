@@ -138,3 +138,15 @@ test('salas en L, T y U: existen y la cruz central sigue libre (todas las puerta
   }
   for (const id of ['lshape', 'tshape', 'ushape']) assert.ok(seen.has(id), `sale la sala ${id}`);
 });
+
+test('acumulador: si sueltas mientras aún se enfría el disparo anterior, sale en cuanto puede', () => {
+  const s = newRun(11, { hp: 99 });
+  arena(s);
+  s.player.weapon = 'charge';
+  run(s, 1.0, T({ ax: 1, fire: true }));
+  s.player.fireCd = 0.3; // aún enfriándose
+  run(s, 1 / 30, T({ ax: 1, fire: false }));
+  assert.equal(s.shots.length, 0, 'todavía no');
+  run(s, 0.4, T({ ax: 1, fire: false }));
+  assert.equal(s.shots.length, 1, 'el disparo pendiente sale al acabar el enfriamiento');
+});

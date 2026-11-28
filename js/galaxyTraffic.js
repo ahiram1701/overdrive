@@ -34,6 +34,10 @@ function pickTarget(rng, wps, kind, from) {
   const pool = wps.filter((w) => w.pos !== from && (kind === 'miner' ? w.kind !== 'planet' : kind === 'patrol' ? true : w.kind !== 'belt'));
   return rng.pick(pool.length ? pool : wps);
 }
+export const npcHp = (kind, danger) => (kind === 'patrol' ? 160 : 80) + 25 * danger;
+// lo que suelta un civil derribado (y lo que cuesta: búsqueda y reputación)
+export const npcLoot = (kind, danger) => ({ credits: kind === 'patrol' ? 0 : 250 + 90 * danger, contraband: kind === 'smuggler' ? 4 : 0, wanted: kind === 'patrol' ? 2 : 1, rep: kind === 'smuggler' ? 0 : -6 });
+export const escortReward = (danger) => 220 + 90 * danger;
 export function spawnTraffic(rng, sys, owner, danger) {
   const wps = waypoints(sys);
   return trafficMix(owner, danger).map((kind, i) => {
@@ -43,7 +47,7 @@ export function spawnTraffic(rng, sys, owner, danger) {
 }
 // un paso: se mueven, esperan un poco en cada sitio, saltan por las puertas y las patrullas disparan.
 // pirates: [{ pos, alive }]; shoot(npc, pirate) aplica el daño; devuelve los disparos para dibujarlos
-export function updateTraffic(rng, sys, list, pirates, dt, shoot) {
+export function updateTraffic(rng, sys, list, pirates, dt, shoot, onJump = null) {
   const wps = waypoints(sys), shots = [];
   for (const n of list) {
     const K = TRAFFIC_KINDS[n.kind];
@@ -65,7 +69,7 @@ export function updateTraffic(rng, sys, list, pirates, dt, shoot) {
     }
     if (!target && d < 60) {
       if (n.wait > 0) { n.wait -= dt; continue; }
-      if (n.to.kind === 'gate') { n.away = rng.range(6, 16); continue; } // ¡salta!
+      if (n.to.kind === 'gate') { n.away = rng.range(6, 16); if (onJump) onJump(n); n.escort = null; continue; } // ¡salta!
       n.to = pickTarget(rng, wps, n.kind, n.to.pos);
       n.wait = rng.range(1.5, 5);
       continue;

@@ -606,6 +606,11 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (p.weapon === 'charge') {
     if (holdCharge) { if (input.fire) p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * (p.boost > 0 ? 2 : 1)); } else p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * ((p.vel || 0) < 0.25 ? 2 : 1) * (p.boost > 0 ? 2 : 1));
   }
+  // al SOLTAR una carga válida, el disparo queda PENDIENTE (si aún se enfría el anterior, sale en cuanto pueda)
+  if (holdCharge) {
+    if (input.fire) p.chgRelease = false;
+    else if (p.wasFire && (p.chg || 0) >= CHARGE_T * 0.3) p.chgRelease = true;
+  }
   // DISPARO AUTOMÁTICO al más cercano que se vea
   p.fireCd -= dt;
   if (p.weapon === 'charge' && !holdCharge && (p.chg || 0) < CHARGE_T) p.fireCd = Math.max(p.fireCd, 0.01);
@@ -613,7 +618,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
     // con TWIN-STICK disparas tú (hacia donde apuntas, con ayuda); si no, la nave dispara sola al más cercano
     let a = null;
     if (holdCharge) {
-      if (!input.fire && p.wasFire && (p.chg || 0) >= CHARGE_T * 0.3 && p.aimAng != null) a = assistAim(s, room, p.aimAng);
+      if (p.chgRelease && p.aimAng != null) { a = assistAim(s, room, p.aimAng); p.chgRelease = false; }
     } else if (twin && !input.auto) {
       if (input.fire && p.aimAng != null) a = assistAim(s, room, p.aimAng);
     } else {

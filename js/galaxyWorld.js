@@ -20,6 +20,12 @@ export const SHORT_EVERY = 7;
 export const SHORT_TIME = 6;
 export const SHORT_MUL = 2;
 // LA GUERRA FRÍA: Liga y Coalición se disputan los sistemas de su frontera (sale en las noticias)
+// LOS PIRATAS SE MUEVEN: cada pocos saltos toman un sistema fronterizo… o abandonan uno rodeado
+export const PIRATE_FIRST = 10;
+export const PIRATE_EVERY = 11;
+// LA REPUTACIÓN SE ENFRÍA: cada REP_EVERY saltos, 1 punto hacia 0 (si pasa de ±REP_KEEP)
+export const REP_EVERY = 10;
+export const REP_KEEP = 20;
 export const FRONT_FIRST = 8;
 export const FRONT_EVERY = 9;
 // CAPITANES RIVALES: pilotos con nombre que comercian, cazan y suben de nivel mientras tú juegas
@@ -106,6 +112,29 @@ export function tickWorld(save, gal, jumps) {
     }
     w.nextFront = jumps + FRONT_EVERY;
   }
+  // PIRATAS: avanzan (toman un sistema que linda con ellos) o se retiran (si uno suyo está rodeado)
+  if (jumps >= (w.nextPirate ??= PIRATE_FIRST)) {
+    const prng = makeRng(hashString(`pir-${jumps}`));
+    const okSys = (s) => s.id !== 0 && !s.hidden && !save.territory[s.id] && w.war?.sys !== s.id && !w.swarm?.systems.includes(s.id);
+    const theirs = gal.filter((s) => okSys(s) && own(save, s) === 'pir');
+    const surrounded = theirs.filter((s) => s.links.filter((l) => own(save, gal[l]) !== 'pir').length >= 3);
+    if (surrounded.length && prng.next() < 0.5) {
+      const sys = prng.pick(surrounded), to = gal[sys.links.find((l) => own(save, gal[l]) !== 'pir')];
+      w.owners[sys.id] = own(save, to) === 'coal' ? 'coal' : 'liga';
+      say(`🏳️ Los piratas abandonan ${sys.name}: ahora es de ${FNAME[w.owners[sys.id]]}`);
+    } else {
+      const edge = gal.filter((s) => okSys(s) && own(save, s) !== 'pir' && s.links.some((l) => own(save, gal[l]) === 'pir'));
+      if (edge.length) { const sys = prng.pick(edge); w.owners[sys.id] = 'pir'; say(`☠️ Los piratas toman ${sys.name} sin que nadie lo impida`); }
+    }
+    w.nextPirate = jumps + PIRATE_EVERY;
+  }
+  // LA REPUTACIÓN SE ENFRÍA si no haces nada por una facción (lo muy alto o muy bajo baja despacio)
+  if (jumps % REP_EVERY === 0 && save.factionRep) {
+    for (const f of Object.keys(save.factionRep)) {
+      const r = save.factionRep[f];
+      if (Math.abs(r) > REP_KEEP) save.factionRep[f] = r - Math.sign(r);
+    }
+  }
   // RIVALES: cada salto, uno de ellos hace algo (y sube de nivel con el tiempo)
   {
     const rr = makeRng(hashString(`rival-${jumps}`));
@@ -144,6 +173,22 @@ export function tickWorld(save, gal, jumps) {
   return out;
 }
 
+// EL TIEMPO CORRE: cada minuto de vuelo los rivales se mueven (sin noticias: eso, al saltar)
+export function tickMinute(save, gal, n) {
+  const w = world(save);
+  const R = RIVALS[n % RIVALS.length], st = w.rivals[R.id];
+  if (!st) return;
+  const here = gal[st.sys] || gal[0];
+  if (here.links.length) { const to = gal[here.links[n % here.links.length]]; if (!to.hidden) st.sys = to.id; }
+  st.wealth += 60;
+}
+// relación con un rival (saludar la sube): 0 desconocido · 1-2 conocido · 3+ amigo
+export function rivalMeet(save, id) {
+  const st = world(save).rivals[id];
+  if (!st) return null;
+  st.rel = (st.rel || 0) + 1;
+  return st;
+}
 export const warHere = (save, sys) => (world(save).war?.sys === sys ? world(save).war : null);
 export const infected = (save, sys) => !!world(save).swarm?.systems.includes(sys);
 export const priceMul = (save, sys) => (infected(save, sys) ? SWARM_PRICE : 1);

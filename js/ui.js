@@ -7,17 +7,19 @@ import { todayKey } from './rng.js';
 import { missions } from './missions.js';
 import { rankOf, ACHIEVEMENTS, ACH_GEMS, achCount, MAX_RANK, effectiveRank, prestigeOf, prestigeBonus, canPrestige, doPrestige, PRESTIGE_REWARDS } from './progress.js';
 import { BOSS_NAMES, BIOMES } from './world.js';
-import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, looksOf, saveLook, applyLook, copyLook, randomLook, resetLook, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle } from './cosmetics.js';
+import { GROUPS, isUnlocked, lockText, buyCosmetic, equip, equipped, itemsFor, looksOf, saveLook, applyLook, copyLook, randomLook, resetLook, emblemOpts, setEmblemStyle, EMBLEM_AT, EMBLEM_COLORS, tintEngine, shipName, setShipName, DEFAULT_SHOT, achStyle, PALETTES } from './cosmetics.js';
 import { drawShip, emblemPath } from './shipdraw.js';
 import { trailFx, boomFx, makeParticles, auraFx } from './cosfx.js';
 import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards, synergyHint, shipLvls, shipProfile, treeOf, PROFILE_KEYS, TREE_COSTS, TREE_LEVELS, MASTERY, MASTERY_COST, RESET_COST, canMaster, treeSpent, treeStars, abilityMods, CARD_LVL_COST, MAX_CARD_LVL, unlockEarnedShips } from './upgrades.js';
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, stationHere, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, stationHere, buyables, goodMulAt, buyProbe, buyChart, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { loreOf, allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route, sectorName, secOf } from './galaxy.js';
 import { sysLore } from './galaxyLore.js';
+import { stockOf } from './goods.js';
+import { shareCost, shareIncome, sharesOwned, buyShare, PROBE_COST, chartCost, GAL_PAINTS, buyPaint } from './fleet.js';
 import { fleetOf, freighterCost, freighterUpCost, buyFreighter, upgradeFreighter, insureFreighter, routeFreighter, tripIncome, lossChance, insureCost, INSURE_TRIPS, CREW, CREW_KEYS, crewCost, crewWage, crewBonus, hireCrew, SHIP_INSURE, insureShip } from './fleet.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME, oreMul, RIVALS as GAL_RIVALS } from './galaxyWorld.js';
@@ -1828,6 +1830,17 @@ export const ui = {
     bb.disabled = g.credits < bp || cargoCount(g.cargo) >= st.cargo;
     tap(bb, () => { buyOre(local, 5); ui.showStation(s); });
     $('stBuy').append(bb);
+    // MERCANCÍAS que fabrica esta estación (con su stock: cuanto menos queda, más caras)
+    for (const k of buyables(s.sysId).slice(1)) {
+      const p = buyPrice(k, s.sysId), left = stockOf(save, s.sysId, k);
+      const gb = el('button', 'btn ghost', `COMPRAR 5 ${ORES[k].icon} ${ORES[k].name} · ${p * 5} 💰 <small>(quedan ${left})</small>`);
+      gb.dataset.buyGood = k;
+      gb.disabled = g.credits < p || cargoCount(g.cargo) >= st.cargo || left <= 0;
+      tap(gb, () => { buyOre(k, 5); ui.showStation(s); });
+      $('stBuy').append(gb);
+    }
+    const need = ['food', 'machines', 'medicine'].filter((k) => goodMulAt(s.sysId, k) > 1.2);
+    if (need.length) $('stBuy').append(el('small', 'hint', `📈 Aquí pagan bien: ${need.map((k) => `${ORES[k].icon} ${ORES[k].name}`).join(' · ')}`));
     const box = $('stUpgrades');
     box.innerHTML = '';
     for (const [id, u] of Object.entries(SP_UP)) {
@@ -2086,6 +2099,31 @@ export const ui = {
     const b = row(g.credits >= icost ? ' afford' : '', '📄', `Póliza de ${SHIP_INSURE.trips} saltos`, `Si te derriban, el remolque cuesta la mitad.${F.insure ? ` Te quedan ${F.insure} saltos.` : ''}`, `${fmt(icost)} 💰`, 'btnInsure');
     tap(b, () => { if (!insureShip(save, here.danger)) { deny(b, shortBy(g.credits, icost, '💰')); return; } persist(); toast('📄 Nave asegurada'); ui.showStation(s); });
     ib.append(b);
+    // ACCIONES de esta estación
+    const sb = $('stShares'), sc = shareCost(sharesOwned(save)), mine = F.shares?.[s.sysId] || 0;
+    sb.innerHTML = '';
+    const bs = row(g.credits >= sc ? ' afford' : '', '📈', `Acción de ${here.name}${mine ? ` <em>tienes ${mine}</em>` : ''}`, `Paga ${shareIncome(here.danger)} 💰 por salto (se cobra al atracar). Llevas ${sharesOwned(save)} en total · ${fmt(F.dividends || 0)} 💰 por cobrar.`, `${fmt(sc)} 💰`, 'btnShare');
+    tap(bs, () => { if (!buyShare(save, s.sysId)) { deny(bs, shortBy(g.credits, sc, '💰')); return; } persist(); sfx.chest(); toast(`📈 Acción de ${here.name}`); ui.showStation(s); });
+    sb.append(bs);
+    // EXPLORACIÓN
+    const eb = $('stExplore'), cc = chartCost(g.charts || 0);
+    eb.innerHTML = '';
+    const pr = row(g.credits >= PROBE_COST ? ' afford' : '', '🛰️', 'Sonda', 'Revela en el mapa todos los sistemas de este sector.', `${fmt(PROBE_COST)} 💰`, 'btnProbe');
+    tap(pr, () => { const n = buyProbe(); if (!n) { deny(pr, shortBy(g.credits, PROBE_COST, '💰')); return; } toast(`🛰️ ${n} sistemas en el mapa`); ui.showStation(s); });
+    const ch = row(g.credits >= cc ? ' afford' : '', '🗺️', 'Carta de navegación', 'Abre un sector vecino que aún no conoces y lo dibuja en el mapa.', `${fmt(cc)} 💰`, 'btnChart');
+    tap(ch, () => { const r = buyChart(); if (!r) { deny(ch, g.credits < cc ? shortBy(g.credits, cc, '💰') : 'Ya conoces todos los vecinos'); return; } toast(`🗺️ Sector nuevo: ${sectorName(GAL.seed, r.sx, r.sy)} (${r.n} sistemas)`); ui.showStation(s); });
+    eb.append(pr, ch);
+    // PINTURAS de la galaxia
+    const pb = $('stPaints'), owned = save.crates.owned || [];
+    pb.innerHTML = '';
+    for (const P of GAL_PAINTS) {
+      const pal = PALETTES.find((x) => x.id === P.id), has = owned.includes(P.id);
+      const b2 = row(has ? ' on' : g.credits >= P.cost ? ' afford' : '', `<i class="paint-dot" style="background:${pal.hull};border-color:${pal.edge};box-shadow:0 0 8px ${pal.glow}"></i>`, pal.name, has ? 'Ya es tuya: ponla en el hangar (Estilo).' : 'Pintura para todas tus naves.', has ? '✔' : `${fmt(P.cost)} 💰`);
+      b2.dataset.paint = P.id;
+      b2.disabled = has;
+      tap(b2, () => { if (!buyPaint(save, P.id)) { deny(b2, shortBy(g.credits, P.cost, '💰')); return; } persist(); sfx.chest(); toast(`🎨 ${pal.name}`); ui.showStation(s); });
+      pb.append(b2);
+    }
   },
 
   // texto de un coste { credits, chatarra… }
@@ -2363,6 +2401,7 @@ export const ui = {
     const L = (save.settings.mapLayers ||= { obj: true, fac: true, evt: true, dng: true });
     const seen = known(GAL, g.visited);
     for (const id of radarSystems(save, GAL)) seen.add(id); // RADAR de tus puestos
+    for (const id of g.charted || []) if (GAL[id]) seen.add(id); // SONDAS y CARTAS
     const path = s.routeTo !== null ? route(GAL, s.sysId, s.routeTo) || [] : [];
     const onPath = (a, b2) => path.some((x, i) => i && ((path[i - 1] === a && x === b2) || (path[i - 1] === b2 && x === a)));
     // vista: por defecto, todo lo que conoces; el zoom y el arrastre la cambian
@@ -2397,6 +2436,10 @@ export const ui = {
     };
     const R = 9 * u;
     let svg = `<defs><marker id="gmArrow" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="4" markerHeight="4" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="#ffe600"/></marker></defs>`;
+    // NOMBRES DE SECTOR, al fondo (la galaxia no tiene fin: cada sector, el suyo)
+    const secs = new Map();
+    for (const a of known_) { const [sx, sy] = secOf(a); secs.set(`${sx},${sy}`, [sx, sy]); }
+    if (secs.size > 1) for (const [sx, sy] of secs.values()) svg += `<text class="gm-sector" x="${sx * 1000 + 500}" y="${sy * 1000 + 40}" text-anchor="middle" font-size="${15 * u}">${sectorName(GAL.seed, sx, sy)}</text>`;
     for (const a of known_) {
       for (const b2 of a.links) {
         if (b2 <= a.id || !seen.has(b2)) continue;
@@ -2513,6 +2556,8 @@ export const ui = {
     tap($('gmIn'), () => ui.gmZoom(0.7));
     tap($('gmOut'), () => ui.gmZoom(1 / 0.7));
     tap($('gmFit'), () => { ui.gmView = { ...ui.gmFit }; ui.showGalMap(ui.gmSel); });
+    // CENTRAR EN MÍ (también con doble toque en el mapa)
+    tap($('gmMe'), () => { const here = GAL[G.space?.sysId ?? 0]; if (!ui.gmView) return; ui.gmView = { ...ui.gmView, cx: here.x, cy: here.y }; ui.showGalMap(ui.gmSel); });
     svg.addEventListener('pointerdown', (e) => {
       pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
       const v = ui.gmView;
