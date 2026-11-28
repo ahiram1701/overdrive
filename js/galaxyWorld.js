@@ -59,7 +59,7 @@ export function tickWorld(save, gal, jumps) {
   }
   // …y una nueva, contra un sistema aliado que linda con los piratas (nunca ORIGEN)
   if (!w.war && jumps >= w.nextWar) {
-    const front = gal.filter((s) => s.id !== 0 && !s.hidden && own(save, s) !== 'pir' && !w.swarm?.systems.includes(s.id) && s.links.some((l) => own(save, gal[l]) === 'pir'));
+    const front = gal.filter((s) => s.id !== 0 && !s.hidden && !s.sec && own(save, s) !== 'pir' && !w.swarm?.systems.includes(s.id) && s.links.some((l) => own(save, gal[l]) === 'pir'));
     if (front.length) {
       const sys = rng.pick(front).id;
       w.war = { sys, until: jumps + WAR_TIME, kills: 0, need: WAR_KILLS };
@@ -70,7 +70,7 @@ export function tickWorld(save, gal, jumps) {
   // ESCASEZ: se acaba y, cada pocos saltos, sale otra (nunca del mineral que la estación ya tiene)
   if (w.shortage && jumps >= w.shortage.until) w.shortage = null;
   if (!w.shortage && jumps >= w.nextShort) {
-    const pool = gal.filter((s) => s.id !== 0 && !s.hidden && own(save, s) !== 'pir');
+    const pool = gal.filter((s) => s.id !== 0 && !s.hidden && !s.sec && own(save, s) !== 'pir');
     if (pool.length) {
       const sys = rng.pick(pool);
       const ore = rng.pick(Object.keys(ORE_NAME).filter((o) => o !== sys.ore));
@@ -81,7 +81,7 @@ export function tickWorld(save, gal, jumps) {
   }
   // ENJAMBRE: aparece en un sistema no pirata y se extiende a un vecino cada pocos saltos
   if (!w.swarm && jumps >= w.nextSwarm) {
-    const pool = gal.filter((s) => s.id !== 0 && !s.hidden && s.danger >= 2 && own(save, s) !== 'pir' && w.war?.sys !== s.id);
+    const pool = gal.filter((s) => s.id !== 0 && !s.hidden && !s.sec && s.danger >= 2 && own(save, s) !== 'pir' && w.war?.sys !== s.id);
     if (pool.length) {
       const src = rng.pick(pool).id;
       w.swarm = { systems: [src], nextSpread: jumps + SWARM_EVERY };

@@ -41,6 +41,7 @@ export const TIPS = {
     ['guia', 'Te han destruido. En dificultad PILOTO el remolque se paga y vuelves con medio casco: repara en la estación.'],
     ['guia', 'Tu carga quedó en tu 🪦 PECIO, donde caíste. Vuelve a por ella antes de 3 saltos o la saquearán. Si prefieres jugar tranquilo, en Ajustes → Galaxia puedes elegir RELAJADO.'],
   ],
+  sector: [['guia', 'La galaxia NO tiene fin. Cerca del borde de un sector aparece el siguiente: cada anillo más lejos de Origen es más peligroso… y lo paga todo mejor.']],
   worldEvent: [['guia', 'La galaxia está viva: ofensivas piratas y el enjambre avanzan con cada salto. Míralo en 🎒 → NOTICIAS.']],
 };
 export const TIP_KEYS = Object.keys(TIPS);

@@ -8,7 +8,7 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
-import { GALAXY_SEED, genGalaxy, canJump, jumpNeeded, route } from './galaxy.js';
+import { GALAXY_SEED, rebuildGalaxy, expandAround, isCore, canJump, jumpNeeded, route } from './galaxy.js';
 import { LORE, poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
 import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
@@ -38,17 +38,28 @@ const ORBIT_R = 160; // a esta distancia de la superficie aparece ORBITAR
 // LA GALAXIA de esta partida: cada partida nueva tiene su semilla (las empezadas antes conservan la de siempre).
 // Es siempre el mismo array (otros módulos lo importan): al cambiar de semilla se rellena de nuevo.
 export const GAL = [];
-export function useGalaxy(seed) {
-  if (GAL.length && GAL.seed === seed) return;
+// (la galaxia es INFINITA: al núcleo se le añaden los sectores que ya generaste, en el mismo orden)
+export function useGalaxy(seed, sectors = save.galaxy?.sectors || []) {
+  if (GAL.length && GAL.seed === seed && GAL.nSec === sectors.length) return;
   GAL.length = 0;
-  GAL.push(...genGalaxy(seed));
+  GAL.push(...rebuildGalaxy(seed, sectors));
   GAL.seed = seed;
+  GAL.nSec = sectors.length;
 }
 useGalaxy(save.galaxy?.seed ?? GALAXY_SEED);
+// al llegar cerca del borde de un sector, aparece el de al lado (y se guarda el orden)
+export function expandGalaxy(id) {
+  const g = save.galaxy;
+  const fresh = expandAround(GAL, GAL.seed, id);
+  if (!fresh.length) return 0;
+  g.sectors = [...(g.sectors || []), ...fresh];
+  GAL.nSec = g.sectors.length;
+  return fresh.length;
+}
 // CICLO+: tras el final de LA SEÑAL, una galaxia nueva cada vez más dura (y que paga más)
 export const galaxyCycle = () => save.galaxy?.cycle || 0;
 export const cycleOpen = () => !!save.story?.ending && cyclePiratesLeft() === 0;
-export const cyclePiratesLeft = () => piratesHeld(GAL, save.territory || {}).length;
+export const cyclePiratesLeft = () => piratesHeld(GAL.filter(isCore), save.territory || {}).length; // (el Ciclo+ mira el núcleo)
 const cycleK = () => 1 + 0.2 * galaxyCycle();
 
 const gal = () => save.galaxy;
@@ -152,6 +163,8 @@ export function newSpace() {
 // Construye el sistema `id`. Si vienes de `fromId`, apareces junto a la puerta que lleva de vuelta.
 function enterSystem(s, id, fromId) {
   const def = GAL[id];
+  // GALAXIA INFINITA: cerca del borde de un sector, se abre el siguiente
+  if (expandGalaxy(id) && fromId != null) { fx.notice('🌌 Más allá del borde: un sector nuevo en el mapa', '#7df9ff', 3); ui.showTip?.('sector'); }
   s.capsules = null; // (las cápsulas y los objetivos de contrato son de cada sistema)
   s.hitSpawned = {};
   if (def.hidden && fromId !== null && fromId !== undefined) { fx.banner(`🌀 ${def.name}`, 'sistema oculto: mineral oscuro, jefes y piratas de élite', '#c58cff', true, 3); progress('galHidden'); }
@@ -1715,7 +1728,7 @@ export function startCycle() {
   const g = gal();
   g.cycle = galaxyCycle() + 1;
   g.seed = G.debug ? GALAXY_SEED + g.cycle : (Math.random() * 2 ** 31) >>> 0;
-  Object.assign(g, { sys: 0, home: 0, visited: [0], missions: [], wreck: null, jumps: 0, wanted: 0, routeTo: null });
+  Object.assign(g, { sys: 0, home: 0, visited: [0], missions: [], wreck: null, jumps: 0, wanted: 0, routeTo: null, sectors: [] });
   save.territory = {};
   save.galaxyWorld = {};
   // lo guardado por sistema era de la galaxia anterior: jefes vencidos, planetas, mercados y puestos
@@ -1732,7 +1745,7 @@ export function startCycle() {
   }
   save.outposts = {};
   if (save.bounties) save.bounties.active = null;
-  useGalaxy(g.seed);
+  useGalaxy(g.seed, []);
   progress('galCycle', g.cycle);
   persist();
   return true;

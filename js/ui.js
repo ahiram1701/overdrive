@@ -16,7 +16,7 @@ import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
 import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { loreOf, allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
-import { canJump, jumpNeeded, known, route } from './galaxy.js';
+import { canJump, jumpNeeded, known, route, sectorName, secOf } from './galaxy.js';
 import { chapterLabel } from './story.js';
 import { world, WAR_TIME, oreMul } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
@@ -2422,7 +2422,7 @@ export const ui = {
       }
     } else {
       const rt = path.length > 1 ? `<small class="gm-route">🧭 Ruta a <b>${GAL[s.routeTo].name}</b>: ${path.length - 1} saltos · peaje ~${fmt(routeToll(GAL, path, jumpLvl))} 💰</small>` : '';
-      info.innerHTML = `${rt}<small>Estás en <b>${GAL[s.sysId].name}</b>. Has visitado ${g.visited.length} de ${GAL.length} sistemas · 🏳️ liberados ${liberatedCount(save.territory)}/${pirateSystemsTotal(GAL)}</small>
+      info.innerHTML = `${rt}<small>Estás en <b>${GAL[s.sysId].name}</b> · 🌌 ${sectorName(GAL.seed, ...secOf(GAL[s.sysId]))}. Has visitado ${g.visited.length} sistemas · ${1 + (g.sectors?.length || 0)} sectores descubiertos (la galaxia no tiene fin: cerca del borde aparece el siguiente) · 🏳️ liberados ${liberatedCount(save.territory)}/${pirateSystemsTotal(GAL)}</small>
         <small>Toca un sistema para ver qué hay y trazar la ruta · pellizca o usa ＋ － para acercar</small>`;
     }
     // LEYENDA
