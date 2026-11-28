@@ -2,7 +2,7 @@
 // - Puntos de interés (PdI) en cada sistema: se escanean volando cerca unos segundos -> ATLAS.
 // - Tablón de misiones en cada estación: caza, entrega, exploración y escolta.
 import { makeRng, hashString } from './rng.js';
-import { route } from './galaxy.js';
+import { route, jumpNeeded } from './galaxy.js';
 
 // ---------- Descubrimientos ----------
 export const POI_KINDS = {
@@ -93,7 +93,7 @@ export function boardFor(gal, sysId, seq, { jumpLvl = 0, discovered = {} } = {})
   const rng = makeRng(hashString(`board-${sysId}-${seq}`));
   const reach = gal.filter((s) => !s.hidden).filter((s) => {
     const r = route(gal, sysId, s.id);
-    return r && r.length - 1 <= 3 && Math.max(0, s.danger - 1) <= jumpLvl;
+    return r && r.length - 1 <= 3 && jumpNeeded(s) <= jumpLvl; // (la misma regla que al saltar: más allá del núcleo basta Mk 10)
   });
   const out = [];
   const tries = ['hunt', 'deliver', 'scan', 'escort', 'rescue', 'hit'];
