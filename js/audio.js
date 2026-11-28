@@ -344,7 +344,7 @@ function playEvent(e, t, spb) {
       break;
     case 'pad':
       // acorde con séptima: una sierra por nota, abierta con la intensidad
-      e.midis.forEach((m, i) => voice({ f: midiHz(m), t, dur: e.dur * spb, vol: 0.04, detune: [i % 2 ? 7 : -7], cutoff: bright * 0.6, attack: 0.08, release: 0.45, dest: duck, toVerb: 0.55, pan: (i - 1.5) * 0.25 }));
+      padChord(e.midis, t, e.dur * spb, bright * 0.6);
       break;
     case 'bass':
       // REESE: dos sierras desafinadas + un seno debajo, filtro que se cierra y saturación
@@ -369,6 +369,32 @@ function playEvent(e, t, spb) {
     default:
   }
 }
+// PAD: todo el acorde por UN filtro y UNA envolvente (antes, una cadena entera por nota: 4× los nodos)
+function padChord(midis, t, dur, cutoff) {
+  const g = ctx.createGain(), fl = ctx.createBiquadFilter(), sv = ctx.createGain(), end = t + dur, rel = 0.45;
+  fl.type = 'lowpass';
+  fl.frequency.value = cutoff;
+  fl.Q.value = 0.7;
+  const vol = 0.04 * Math.sqrt(midis.length);
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.linearRampToValueAtTime(vol, t + 0.08);
+  g.gain.setValueAtTime(vol, Math.max(t + 0.08, end - rel));
+  g.gain.exponentialRampToValueAtTime(0.0001, end + rel);
+  fl.connect(g).connect(duck);
+  sv.gain.value = 0.55;
+  g.connect(sv).connect(verb);
+  midis.forEach((m, i) => {
+    const o = ctx.createOscillator();
+    o.type = 'sawtooth';
+    o.frequency.setValueAtTime(midiHz(m), t);
+    o.detune.value = i % 2 ? 7 : -7;
+    o.connect(fl);
+    o.start(t);
+    o.stop(end + rel + 0.05);
+  });
+}
+// (para las pruebas: cuánto está agachado ahora el bajo por el bombo)
+export const duckLevel = () => (duck ? duck.gain.value : null);
 function sidechain(t, { depth, tau }) {
   const gn = duck.gain;
   if (gn.cancelAndHoldAtTime) gn.cancelAndHoldAtTime(t);

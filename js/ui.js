@@ -2869,6 +2869,8 @@ export const ui = {
   },
   showPecioHUD(on) {
     $('pecioHud').classList.toggle('hidden', !on);
+    // TWIN-STICK: esquive y habilidad en una columna junto al pulgar derecho (que apunta)
+    $('pecioHud').classList.toggle('twin', save.settings.pecioAuto !== true);
     if (on) { $('hud').classList.add('hidden'); $('arenaHud').classList.add('hidden'); guardBack(); }
   },
   updatePecioHUD() {

@@ -203,6 +203,10 @@ export const LAYOUTS = [
   { id: 'spikes', w: 3, from: 1, make: (t, rng, { set }) => { for (let r = 2; r < ROWS - 2; r += 2) for (let c = 1; c < COLS - 1; c++) if (rng.chance(0.55)) set(c, r, 'J'); } },
   { id: 'conveyor', w: 2, from: 2, make: (t, rng, { set }) => { for (let c = 1; c < COLS - 1; c++) { set(c, 2, '>'); set(c, ROWS - 3, '<'); } for (let r = 3; r < ROWS - 3; r++) { set(1, r, '^'); set(COLS - 2, r, 'v'); } } },
   { id: 'sweeper', w: 2, from: 3, sweep: true, make: (t, rng, { set }) => mirror4(set, [[1, 1]], '#') },
+  // FORMAS: una esquina (o un lado) entero es pared y la sala queda en L, en T o en U (la cruz central, libre)
+  { id: 'lshape', w: 2, make: (t, rng, { set }) => { const fx = rng.chance(0.5), fy = rng.chance(0.5); for (let c = 1; c <= 3; c++) for (let r = 1; r <= 4; r++) set(fx ? COLS - 1 - c : c, fy ? ROWS - 1 - r : r, '#'); } },
+  { id: 'tshape', w: 2, make: (t, rng, { set }) => { const fy = rng.chance(0.5); for (const side of [0, 1]) for (let c = 1; c <= 3; c++) for (let r = 1; r <= 3; r++) set(side ? COLS - 1 - c : c, fy ? ROWS - 1 - r : r, '#'); } },
+  { id: 'ushape', w: 1, make: (t, rng, { set }) => { for (let c = 2; c <= COLS - 3; c++) if (c !== MID_C) for (let r = 2; r <= 3; r++) set(c, r, '#'); } },
   { id: 'gauntlet', w: 1, from: 4, make: (t, rng, { set }) => { mirror4(set, [[2, 2], [2, 4]], '#'); for (let c = 1; c < COLS - 1; c++) if (c % 2) set(c, 3, 'J'); } },
 ];
 const TRAP_LAYOUTS = new Set(['minefield', 'electric', 'spikes', 'conveyor', 'sweeper', 'gauntlet']);
@@ -378,6 +382,10 @@ export function newRun(seed, ship = {}) {
 export const HEART_DROP = 0.4; // limpiar una sala: a veces suelta un ❤️
 export const DASH_SAFE = 0.14; // el dash te hace intocable solo este rato
 export const CHARGE_T = 1.6; // segundos de carga del Acumulador
+// RETROCESO de cada arma (casillas que te empuja cada disparo)
+export const RECOIL = { cannon: 0.14, charge: 0.12, blast: 0.05, spread: 0.03 };
+// PUNTO DÉBIL de los jefes: por la espalda reciben más
+export const WEAK_BACK = 1.6;
 export const roomOf = (s, id = s.at) => (s.rooms[id] ||= genRoom(s.floor, id));
 // lo de la partida que cambia cómo se genera cada planta (lo desbloqueado y la profundidad)
 function prepFloor(s, floor) {
@@ -592,15 +600,21 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   floorEffects(s, room, ev);
   if (s.over) return ev;
   if (interact(s, room, ev)) return ev;
-  // ACUMULADOR: se carga solo (quieto, el doble de rápido) y suelta un disparo ×3 que lo atraviesa todo
-  if (p.weapon === 'charge') p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * ((p.vel || 0) < 0.25 ? 2 : 1) * (p.boost > 0 ? 2 : 1));
+  // ACUMULADOR: en automático se carga solo (quieto, el doble de rápido) y suelta un disparo ×3 que lo atraviesa todo;
+  // con TWIN-STICK lo cargas TÚ manteniendo el disparo y sale al soltar (más carga, más daño: ×1 a ×3)
+  const holdCharge = twin && !input.auto && p.weapon === 'charge';
+  if (p.weapon === 'charge') {
+    if (holdCharge) { if (input.fire) p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * (p.boost > 0 ? 2 : 1)); } else p.chg = Math.min(CHARGE_T, (p.chg || 0) + dt * ((p.vel || 0) < 0.25 ? 2 : 1) * (p.boost > 0 ? 2 : 1));
+  }
   // DISPARO AUTOMÁTICO al más cercano que se vea
   p.fireCd -= dt;
-  if (p.weapon === 'charge' && (p.chg || 0) < CHARGE_T) p.fireCd = Math.max(p.fireCd, 0.01);
+  if (p.weapon === 'charge' && !holdCharge && (p.chg || 0) < CHARGE_T) p.fireCd = Math.max(p.fireCd, 0.01);
   if (p.fireCd <= 0) {
     // con TWIN-STICK disparas tú (hacia donde apuntas, con ayuda); si no, la nave dispara sola al más cercano
     let a = null;
-    if (twin && !input.auto) {
+    if (holdCharge) {
+      if (!input.fire && p.wasFire && (p.chg || 0) >= CHARGE_T * 0.3 && p.aimAng != null) a = assistAim(s, room, p.aimAng);
+    } else if (twin && !input.auto) {
       if (input.fire && p.aimAng != null) a = assistAim(s, room, p.aimAng);
     } else {
       const t = nearestTarget(s, room);
@@ -615,13 +629,18 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
         const charged = p.weapon === 'charge', big = p.weapon === 'cannon' || charged;
-        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * (big ? 9 : 13), vy: f.y * (big ? 9 : 13), dmg: charged ? p.dmg * 3 : p.dmg, life: big ? 1.6 : 1.2, pierce: p.weapon === 'pierce' || big, blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [], big, shard: p.weapon === 'shard' });
+        s.shots.push({ x: p.x + f.x * 0.35, y: p.y + f.y * 0.35, vx: f.x * (big ? 9 : 13), vy: f.y * (big ? 9 : 13), dmg: charged ? p.dmg * (holdCharge ? 1 + (2 * (p.chg || 0)) / CHARGE_T : 3) : p.dmg, life: big ? 1.6 : 1.2, pierce: p.weapon === 'pierce' || big, blast: p.weapon === 'blast', bounces: p.bounces || 0, hit: [], big, shard: p.weapon === 'shard' });
       }
       p.fireCd = 1 / (p.rate * (p.boost > 0 ? 2 : 1));
+      const power = p.weapon === 'charge' ? (p.chg || 0) / CHARGE_T : 0;
       if (p.weapon === 'charge') p.chg = 0;
-      ev.push({ type: 'fire', weapon: p.weapon, x: p.x, y: p.y, a });
+      // RETROCESO: los disparos gordos te empujan hacia atrás (el cañón y el acumulador se notan)
+      const kick = RECOIL[p.weapon] || 0;
+      if (kick) { const f = fwd(a); moveCircle(room, p, -f.x * kick * (1 + power), -f.y * kick * (1 + power)); }
+      ev.push({ type: 'fire', weapon: p.weapon, x: p.x, y: p.y, a, power });
     } else p.fireCd = 0;
   }
+  p.wasFire = !!input.fire;
   updateShots(s, room, dt, ev);
   // ÓRBITA: orbes que giran a tu alrededor y dañan lo que tocan
   if (p.orbs) {
@@ -862,7 +881,10 @@ function updateShots(s, room, dt, ev) {
       else {
         const p = s.player;
         const crit = s.rng.chance(p.crit ?? 0.08); // CRÍTICO: el doble (y se ve en amarillo)
-        hitEnemy(s, room, e, crit ? b.dmg * 2 : b.dmg, ev, crit);
+        // JEFES: su espalda es su PUNTO DÉBIL (la bala va en el mismo sentido en que mira)
+        const weak = e.kind === 'boss' && (b.vx * f.x + b.vy * f.y) / sp > 0.35;
+        if (weak) ev.push({ type: 'weakSpot', x: e.x, y: e.y });
+        hitEnemy(s, room, e, (crit ? b.dmg * 2 : b.dmg) * (weak ? WEAK_BACK : 1), ev, crit || weak);
         if (p.burn && e.alive) e.burnT = 3; // QUEMA (Reactor, afijo ígneo o sinergia 🔥)
         if (p.stunChance && e.alive && s.rng.chance(p.stunChance)) { e.stun = Math.max(e.stun, e.kind === 'boss' ? 0.25 : 0.6); ev.push({ type: 'frost', x: e.x, y: e.y }); }
         if (p.vamp && p.hp < p.max && s.rng.chance(p.vamp)) { p.hp++; ev.push({ type: 'leech' }); }
