@@ -142,5 +142,8 @@ export async function botInPage({ seconds, god = false, until = null, ability = 
 export async function stTab(page, tab) {
   const skip = page.locator('#dialog:not(.hidden) .dl-skip');
   if (await skip.count()) await skip.click();
+  // (un diálogo de una sola línea no tiene "saltar": se cierra con su botón)
+  const ok = page.locator('#dialog:not(.hidden) button').last();
+  if (await ok.count()) await ok.click();
   await page.locator(`#stTabBar [data-st-tab="${tab}"]`).click();
 }

@@ -58,7 +58,12 @@ test('estación: ZARPAR siempre a la vista; REPARAR aparece con el casco dañado
   await expect(page.locator('#btnIncursion')).toBeInViewport();
   await expect(page.locator('#btnSell')).toBeHidden();
   await expect(page.locator('#btnUndock')).toBeInViewport();
-  for (const b of await page.locator('#stTabBar button').all()) expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  const vw = page.viewportSize().width;
+  for (const b of await page.locator('#stTabBar button').all()) {
+    const bb = await b.boundingBox();
+    expect(bb.height).toBeGreaterThanOrEqual(44);
+    expect(bb.x + bb.width).toBeLessThanOrEqual(vw); // las 6 pestañas caben (ninguna se corta)
+  }
   // no te alcanza: tiembla y avisa del motivo
   await page.evaluate(() => { window.__save.galaxy.credits = 0; });
   await page.locator('#stTabBar [data-st-tab="ship"]').click();

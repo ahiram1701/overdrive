@@ -14,11 +14,13 @@ import { RARITY, CARDS, CARD_BY_ID, SHIPS, SYNERGIES, offerCards, availableCards
 import { newRun, pickCard, resume, effSpeed, useAbility, progress, expChoose, expEventChoice, expRest, racePosition, expAbandon } from './game.js';
 import { ACTS, ROWS, NODE, nodeById, canChoose, RELICS } from './expedition.js';
 import { CUPS, MEDALS, isCupOpen, ghostAt, RIVALS, ttTargets } from './race.js';
-import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
+import { cyclePiratesLeft, startCycle, cycleOpen, galaxyCycle, startCampaign, campaignNow, newSpace, dock, undock, sellAll, buyUpgrade, repair, spaceBoost, leaveSpace, spaceStats, spaceSurge, startIncursion, incursionRecord, GAL, stationPrices, buyPrice, buyOre, setRoute, boardNow, acceptMission, abandonMission, atlasCount, spaceMissile, spaceAct, planetOf, orbitVisit, planetSell, leaveOrbit, sysOwner, bountyBoardNow, acceptBounty, abandonBounty, buyFactionItem, FACTION_SHOP, stationUpCost, stationHere, storyChoose, storyIntro, snapThrottle, storyChapter, marketPrice, marketValue, missileMax, missileRefillCost, refillMissiles, itemDisc, useItem, CHASSIS, buyChassis, useChassis, foundOutpost, canFound, FOUND_COST, threat, shipPower, bribeWanted, bribeCost, wantedStars } from './spaceGame.js';
 import { loreOf, allPois, POI_KINDS, ATLAS_PERKS, MISSION_KINDS, MAX_ACTIVE } from './galaxyMissions.js';
 import { canJump, jumpNeeded, known, route, sectorName, secOf } from './galaxy.js';
+import { sysLore } from './galaxyLore.js';
+import { fleetOf, freighterCost, freighterUpCost, buyFreighter, upgradeFreighter, insureFreighter, routeFreighter, tripIncome, lossChance, insureCost, INSURE_TRIPS, CREW, CREW_KEYS, crewCost, crewWage, crewBonus, hireCrew, SHIP_INSURE, insureShip } from './fleet.js';
 import { chapterLabel } from './story.js';
-import { world, WAR_TIME, oreMul } from './galaxyWorld.js';
+import { world, WAR_TIME, oreMul, RIVALS as GAL_RIVALS } from './galaxyWorld.js';
 import { TIPS, tipSeen, markTip, resetTips } from './tips.js';
 import { threatTier } from './galaxyThreat.js';
 import { streakWord, STREAK, SURGE } from './galaxyCombat.js';
@@ -1102,7 +1104,7 @@ export const ui = {
       const lvl = g.up[id] || 0, c = spUpCost(id, lvl);
       const row = el('button', `item${c === null ? ' sel' : g.credits < c ? ' locked' : ''}`);
       row.dataset.up = id;
-      row.innerHTML = `<span class="i-icon">${u.icon}</span><span class="i-body"><b>${u.name} · ${lvl >= BASE_UP ? `Mk ${lvl}` : lvl}/${MAX_UP}</b><small>${u.desc}</small></span>
+      row.innerHTML = `<span class="i-icon">${u.icon}</span><span class="i-body"><b>${u.name} · ${lvl >= BASE_UP ? `Mk ${lvl}${lvl >= MAX_UP ? ' ∞' : ''}` : `${lvl}/${BASE_UP}`}</b><small>${u.desc}</small></span>
         <span class="i-act">${c === null ? '✔ MAX' : `💰 ${fmt(c)}`}</span>`;
       tap(row, () => {
         if (!buyUpgrade(id)) { fx.vibe(40); return; }
@@ -1796,8 +1798,13 @@ export const ui = {
     const g = save.galaxy, st = spaceStats();
     const sd = GAL[s.sysId];
     ui.showTip('dock');
+    const stn = stationHere(s.sysId);
     setText('stTitle', s.atOutpost && s.outpost ? `🏗️ ${s.outpost.name}` : `🛰️ ESTACIÓN ${sd.name}`);
+    // (arriba, una sola línea: tipo y ventaja; la historia del sistema, en el Mercado)
+    $('stLore').innerHTML = s.atOutpost ? '' : `${stn.icon} <b>${stn.title}</b> · ${stn.perk}`;
+    $('stHist').textContent = s.atOutpost ? '' : `📜 ${sysLore(sd, GAL.seed)}`;
     ui.renderOutpost(s);
+    ui.renderFleet(s);
     // INCURSIÓN DEL DÍA: tu marca de hoy
     const ir = incursionRecord();
     const im = ir?.medal && INC_MEDALS.find((m) => m.id === ir.medal);
@@ -1827,7 +1834,7 @@ export const ui = {
       const lvl = g.up[id] || 0, c = stationUpCost(id, lvl);
       const mats = upgradeMats(lvl), okM = Object.entries(mats).every(([k, n]) => matOf(save, k) >= n);
       const b = el('button', `st-up${c !== null && g.credits >= c && okM ? ' afford' : ''}`, `<span class="su-icon">${u.icon}</span>
-        <span class="su-body"><b>${u.name}${lvl >= BASE_UP ? ` <em class="mk">Mk ${Math.min(lvl + 1, MAX_UP)}</em>` : ''}</b><small>${u.desc}</small><i>${ui.upDots(lvl)}</i>${c !== null && lvl >= BASE_UP ? `<small class="cr-cost">+ ${ui.costText(mats)}</small>` : ''}</span>
+        <span class="su-body"><b>${u.name}${lvl >= BASE_UP ? ` <em class="mk">Mk ${lvl + 1}${lvl + 1 > MAX_UP ? ' ∞' : ''}</em>` : ''}</b><small>${u.desc}</small><i>${ui.upDots(lvl)}</i>${c !== null && lvl >= BASE_UP ? `<small class="cr-cost">+ ${ui.costText(mats)}</small>` : ''}</span>
         <span class="su-cost">${c === null ? 'MÁX' : `${fmt(c)} 💰`}</span>`);
       b.dataset.up = id;
       b.disabled = c === null;
@@ -2031,13 +2038,63 @@ export const ui = {
     }
   },
 
+  // FLOTA: cargueros (con su ruta, nivel y seguro), tripulación y seguro de tu nave. Todo escala sin techo.
+  renderFleet(s) {
+    const g = save.galaxy, F = fleetOf(save), here = GAL[s.sysId];
+    const row = (cls, icon, title, body, cost, id) => {
+      const b = el('button', `st-up${cls}`, `<span class="su-icon">${icon}</span><span class="su-body"><b>${title}</b><small>${body}</small></span><span class="su-cost">${cost}</span>`);
+      if (id) b.id = id;
+      return b;
+    };
+    const box = $('stFleet');
+    box.innerHTML = '';
+    for (const f of F.ships) {
+      const to = GAL[f.to], d = to?.danger ?? 0, up = freighterUpCost(f.lvl);
+      const b = row(g.credits >= up ? ' afford' : '', '🚢', `${f.name} <em>nv ${f.lvl}</em>`,
+        `Ruta a ${to?.name || '?'} (peligro ${d}) · +${fmt(tripIncome(f.lvl, d))} 💰/viaje · riesgo ${Math.round(lossChance(f.lvl, d) * 100)} %${f.ins ? ` · 📄 asegurado ${f.ins} viajes` : ''}${f.bank ? ` · 💰 ${fmt(f.bank)} por cobrar` : ''}`, `MEJORAR<br>${fmt(up)} 💰`);
+      b.dataset.freighter = f.id;
+      tap(b, () => { if (!upgradeFreighter(save, f.id)) { deny(b, shortBy(g.credits, up, '💰')); return; } persist(); sfx.chest(); toast(`🚢 ${f.name} nivel ${f.lvl}`); ui.showStation(s); });
+      box.append(b);
+      const acts = el('div', 'op-store');
+      const rt = el('button', 'btn ghost', f.to === s.sysId ? '📍 RUTA AQUÍ' : `📍 RUTA A ${here.name}`);
+      rt.disabled = f.to === s.sysId;
+      tap(rt, () => { routeFreighter(save, f.id, s.sysId); persist(); toast(`🚢 ${f.name} comerciará con ${here.name}`); ui.showStation(s); });
+      const ic = insureCost(f), ins = el('button', 'btn ghost', `📄 SEGURO ${INSURE_TRIPS} viajes · ${fmt(ic)} 💰`);
+      tap(ins, () => { if (!insureFreighter(save, f.id)) { deny(ins, shortBy(g.credits, ic, '💰')); return; } persist(); toast(`📄 ${f.name} asegurado`); ui.showStation(s); });
+      acts.append(rt, ins);
+      box.append(acts);
+    }
+    const nc = freighterCost(F.ships.length);
+    const buy = row(g.credits >= nc ? ' afford' : '', '➕', F.ships.length ? 'Otro carguero' : 'Tu primer carguero', `Comercia solo con ${here.name} (cámbiale la ruta cuando quieras): lejos y peligroso paga más, pero lo pueden hundir.`, `${fmt(nc)} 💰`, 'btnBuyFreighter');
+    tap(buy, () => { const f = buyFreighter(save, s.sysId); if (!f) { deny(buy, shortBy(g.credits, nc, '💰')); return; } persist(); sfx.chest(); toast(`🚢 ¡${f.name} es tuyo!`); ui.showStation(s); });
+    box.append(buy);
+    // TRIPULACIÓN
+    const cb = $('stCrew');
+    cb.innerHTML = '';
+    for (const k of CREW_KEYS) {
+      const C = CREW[k], l = F.crew[k] || 0, c = crewCost(l);
+      const now = Math.round(crewBonus(l, C.per) * 100), next = Math.round(crewBonus(l + 1, C.per) * 100);
+      const b = row(g.credits >= c ? ' afford' : '', C.icon, `${C.name} ${l ? `<em>nv ${l}</em>` : ''}`, `${C.desc}: +${now} % → +${next} %${l ? ` · sueldo ${crewWage(l)} 💰/salto` : ''}`, `${l ? 'SUBIR' : 'CONTRATAR'}<br>${fmt(c)} 💰`);
+      b.dataset.crew = k;
+      tap(b, () => { if (!hireCrew(save, k)) { deny(b, shortBy(g.credits, c, '💰')); return; } persist(); sfx.chest(); toast(`${C.icon} ${C.name} nivel ${F.crew[k]}`); ui.showStation(s); });
+      cb.append(b);
+    }
+    if (F.crew.unpaid) cb.append(el('small', 'st-warn', '⚠️ El último salto no pudiste pagar los sueldos: trabajan sin ganas (sin bonus).'));
+    // SEGURO de tu nave
+    const ib = $('stInsure'), icost = SHIP_INSURE.cost(here.danger);
+    ib.innerHTML = '';
+    const b = row(g.credits >= icost ? ' afford' : '', '📄', `Póliza de ${SHIP_INSURE.trips} saltos`, `Si te derriban, el remolque cuesta la mitad.${F.insure ? ` Te quedan ${F.insure} saltos.` : ''}`, `${fmt(icost)} 💰`, 'btnInsure');
+    tap(b, () => { if (!insureShip(save, here.danger)) { deny(b, shortBy(g.credits, icost, '💰')); return; } persist(); toast('📄 Nave asegurada'); ui.showStation(s); });
+    ib.append(b);
+  },
+
   // texto de un coste { credits, chatarra… }
   costText(c) {
     return Object.entries(c).map(([k, n]) => (k === 'credits' ? `${fmt(n)} 💰` : `${n} ${MATS[k].icon}`)).join(' · ');
   },
   // puntos de nivel de una mejora: ● normales, ◆ los Mk 6-10
   upDots(lvl) {
-    return Array.from({ length: MAX_UP }, (_, i) => (i < BASE_UP ? (i < lvl ? '●' : '○') : `<b class="mk${i < lvl ? ' on' : ''}">◆</b>`)).join('');
+    return Array.from({ length: MAX_UP }, (_, i) => (i < BASE_UP ? (i < lvl ? '●' : '○') : `<b class="mk${i < lvl ? ' on' : ''}">◆</b>`)).join('') + (lvl > MAX_UP ? ` <b class="mk on">∞+${lvl - MAX_UP}</b>` : '');
   },
 
   // TALLER de fabricación: materiales, huecos montados y recetas (créditos + materiales)
@@ -2258,6 +2315,9 @@ export const ui = {
       if (w.swarm) rows.push(`<div class="gi-mis swarm"><span>🐝</span><div><b>Enjambre en ${w.swarm.systems.length} sistema${w.swarm.systems.length > 1 ? 's' : ''}</b><small>${w.swarm.systems.map((id) => GAL[id].name).join(' · ')} · se extiende en ${Math.max(0, w.swarm.nextSpread - g.jumps)} saltos</small></div></div>`);
       if (!rows.length) rows.push(`<small>Todo en calma… por ahora. Cada pocos saltos los piratas lanzan una ofensiva (tienes ${WAR_TIME} saltos para defenderla) y el enjambre busca nuevos sistemas.</small>`);
       rows.push(`<div class="gi-block"><h3>📰 Titulares</h3><div class="gi-news">${w.news.length ? w.news.map((n) => `<div><small>salto ${n.j}</small><span>${n.text}</span></div>`).join('') : '<small>Sin noticias todavía.</small>'}</div></div>`);
+      // CAPITANES RIVALES: dónde andan y a qué nivel (si coincidís en un sistema, los verás volar)
+      const rv = GAL_RIVALS.map((R) => ({ R, rs: w.rivals?.[R.id] })).filter((x) => x.rs);
+      if (rv.length) rows.push(`<div class="gi-block"><h3>⭐ Capitanes rivales</h3><div class="gi-news">${rv.map(({ R, rs }) => `<div><small>nv ${rs.lvl}</small><span>${R.name} · ${{ liga: '🔵 Liga', coal: '🟠 Coalición', pir: '🏴‍☠️ pirata' }[R.f]} · en ${GAL[rs.sys]?.name || '?'}</span></div>`).join('')}</div></div>`);
       rows.push(`<small>🛡️ Sistemas defendidos: ${w.saved} · ✨ enjambres exterminados: ${w.wiped}</small>`);
       body.innerHTML = rows.join('');
     } else {

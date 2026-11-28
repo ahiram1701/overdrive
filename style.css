@@ -1228,7 +1228,12 @@ body.in-settings #hud, body.in-settings #spaceHud, body.in-settings #arenaHud, b
 #station .st-top { position: sticky; top: 0; z-index: 3; width: min(440px, 100%); padding: calc(env(safe-area-inset-top, 0px) + 8px) 0 8px; background: linear-gradient(180deg, var(--bg) 85%, transparent); display: flex; flex-direction: column; align-items: center; gap: 4px; }
 #station .st-top .st-title, #station .st-top .gems { margin: 0; }
 /* pestañas de la estación */
-.dock-tabs { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; width: 100%; }
+.st-lore { margin: 2px 0 6px; font-size: var(--fs-sm); color: var(--muted); line-height: 1.35; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-hist { margin: 0 0 8px; font-size: var(--fs-sm); color: var(--muted); line-height: 1.4; font-style: italic; }
+.st-lore b { color: var(--fg); }
+.dock-tabs { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 3px; width: 100%; }
+.dock-tabs button { min-width: 0; padding: 0 1px; overflow: hidden; }
+.dock-tabs button small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dock-tabs button { min-height: 48px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; border-radius: var(--r-1); border: 1px solid rgba(255,255,255,.2); background: rgba(0,0,0,.45); color: var(--fg); font: 800 18px var(--font); }
 .dock-tabs button small { font: 800 var(--fs-xs) var(--font); letter-spacing: .02em; color: var(--muted); }
 .dock-tabs button.on { border-color: var(--cyan); background: rgba(0, 229, 255, .14); box-shadow: 0 0 10px rgba(0, 229, 255, .35); }
@@ -1357,3 +1362,4 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 /* HUD de Galaxia: escudo y casco con su número */
 .sh-cargo b { min-width: 30px; text-align: right; font-size: var(--fs-xs); }
 .sh-cargo .sh-bar { flex: 1; }
+.st-warn { display: block; margin-top: 6px; color: var(--danger); font-weight: 800; }

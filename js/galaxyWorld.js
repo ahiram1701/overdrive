@@ -19,6 +19,19 @@ export const SHORT_FIRST = 3;
 export const SHORT_EVERY = 7;
 export const SHORT_TIME = 6;
 export const SHORT_MUL = 2;
+// LA GUERRA FRÍA: Liga y Coalición se disputan los sistemas de su frontera (sale en las noticias)
+export const FRONT_FIRST = 8;
+export const FRONT_EVERY = 9;
+// CAPITANES RIVALES: pilotos con nombre que comercian, cazan y suben de nivel mientras tú juegas
+export const RIVALS = [
+  { id: 'vega', name: 'Capitana Vega', f: 'liga', style: 'trade' },
+  { id: 'kael', name: 'Kael el Rojo', f: 'pir', style: 'hunt' },
+  { id: 'orsa', name: 'Orsa Brannigan', f: 'coal', style: 'hunt' },
+  { id: 'ixe', name: 'Ixe-7', f: 'coal', style: 'explore' },
+  { id: 'nadia', name: 'Nadia Solís', f: 'liga', style: 'explore' },
+  { id: 'dax', name: 'Dax "Chatarra"', f: 'pir', style: 'trade' },
+];
+const FNAME = { liga: 'la Liga', coal: 'la Coalición', pir: 'los piratas' };
 const ORE_NAME = { iron: '⛓️ hierro', crystal: '💎 cristal', plasma: '🔥 plasma', dark: '🌑 materia oscura' };
 const NEWS_MAX = 8;
 
@@ -34,6 +47,8 @@ export const world = (save) => {
   w.nextSwarm ??= SWARM_FIRST;
   w.shortage ??= null;
   w.nextShort ??= SHORT_FIRST;
+  w.nextFront ??= FRONT_FIRST;
+  w.rivals ||= {};
   return w;
 };
 // dueños con los sucesos: lo que perdiste en una ofensiva es pirata (hasta que lo liberes otra vez)
@@ -78,6 +93,32 @@ export function tickWorld(save, gal, jumps) {
       say(`📈 Escasez de ${ORE_NAME[ore]} en ${sys.name}: lo pagan ×${SHORT_MUL} durante ${SHORT_TIME} saltos`);
     }
     w.nextShort = jumps + SHORT_EVERY;
+  }
+  // FRONTERA: Liga y Coalición se quitan un sistema fronterizo (nunca uno que liberaste tú ni ORIGEN)
+  if (jumps >= w.nextFront) {
+    const frng = makeRng(hashString(`front-${jumps}`)); // (su propio azar: no cambia los otros sucesos)
+    const front = gal.filter((s) => s.id !== 0 && !s.hidden && !save.territory[s.id] && w.war?.sys !== s.id && ['liga', 'coal'].includes(own(save, s))
+      && s.links.some((l) => { const o = own(save, gal[l]); return o !== own(save, s) && (o === 'liga' || o === 'coal'); }));
+    if (front.length) {
+      const sys = frng.pick(front), was = own(save, sys), now = was === 'liga' ? 'coal' : 'liga';
+      w.owners[sys.id] = now;
+      say(`⚔️ ${FNAME[now][0].toUpperCase()}${FNAME[now].slice(1)} arrebata ${sys.name} a ${FNAME[was]}`);
+    }
+    w.nextFront = jumps + FRONT_EVERY;
+  }
+  // RIVALES: cada salto, uno de ellos hace algo (y sube de nivel con el tiempo)
+  {
+    const rr = makeRng(hashString(`rival-${jumps}`));
+    const R = RIVALS[jumps % RIVALS.length], st = (w.rivals[R.id] ||= { lvl: 1, sys: 0, wealth: 0, rel: 0 });
+    const here = gal[st.sys] || gal[0];
+    const next = here.links.length ? gal[rr.pick(here.links)] : here;
+    if (!next.hidden) st.sys = next.id;
+    st.wealth += 200 + 150 * st.lvl;
+    if (rr.next() < 0.35) {
+      const t = R.style === 'trade' ? `💰 ${R.name} cierra un buen trato en ${next.name}` : R.style === 'hunt' ? `🎯 ${R.name} derriba a un pirata cerca de ${next.name}` : `🔭 ${R.name} explora más allá de ${next.name}`;
+      news(w, jumps, t);
+    }
+    if (st.wealth > 2500 * st.lvl) { st.lvl++; st.wealth = 0; news(w, jumps, `⭐ ${R.name} sube a nivel ${st.lvl}`); }
   }
   // ENJAMBRE: aparece en un sistema no pirata y se extiende a un vecino cada pocos saltos
   if (!w.swarm && jumps >= w.nextSwarm) {
