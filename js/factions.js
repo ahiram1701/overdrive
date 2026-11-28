@@ -16,6 +16,12 @@ export function ownerOf(sys, territory = {}) {
   if (territory[sys.id]) return territory[sys.id];
   if (sys.id === 0) return 'coal';
   const r = makeRng(hashString(`own-${sys.id}`)).next();
+  // SECTORES LEJANOS: por el peligro serían todos piratas; ahí hay de todo (más piratas cuanto más lejos)
+  if (sys.sec) {
+    const ring = Math.max(Math.abs(sys.sec[0]), Math.abs(sys.sec[1]));
+    const pir = Math.min(0.6, 0.18 + 0.07 * ring);
+    return r < pir ? 'pir' : r < pir + (1 - pir) / 2 ? 'liga' : 'coal';
+  }
   if (sys.danger >= 5 || (sys.danger === 4 && r < 0.3)) return 'pir';
   return r < 0.5 ? 'liga' : 'coal';
 }

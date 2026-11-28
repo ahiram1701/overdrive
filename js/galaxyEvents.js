@@ -104,12 +104,19 @@ const TYPES = [
   { type: 'Mundo volcánico', desc: 'Ríos de lava y una noche que nunca es oscura.' },
   { type: 'Mundo cristalino', desc: 'Montañas de cuarzo que convierten la luz en arcoíris.' },
   { type: 'Mundo de tormentas', desc: 'Rayos sin parar: las estaciones viven bajo tierra.' },
+  { type: 'Mundo anillado', desc: 'Sus anillos de hielo se ven desde tres sistemas.' },
+  { type: 'Mundo muerto', desc: 'Ciudades vacías bajo un cielo de ceniza. Algo pasó aquí.' },
+  { type: 'Mundo jardín', desc: 'Lo terraformaron hace siglos: lagos, bosques y mansiones de millonarios.' },
+  { type: 'Mundo de hongos', desc: 'Bosques de setas gigantes que brillan de noche.' },
+  { type: 'Mundo océano ácido', desc: 'Mares verdes que disuelven el metal. Las plataformas flotan sobre pilotes de cristal.' },
+  { type: 'Planeta errante', desc: 'Sin estrella, a la deriva. Vive del calor de su núcleo.' },
 ];
 const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI'];
 
 export function planetInfo(sysId, idx, sysName, danger) {
   const rng = makeRng(hashString(`pl-${sysId}-${idx}`));
-  const t = TYPES[idx % TYPES.length];
+  // (el tipo, por semilla: cada sistema tiene sus mundos, no siempre "I = oceánico")
+  const t = TYPES[hashString(`pltype-${sysId}-${idx}`) % TYPES.length];
   const ores = Object.keys(ORES);
   return {
     key: `${sysId}-${idx}`, name: `${sysName} ${ROMAN[idx] || idx + 1}`, ...t,

@@ -17,6 +17,7 @@ import { POI_KINDS, SCAN_TIME } from './galaxyMissions.js';
 import { makeRng, hashString } from './rng.js';
 import { EVENTS } from './galaxyEvents.js';
 import { stalkerVisible, INHIBIT_R } from './galaxyTactics.js';
+import { TRAFFIC_KINDS } from './galaxyTraffic.js';
 
 // NEBULOSAS: nubes de fondo por sistema, con el color de su estrella. Se pintan una vez en canvas
 // pequeños y luego solo se estiran (barato en el móvil).
@@ -368,6 +369,21 @@ export function renderSpace(dt) {
   }
 
   // PIRATAS: mallas 3D de verdad, con su barra de vida
+  // TRÁFICO: cargueros, mineros, patrullas y contrabandistas (con su nombre de cerca)
+  for (const n of s.traffic || []) {
+    if (n.away > 0) continue;
+    const p = project(cam, n.pos, 1);
+    if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;
+    const K = TRAFFIC_KINDS[n.kind], d = dist(n.pos, sh.pos);
+    draws.push({ z: p.z, fn: () => {
+      drawMesh3D(ctx, cam, K.mesh, n.pos, n.yaw, 0, K.size, K.pal, false);
+      if (d < 600) { ctx.fillStyle = K.pal.edge; ctx.font = 'italic 900 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`${K.icon} ${n.name}`, p.x, p.y - (p.s * K.size * 2.4 + 10)); }
+    } });
+  }
+  for (const tr of s.tracers || []) {
+    const a = project(cam, tr.from, 1), b = project(cam, tr.to, 1);
+    if (a && b) draws.push({ z: Math.min(a.z, b.z), fn: () => { ctx.strokeStyle = `rgba(125,249,255,${Math.min(1, tr.t * 7)})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); } });
+  }
   for (const pr of s.pirates) {
     const p = project(cam, pr.pos, 1);
     if (!p || p.x < -80 || p.x > W + 80 || p.y < -80 || p.y > H + 80) continue;

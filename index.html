@@ -335,13 +335,15 @@
   <section id="station" class="overlay hidden">
     <div class="st-top">
       <h2 class="st-title" id="stTitle">🛰️ ESTACIÓN ORIGEN</h2>
+      <p class="st-lore" id="stLore"></p>
       <p class="gems">💰 <b id="stCredits">0</b> créditos <span id="stShip" class="st-ship"></span></p>
       <div class="dock-tabs" id="stTabBar" role="tablist" aria-label="Secciones de la estación">
-        <button role="tab" data-st-tab="market">🛒<small>Mercado</small></button><button role="tab" data-st-tab="ship">🔧<small>Nave</small></button><button role="tab" data-st-tab="craft">⚙️<small>Fabricar</small></button><button role="tab" data-st-tab="jobs">📋<small>Trabajos</small></button><button role="tab" data-st-tab="faction">🏳️<small>Facción</small></button>
+        <button role="tab" data-st-tab="market">🛒<small>Mercado</small></button><button role="tab" data-st-tab="ship">🔧<small>Nave</small></button><button role="tab" data-st-tab="craft">⚙️<small>Fabricar</small></button><button role="tab" data-st-tab="jobs">📋<small>Trabajos</small></button><button role="tab" data-st-tab="faction">🏳️<small>Facción</small></button><button role="tab" data-st-tab="fleet">🚢<small>Flota</small></button>
       </div>
     </div>
     <div class="st-block" id="stSecMarket" data-tab="market">
       <h3>🛒 Mercado</h3>
+      <p class="st-hist" id="stHist"></p>
       <div id="stCargo" class="st-cargo"></div>
       <button class="btn" id="btnSell">VENDER TODO</button>
       <div id="stBuy" class="st-buy"></div>
@@ -381,6 +383,18 @@
     </div>
     <div class="st-block" id="stSecFaction" data-tab="faction"><div id="stFaction"></div></div>
     <div class="st-block" id="stOutpost" data-tab="faction"></div>
+    <div class="st-block" id="stSecFleet" data-tab="fleet">
+      <h3>🚢 Cargueros <small>comercian solos: un viaje por cada salto tuyo</small></h3>
+      <div id="stFleet" class="st-ups"></div>
+    </div>
+    <div class="st-block" data-tab="fleet">
+      <h3>🧑‍✈️ Tripulación <small>sube sin fin · cobran por salto</small></h3>
+      <div id="stCrew" class="st-ups"></div>
+    </div>
+    <div class="st-block" data-tab="fleet">
+      <h3>📄 Seguro de tu nave</h3>
+      <div id="stInsure" class="st-ups"></div>
+    </div>
     <div class="st-links">
       <button class="btn ghost" id="btnAtlas">📖 ATLAS</button>
       <button class="btn ghost" id="btnSpaceMenu">SALIR AL MENÚ</button>

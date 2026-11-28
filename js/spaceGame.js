@@ -8,6 +8,9 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
+import { stationOf } from './galaxyLore.js';
+import { spawnTraffic, updateTraffic, rumor } from './galaxyTraffic.js';
+import { tickFleet, collectFleet, payCrew, crewMul, fleetOf, shipInsured, SHIP_INSURE } from './fleet.js';
 import { GALAXY_SEED, rebuildGalaxy, expandAround, isCore, canJump, jumpNeeded, route } from './galaxy.js';
 import { LORE, poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
 import { addXp } from './progress.js';
@@ -17,7 +20,7 @@ import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { chipBonus, genChip, addChip, CHIP_TIERS, chipText, GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { killValue, gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
-import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim } from './galaxyWorld.js';
+import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim, RIVALS } from './galaxyWorld.js';
 import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST, OUTPOST_CAP } from './outposts.js';
 import { priceDrift, unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
@@ -78,6 +81,11 @@ const stats = () => {
 };
 const calcStats = () => {
   const st = shipStats(gal().up, save.ship, gal().chassis);
+  // TRIPULACIÓN: piloto, artillera e ingeniero
+  const cp = crewMul(save, 'speed');
+  st.speed *= cp; st.turn *= cp;
+  st.dmg *= crewMul(save, 'dmg');
+  st.regen *= crewMul(save, 'regen');
   // TALENTOS de la galaxia
   if (hasTalent(save, 'g1')) st.cargo += 10;
   if (hasTalent(save, 'g5')) st.shield += 20;
@@ -107,6 +115,8 @@ const fmtK = (n) => (n >= 1000 ? `${(n / 1000).toFixed(1)}K` : String(n));
 // AMENAZA: los piratas se refuerzan con el PODER de tu nave (ver galaxyThreat.js)
 export const shipPower = () => power(stats(), gearDpsK(save, gal().up.missile || 0));
 export const threat = () => threatOf(shipPower()) * (1 + 0.25 * galaxyCycle());
+// la ESTACIÓN de un sistema: su nombre y su tipo (y lo que eso cambia al vender, comprar, reparar y mejorar)
+export const stationHere = (id = S()?.sysId ?? 0) => stationOf(GAL[id], sysOwner(id), GAL.seed);
 export const sysOwner = (id = S()?.sysId ?? 0) => ownerOf(GAL[id], worldTerritory(save)); // con lo perdido en las ofensivas
 const repBonus = (id) => repLevel(repOf(save, sysOwner(id)));
 const B = () => { save.bounties.done ||= {}; return save.bounties; };
@@ -141,6 +151,9 @@ export function newSpace() {
     combat: newCombat(g.surge), cruiseK: 1, contact: null, contactT: 20, interdict: null,
     // CONTACTOS al azar: en las pruebas (?debug) solo si se piden (?contacts), para que sean deterministas
     contactsOn: !G.debug || new URLSearchParams(location.search).has('contacts'),
+    // TRÁFICO (cargueros, mineros, patrullas): igual, en las pruebas solo si se pide (?traffic)
+    trafficOn: !G.debug || new URLSearchParams(location.search).has('traffic'),
+    trng: makeRng((Math.random() * 2 ** 32) >>> 0),
   };
   G.space = s;
   enterSystem(s, g.sys ?? 0, null);
@@ -176,6 +189,15 @@ function enterSystem(s, id, fromId) {
   const gates = def.links.map((to) => ({ to, name: GAL[to].name, ang: Math.atan2(GAL[to].y - def.y, GAL[to].x - def.x) }));
   s.sysId = id;
   s.sys = makeSystem(id + 1, { name: def.name, sunColor: def.star.color, planets: def.planets, ore: def.ore, gates, danger: def.danger, asteroids: id === 0 ? 80 : 70 });
+  s.traffic = s.trafficOn ? spawnTraffic(s.trng, s.sys, sysOwner(id), def.danger) : [];
+  // los CAPITANES RIVALES que estén en este sistema también vuelan por aquí
+  if (s.trafficOn) for (const R of RIVALS) {
+    const st = world(save).rivals?.[R.id];
+    if (st?.sys !== id) continue;
+    const t = spawnTraffic(s.trng, s.sys, 'liga', 0)[0];
+    s.traffic.push({ ...t, id: `r-${R.id}`, kind: R.f === 'pir' ? 'smuggler' : R.style === 'hunt' ? 'patrol' : 'trader', name: `⭐ ${R.name} · nv ${st.lvl}` });
+  }
+  s.tracers = [];
   s.pirates = [];
   s.ebolts = [];
   s.bolts = [];
@@ -222,6 +244,11 @@ function enterSystem(s, id, fromId) {
     g.jumps = (g.jumps || 0) + 1;
     // SUCESOS DE LA GALAXIA: ofensivas y enjambre avanzan con cada salto
     for (const t of tickWorld(save, GAL, g.jumps)) { fx.notice(`📰 ${t}`, '#ffd60a'); ui.showTip?.('worldEvent'); }
+    // TU FLOTA: cada salto tuyo, un viaje de cada carguero; la tripulación cobra; la póliza corre
+    for (const t of tickFleet(save, GAL, g.jumps)) fx.notice(t, '#ff9f0a', 3);
+    if (payCrew(save) < 0) fx.notice('🧑‍✈️ No puedes pagar a la tripulación: este salto trabaja sin ganas', '#ff6b6b', 2.6);
+    const FL = fleetOf(save);
+    if (FL.insure > 0 && --FL.insure === 0) fx.notice('📄 Tu seguro de nave ha caducado', '#ff9f0a', 2.4);
     // CONTRATOS contrarreloj que se han pasado de plazo
     const late = g.missions.filter((m) => contractExpired(m, g.jumps));
     if (late.length) { g.missions = g.missions.filter((m) => !late.includes(m)); g.boardSeq = (g.boardSeq || 0) + 1; for (const m of late) fx.notice(`⏱️ Contrato fallido: ${m.text}`, '#ff6b6b', 2.4); }
@@ -1302,6 +1329,18 @@ export function spaceAct() {
     sfx.chest();
     progress('trade');
     persist();
+  } else if (s.act.kind === 'hail') {
+    const n = s.act.npc;
+    n.hailed = true;
+    const seen = g.visited.filter((id) => GAL[id] && !GAL[id].hidden);
+    const rows = seen.map((id) => ({ id, p: Object.fromEntries(Object.keys(ORES).map((k) => [k, marketPrice(k, id)])) }));
+    const r = rumor(rows, g.cargo, GAL.map((x) => x.name));
+    const lines = [
+      r ? `«En ${r.name} pagan ${r.price} 💰 por ${ORES[r.ore].icon} ${ORES[r.ore].name}. Te lo digo yo.»` : '«Buen viaje, piloto.»',
+      n.kind === 'smuggler' ? '«Y si alguien pregunta, no me has visto.»' : GAL[s.sysId].danger >= 4 ? '«Ojo con los piratas de las puertas.»' : '«Por aquí todo tranquilo.»',
+    ];
+    fx.banner(`📡 ${n.name}`, lines.join(' '), '#7df9ff', false, 4.5);
+    sfx.ui();
   } else if (s.act.kind === 'orbit') {
     G.mode = 'planet';
     s.fireHeld = false;
@@ -1377,6 +1416,8 @@ export function dock() {
   persist();
   ui.showStation(s);
   collectOutposts();
+  const fl = collectFleet(save);
+  if (fl) { fx.notice(`🚢 Tus cargueros: +${fl} 💰`, '#30d158', 3); persist(); }
   progress('dock');
 }
 // PUESTOS AVANZADOS: rinden créditos por cada salto que das; se cobran al atracar (como mucho OUTPOST_CAP saltos)
@@ -1407,7 +1448,7 @@ export function undock() {
 export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 // (×1,5: por encima de lo máximo que paga la estación con talento, reputación y mercado propio, ×1,42)
 // (y con una ESCASEZ del mismo mineral en esta estación, también ×2: nunca se gana comprando y revendiendo aquí)
-export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5 * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
+export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5 * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0) * (stationHere(sysId ?? S()?.sysId ?? 0)?.buy || 1));
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
 export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
@@ -1426,7 +1467,7 @@ export function sellAll() {
   }
   if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
-  got = Math.round(got * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1) * (perks().includes('cartographer') ? 1.1 : 1) * cycleK()); // facción, Mercado propio, Atlas y ciclo pagan más
+  got = Math.round(got * (stationHere(sys)?.sell || 1) * crewMul(save, 'sell') * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1) * (perks().includes('cartographer') ? 1.1 : 1) * cycleK()); // facción, Mercado propio, Atlas y ciclo pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
@@ -1492,7 +1533,7 @@ export const itemDisc = () => repBonus(S()?.sysId ?? 0).disc;
 // precio de una mejora: atracado en una estación amiga, con descuento
 export function stationUpCost(id, lvl) {
   const c = upgradeCost(id, lvl);
-  return c === null ? null : G.mode === 'station' && S() ? Math.round(c * repBonus(S().sysId).disc) : c;
+  return c === null ? null : G.mode === 'station' && S() ? Math.round(c * repBonus(S().sysId).disc * (stationHere(S().sysId)?.up || 1)) : c;
 }
 
 export function buyUpgrade(id) {
@@ -1514,7 +1555,7 @@ export function buyUpgrade(id) {
 
 export function repair() {
   const s = S(), g = gal(), st = stats();
-  const c = Math.ceil(repairCost(s.ship.hull, st.hull) * (hasTalent(save, 'g4') ? 0.5 : 1) * repBonus(s.sysId).disc);
+  const c = Math.ceil((repairCost(s.ship.hull, st.hull) * (hasTalent(save, 'g4') ? 0.5 : 1) * repBonus(s.sysId).disc * (stationHere(s.sysId)?.repair || 1)) / crewMul(save, 'regen')); // el INGENIERO y las fortalezas abaratan
   if (!c || g.credits < c) return false;
   g.credits -= c;
   s.ship.hull = st.hull;
@@ -2062,7 +2103,7 @@ function respawn(s) {
     if (g.wreck) fx.notice('🪦 Tu pecio anterior se ha perdido', '#ff6b6b', 2.4);
     g.wreck = wreck;
   }
-  const fee = towFee(g.credits, danger, diff);
+  const fee = Math.round(towFee(g.credits, danger, diff) * (shipInsured(save) ? SHIP_INSURE.cut : 1)); // con SEGURO, la mitad
   g.credits -= fee;
   const lost = matsLost(save.galaxyMats, diff);
   for (const [k, n] of Object.entries(lost)) save.galaxyMats[k] -= n;
@@ -2411,6 +2452,18 @@ export function updateSpace(dt) {
     if (d < pl.r + ORBIT_R && !s.act) s.act = { kind: 'orbit', idx: i, label: '🪐 ORBITAR' };
   }
   if (s.event?.kind === 'convoy' && !s.event.done && s.event.near) s.act = { kind: 'trade', label: '🚚 COMERCIAR' };
+  // TRÁFICO: se mueve, salta y las patrullas te echan una mano contra los piratas
+  if (s.traffic?.length) {
+    const dmg = 6 + GAL[s.sysId].danger * 2;
+    for (const t of updateTraffic(s.trng, s.sys, s.traffic, s.pirates, dt, (n, p) => damagePirate(s, p, dmg, { npc: true }))) s.tracers.push({ ...t, t: 0.15 });
+    // con un carguero o minero cerca: SALUDAR (te da un chivatazo de precios)
+    if (!s.act) {
+      const n = s.traffic.find((x) => x.away <= 0 && !x.hailed && x.kind !== 'patrol' && dist(x.pos, sh.pos) < 160);
+      if (n) s.act = { kind: 'hail', npc: n, label: '📡 SALUDAR' };
+    }
+  }
+  for (const tr of s.tracers || []) tr.t -= dt;
+  if (s.tracers?.length) s.tracers = s.tracers.filter((tr) => tr.t > 0);
   // ondas y chispas
   for (const bl of s.blasts) bl.t += dt;
   s.blasts = s.blasts.filter((bl) => bl.t < bl.max);

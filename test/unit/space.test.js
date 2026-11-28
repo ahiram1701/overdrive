@@ -43,8 +43,7 @@ test('cámara de persecución: detrás de la nave y sin derivar con el tiempo', 
 
 test('economía: mejoras con coste creciente y stats que suben', () => {
   for (const id of Object.keys(UPGRADES)) {
-    for (let l = 1; l < MAX_UP; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1));
-    assert.equal(upgradeCost(id, MAX_UP), null);
+    for (let l = 1; l < MAX_UP + 8; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1)); // Mk ∞: sin fin y cada vez más caro
   }
   const a = shipStats({}), b = shipStats({ engine: 5, laser: 5, shield: 5, cargo: 5 });
   for (const k of ['speed', 'turn', 'dmg', 'shield', 'cargo']) assert.ok(b[k] > a[k], k);
@@ -122,8 +121,7 @@ test('acelerador: la muesca del 0 engancha fácil y no se escapa sin querer', as
 test('Mk 6-10: más caros, piden materiales y rinden como los niveles normales', async () => {
   const { upgradeMats, effLvl, BASE_UP, CHASSIS } = await import('../../js/galaxyData.js');
   for (const id of Object.keys(UPGRADES)) {
-    for (let l = 1; l < MAX_UP; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1), `${id} ${l}`);
-    assert.equal(upgradeCost(id, MAX_UP), null);
+    for (let l = 1; l < MAX_UP + 8; l++) assert.ok(upgradeCost(id, l) > upgradeCost(id, l - 1), `${id} ${l}`);
   }
   assert.equal(MAX_UP, 10);
   assert.deepEqual(upgradeMats(BASE_UP - 1), {}, 'los normales no piden materiales');

@@ -13,16 +13,21 @@ export const UPGRADES = {
 // Niveles 1-5 normales; Mk 6-10 sin techo práctico: cada uno x1,7 de caro y pide materiales
 export const BASE_UP = 5;
 export const MAX_UP = 10;
+// MK ∞: tras el Mk 10 la mejora sigue SIN FIN: cada nivel ×1,35 de caro y rinde un tercio (siempre hay en qué gastar)
+export const MK_INF = 1.35;
+const mkCost = (c, lvl) => Math.round(c[BASE_UP - 1] * Math.pow(1.7, lvl - BASE_UP + 1) * 0.66 / 10) * 10;
 export const upgradeCost = (id, lvl) => {
-  if (lvl >= MAX_UP) return null;
   const c = UPGRADES[id].cost;
-  return lvl < BASE_UP ? c[lvl] : Math.round(c[BASE_UP - 1] * Math.pow(1.7, lvl - BASE_UP + 1) * 0.66 / 10) * 10;
+  if (lvl < BASE_UP) return c[lvl];
+  if (lvl < MAX_UP) return mkCost(c, lvl);
+  return Math.round(mkCost(c, MAX_UP - 1) * Math.pow(MK_INF, lvl - MAX_UP + 1) / 10) * 10;
 };
 // materiales de cada Mk (desde el 6): chatarra, circuitos y, desde el 8, núcleos
 export const upgradeMats = (lvl) => (lvl < BASE_UP ? {} : { chatarra: 9 * (lvl - 4), circuitos: 3 * (lvl - 4), ...(lvl >= 7 ? { nucleos: 2 * (lvl - 6) } : {}) });
 // los Mk rinden la mitad que los niveles normales (rendimientos decrecientes)
 // (los Mk ya rinden lo mismo que los niveles normales: cuestan más créditos y materiales)
-export const effLvl = (l) => l;
+// (más allá del Mk 10, cada nivel cuenta como 0,35: unos pocos % más por nivel, sin romper el juego)
+export const effLvl = (l) => (l <= MAX_UP ? l : MAX_UP + (l - MAX_UP) * 0.35);
 
 // ---------- CHASIS espaciales (Astillero) ----------
 // mult: multiplica los stats; slots: huecos de arma (w) y módulo (m); scale: tamaño en pantalla
