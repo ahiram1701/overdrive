@@ -67,7 +67,7 @@ export const TRAITS = {
 // 3 carteles de SE BUSCA en la estación `sysId` (deterministas por tablón)
 export function bountyBoard(gal, sysId, seq, done = {}) {
   const rng = makeRng(hashString(`bounty-${sysId}-${seq}`));
-  const far = gal.filter((s) => s.id && !s.hidden && s.danger >= 2);
+  const far = gal.filter((s) => s.id && !s.hidden && !s.sec && s.danger >= 2);
   const out = [];
   for (let i = 0; i < 3 && far.length; i++) {
     const s = rng.pick(far);
@@ -127,9 +127,9 @@ const CAMP_TEXT = {
 export function campaignStep(gal, f, i) {
   const C = CAMPAIGNS[f], kind = C.kinds[i % C.kinds.length];
   const rng = makeRng(hashString(`camp-${f}-${i}`));
-  const want = Math.min(Math.max(...gal.filter((s) => !s.hidden).map((s) => s.danger)), 1 + i);
+  const want = Math.min(Math.max(...gal.filter((s) => !s.hidden && !s.sec).map((s) => s.danger)), 1 + i);
   // donde hay que atracar o vender, nunca en un sistema pirata (no te dejan); las bases, solo en los piratas
-  const okSys = (s) => s.id !== 0 && !s.hidden && (['dock', 'sell'].includes(kind) ? ownerOf(s) !== 'pir' : kind === 'base' ? ownerOf(s) === 'pir' : true);
+  const okSys = (s) => s.id !== 0 && !s.hidden && !s.sec && (['dock', 'sell'].includes(kind) ? ownerOf(s) !== 'pir' : kind === 'base' ? ownerOf(s) === 'pir' : true);
   const pool = gal.filter(okSys);
   const near = pool.filter((s) => s.danger === want);
   const sys = rng.pick(near.length ? near : pool).id;
