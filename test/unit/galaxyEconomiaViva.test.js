@@ -104,3 +104,17 @@ test('acciones, cartas y pinturas: más gastos que no se acaban', () => {
     assert.ok(!buyPaint(save, P.id), 'no se compra dos veces');
   }
 });
+
+test('el stock, la flota y la exploración se guardan y vuelven al cargar', async () => {
+  const { loadFrom } = await import('../../js/save.js');
+  const s = loadFrom(null);
+  s.galaxyStock = { 0: { food: 12 } };
+  s.galaxyFleet.crew.pilot = 3;
+  s.galaxy.charted = [40, 41];
+  s.galaxy.cargo.medicine = 7;
+  const back = loadFrom(JSON.stringify(s));
+  assert.equal(back.galaxyStock[0].food, 12);
+  assert.equal(back.galaxyFleet.crew.pilot, 3);
+  assert.deepEqual(back.galaxy.charted, [40, 41]);
+  assert.equal(back.galaxy.cargo.medicine, 7);
+});

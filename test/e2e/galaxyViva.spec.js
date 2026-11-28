@@ -76,6 +76,8 @@ test('economía viva: víveres con stock en el puerto, sonda, carta de navegaci�
   await food.click();
   expect(await page.evaluate(() => window.__save.galaxy.cargo.food)).toBe(5);
   await expect(page.locator('[data-buy-good="food"]')).toContainText('quedan 55');
+  // (y el stock se guarda: al recargar sigue igual)
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('overdrive-save-v1')).galaxyStock['0'].food)).toBe(55);
   // exploración de pago
   await stTab(page, 'fleet');
   await page.locator('#btnProbe').click();
