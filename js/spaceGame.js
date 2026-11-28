@@ -1448,7 +1448,15 @@ export function undock() {
 export const stationPrices = (sysId = S()?.sysId ?? 0) => GAL[sysId].prices;
 // (×1,5: por encima de lo máximo que paga la estación con talento, reputación y mercado propio, ×1,42)
 // (y con una ESCASEZ del mismo mineral en esta estación, también ×2: nunca se gana comprando y revendiendo aquí)
-export const buyPrice = (ore, sysId) => Math.round(stationPrices(sysId)[ore] * 1.5 * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0) * (stationHere(sysId ?? S()?.sysId ?? 0)?.buy || 1));
+// todo lo que multiplica una venta en esta estación (sin el talento CONTACTOS, que va aparte)
+export const sellMul = (sys) => (stationHere(sys)?.sell || 1) * crewMul(save, 'sell') * repBonus(sys).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1) * (perks().includes('cartographer') ? 1.1 : 1) * cycleK();
+// COMPRAR mineral: nunca por debajo de lo que esta misma estación te pagaría por él con todos tus bonus (+5 %):
+// así no se gana comprando y vendiendo en el mismo sitio (hay que llevarlo a otro)
+export const buyPrice = (ore, sysId) => {
+  const id = sysId ?? S()?.sysId ?? 0, base = stationPrices(id)[ore] * oreMul(save, id, ore) * priceDrift(id, ore, gal().jumps || 0);
+  const floor = base * priceMul(save, id) * sellMul(id) * (hasTalent(save, 'g3') ? 1.1 : 1) * 1.05;
+  return Math.max(Math.round(base * 1.5 * (stationHere(id)?.buy || 1)), Math.ceil(floor));
+};
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
 export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
@@ -1467,7 +1475,7 @@ export function sellAll() {
   }
   if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
-  got = Math.round(got * (stationHere(sys)?.sell || 1) * crewMul(save, 'sell') * repBonus(S()?.sysId ?? 0).sell * marketBonus(save, sys) * (hasGear(save, 'ligaHold') ? 1.06 : 1) * (perks().includes('cartographer') ? 1.1 : 1) * cycleK()); // facción, Mercado propio, Atlas y ciclo pagan más
+  got = Math.round(got * sellMul(sys)); // estación, tripulación, facción, Mercado propio, Atlas y ciclo pagan más
   if (!got) return 0;
   g.credits += got;
   g.sold = true;
