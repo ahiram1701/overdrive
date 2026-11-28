@@ -494,6 +494,7 @@ export const ui = {
     $('setSfxVol').addEventListener('input', (e) => { unlockAudio(); save.settings.sfxVol = Number(e.target.value); setVolumes(); persist(); });
     $('setSfxVol').addEventListener('change', () => sfx.coin(3));
     tap($('tgInvert'), () => { save.settings.invertY = !save.settings.invertY; persist(); ui.syncToggles(); });
+    tap($('tgPecioAuto'), () => { save.settings.pecioAuto = !save.settings.pecioAuto; persist(); ui.syncToggles(); });
     tap($('tgLevel'), () => { save.settings.autoLevel = !save.settings.autoLevel; persist(); ui.syncToggles(); });
     tap($('btnGalDiff'), () => {
       // la dificultad se elige en UN sitio: el menú de Galaxia (en pleno viaje no, para no esquivar el coste de morir)
@@ -569,6 +570,7 @@ export const ui = {
     $('tgFx').classList.toggle('off', !save.settings.fx);
     $('tgText').classList.toggle('off', save.settings.text === 'min');
     $('tgInvert').classList.toggle('off', !save.settings.invertY);
+    $('tgPecioAuto').classList.toggle('off', !save.settings.pecioAuto);
     $('tgLevel').classList.toggle('off', !save.settings.autoLevel);
     const gd = DIFFS[diffOf(save.galaxy)];
     $('galDiffIcon').textContent = gd.icon;
@@ -2715,7 +2717,7 @@ export const ui = {
   // GUÍA de Pecios: todo lo que hay que saber, en su propia pantalla (el menú queda para jugar)
   showPecioGuide() {
     $('pgBody').innerHTML = `
-      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Vuelas por dentro del pecio con la cámara detrás de tu nave. Apoya el dedo donde quieras: arriba avanzas y a los lados giras (en el teclado, flechas o WASD). Tu nave dispara sola al enemigo más cercano que vea. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Al limpiar una sala, a veces queda un ❤️; cuanto más hondo, más pegan los enemigos. Si caes, te llevas parte de las 🔩.</small></div>
+      <div class="gi-block"><h3>⚔️ Cómo se juega</h3><small>Ves la sala desde arriba. TWIN-STICK: el dedo en la mitad IZQUIERDA mueve la nave y el de la DERECHA apunta y dispara (en el PC, WASD para moverte y el ratón para apuntar y disparar; o las flechas). La puntería ayuda un poco si apuntas cerca de un enemigo. Encadena bajas para el COMBO (más 🔩). Si lo prefieres, en Ajustes puedes volver al disparo automático. 💨 Esquive (o Espacio) te hace intocable un instante y salta pozos; ⚡ es la habilidad de tu nave (E). Limpia la sala para abrir sus puertas y baja por la escotilla ⬇️. Al limpiar una sala, a veces queda un ❤️; cuanto más hondo, más pegan los enemigos. Si caes, te llevas parte de las 🔩.</small></div>
       <div class="gi-block"><h3>👾 Enemigos</h3>${Object.values(ENEMY).filter((e) => !e.boss).map((e) => `<div class="gi-row"><span class="gi-dot" style="--c:${e.color}">${e.name}</span><small>${e.desc}</small></div>`).join('')}</div>
       <div class="gi-block"><h3>🗺️ Salas</h3><div class="gi-mats">${Object.values(ROOM_TYPES).map((r) => `<span>${r.icon} <small>${r.name}</small></span>`).join('')}</div></div>
       <div class="gi-block"><h3>🎁 Botín</h3><small>Arma, blindaje y 2 módulos, de <b style="color:${LOOT_RAR[0].color}">común</b> a <b style="color:${LOOT_RAR[3].color}">legendario</b>: caen de enemigos, cofres y mímicos. En la mochila, hasta 3 de cada: ${Object.values(CONS).map((c) => `${c.icon} ${c.name}`).join(' · ')}. Las paredes agrietadas esconden salas: embístelas con 💨. Los interruptores 🔌 apagan el suelo eléctrico.</small></div>

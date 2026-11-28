@@ -142,6 +142,8 @@ function noise({ dur = 0.2, vol = 0.3, type = 'lowpass', f = 1000, f2 = null, q 
 const semi = (base, n) => base * Math.pow(2, n / 12);
 
 export const sfx = {
+  // chispa contra la pared: un tintineo muy corto y bajito
+  tink() { tone({ type: 'triangle', f: 2600, f2: 1700, dur: 0.045, vol: 0.05 }); },
   swish() { noise({ dur: 0.09, vol: 0.18, type: 'bandpass', f: 2600, f2: 700, q: 2 }); },
   bump() { tone({ type: 'square', f: 110, f2: 80, dur: 0.08, vol: 0.15 }); },
   jump() { tone({ type: 'sine', f: 320, f2: 820, dur: 0.16, vol: 0.22 }); },

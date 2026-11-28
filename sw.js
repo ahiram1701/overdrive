@@ -65,6 +65,8 @@ const ASSETS = [
   './js/pecioLoot.js',
   './js/pecioGame.js',
   './js/pecioRender.js',
+  './js/pecioFx.js',
+  './js/twinstick.js',
   './js/spaceGame.js',
   './js/spaceRender.js',
 ];

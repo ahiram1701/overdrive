@@ -150,6 +150,7 @@
       <label class="set-row"><span>🎚️</span><b>Sensibilidad (Galaxia)</b><input type="range" id="setSens" min="0.5" max="1.6" step="0.1" aria-label="Sensibilidad"></label>
       <button class="set-row" id="tgInvert" role="switch"><span>↕️</span><b>Invertir eje vertical</b><i class="sw"></i></button>
       <button class="set-row" id="tgRollBtns" role="switch"><span>↻</span><b>Botones de alabeo ↺ ↻</b><i class="sw"></i></button>
+      <button class="set-row" id="tgPecioAuto" role="switch"><span>🏚️</span><b>Pecios: disparo automático <small>sin apuntar (un solo stick)</small></b><i class="sw"></i></button>
       <h3>Galaxia</h3>
       <button class="set-row" id="tgLevel" role="switch"><span>🧭</span><b>Nivelar la nave sola</b><i class="sw"></i></button>
       <button class="set-row" id="btnGalDiff"><span id="galDiffIcon">🚀</span><b>Dificultad: <em id="galDiffName">Piloto</em> ›</b><small id="galDiffDesc"></small></button>
@@ -327,6 +328,7 @@
       <b id="thrVal">100%</b>
     </div>
     <div id="stickVis" class="stick-vis hidden"><i></i></div>
+    <div id="stickVis2" class="stick-vis aim hidden"><i></i></div>
     <div id="shHint" class="sh-hint">Arrastra para girar (¡rizos!) · doble toque = tonel · ↺ ↻ alabeo · palanca = acelerar o frenar</div>
   </div>
 

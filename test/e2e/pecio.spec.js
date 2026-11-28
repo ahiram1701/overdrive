@@ -18,14 +18,22 @@ test('pecios: el teclado mueve la nave y el bot recorre salas y baja plantas', a
   await startPecio(page);
   await expect(page.locator('#pecioHud')).toBeVisible();
   await expect(page.locator('#pcFloor')).toHaveText('PLANTA 1');
-  // flecha arriba mantenida = avanzar (hacia la fila 0)
+  // TWIN-STICK: W mantenida = ir al norte (hacia la fila 0); las flechas apuntan y disparan
   const p0 = await page.evaluate(() => ({ y: window.G.pecio.player.y, at: window.G.pecio.at }));
-  await page.keyboard.down('ArrowUp');
+  await page.keyboard.down('w');
   await page.waitForTimeout(400);
-  await page.keyboard.up('ArrowUp');
+  await page.keyboard.up('w');
   // avanza hacia la fila 0 (con la máquina cargada puede llegar a cruzar la puerta de arriba: también vale)
   const p1 = await page.evaluate(() => ({ y: window.G.pecio.player.y, at: window.G.pecio.at }));
   expect(p1.at !== p0.at || p1.y < p0.y - 0.4).toBe(true);
+  expect(await page.evaluate(() => window.G.pecio.twin)).toBe(true);
+  // flecha derecha = apuntar al este y disparar: la bala sale hacia la derecha
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => window.G.pecio.shots.length > 0);
+  const shot = await page.evaluate(() => window.G.pecio.shots[0]);
+  await page.keyboard.up('ArrowRight');
+  expect(shot.vx).toBeGreaterThan(5);
+  expect(Math.abs(shot.vy)).toBeLessThan(3);
   // el bot juega (con vida de sobra): llega a la planta 3
   const r = await page.evaluate(() => {
     window.G.pecio.player.hp = window.G.pecio.player.max = 60;
