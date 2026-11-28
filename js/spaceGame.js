@@ -9,9 +9,10 @@ import { sfx, music, musicStart, musicStop, musicDuck } from './audio.js';
 import { basis, add, sub, scale, norm, dist, chaseCam, angleTo, lookAngles, angDiff, project, quatFromYawPitch, rotateLocal, basisQ, anglesOf } from './space3d.js';
 import { CHASSIS, upgradeMats, effLvl, snapThrottle, shipStats, makeSystem, makeAsteroid, cargoCount, ORES, UPGRADES, upgradeCost, repairCost, objective } from './galaxyData.js';
 import { stationOf } from './galaxyLore.js';
-import { spawnTraffic, updateTraffic, rumor } from './galaxyTraffic.js';
-import { tickFleet, collectFleet, payCrew, crewMul, fleetOf, shipInsured, SHIP_INSURE } from './fleet.js';
-import { GALAXY_SEED, rebuildGalaxy, expandAround, isCore, canJump, jumpNeeded, route } from './galaxy.js';
+import { goodSellMul, isGood, makes, stockOf, takeStock, stockMul, regenStock, STOCK_JUMP, STOCK_MINUTE } from './goods.js';
+import { spawnTraffic, updateTraffic, rumor, npcHp, npcLoot, escortReward } from './galaxyTraffic.js';
+import { tickFleet, collectFleet, payCrew, crewMul, fleetOf, shipInsured, SHIP_INSURE, tickShares, collectShares, PROBE_COST, chartCost } from './fleet.js';
+import { GALAXY_SEED, rebuildGalaxy, expandAround, genSector, isCore, secOf, secKey, canJump, jumpNeeded, route } from './galaxy.js';
 import { LORE, poisOf, POI_KINDS, SCAN_TIME, SCAN_R, perksFor, ATLAS_PERKS, boardFor, advanceMissions, MAX_ACTIVE, MISSION_KINDS, contractExpired } from './galaxyMissions.js';
 import { addXp } from './progress.js';
 import { SHIPS } from './upgrades.js';
@@ -20,7 +21,7 @@ import { ui, toast } from './ui.js';
 import { hasTalent } from './economy.js';
 import { chipBonus, genChip, addChip, CHIP_TIERS, chipText, GEAR, owns, gear, MATS, addMat, dropsOf, hasGear, gearBoost, fitSlots, matOf } from './crafting.js';
 import { killValue, gearDpsK, power, threatOf, extraPirates, rewardMul, addWanted, jumpWanted, stars, hunterChance, hunterCount, bribe, bribeCost, TRAITS as ELITE_TRAITS, TRAIT_KEYS, eliteChance } from './galaxyThreat.js';
-import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim, RIVALS } from './galaxyWorld.js';
+import { world, worldTerritory, tickWorld, warHere, infected, priceMul, oreMul, defendKill, clearNest, reclaim, RIVALS, tickMinute, rivalMeet } from './galaxyWorld.js';
 import { outpostIncome, MODULES as OUTPOST_MODS, outpostAt, found, canFound, modLvl, marketRate, marketBonus, FOUND_COST, OUTPOST_CAP } from './outposts.js';
 import { priceDrift, unitPrice, sellValue, recordSale, recoverMarket, MISSILE_PRICE, tollFor, ITEMS, takeItem, itemCount } from './market.js';
 import { SIDES, currentChapter, storyEvent, storyState, markerPos, markerTime, chapterLabel } from './story.js';
@@ -50,6 +51,35 @@ export function useGalaxy(seed, sectors = save.galaxy?.sectors || []) {
   GAL.nSec = sectors.length;
 }
 useGalaxy(save.galaxy?.seed ?? GALAXY_SEED);
+// EXPLORACIÓN de pago: una SONDA revela todos los sistemas de tu sector; una CARTA DE NAVEGACIÓN abre (y revela)
+// el sector vecino que aún no conoces
+const revealSys = (ids) => { const g = save.galaxy; g.charted = [...new Set([...(g.charted || []), ...ids])]; };
+export function buyProbe() {
+  const g = save.galaxy, s = S();
+  if (!s || g.credits < PROBE_COST) return 0;
+  const k = secKey(...secOf(GAL[s.sysId])), ids = GAL.filter((x) => !x.hidden && secKey(...secOf(x)) === k).map((x) => x.id);
+  g.credits -= PROBE_COST;
+  revealSys(ids);
+  persist();
+  return ids.length;
+}
+export function buyChart() {
+  const g = save.galaxy, s = S(), c = chartCost(g.charts || 0);
+  if (!s || g.credits < c) return null;
+  const [sx, sy] = secOf(GAL[s.sysId]);
+  for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]]) {
+    const fresh = genSector(GAL, GAL.seed, sx + dx, sy + dy);
+    if (!fresh.length) continue;
+    g.credits -= c;
+    g.charts = (g.charts || 0) + 1;
+    g.sectors = [...(g.sectors || []), [sx + dx, sy + dy]];
+    GAL.nSec = g.sectors.length;
+    revealSys(fresh.map((x) => x.id));
+    persist();
+    return { n: fresh.length, sx: sx + dx, sy: sy + dy };
+  }
+  return null;
+}
 // al llegar cerca del borde de un sector, aparece el de al lado (y se guarda el orden)
 export function expandGalaxy(id) {
   const g = save.galaxy;
@@ -246,6 +276,8 @@ function enterSystem(s, id, fromId) {
     for (const t of tickWorld(save, GAL, g.jumps)) { fx.notice(`📰 ${t}`, '#ffd60a'); ui.showTip?.('worldEvent'); }
     // TU FLOTA: cada salto tuyo, un viaje de cada carguero; la tripulación cobra; la póliza corre
     for (const t of tickFleet(save, GAL, g.jumps)) fx.notice(t, '#ff9f0a', 3);
+    regenStock(save, STOCK_JUMP);
+    tickShares(save, GAL);
     if (payCrew(save) < 0) fx.notice('🧑‍✈️ No puedes pagar a la tripulación: este salto trabaja sin ganas', '#ff6b6b', 2.6);
     const FL = fleetOf(save);
     if (FL.insure > 0 && --FL.insure === 0) fx.notice('📄 Tu seguro de nave ha caducado', '#ff9f0a', 2.4);
@@ -618,6 +650,24 @@ function updateEMines(s, dt) {
     for (const b of s.bolts) if (b.life > 0 && dist(b.pos, m.pos) < 8) { b.life = 0; m.life = 0; blast(s, m.pos, 40, '#ff9f0a', 0.4); }
   }
   s.emines = s.emines.filter((m) => m.life > 0);
+}
+// ASALTO: dispararle a un civil (carguero, minero, patrulla, contrabandista)
+function hitTraffic(s, n, dmg) {
+  const g = gal(), d = GAL[s.sysId].danger;
+  n.hp ??= npcHp(n.kind, d);
+  if (!n.angry) { n.angry = true; fx.notice(n.kind === 'smuggler' ? '🕶️ Le disparas a un contrabandista: nadie lo echará de menos' : `🚨 ¡Disparas a ${n.name}! Si lo derribas, te buscarán`, '#ff2d55', 2.6); }
+  n.hp -= dmg;
+  if (n.hp > 0) return;
+  const L = npcLoot(n.kind, d);
+  n.away = 45; n.hp = null; n.angry = false; n.escort = null;
+  blast(s, n.pos, 50, '#ff9f0a', 0.6); sfx.boom();
+  if (L.credits) s.loot.push({ pos: { ...n.pos }, credits: L.credits, life: 30 });
+  if (L.contraband) g.cargo.contraband = (g.cargo.contraband || 0) + L.contraband;
+  g.wanted = Math.min(5, (g.wanted || 0) + L.wanted);
+  const own = sysOwner(s.sysId);
+  if (L.rep && (own === 'liga' || own === 'coal')) addRep(save, own, L.rep);
+  fx.notice(`💥 ${n.name} derribado · +${L.wanted} ⭐${L.rep ? ` · ${FACTIONS[own]?.name || ''} ${L.rep}` : ''}`, '#ff2d55', 3);
+  persist();
 }
 // CAZADORES: élites que vienen a por ti (y, con 4 ⭐ o más, su comandante)
 function spawnHunters(s) {
@@ -1339,6 +1389,17 @@ export function spaceAct() {
       r ? `«En ${r.name} pagan ${r.price} 💰 por ${ORES[r.ore].icon} ${ORES[r.ore].name}. Te lo digo yo.»` : '«Buen viaje, piloto.»',
       n.kind === 'smuggler' ? '«Y si alguien pregunta, no me has visto.»' : GAL[s.sysId].danger >= 4 ? '«Ojo con los piratas de las puertas.»' : '«Por aquí todo tranquilo.»',
     ];
+    // un CAPITÁN RIVAL te recuerda: cuanto más os veis, mejor os lleváis (y a la 3.ª te hace un regalo)
+    const rid = typeof n.id === 'string' && n.id.startsWith('r-') ? n.id.slice(2) : null;
+    if (rid) {
+      const st = rivalMeet(save, rid), R = RIVALS.find((x) => x.id === rid);
+      lines.unshift(st.rel >= 3 ? `«¡${R.name.split(' ')[0]} aquí! Siempre es un gusto verte.»` : st.rel === 2 ? '«Otra vez tú. Me empiezas a caer bien.»' : '«No te conozco, piloto. Ya veremos.»');
+      if (st.rel === 3) { g.credits += 800 + 200 * st.lvl; lines.push(`Te pasa ${800 + 200 * st.lvl} 💰 «por los viejos tiempos».`); }
+    } else if (n.kind === 'trader' && !n.escort && GAL[s.sysId].danger >= 1) {
+      // ESCOLTA: algunos cargueros te piden que los acompañes hasta la puerta
+      const gate = s.sys.gates[0];
+      if (gate) { n.escort = true; n.to = { kind: 'gate', pos: gate.pos }; n.wait = 0; lines.push(`«¿Me escoltas hasta la puerta? Te pago ${escortReward(GAL[s.sysId].danger)} 💰.»`); }
+    }
     fx.banner(`📡 ${n.name}`, lines.join(' '), '#7df9ff', false, 4.5);
     sfx.ui();
   } else if (s.act.kind === 'orbit') {
@@ -1416,8 +1477,9 @@ export function dock() {
   persist();
   ui.showStation(s);
   collectOutposts();
-  const fl = collectFleet(save);
+  const fl = collectFleet(save), dv = collectShares(save);
   if (fl) { fx.notice(`🚢 Tus cargueros: +${fl} 💰`, '#30d158', 3); persist(); }
+  if (dv) { fx.notice(`📈 Dividendos de tus acciones: +${dv} 💰`, '#30d158', 3); persist(); }
   progress('dock');
 }
 // PUESTOS AVANZADOS: rinden créditos por cada salto que das; se cobran al atracar (como mucho OUTPOST_CAP saltos)
@@ -1454,26 +1516,36 @@ export const sellMul = (sys) => (stationHere(sys)?.sell || 1) * crewMul(save, 's
 // así no se gana comprando y vendiendo en el mismo sitio (hay que llevarlo a otro)
 export const buyPrice = (ore, sysId) => {
   const id = sysId ?? S()?.sysId ?? 0, base = stationPrices(id)[ore] * oreMul(save, id, ore) * priceDrift(id, ore, gal().jumps || 0);
-  const floor = base * priceMul(save, id) * sellMul(id) * (hasTalent(save, 'g3') ? 1.1 : 1) * 1.05;
-  return Math.max(Math.round(base * 1.5 * (stationHere(id)?.buy || 1)), Math.ceil(floor));
+  const floor = base * priceMul(save, id) * sellMul(id) * goodMulAt(id, ore) * (hasTalent(save, 'g3') ? 1.1 : 1) * 1.05;
+  // (las mercancías, más caras cuanto menos stock queda)
+  const normal = isGood(ore) ? base * 1.15 * stockMul(stockOf(save, id, ore)) : base * 1.5 * (stationHere(id)?.buy || 1);
+  return Math.max(Math.round(normal), Math.ceil(floor));
 };
 
 // lo que paga AHORA esta estación por una unidad (baja si le vendes mucho)
-export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
+export const marketPrice = (ore, sysId = S()?.sysId ?? 0) => unitPrice(save, sysId, ore, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0) * goodMulAt(sysId, ore));
 // lo que pagaría por n unidades (cada una algo menos)
-export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0));
+export const marketValue = (ore, n, sysId = S()?.sysId ?? 0) => sellValue(save, sysId, ore, n, stationPrices(sysId)[ore] * priceMul(save, sysId) * oreMul(save, sysId, ore) * priceDrift(sysId, ore, gal().jumps || 0) * goodMulAt(sysId, ore));
+// MERCANCÍAS: lo que esta estación fabrica lo paga poco, lo que necesita lo paga bien; los sucesos lo mueven
+export const goodMulAt = (sysId, k) => (isGood(k) ? goodSellMul(stationHere(sysId)?.kind, k, { war: warHere(save, sysId), swarm: infected(save, sysId) }) : 1);
+// qué se puede COMPRAR aquí: el mineral local y las mercancías que fabrica la estación (con su stock)
+export const buyables = (sysId = S()?.sysId ?? 0) => [GAL[sysId].ore, ...['food', 'machines', 'medicine', 'contraband'].filter((k) => makes(stationHere(sysId)?.kind, k))];
 
 export function sellAll() {
   const g = gal(), sys = S()?.sysId ?? 0;
   let got = 0, units = 0;
+  let soldContra = false;
   for (const [k, n] of Object.entries(g.cargo)) {
     if (!n) continue;
+    if (k === 'contraband') soldContra = true;
     got += marketValue(k, n, sys);
     recordSale(save, sys, k, n);
     units += n;
     g.cargo[k] = 0;
   }
   if (units && S()) storyHit(S(), { type: 'sell', sys, amount: units });
+  // CONTRABANDO fuera del mercado negro: lo pagan a mitad… y alguien da el chivatazo
+  if (soldContra && stationHere(sys)?.kind !== 'black') { g.wanted = Math.min(5, (g.wanted || 0) + 1); fx.notice('🚨 Vendiste contrabando a la vista: +1 ⭐ de búsqueda', '#ff2d55', 3); }
   if (hasTalent(save, 'g3')) got = Math.round(got * 1.1); // talento CONTACTOS
   got = Math.round(got * sellMul(sys)); // estación, tripulación, facción, Mercado propio, Atlas y ciclo pagan más
   if (!got) return 0;
@@ -1488,12 +1560,14 @@ export function sellAll() {
 
 // COMERCIO: comprar el mineral de este sistema para venderlo más caro en otro
 export function buyOre(ore, n = 1) {
-  const g = gal(), price = buyPrice(ore);
+  const g = gal(), sys = S()?.sysId ?? 0, price = buyPrice(ore);
+  if (!buyables(sys).includes(ore)) return 0;
   const space = stats().cargo - cargoCount(g.cargo);
-  const k = Math.min(n, space, Math.floor(g.credits / price));
+  const k = Math.min(n, space, Math.floor(g.credits / price), isGood(ore) ? stockOf(save, sys, ore) : Infinity);
   if (k <= 0) return 0;
   g.credits -= k * price;
   g.cargo[ore] = (g.cargo[ore] || 0) + k;
+  if (isGood(ore)) takeStock(save, sys, ore, k);
   sfx.coin(3);
   persist();
   return k;
@@ -2358,6 +2432,10 @@ export function updateSpace(dt) {
       const eye = s.devourer.eyes.find((e) => e.alive && dist(e.pos, bo.pos) < 16);
       if (eye) { hitDevourer(s, eye, bo.dmg); hit = true; } else if (dist(s.devourer.pos, bo.pos) < s.devourer.r) { hitDevourer(s, s.devourer, bo.dmg); hit = true; }
     }
+    if (!hit && s.traffic?.length && !bo.safe) {
+      const n = s.traffic.find((x) => x.away <= 0 && dist(x.pos, bo.pos) < 14);
+      if (n) { hitTraffic(s, n, bo.dmg); hit = true; }
+    }
     if (!hit) {
       for (const m of s.emissiles) {
         if (m.life > 0 && dist(m.pos, bo.pos) < 7) { m.life = 0; blast(s, m.pos, 25, '#ffe600', 0.4); hit = true; break; }
@@ -2463,13 +2541,25 @@ export function updateSpace(dt) {
   // TRÁFICO: se mueve, salta y las patrullas te echan una mano contra los piratas
   if (s.traffic?.length) {
     const dmg = 6 + GAL[s.sysId].danger * 2;
-    for (const t of updateTraffic(s.trng, s.sys, s.traffic, s.pirates, dt, (n, p) => damagePirate(s, p, dmg, { npc: true }))) s.tracers.push({ ...t, t: 0.15 });
+    const onJump = (n) => {
+      // ESCOLTA: llegó a la puerta contigo cerca → te paga
+      if (!n.escort) return;
+      if (dist(n.pos, sh.pos) < 800) {
+        const c = escortReward(GAL[s.sysId].danger);
+        g.credits += c; g.earned = (g.earned || 0) + c;
+        addRep(save, sysOwner(s.sysId) === 'coal' ? 'coal' : 'liga', 3);
+        fx.banner('🛡️ ESCOLTA CUMPLIDA', `${n.name} salta a salvo · +${c} 💰`, '#30d158', true); sfx.chest(); persist();
+      } else fx.notice(`🚚 ${n.name} saltó sin ti: no hay pago`, '#ff9f0a', 2.4);
+    };
+    for (const t of updateTraffic(s.trng, s.sys, s.traffic, s.pirates, dt, (n, p) => damagePirate(s, p, dmg, { npc: true }), onJump)) s.tracers.push({ ...t, t: 0.15 });
     // con un carguero o minero cerca: SALUDAR (te da un chivatazo de precios)
     if (!s.act) {
       const n = s.traffic.find((x) => x.away <= 0 && !x.hailed && x.kind !== 'patrol' && dist(x.pos, sh.pos) < 160);
       if (n) s.act = { kind: 'hail', npc: n, label: '📡 SALUDAR' };
     }
   }
+  // EL TIEMPO CORRE también en vuelo: cada minuto los rivales se mueven y las estaciones reponen stock
+  if ((s.liveT = (s.liveT || 0) + dt) >= 60) { s.liveT = 0; s.liveN = (s.liveN || 0) + 1; tickMinute(save, GAL, s.liveN); regenStock(save, STOCK_MINUTE); }
   for (const tr of s.tracers || []) tr.t -= dt;
   if (s.tracers?.length) s.tracers = s.tracers.filter((tr) => tr.t > 0);
   // ondas y chispas

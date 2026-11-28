@@ -90,7 +90,17 @@ export const ORES = {
   crystal: { name: 'Cristal', icon: '💎', color: '#7df9ff', price: 18 },
   plasma: { name: 'Plasma', icon: '🔥', color: '#ff6a00', price: 32 },
   dark: { name: 'Materia oscura', icon: '🌑', color: '#bf5af2', price: 60 },
+  // los minerales de los SECTORES LEJANOS
+  exotic: { name: 'Cristal exótico', icon: '🔮', color: '#ff6ad5', price: 95 },
+  void: { name: 'Esencia del vacío', icon: '🕳️', color: '#5e5ce6', price: 150 },
+  // MERCANCÍAS: no se minan; se compran donde las fabrican y se venden donde las necesitan (goods.js)
+  food: { name: 'Víveres', icon: '🍞', color: '#ffd60a', price: 14, good: true },
+  machines: { name: 'Maquinaria', icon: '⚙️', color: '#8e8e93', price: 40, good: true },
+  medicine: { name: 'Medicina', icon: '💊', color: '#30d158', price: 55, good: true },
+  contraband: { name: 'Contrabando', icon: '📦', color: '#bf5af2', price: 80, good: true, illegal: true },
 };
+// los cuatro de siempre (la galaxia de siempre se genera solo con ellos: no cambia con lo nuevo)
+export const BASE_ORES = ['iron', 'crystal', 'plasma', 'dark'];
 export const cargoCount = (cargo) => Object.values(cargo).reduce((a, b) => a + b, 0);
 export const cargoValue = (cargo, prices = {}) => Object.entries(cargo).reduce((s, [k, n]) => s + n * (prices[k] ?? ORES[k].price), 0);
 export const repairCost = (hull, max) => Math.ceil((max - hull) * 4); // mantenimiento: reparar cuesta

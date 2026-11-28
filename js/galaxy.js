@@ -1,7 +1,7 @@
 // GALAXIA: la galaxia procedural (pura, determinista). ~30 sistemas unidos por puertas de salto.
 // El peligro es la distancia en saltos a ORIGEN; lejos hay mejor mineral... y más piratas.
 import { makeRng, hashString } from './rng.js';
-import { ORES } from './galaxyData.js';
+import { ORES, BASE_ORES } from './galaxyData.js';
 
 export const GALAXY_SEED = 7;
 export const N_SYSTEMS = 30;
@@ -17,6 +17,13 @@ const STARS = [
 ];
 // mineral principal según el peligro: más lejos, más valioso
 export const oreForDanger = (d) => (d <= 1 ? 'iron' : d <= 3 ? 'crystal' : d <= 5 ? 'plasma' : 'dark');
+// en los sectores lejanos, además, los minerales nuevos
+export const sectorOre = (d) => (d >= 14 ? 'void' : d >= 9 ? 'exotic' : oreForDanger(d));
+// precios de lo que no es de la galaxia de siempre (minerales lejanos y mercancías), con su propio azar
+function extraPrices(s, seed, k = 1) {
+  const r = makeRng(hashString(`xprice-${seed}-${s.id}`));
+  for (const o of Object.keys(ORES)) if (s.prices[o] == null) s.prices[o] = Math.round(ORES[o].price * r.range(0.85, 1.3) * k);
+}
 
 function nameOf(rng) {
   const n = 2 + (rng.next() < 0.35 ? 1 : 0);
@@ -77,7 +84,7 @@ export function genGalaxy(seed = GALAXY_SEED) {
     s.planets = s.id === 0 ? 3 : r.int(1, 4);
     // precios de compra en esta estación: lo que abunda aquí se paga menos
     s.prices = {};
-    for (const k of Object.keys(ORES)) {
+    for (const k of BASE_ORES) {
       const local = k === s.ore ? 0.75 : 1;
       s.prices[k] = Math.round(ORES[k].price * local * r.range(0.85, 1.35));
     }
@@ -85,6 +92,7 @@ export function genGalaxy(seed = GALAXY_SEED) {
     s.boss = s.danger >= 4 && r.next() < 0.5;
   }
   addHidden(sys, seed);
+  for (const s of sys) extraPrices(s, seed);
   return sys;
 }
 function addHidden(sys, seed) {
@@ -103,7 +111,7 @@ function addHidden(sys, seed) {
     s.ore = 'dark';
     s.planets = rng.int(2, 4);
     s.prices = {};
-    for (const k of Object.keys(ORES)) s.prices[k] = Math.round(ORES[k].price * (k === 'dark' ? 0.7 : 1.2) * rng.range(0.9, 1.3));
+    for (const k of BASE_ORES) s.prices[k] = Math.round(ORES[k].price * (k === 'dark' ? 0.7 : 1.2) * rng.range(0.9, 1.3));
     s.pirates = 6;
     s.boss = true;
     sys.push(s);
@@ -202,7 +210,7 @@ export function genSector(gal, seed, sx, sy) {
     const along = ((s.x - cx) * ux + (s.y - cy) * uy) / 500; // 1 = en el borde hacia Origen, −1 = en el de fuera
     s.danger = sectorDanger(ring, Math.round((1 - along) * 2));
     s.star = r.pick(STARS);
-    s.ore = oreForDanger(s.danger);
+    s.ore = sectorOre(s.danger);
     s.planets = r.int(1, 4);
     // lejos de casa, todo se paga mejor (+8 % por anillo)
     s.prices = {};

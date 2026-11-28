@@ -132,3 +132,50 @@ export function insureShip(save, danger) {
   return true;
 }
 export const shipInsured = (save) => (fleetOf(save).insure || 0) > 0;
+
+// ---------- ACCIONES de estaciones: compras una participación y te paga cada salto ----------
+// (cada acción, más cara que la anterior; rinde más en estaciones de sistemas peligrosos)
+export const shareCost = (owned) => r100(4000 * Math.pow(1.45, owned));
+export const shareIncome = (danger) => 35 + 12 * danger;
+export const sharesOwned = (save) => Object.values(fleetOf(save).shares || {}).reduce((a, n) => a + n, 0);
+export function buyShare(save, sys) {
+  const F = fleetOf(save), g = save.galaxy, c = shareCost(sharesOwned(save));
+  if (g.credits < c) return false;
+  g.credits -= c;
+  F.shares ||= {};
+  F.shares[sys] = (F.shares[sys] || 0) + 1;
+  return true;
+}
+export function tickShares(save, gal) {
+  const F = fleetOf(save);
+  let n = 0;
+  for (const [sys, k] of Object.entries(F.shares || {})) n += k * shareIncome(gal[sys]?.danger ?? 0);
+  F.dividends = Math.min((F.dividends || 0) + n, n * 30);
+  return n;
+}
+export function collectShares(save) {
+  const F = fleetOf(save), got = F.dividends || 0;
+  F.dividends = 0;
+  save.galaxy.credits += got;
+  return got;
+}
+
+// ---------- EXPLORACIÓN: sondas (revelan tu sector) y cartas de navegación (abren un sector vecino) ----------
+export const PROBE_COST = 450;
+export const chartCost = (bought) => r100(1500 * Math.pow(1.5, bought));
+
+// ---------- PINTURAS de la galaxia (se compran con créditos en cualquier estación; cosmetics.js) ----------
+export const GAL_PAINTS = [
+  { id: 'g-deriva', cost: 6000 },
+  { id: 'g-ruta', cost: 9000 },
+  { id: 'g-nebulosa', cost: 14000 },
+  { id: 'g-exotica', cost: 22000 },
+  { id: 'g-vacio', cost: 35000 },
+];
+export function buyPaint(save, id) {
+  const P = GAL_PAINTS.find((p) => p.id === id), g = save.galaxy, owned = save.crates.owned || [];
+  if (!P || owned.includes(id) || g.credits < P.cost) return false;
+  g.credits -= P.cost;
+  save.crates.owned = [...owned, id];
+  return true;
+}

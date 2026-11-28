@@ -117,7 +117,7 @@ export function planetInfo(sysId, idx, sysName, danger) {
   const rng = makeRng(hashString(`pl-${sysId}-${idx}`));
   // (el tipo, por semilla: cada sistema tiene sus mundos, no siempre "I = oceánico")
   const t = TYPES[hashString(`pltype-${sysId}-${idx}`) % TYPES.length];
-  const ores = Object.keys(ORES);
+  const ores = Object.keys(ORES).filter((k) => !ORES[k].good && !['exotic', 'void'].includes(k)); // (los planetas compran mineral de siempre)
   return {
     key: `${sysId}-${idx}`, name: `${sysName} ${ROMAN[idx] || idx + 1}`, ...t,
     buys: rng.pick(ores), mult: 1.5, reward: 80 + danger * 40,

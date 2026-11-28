@@ -47,6 +47,7 @@ const ASSETS = [
   './js/fleet.js',
   './js/galaxyLore.js',
   './js/galaxyTraffic.js',
+  './js/goods.js',
   './js/galaxyMissions.js',
   './js/galaxyEvents.js',
   './js/economy.js',

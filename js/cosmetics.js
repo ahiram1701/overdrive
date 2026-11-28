@@ -46,6 +46,12 @@ export const PALETTES = [
   // de FACCIÓN (se compran con créditos en sus estaciones al ser Amigo/Aliado)
   { id: 'f-liga', name: 'Liga Minera', hull: '#061a0a', alt: '#2a2400', pattern: 'stripes', edge: '#30d158', glow: '#ffd60a', unlock: { faction: 'liga' } },
   { id: 'f-coal', name: 'Coalición Solar', hull: '#06101e', alt: '#1e1a06', pattern: 'split', edge: '#00e5ff', glow: '#ffcc66', unlock: { faction: 'coal' } },
+  // de la GALAXIA (se compran con créditos en las estaciones: pestaña 🚢 Flota)
+  { id: 'g-deriva', name: 'Deriva estelar', hull: '#050a1a', alt: '#0a1a2a', pattern: 'fade', edge: '#7df9ff', glow: '#bfe9ff', unlock: { credits: 6000 } },
+  { id: 'g-ruta', name: 'Ruta comercial', hull: '#1a1400', alt: '#0a1a08', pattern: 'stripes', edge: '#ffd60a', glow: '#30d158', unlock: { credits: 9000 } },
+  { id: 'g-nebulosa', name: 'Nebulosa roja', hull: '#2a0008', alt: '#14001f', pattern: 'split', edge: '#ff2d55', glow: '#ff6ad5', unlock: { credits: 14000 } },
+  { id: 'g-exotica', name: 'Exótica', hull: '#0a1f14', alt: '#2a0a00', pattern: 'stripes', edge: '#7dffb0', glow: '#ff9f0a', unlock: { credits: 22000 } },
+  { id: 'g-vacio', name: 'Vacío profundo', hull: '#000004', alt: '#0a0a2a', pattern: 'split', edge: '#5e5ce6', glow: '#bf5af2', unlock: { credits: 35000 } },
   // exclusivos de COFRE (solo salen al abrir cofres de suministros)
   { id: 'c-nebula', name: 'Nebulosa', hull: '#12002a', alt: '#002a3a', pattern: 'fade', edge: '#ff2bd6', glow: '#7df9ff', unlock: { crate: 'legendary' } },
   { id: 'c-carbon', name: 'Carbono', hull: '#111114', alt: '#26262c', pattern: 'stripes', edge: '#9aa0a6', glow: '#ff3b30', unlock: { crate: 'epic' } },
@@ -322,6 +328,7 @@ export function isUnlocked(item, save, ship = save.ship) {
   if (u.crate) return (save.crates?.owned || []).includes(item.id);
   if (u.mastery) return !!save.shipLvl?.[u.mastery]?.m;
   if (u.faction) return (save.crates?.owned || []).includes(item.id);
+  if (u.credits) return (save.crates?.owned || []).includes(item.id);
   return false;
 }
 
@@ -335,6 +342,7 @@ export function lockText(item, save = null, ship = null) {
   if (u.crate) return '🎁 cofre';
   if (u.mastery) return '★ maestría';
   if (u.faction) return u.faction === 'liga' ? '⛏️ Liga Minera' : '☀️ Coalición';
+  if (u.credits) return `💰 ${u.credits} (estación)`;
   return '';
 }
 

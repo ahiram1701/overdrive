@@ -1368,4 +1368,6 @@ body.booting .hub-games, body.booting .hub-stats, body.booting .mission-chip { p
 /* HUD de Galaxia: escudo y casco con su número */
 .sh-cargo b { min-width: 30px; text-align: right; font-size: var(--fs-xs); }
 .sh-cargo .sh-bar { flex: 1; }
+.gm-sector { fill: rgba(191,233,255,.22); font-weight: 900; letter-spacing: .1em; text-transform: uppercase; pointer-events: none; }
+.paint-dot { display: inline-block; width: 26px; height: 26px; border-radius: 50%; border: 3px solid; }
 .st-warn { display: block; margin-top: 6px; color: var(--danger); font-weight: 800; }

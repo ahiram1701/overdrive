@@ -377,7 +377,7 @@ export function renderSpace(dt) {
     const K = TRAFFIC_KINDS[n.kind], d = dist(n.pos, sh.pos);
     draws.push({ z: p.z, fn: () => {
       drawMesh3D(ctx, cam, K.mesh, n.pos, n.yaw, 0, K.size, K.pal, false);
-      if (d < 600) { ctx.fillStyle = K.pal.edge; ctx.font = 'italic 900 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`${K.icon} ${n.name}`, p.x, p.y - (p.s * K.size * 2.4 + 10)); }
+      if (d < 600) { ctx.fillStyle = K.pal.edge; ctx.font = 'italic 900 12px system-ui'; ctx.textAlign = 'center'; ctx.fillText(`${n.escort ? '🛡️ ' : n.angry ? '🎯 ' : ''}${K.icon} ${n.name}`, p.x, p.y - (p.s * K.size * 2.4 + 10)); }
     } });
   }
   for (const tr of s.tracers || []) {
