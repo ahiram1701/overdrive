@@ -7,11 +7,13 @@ import { fx } from './fx.js';
 import { sfx, music, musicStart, musicStop } from './audio.js';
 import { SHIPS } from './upgrades.js';
 import { SHIP_ARENA } from './arenaData.js';
-import { LOADOUTS, HEAT_MAX, heatReward, dailySeed, DAILY_GEMS, CURSES, FLOOD_AT, selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards } from './pecio.js';
+import { LOADOUTS, HEAT_MAX, heatReward, dailySeed, DAILY_GEMS, CURSES, FLOOD_AT, selectOffer, newRun, updateRun, keptPiezas, ROOM_TYPES, EVENTS, THEMES, roomOf, locked, botInput, dash, useAbility, buy, pray, takeOffer, botOffer, useCons, chooseExit, workshopShip, workshopCost, BOSSES, bossOf, LAST_FLOOR, pecioRewards, fwd } from './pecio.js';
 import { addXp, prestigeBonus } from './progress.js';
 import { TAGS, CONS, RARITY, SLOTS, itemIcon, itemName } from './pecioLoot.js';
 import { progress } from './game.js';
 import { ui, dialogPaused } from './ui.js';
+import { juice, stepParts } from './pecioFx.js';
+import { lookColor } from './pecioRender.js';
 
 const P = () => G.pecio;
 
@@ -50,7 +52,7 @@ export function newPecio(seedOverride = null, opts = {}) {
   persist();
   progress('pecio');
   // el cartel de la planta espera a que se cierre la GUÍA (si no, se acaba debajo de ella)
-  s.introBanner = [`🏚️ ${s.floor.theme.name}`, daily ? '🌅 INMERSIÓN DEL DÍA · planta 1' : heat ? `planta 1 · 🔥 profundidad ${heat}` : 'planta 1 · tu nave dispara sola', s.floor.theme.wall, true, 2.4];
+  s.introBanner = [`🏚️ ${s.floor.theme.name}`, daily ? '🌅 INMERSIÓN DEL DÍA · planta 1' : heat ? `planta 1 · 🔥 profundidad ${heat}` : (s.twin === false || save.settings.pecioAuto ? 'planta 1 · tu nave dispara sola' : 'planta 1 · izquierda mueve · derecha apunta y dispara'), s.floor.theme.wall, true, 2.4];
   if (vault.length) fx.notice(`🔐 De la bóveda: ${vault.map((v) => `${itemIcon(v)} ${itemName(v)}`).join(' · ')}`, RARITY[Math.max(...vault.map((v) => v.tier))].color);
   ui.showTip?.('pecio');
 }
@@ -61,10 +63,14 @@ export function pecioStep(dt, input) {
   if (!s || G.mode !== 'pecio') return;
   const inp = input || s.input;
   s.turnIn += ((inp.x || 0) - s.turnIn) * Math.min(1, dt * 8);
+  stepParts(s, dt);
   // HITSTOP: un instante congelado al tumbar algo grande (el golpe se siente)
   if (s.hitstop > 0) { s.hitstop -= dt; return; }
   if (s.tally) s.tally.t -= dt;
   handle(s, updateRun(s, dt, inp));
+  // ESTELA del motor mientras te mueves
+  const pl = s.player;
+  if ((pl.vel || 0) > 0.35 && (s.engT = (s.engT || 0) - dt) <= 0) { s.engT = 0.035; juice.engine(s, pl.x, pl.y, pl.moveAng ?? pl.ang); }
   pecioMusic(s);
   if (s.over) finish(s);
 }
@@ -193,19 +199,42 @@ function pecioMusic(s) {
 function handle(s, ev) {
   for (const e of ev) {
     switch (e.type) {
-      case 'fire': sfx.pew(e.weapon); break;
-      case 'hit': sfx.brk(); s.flashes.push({ kind: 'spark', x: e.x, y: e.y, t: 0.2, max: 0.2, a: Math.random() * 6.3 });
+      case 'fire': {
+        sfx.pew(e.weapon);
+        const big = e.weapon === 'cannon' || e.weapon === 'charge';
+        if (e.a != null) {
+          juice.muzzle(s, e.x, e.y, e.a, big);
+          // RETROCESO de cámara: un empujón hacia atrás con cada disparo (más con los gordos)
+          const f = fwd(e.a), k = (s.kick ||= { x: 0, y: 0 }), m = big ? 0.12 : 0.035;
+          k.x -= f.x * m; k.y -= f.y * m;
+        }
+        break;
+      }
+      case 'spark': juice.wall(s, e.x, e.y, e.big); if (!s.tinkT || s.time - s.tinkT > 0.06) { s.tinkT = s.time; sfx.tink(); } break;
+      case 'attack': if (!s.swT || s.time - s.swT > 0.25) { s.swT = s.time; sfx.swish(); } break;
+      case 'hit': juice.hit(s, e.x, e.y, e.crit);
+        // (un golpe por cada 40 ms como mucho: con armas rápidas el ruido tapaba todo)
+        if (!s.brkT || s.time - s.brkT > 0.04) { s.brkT = s.time; sfx.brk(); }
+        s.flashes.push({ kind: 'spark', x: e.x, y: e.y, t: 0.2, max: 0.2, a: Math.random() * 6.3 });
         s.flashes.push({ kind: 'num', x: e.x, y: e.y, text: `${Math.round(e.dmg)}${e.crit ? '!' : ''}`, color: e.crit ? '#ffe600' : '#ffffff', crit: e.crit, dx: (Math.random() - 0.5) * 18, t: 0.7, max: 0.7 });
         if (e.crit && !(s.hitstop > 0)) s.hitstop = 0.03;
         break;
       case 'blocked': if (!s.blockT || s.time - s.blockT > 1.5) { s.blockT = s.time; fx.notice('🛡️ ¡Rebota! Rodea al Escudo', '#30d158', 2.6); } sfx.bump(); break;
-      case 'kill': sfx.thud(e.big); if (e.big) { s.hitstop = 0.09; fx.shake(10); fx.vibe(40); } else fx.shake(3);
+      case 'kill': sfx.thud(e.big);
+        juice.kill(s, e.x, e.y, lookColor(e.kind, e.boss), e.big);
+        // HITSTOP: un instante congelado (corto con cada baja, largo con una élite y más con un jefe)
+        fx.hitstop(e.boss ? 0.18 : e.big ? 0.09 : 0.04);
+        if (e.big) { fx.shake(e.boss ? 18 : 10); fx.vibe(40); } else fx.shake(4);
+        if (e.boss) s.zoomPunch = 1;
+        // la ÚLTIMA baja de la sala, a cámara lenta
+        if (e.last) fx.slowmo(0.35, 0.35);
+        if (e.combo >= 3) sfx.coin(Math.min(14, 2 + e.combo));
         sfx.coin(4); s.flashes.push({ kind: 'boom', x: e.x, y: e.y, r: 0.6, t: 0.3, max: 0.3 });
         // las 🔩 se ACUMULAN en un solo contador junto a las tuyas (antes, un aviso por cada baja)
         s.tally = { n: (s.tally?.t > 0 ? s.tally.n : 0) + e.piezas, t: 1.8 }; break;
-      case 'hurt': fx.flash('#f33', 0.3); fx.shake(8); fx.vibe(50); sfx.shield(); break;
+      case 'hurt': fx.flash('#f33', 0.3); fx.shake(e.low ? 12 : 8); fx.vibe(e.low ? 90 : 50); sfx.shield(); juice.hurt(s, s.player.x, s.player.y); fx.hitstop(0.05); break;
       case 'absorb': fx.notice('🫧 ¡Absorbido!', '#7df9ff'); break;
-      case 'dead': sfx.die(); fx.shake(25); break;
+      case 'dead': sfx.die(); fx.shake(25); juice.kill(s, s.player.x, s.player.y, '#00e5ff', true); fx.flash('#fff', 0.5); break;
       case 'fall': fx.notice('🕳️ ¡Al pozo! Con 💨 lo saltas', '#ff9f0a', 3.2); break;
       case 'locked': fx.notice('🔒 Limpia la sala para salir', '#ff2d55', 2.6); sfx.bump(); break;
       case 'shut': fx.notice('🚪 Las puertas se cierran', '#ff9f0a'); sfx.alarm?.(); break;
@@ -280,8 +309,8 @@ function handle(s, ev) {
       case 'eshot': s.flashes.push({ kind: 'eshot', from: e.from, to: e.to, t: 0.22, max: 0.22 }); sfx.near?.(true, 1); break;
       case 'beam': s.flashes.push({ kind: 'beam', from: e.from, to: e.to, t: 0.35, max: 0.35 }); break;
       case 'armed': sfx.alarm?.(); break;
-      case 'ability': fx.notice('⚡ ¡Habilidad!', '#ffe600'); sfx.od(); break;
-      case 'dash': sfx.near?.(true, 0.8); break;
+      case 'ability': fx.notice('⚡ ¡Habilidad!', '#ffe600'); sfx.od(); fx.flash('#ffe600', 0.12); fx.shake(6); juice.kill(s, s.player.x, s.player.y, '#ffe600', false); break;
+      case 'dash': sfx.dash(); if (e.x != null) juice.dash(s, e.x, e.y, e.a); break;
       case 'win': fx.banner('🏆 ¡HAS SALIDO!', 'nueve plantas de pecio, superadas', '#ffe600', true, 2.5); break;
       default: break;
     }

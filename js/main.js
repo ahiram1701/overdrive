@@ -15,6 +15,7 @@ import { ITEM_KEYS } from './market.js';
 import { save } from './save.js';
 import { renderSpace } from './spaceRender.js';
 import { updatePecio, pecioStep, pecioDash, pecioAbility, pecioBotSteps } from './pecioGame.js';
+import { initTwin, twinInput, twinOn } from './twinstick.js';
 import { renderPecio } from './pecioRender.js';
 
 const inSpace = () => G.mode === 'galaxy' || G.mode === 'station' || G.mode === 'galaxyPaused' || G.mode === 'galaxyMap' || G.mode === 'planet' || G.mode === 'galaxyInv';
@@ -56,7 +57,10 @@ function simStep(dt) {
   } else if (inPecio()) {
     const s = G.pecio;
     if (s && G.mode === 'pecio') {
-      // flechas o WASD: arriba avanza, a los lados gira (el joystick hace lo mismo en el móvil)
+      // TWIN-STICK (por defecto): un stick mueve, el otro apunta y dispara (en el PC, WASD y el ratón)
+      const tw = twinInput(held);
+      if (tw) { s.input = s.botInput || tw; pecioStep(dt); return; }
+      // DISPARO AUTOMÁTICO (Ajustes): flechas o WASD, arriba avanza y a los lados gira
       const kx = (held.has('ArrowRight') || held.has('d') ? 1 : 0) - (held.has('ArrowLeft') || held.has('a') ? 1 : 0);
       const ky = (held.has('ArrowDown') || held.has('s') ? 1 : 0) - (held.has('ArrowUp') || held.has('w') ? 1 : 0);
       if (kx || ky) s.input = { x: kx, y: ky };
@@ -70,12 +74,13 @@ initRender(document.getElementById('game'));
 ui.init();
 ui.showMenu();
 
+initTwin({ enabled: () => !dialogPaused() });
 initInput({
   any: unlockAudio,
   enabled: () => !dialogPaused() && (G.mode === 'play' || G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio'),
   // ARENA: el dedo mueve la nave como un joystick (60 px = velocidad máxima)
   stick: {
-    enabled: () => !dialogPaused() && (G.mode === 'arena' || G.mode === 'galaxy' || G.mode === 'pecio'),
+    enabled: () => !dialogPaused() && (G.mode === 'arena' || G.mode === 'galaxy' || (G.mode === 'pecio' && !twinOn())),
     // en la arena, la galaxia y los pecios el dedo es un joystick: en la arena mueve; en los otros, arriba avanza y a los lados vira
     target: () => (G.mode === 'galaxy' ? G.space : G.mode === 'pecio' ? G.pecio : G.arena),
     start(x, y) { const t = this.target(); if (t) t.stick = true; if (G.mode === 'galaxy' || G.mode === 'pecio') ui.stickVis(x, y, 0, 0); },

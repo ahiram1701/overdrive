@@ -525,9 +525,32 @@ export function nearestTarget(s, room = roomOf(s)) {
   return best;
 }
 
+// AYUDA DE PUNTERÍA (twin-stick): si hay un enemigo a menos de 12° de donde apuntas, el disparo se corrige
+// hacia él (y adelantado si se mueve); si no, sale recto hacia donde apuntas
+export const AIM_ASSIST = 0.21;
+export function assistAim(s, room, ang) {
+  const p = s.player;
+  let best = null, bd = AIM_ASSIST;
+  for (const e of room.enemies) {
+    if (!e.alive || e.hidden || d2(p, e) > p.range + 2 || !canSee(room, p, e)) continue;
+    const da = Math.abs(angDiff(angTo(p, e), ang));
+    if (da < bd) { bd = da; best = e; }
+  }
+  if (!best) return ang;
+  const lead = d2(p, best) / 13, ahead = { x: best.x + (best.vx || 0) * lead, y: best.y + (best.vy || 0) * lead };
+  return angTo(p, canSee(room, p, ahead) ? ahead : best);
+}
+// ángulo de una dirección (x, y) del mapa: el inverso de fwd()
+export const angOf = (x, y) => Math.atan2(x, -y);
+// COMBO de bajas: cada baja antes de 2,5 s suma; +5 % de 🔩 por baja encadenada, hasta +50 %
+export const COMBO_T = 2.5;
+export const comboMul = (n) => 1 + 0.05 * Math.min(10, Math.max(0, n - 1));
+
 // ---------- Un paso de simulación ----------
 // input = { x: giro (-1 izquierda … 1 derecha), y: avance (-1 adelante … 1 atrás) }. Devuelve eventos
 // para el sonido y los efectos.
+// TWIN-STICK: con input.abs, { x, y } es la DIRECCIÓN en el mapa (arriba = norte) y { ax, ay, fire } es hacia
+// dónde apuntas y si disparas; input.auto vuelve al disparo automático (Ajustes, por accesibilidad).
 export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   if (s.over || s.offer || s.choice) return []; // con un objeto en la mano (o eligiendo en la planta 9), la partida espera
   const ev = [], p = s.player, room = roomOf(s);
@@ -535,14 +558,29 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   s.dt = dt;
   room.wake = Math.max(0, room.wake - dt);
   for (const k of ['inv', 'abCd', 'dashCd', 'boost']) p[k] = Math.max(0, p[k] - dt);
+  if (s.combo && (s.combo.t -= dt) <= 0) s.combo = null;
+  const twin = !!input.abs;
+  s.twin = twin;
   // MOVIMIENTO: el joystick hacia arriba avanza, a los lados gira (hacia atrás, marcha atrás lenta)
   if (p.dashT > 0) {
     p.dashT -= dt;
-    const f = fwd(p.ang);
+    const f = fwd(p.dashDir ?? p.ang);
     moveCircle(room, p, f.x * 9 * dt, f.y * 9 * dt);
     if (p.ram > 0) for (const e of room.enemies) if (e.alive && !e.rammed && d2(p, e) < p.r + e.r + 0.15) { e.rammed = true; hitEnemy(s, room, e, 4, ev); }
     breakCrack(s, room, p, p.r + 0.15, ev); // embestir una pared agrietada la rompe
     if (p.dashT <= 0) { p.ram = 0; for (const e of room.enemies) e.rammed = false; }
+  } else if (twin) {
+    // TWIN-STICK: el stick izquierdo dice hacia dónde vas; la nave MIRA hacia donde apuntas (o hacia donde va)
+    const mx = Math.max(-1, Math.min(1, input.x || 0)), my = Math.max(-1, Math.min(1, input.y || 0)), mag = Math.min(1, Math.hypot(mx, my));
+    if (mag > 0.15) p.moveAng = angOf(mx, my);
+    const aiming = Math.hypot(input.ax || 0, input.ay || 0) > 0.3;
+    if (aiming) p.aimAng = angOf(input.ax, input.ay);
+    const face = aiming ? p.aimAng : mag > 0.15 ? p.moveAng : p.ang;
+    p.ang += angDiff(face, p.ang) * Math.min(1, dt * 14);
+    p.vel += ((mag > 0.15 ? mag : 0) - p.vel) * Math.min(1, dt * (s.floor.event === 'lowgrav' ? 2.5 : 12));
+    const f = fwd(p.moveAng ?? p.ang);
+    moveCircle(room, p, f.x * p.speed * p.vel * dt, f.y * p.speed * p.vel * dt);
+    doorFunnel(room, p, dt, p.moveAng ?? p.ang);
   } else {
     p.ang += Math.max(-1, Math.min(1, input.x || 0)) * 3.4 * dt;
     const want = -Math.max(-1, Math.min(1, input.y || 0)) * (input.y > 0 ? 0.5 : 1);
@@ -560,12 +598,20 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
   p.fireCd -= dt;
   if (p.weapon === 'charge' && (p.chg || 0) < CHARGE_T) p.fireCd = Math.max(p.fireCd, 0.01);
   if (p.fireCd <= 0) {
-    const t = nearestTarget(s, room);
-    if (t) {
-      // apunta ADELANTADO a lo que se mueve (si no, lo rápido se escapa siempre de las balas)
-      const lead = d2(p, t) / 13;
-      const ahead = { x: t.x + (t.vx || 0) * lead, y: t.y + (t.vy || 0) * lead };
-      const a = angTo(p, canSee(room, p, ahead) ? ahead : t); // si el punto adelantado queda tras una pared, directo a él
+    // con TWIN-STICK disparas tú (hacia donde apuntas, con ayuda); si no, la nave dispara sola al más cercano
+    let a = null;
+    if (twin && !input.auto) {
+      if (input.fire && p.aimAng != null) a = assistAim(s, room, p.aimAng);
+    } else {
+      const t = nearestTarget(s, room);
+      if (t) {
+        // apunta ADELANTADO a lo que se mueve (si no, lo rápido se escapa siempre de las balas)
+        const lead = d2(p, t) / 13;
+        const ahead = { x: t.x + (t.vx || 0) * lead, y: t.y + (t.vy || 0) * lead };
+        a = angTo(p, canSee(room, p, ahead) ? ahead : t); // si el punto adelantado queda tras una pared, directo a él
+      }
+    }
+    if (a != null) {
       for (const da of p.weapon === 'spread' ? [-0.22, 0, 0.22] : [0]) {
         const f = fwd(a + da);
         const charged = p.weapon === 'charge', big = p.weapon === 'cannon' || charged;
@@ -573,7 +619,7 @@ export function updateRun(s, dt, input = { x: 0, y: 0 }) {
       }
       p.fireCd = 1 / (p.rate * (p.boost > 0 ? 2 : 1));
       if (p.weapon === 'charge') p.chg = 0;
-      ev.push({ type: 'fire', weapon: p.weapon });
+      ev.push({ type: 'fire', weapon: p.weapon, x: p.x, y: p.y, a });
     } else p.fireCd = 0;
   }
   updateShots(s, room, dt, ev);
@@ -773,9 +819,9 @@ export function doorTouch(room, p) {
   return null;
 }
 // EMBUDO: si vas hacia una puerta abierta y estás cerca, la nave se desliza hacia su eje (así no rozas el marco)
-function doorFunnel(room, p, dt) {
+function doorFunnel(room, p, dt, ang = p.ang) {
   if (p.vel < 0.2 || locked(room)) return;
-  const f = fwd(p.ang);
+  const f = fwd(ang);
   for (const k of DIR_KEYS) {
     const [c, r] = DOOR_TILE[k];
     if (tileAt(room, c, r) !== 'D') continue;
@@ -805,7 +851,7 @@ function updateShots(s, room, dt, ev) {
           b.x = px; b.y = py; b.bounces--; b.hit = [];
           continue;
         }
-        b.life = 0; ev.push({ type: 'spark', x: b.x, y: b.y }); break;
+        b.life = 0; ev.push({ type: 'spark', x: b.x, y: b.y, big: !!b.big }); break;
       }
       const e = room.enemies.find((o) => o.alive && !o.hidden && !b.hit.includes(o.id) && Math.hypot(o.x - b.x, o.y - b.y) < o.r + 0.08);
       if (!e) continue;
@@ -877,8 +923,11 @@ function hitEnemy(s, room, e, dmg, ev, crit = false) {
     for (const o of room.enemies) if (o.boss === 'fusion') o.downT = 0;
   }
   s.kills++;
-  const gain = gainPiezas(s, ENEMY[e.kind].piezas + Math.floor(s.depth / 3));
-  ev.push({ type: 'kill', id: e.id, kind: e.kind, piezas: gain, x: e.x, y: e.y, big: !!(e.elite || e.kind === 'boss' || e.kind === 'mimic') });
+  // COMBO: bajas encadenadas (antes de 2,5 s) dan más 🔩
+  s.combo = { n: (s.combo?.n || 0) + 1, t: COMBO_T };
+  s.bestCombo = Math.max(s.bestCombo || 0, s.combo.n);
+  const gain = gainPiezas(s, Math.round((ENEMY[e.kind].piezas + Math.floor(s.depth / 3)) * comboMul(s.combo.n)));
+  ev.push({ type: 'kill', id: e.id, kind: e.kind, piezas: gain, x: e.x, y: e.y, big: !!(e.elite || e.kind === 'boss' || e.kind === 'mimic'), boss: e.kind === 'boss' ? e.boss : null, combo: s.combo.n, last: !room.enemies.some((o) => o.alive && o !== e) });
   const p = s.player;
   // SANGUIJUELA: cada N bajas, +1 ❤️
   if (p.mods?.leech) { p.killsLeech++; if (p.killsLeech >= p.mods.leech) { p.killsLeech = 0; if (p.hp < p.max) { p.hp++; ev.push({ type: 'leech' }); } } }
@@ -953,7 +1002,7 @@ function hurt(s, dmg, ev, src, force = false) {
   if (s.floor?.curse === 'fragile') dmg += 1;
   p.hp -= dmg;
   p.inv = 0.7;
-  ev.push({ type: 'hurt', dmg, src });
+  ev.push({ type: 'hurt', dmg, src, low: p.hp <= 1 });
   // ESPINAS: el que te golpea (y los que estén cerca) también lo nota
   if (p.thorns) for (const e of room.enemies) if (e.alive && !e.hidden && d2(e, p) < 1.9 + e.r) hitEnemy(s, room, e, p.thorns, ev);
   if (p.hp <= 0 && p.phoenix && !s.phoenixUsed) { // PLUMA DE FÉNIX: una segunda oportunidad
@@ -1440,10 +1489,12 @@ export function dash(s) {
   const p = s.player;
   if (s.over || p.dashCd > 0) return [{ type: 'cooldown' }];
   p.dashT = s.floor.event === 'lowgrav' ? 0.32 : 0.22;
+  // con twin-stick, el esquive va hacia donde te mueves (no hacia donde apuntas)
+  p.dashDir = s.twin && p.vel > 0.1 && p.moveAng != null ? p.moveAng : p.ang;
   p.dashSafe = p.dashT - DASH_SAFE; // intocable solo los primeros DASH_SAFE s
   if (p.mods?.decoy) s.decoy = { x: p.x, y: p.y, t: p.mods.decoy }; // SEÑUELO
   p.dashCd = p.dashMax || 1.1;
-  const ev = [{ type: 'dash' }], room = roomOf(s);
+  const ev = [{ type: 'dash', x: p.x, y: p.y, a: p.dashDir }], room = roomOf(s);
   if (p.dashInv) p.inv = Math.max(p.inv, p.dashT + p.dashInv); // SET ESPECTRO
   // ONDA al esquivar (sinergia 💨 o el Cometa)
   if (p.dashNova) {

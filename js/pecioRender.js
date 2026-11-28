@@ -10,7 +10,7 @@ import { drawShip } from './shipdraw.js';
 import { equipped, emblemOpts } from './cosmetics.js';
 import { makeCam } from './space3d.js';
 import { drawMesh3D } from './spaceRender.js';
-import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, spikesPhase, CONVEYOR, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES, ELITE } from './pecio.js';
+import { COLS, ROWS, ROOM_TYPES, roomOf, locked, chargeLine, energyOn, spikesPhase, CONVEYOR, fwd, angDiff, wallFaces, camBack, openDoors, BOSSES, ELITE, COMBO_T, comboMul } from './pecio.js';
 import { RARITY, CONS, itemIcon } from './pecioLoot.js';
 
 // dentro del pecio hay TECHO: las paredes llegan hasta él y la cámara va por el pasillo, detrás de la nave
@@ -41,8 +41,29 @@ const BOSS_LOOK = {
   fusion: { mesh: 'nova', pal: { hull: '#1a1400', edge: '#ffe600', glow: '#ff2d55' }, y: 0.8 },
 };
 
+// CÁMARA ELEVADA (twin-stick): fija mirando al norte, desde arriba y algo detrás. Mover y apuntar son
+// direcciones de la pantalla. Sigue a la nave con suavidad y se sacude/retrocede con los golpes.
+const TOP_H = 6.4, TOP_BACK = 3.1, TOP_PITCH = -1.12;
+function topCam(s, dt, W, H) {
+  const p = s.player, c = (s.tcam ||= { x: p.x, y: p.y });
+  s.cam = { yaw: 0, back: BACK };
+  if (s.camSnap) { c.x = p.x; c.y = p.y; s.camSnap = false; }
+  // la cámara no se va del todo a los bordes: la sala entera queda casi siempre a la vista
+  const tx = 4.5 + (p.x - 4.5) * 0.55, ty = 5.5 + (p.y - 5.5) * 0.7;
+  c.x += (tx - c.x) * Math.min(1, dt * 6);
+  c.y += (ty - c.y) * Math.min(1, dt * 6);
+  const k = (s.kick ||= { x: 0, y: 0 });
+  k.x *= Math.max(0, 1 - dt * 14); k.y *= Math.max(0, 1 - dt * 14);
+  const zoom = 1 - (s.zoomPunch || 0) * 0.12;
+  s.zoomPunch = Math.max(0, (s.zoomPunch || 0) - dt * 2.5);
+  const pos = { x: c.x + k.x, y: TOP_H * zoom, z: -(c.y + k.y + TOP_BACK * zoom) };
+  return makeCam(pos, 0, TOP_PITCH, W, H * 1.08, 1.25);
+}
+// el color de cada enemigo (sus partículas al morir salen de ese color)
+export const lookColor = (kind, boss) => (boss ? BOSS_LOOK[boss] : ENEMY_LOOK[kind])?.pal.edge || '#ff2d55';
 // ---------- Cámara de persecución (sin alabeo ni cabeceo): se acerca si una pared se mete en medio ----------
 function updateCam(s, dt, W, H) {
+  if (s.twin) return topCam(s, dt, W, H);
   const p = s.player;
   const c = (s.cam ||= { yaw: p.ang, back: BACK });
   if (s.camSnap) { c.yaw = p.ang; c.back = BACK; s.camSnap = false; }
@@ -106,6 +127,8 @@ export function renderPecio(dt) {
   if (!ctx || !s) return;
   const W = G.W, H = G.H, th = s.floor.theme, room = roomOf(s), p = s.player, t = G.realTime;
   const cam = updateCam(s, dt, W, H);
+  // con la cámara elevada, paredes bajas y sin techo (si no, taparían la sala)
+  const top = !!s.twin, WH = top ? 0.75 : WALL_H, DH = top ? 0.75 : DOOR_H;
   const shk = fx.shakeAmt;
   ctx.setTransform(G.dpr, 0, 0, G.dpr, shk ? (Math.random() - 0.5) * shk * G.dpr : 0, shk ? (Math.random() - 0.5) * shk * G.dpr : 0);
   // fondo del mismo tono que la pared en la niebla: si el recorte junto a la cámara deja algún píxel, parece sombra y no un hueco
@@ -120,7 +143,7 @@ export function renderPecio(dt) {
       const k = room.tiles[r][c];
       if (k === '#') continue;
       if (k === 'C' || k === 'T' || k === 'A') { // bajo el bloque no se ve el suelo, pero el techo de encima sí
-        poly(cam, ground, [[c, WALL_H, -r - 1], [c + 1, WALL_H, -r - 1], [c + 1, WALL_H, -r], [c, WALL_H, -r]], null, hexA(th.wall, 0.1), 1, { base: shade(th.fog, 10) });
+        if (!top) poly(cam, ground, [[c, WALL_H, -r - 1], [c + 1, WALL_H, -r - 1], [c + 1, WALL_H, -r], [c, WALL_H, -r]], null, hexA(th.wall, 0.1), 1, { base: shade(th.fog, 10) });
         continue;
       }
       const q = [[c, 0, -r], [c + 1, 0, -r], [c + 1, 0, -r - 1], [c, 0, -r - 1]];
@@ -140,8 +163,8 @@ export function renderPecio(dt) {
       if (k === 'M') poly(cam, ground, ring(c + 0.5, 0.01, -r - 0.5, 0.16, 8), Math.floor(t * 3) % 2 ? '#ff2d55' : '#7a0018', null, 1, { bias: 0.05 });
       // TECHO (con paneles de luz): nunca se cruza en pantalla con el suelo, así que va en la misma pasada
       const hc = WALL_H;
-      poly(cam, ground, [[c, hc, -r - 1], [c + 1, hc, -r - 1], [c + 1, hc, -r], [c, hc, -r]], null, hexA(th.wall, 0.1), 1, { base: shade(th.fog, 10) });
-      if ((c * 7 + r * 3) % 5 === 0) poly(cam, ground, [[c + 0.3, hc - 0.01, -r - 0.7], [c + 0.7, hc - 0.01, -r - 0.7], [c + 0.7, hc - 0.01, -r - 0.3], [c + 0.3, hc - 0.01, -r - 0.3]], hexA(th.accent, 0.55), null, 1, { bias: 0.05 });
+      if (!top) poly(cam, ground, [[c, hc, -r - 1], [c + 1, hc, -r - 1], [c + 1, hc, -r], [c, hc, -r]], null, hexA(th.wall, 0.1), 1, { base: shade(th.fog, 10) });
+      if (!top && (c * 7 + r * 3) % 5 === 0) poly(cam, ground, [[c + 0.3, hc - 0.01, -r - 0.7], [c + 0.7, hc - 0.01, -r - 0.7], [c + 0.7, hc - 0.01, -r - 0.3], [c + 0.3, hc - 0.01, -r - 0.3]], hexA(th.accent, 0.55), null, 1, { bias: 0.05 });
     }
   }
   // sombra de la nave
@@ -187,10 +210,12 @@ export function renderPecio(dt) {
     if (!facing(f.n[0], f.n[1], ax, az)) continue;
     const o = ord(f.c, f.r), col = f.door ? '#3a0010' : f.crack ? '#16131c' : '#0d0a18';
     const edge = f.door ? '#ff2d55' : f.crack ? (scan ? `rgba(255,204,0,${0.6 + 0.4 * Math.sin(t * 6)})` : '#8e8e93') : th.wall;
-    poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, WALL_H, bz], [ax, WALL_H, az]], col, f.crack ? th.wall : edge, 1.4, { fogc: true, o });
+    poly(cam, list, [[ax, 0, az], [bx, 0, bz], [bx, WH, bz], [ax, WH, az]], col, f.crack ? th.wall : edge, 1.4, { fogc: true, o });
+    // desde arriba se ve el canto de la pared: una línea de neón que dibuja la planta de la sala
+    if (top) poly(cam, list, [[ax, WH, az], [bx, WH, bz], [bx, WH + 0.01, bz], [ax, WH + 0.01, az]], null, edge, 2.2, { o, bias: 0.3 });
     if (f.crack) {
       // grietas: un zigzag por la cara
-      const P = (k, y) => [ax + (bx - ax) * k, y, az + (bz - az) * k];
+      const P = (k, y) => [ax + (bx - ax) * k, (y * WH) / WALL_H, az + (bz - az) * k];
       poly(cam, list, [P(0.5, 0.15), P(0.38, 0.6), P(0.6, 0.95), P(0.42, 1.4), P(0.55, 1.85), P(0.58, 1.85), P(0.46, 1.4), P(0.64, 0.95), P(0.42, 0.6), P(0.54, 0.15)], null, edge, scan ? 2.5 : 1.6, { o, bias: 0.3 });
     }
     // franja de neón: va justo después de su cara (misma casilla, algo más cerca)
@@ -212,9 +237,9 @@ export function renderPecio(dt) {
         // lo que hay al otro lado (las salas especiales se reconocen desde la puerta)
         const nb = s.floor.rooms[s.floor.rooms[room.id]?.doors?.[side]];
         const ng = nb && !['combat', 'start'].includes(nb.type) ? ROOM_TYPES[nb.type].icon : '🚪';
-        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: ng, gsize: 18, o, bias: -0.5 });
-        if (cam.pos.y < DOOR_H) poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true, o, bias: -0.25 });
-        poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true, o });
+        poly(cam, list, [at(outer, 0, 0), at(outer, 0, 1), at(outer, DH, 1), at(outer, DH, 0)], '#04160b', `rgba(48,209,88,${0.6 + 0.3 * Math.sin(t * 3)})`, 2.5, { glyph: ng, gsize: 18, o, bias: -0.5 });
+        if (!top && cam.pos.y < DOOR_H) poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(outer, DOOR_H, 1), at(outer, DOOR_H, 0)], '#0a0814', hexA(edge, 0.6), 1, { fogc: true, o, bias: -0.25 });
+        if (!top) poly(cam, list, [at(inner, DOOR_H, 0), at(inner, DOOR_H, 1), at(inner, WALL_H, 1), at(inner, WALL_H, 0)], '#0d0a18', edge, 1.4, { fogc: true, o });
       } else if (k === 'C' || k === 'T' || k === 'A') {
         // cofre, terminal y altar: un bloque bajo con su icono encima (solo sus caras de frente)
         const h = 0.55, x0 = c + 0.15, x1 = c + 0.85, z0 = -r - 0.15, z1 = -r - 0.85;
@@ -296,14 +321,23 @@ export function renderPecio(dt) {
     point(cam, list, pk.x, 0.45 + Math.sin(t * 3 + pk.x) * 0.06, -pk.y, (q) => glyph(ctx, g, q.x, q.y, Math.max(12, q.s * 0.42)), o);
   }
   // TUS BALAS
+  // (con ESTELA: un trazo de la cola a la cabeza; sin shadowBlur, que con muchas balas costaba demasiado)
   for (const b of s.shots) {
+    const tail = toCam(cam, b.x - b.vx * 0.035, SHIP_Y, -(b.y - b.vy * 0.035));
     point(cam, list, b.x, SHIP_Y, -b.y, (q) => {
-      ctx.fillStyle = '#7df9ff';
-      ctx.shadowColor = '#7df9ff';
-      ctx.shadowBlur = save.settings.fx === false ? 0 : 10;
-      if (b.big) { ctx.fillStyle = '#ffb340'; ctx.shadowColor = '#ff9f0a'; }
-      ctx.beginPath(); ctx.arc(q.x, q.y, Math.max(b.big ? 4 : 2, q.s * (b.big ? 0.16 : 0.07)), 0, Math.PI * 2); ctx.fill();
-      ctx.shadowBlur = 0;
+      const col = b.big ? '#ffb340' : '#7df9ff', R = Math.max(b.big ? 4 : 2.2, q.s * (b.big ? 0.16 : 0.07));
+      if (tail.z > NEAR) {
+        const T = scr(cam, tail);
+        ctx.strokeStyle = hexA(col, 0.55);
+        ctx.lineWidth = R * 1.5;
+        ctx.lineCap = 'round';
+        ctx.beginPath(); ctx.moveTo(T.x, T.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+      }
+      ctx.fillStyle = '#ffffff';
+      ctx.beginPath(); ctx.arc(q.x, q.y, R * 0.6, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = col;
+      ctx.lineWidth = R * 0.8;
+      ctx.beginPath(); ctx.arc(q.x, q.y, R, 0, Math.PI * 2); ctx.stroke();
     }, ordAt(b.x, b.y));
   }
   // ÓRBITA: tus orbes (mismas posiciones que la lógica)
@@ -329,9 +363,10 @@ export function renderPecio(dt) {
   const lk = equipped(save, save.ship), pal = lk.palette;
   if (G.mode !== 'pecioEnd' || s.won) {
     point(cam, list, p.x, SHIP_Y, -p.y, (q) => {
-      const size = q.s * 0.62, yaw = angDiff(p.ang, s.cam.yaw);
+      const size = q.s * (top ? 0.75 : 0.62), yaw = angDiff(p.ang, s.cam.yaw);
+      s.pScr = { x: q.x, y: q.y };
       if (p.inv > 0 && p.dashT <= 0 && Math.floor(t * 16) % 2) ctx.globalAlpha = 0.45;
-      drawShip(ctx, save.ship, { ...pal, edge: pal.edge || s.ship?.color || '#00e5ff' }, q.x, q.y, size, { pitch: -0.5, roll: -(s.turnIn || 0) * 0.5, yaw }, { line: 1.4, ...emblemOpts(lk) });
+      drawShip(ctx, save.ship, { ...pal, edge: pal.edge || s.ship?.color || '#00e5ff' }, q.x, q.y, size, { pitch: top ? -1.15 : -0.5, roll: top ? 0 : -(s.turnIn || 0) * 0.5, yaw }, { line: 1.4, ...emblemOpts(lk) });
       ctx.globalAlpha = 1;
       if (p.shield > 0 || p.dashT > 0) {
         ctx.strokeStyle = p.dashT > 0 ? 'rgba(255,255,255,.7)' : 'rgba(125,249,255,.75)';
@@ -387,6 +422,24 @@ export function renderPecio(dt) {
       ctx.closePath(); ctx.fill(); ctx.stroke();
     }
   }
+  // PARTÍCULAS: chispas y metralla (trazos según su velocidad), humo (manchas que crecen)
+  for (const q0 of s.parts || []) {
+    const q = toCam(cam, q0.x, q0.h, -q0.y);
+    if (q.z < NEAR * 4) continue;
+    const P = scr(cam, q), a = Math.max(0, q0.t / q0.max), sc = cam.focal / q.z;
+    if (q0.kind === 'smoke') {
+      ctx.fillStyle = hexA(q0.color, 0.35 * a);
+      ctx.beginPath(); ctx.arc(P.x, P.y, sc * 0.06 * q0.size * (2 - a), 0, Math.PI * 2); ctx.fill();
+      continue;
+    }
+    const tq = toCam(cam, q0.x - q0.vx * 0.03, q0.h - q0.vh * 0.03, -(q0.y - q0.vy * 0.03));
+    if (tq.z < NEAR) continue;
+    const T = scr(cam, tq);
+    ctx.strokeStyle = hexA(q0.color, q0.kind === 'debris' ? Math.min(1, a * 2) : a);
+    ctx.lineWidth = Math.max(1.2, sc * 0.025 * q0.size);
+    ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(T.x, T.y); ctx.lineTo(P.x + 0.5, P.y + 0.5); ctx.stroke();
+  }
   ctx.globalCompositeOperation = 'source-over';
   // NÚMEROS: el daño que haces (los críticos, en amarillo y más grandes) y las 🔩 que caen
   for (const f of s.flashes || []) {
@@ -416,6 +469,15 @@ export function renderPecio(dt) {
       ctx.fillRect(-20, -20, W + 40, H + 40);
     }
   }
+  // DAÑO: el destello rojo (antes no se dibujaba en Pecios) y, con 1 ❤️, un latido rojo en los bordes
+  if (fx.flashA > 0) { ctx.globalAlpha = Math.min(0.55, fx.flashA); ctx.fillStyle = fx.flashColor || '#f33'; ctx.fillRect(-20, -20, W + 40, H + 40); ctx.globalAlpha = 1; }
+  if (p.hp <= 1 && !s.over) {
+    const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.3, W / 2, H / 2, Math.max(W, H) * 0.7);
+    v.addColorStop(0, 'rgba(255,0,40,0)');
+    v.addColorStop(1, `rgba(255,0,40,${0.28 + 0.14 * Math.sin(t * 6)})`);
+    ctx.fillStyle = v;
+    ctx.fillRect(-20, -20, W + 40, H + 40);
+  }
   // fundido al cruzar una puerta
   if (s.fade > 0) { ctx.fillStyle = `rgba(0,0,0,${Math.min(1, s.fade / 0.25)})`; ctx.fillRect(-20, -20, W + 40, H + 40); }
   ctx.setTransform(G.dpr, 0, 0, G.dpr, 0, 0);
@@ -437,11 +499,34 @@ export function renderPecio(dt) {
   bossBar(ctx, room, W, H, t);
   roomBar(ctx, room, W, H, t);
   minimap(ctx, s, W);
+  comboHud(ctx, s, W, H);
   fx.draw(ctx);
   fx.drawTexts(ctx, 0);
   // el cartel y los avisos, ARRIBA pero por debajo de la barra (vidas, llaves) y del minimapa; abajo están los botones
   const L = textLayout(s, H);
   fx.drawBanners(ctx, W, H, { bannerY: L.bannerY, noticeY: L.noticeY, stack: true, backdrop: true });
+}
+
+// COMBO de bajas: el número crece con cada baja; la barra es el tiempo que queda para encadenar otra
+function comboHud(ctx, s, W, H) {
+  const c = s.combo;
+  if (!c || c.n < 2) return;
+  const a = c.t / COMBO_T, x = W - 16, y = H * 0.55, pop = Math.max(0, c.t - (COMBO_T - 0.3)) * 3;
+  ctx.textAlign = 'right';
+  ctx.font = `900 ${Math.round(26 + pop * 10 + Math.min(10, c.n))}px system-ui`;
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,.7)';
+  const txt = `×${c.n}`, col = c.n >= 10 ? '#ff2bd6' : c.n >= 5 ? '#ffe600' : '#7df9ff';
+  ctx.strokeText(txt, x, y);
+  ctx.fillStyle = col;
+  ctx.fillText(txt, x, y);
+  ctx.font = '900 11px system-ui';
+  ctx.fillStyle = '#c8d6e5';
+  ctx.fillText(`COMBO · +${Math.round((comboMul(c.n) - 1) * 100)} % 🔩`, x, y + 16);
+  ctx.fillStyle = 'rgba(255,255,255,.18)';
+  ctx.fillRect(x - 90, y + 22, 90, 4);
+  ctx.fillStyle = col;
+  ctx.fillRect(x - 90 * a, y + 22, 90 * a, 4);
 }
 
 // Dónde empieza el hueco libre bajo la barra de arriba (se mide de vez en cuando: leer el DOM en cada fotograma es caro)
